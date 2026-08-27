@@ -50,21 +50,13 @@ jobs:
   package-build-and-test:
     needs: repository-boundary
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        group:
-          - core
-          - routing
-          - governance
-          - model
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build and test public packages
+      - name: Build and test public packages in dependency order
         shell: bash
         env:
           NPM_REGISTRY: https://registry.npmjs.org
@@ -73,45 +65,29 @@ jobs:
           set -euo pipefail
           source agent_harness/validation/lib/common_runtime.sh
 
-          case "${{ matrix.group }}" in
-            core)
-              packages=(
-                agent_harness/governance_core
-                agent_harness/project_contract
-                agent_harness/examples/governance_demo_plugin
-              )
-              ;;
-            routing)
-              packages=(
-                agent_harness/public_plugins/project_manager
-                agent_harness/public_plugins/architecture_navigator
-                agent_harness/public_plugins/rule_manager
-                agent_harness/public_plugins/knowledge_manager
-                agent_harness/public_plugins/gate_manager
-                agent_harness/public_plugins/evidence_state_manager
-                agent_harness/public_plugins/context_builder
-              )
-              ;;
-            governance)
-              packages=(
-                agent_harness/public_plugins/framework_efficiency_observer
-                agent_harness/public_plugins/experience_memory_manager
-                agent_harness/public_plugins/auto_governance_engine
-                agent_harness/public_plugins/auto_governance_orchestrator
-                agent_harness/public_plugins/agent_governance_kernel
-                agent_harness/public_plugins/agent_governance_closure_adapters
-                agent_harness/public_plugins/governance_runtime
-              )
-              ;;
-            model)
-              packages=(
-                agent_harness/model_adapters/generic_model
-                agent_harness/model_adapters/json_process_client
-                agent_harness/model_adapters/openai_compatible_wrapper
-                agent_harness/pilots/generic_model
-              )
-              ;;
-          esac
+          packages=(
+            agent_harness/governance_core
+            agent_harness/project_contract
+            agent_harness/public_plugins/project_manager
+            agent_harness/public_plugins/architecture_navigator
+            agent_harness/public_plugins/rule_manager
+            agent_harness/public_plugins/evidence_state_manager
+            agent_harness/public_plugins/knowledge_manager
+            agent_harness/public_plugins/gate_manager
+            agent_harness/public_plugins/context_builder
+            agent_harness/public_plugins/framework_efficiency_observer
+            agent_harness/public_plugins/experience_memory_manager
+            agent_harness/public_plugins/auto_governance_engine
+            agent_harness/public_plugins/auto_governance_orchestrator
+            agent_harness/public_plugins/agent_governance_kernel
+            agent_harness/public_plugins/agent_governance_closure_adapters
+            agent_harness/public_plugins/governance_runtime
+            agent_harness/model_adapters/generic_model
+            agent_harness/model_adapters/json_process_client
+            agent_harness/model_adapters/openai_compatible_wrapper
+            agent_harness/pilots/generic_model
+            agent_harness/examples/governance_demo_plugin
+          )
 
           for package_dir in "${packages[@]}"; do
             echo "==> $package_dir"
