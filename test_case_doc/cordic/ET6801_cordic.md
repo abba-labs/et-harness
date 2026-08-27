@@ -285,7 +285,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | `cordic_irq_service_gap` | CLOSED | CORDIC Service已提供Source级ISR latch/event_count，并与Raw/Status分层记录 | 已由CORDIC IRQ Service/Case闭合；更强异步干扰仍单独评估 |
 | `cordic_current_pm_helper_bug` | IMPLEMENTATION | SDK integer zero-overhead PM helper仍写SINCOS入口且参数模型不符合x→y；公共测试路径不调用该Helper | 修SDK，或继续由CORDIC Test Extension generic path隔离错误Helper |
 | `cordic_zero_overhead_atomicity_gap` | CLOSED | CORDIC Test Extension保存/恢复调用者PRIMASK，Wrap只调用该Driver接口 | 已由P3_003受控Pending与Driver扩展闭合当前测试路径 |
-| `cordic_dma_execution_mapping_gap` | MAPPING | 已使用当前SVD端点及ET6801验证工程`DMAMUX_REQ_CORDIC_TX/RX`闭合Mapping | 定向HIL确认Request 39/40与当前FPGA实现一致 |
+| `cordic_dma_execution_mapping_gap` | MAPPING | 已使用当前SVD端点及ET6801验证工程闭合Mapping：Controller 0，输入/输出Interface 0/1，Request 39/40，端点`SINCOS_CAL=0x50000008`与`RES1_RPT=0x50000050` | 定向HIL确认当前Mapping与FPGA实现一致 |
 | `cordic_timing_observer_mapping_gap` | CLOSED | CORDIC Test Extension在目标侧DWT边界内返回cycle count，Service/Case只消费稳定结果 | 已由P3_002 timed命令和目标侧周期证据闭合 |
 | `cordic_reset_execution_mapping_gap` | CLOSED | CRG专属Driver/Service/Wrap通过生成CMSIS的GTEN0/SRST0 CORDIC0 bit20建立芯片映射，PC Case负责复位后重新配置 | 已由P0_004与P1_016跨IP编排闭合 |
 | `cordic_request_capacity_mapping_gap` | SEMANTIC | case34提供多函数顺序线索但不等于queue spec | 设计/RTL/current-HIL冻结安全submit/consume协议 |

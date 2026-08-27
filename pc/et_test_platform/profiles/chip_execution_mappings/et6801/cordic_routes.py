@@ -4,10 +4,7 @@
 # 边界：只提供 ET6801 数据，不访问 TargetClient，也不执行测试流程。
 # 依赖：仅依赖标准库不可变容器。
 
-from __future__ import annotations
-
 from types import MappingProxyType
-
 
 # CORDIC_P2_001 固定验证 SINCOS(0)，因此输入端点使用当前 ET6801 的 SINCOS_CAL；
 # 输出端点使用第一个结果寄存器 RES1_RPT。Request 39/40 来自 ET6801 验证工程中
