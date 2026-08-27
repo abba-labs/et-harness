@@ -92,7 +92,15 @@ jobs:
           for package_dir in "${packages[@]}"; do
             echo "==> $package_dir"
             npm_install_if_needed "$package_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
-            (cd "$package_dir" && npm test && npm run build)
+            (
+              cd "$package_dir"
+              if node -e "const p=require('./package.json'); process.exit(p.scripts?.test ? 0 : 1)"; then
+                npm test
+              else
+                echo "No test script; build remains mandatory."
+              fi
+              npm run build
+            )
           done
 
   public-integration:
