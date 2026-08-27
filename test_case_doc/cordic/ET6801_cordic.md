@@ -71,7 +71,7 @@ ET6801 direct SVD / target-chip integration evidence
 | TP19 | Interrupt work mode | CORDIC_F_025/F042 | CORDIC_P1_008 | MAPPED | 固定delay改为Source级Event+Deadline。 |
 | TP20 | Polling mode | CORDIC_F_024/F028 | CORDIC_P1_007 | MAPPED | 无限while改为bounded polling。 |
 | TP21 | Zero-overhead | CORDIC_F_026/F044 | CORDIC_P1_009/P3_003 | SPLIT | 功能与抗IRQ原子性分层。 |
-| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | READY_FOR_HIL | Hardware mode与Case已实现；ET6801双向DMA route已按当前端点和验证工程Request事实闭合，待定向HIL确认。 |
+| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | MAPPED | Hardware mode与Case已实现；ET6801双向DMA route已按当前端点和验证工程Request事实闭合，待定向HIL确认。 |
 | TP23 | IRQ enable | CORDIC_F_037 | CORDIC_P1_017 | MAPPED | 按Source参数化。 |
 | TP24 | IRQ mask | CORDIC_F_038/F041 | CORDIC_P1_018 | MAPPED | Raw/Status分层。 |
 | TP25 | IRQ clear | CORDIC_F_040/F041 | CORDIC_P1_019 | MAPPED | 双Source位隔离。 |
@@ -247,8 +247,8 @@ pc/et_test_platform/profiles/chip_execution_mappings/et6801/cordic_semantics.py
 | `IRQ_STATUS.PM_ARG2_ERROR` | `INT_STATUS_RPT` bit2 | Mask后Status | MAPPED |
 | `IRQ_DELIVERY.LATCHED_SOURCE` | 未来CORDIC IRQ Service / ISR latch | Service事实，不得改名为INT_RAW/STATUS | IMPLEMENTATION_GAP |
 | `TIMING.CYCLE_COUNT` | Cortex-M DWT或等价目标侧cycle counter Test Extension | 不是CORDIC寄存器；仅结果正确样本进入统计 | MAPPING_GAP |
-| `DMA_CHANNEL_STATUS` | Peer DMA Channel hardware status | Controller0，输入Interface0，输出Interface1 | READY_FOR_HIL |
-| `DMA_DESTINATION_WORD` | Peer DMA destination memory/endpoint | 输入`SINCOS_CAL=0x50000008`，输出`RES1_RPT=0x50000050`，必须与独立数学Golden闭合 | READY_FOR_HIL |
+| `DMA_CHANNEL_STATUS` | Peer DMA Channel hardware status | Controller0，输入Interface0，输出Interface1 | MAPPED |
+| `DMA_DESTINATION_WORD` | Peer DMA destination memory/endpoint | 输入`SINCOS_CAL=0x50000008`，输出`RES1_RPT=0x50000050`，必须与独立数学Golden闭合 | MAPPED |
 
 ### 3.1 IRQ Source Bit Mapping
 
@@ -320,7 +320,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_F_024 | SUPPORTED | CTRL0.WORK_MODE=01 Polling与COMPLETE终态Case已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_025 | SUPPORTED | CTRL0.WORK_MODE=00 Interrupt与自然Complete投递Case已适配。 | ADAPTED | CORDIC_P1_008 |
 | CORDIC_F_026 | SUPPORTED | CTRL0.WORK_MODE=10基础原子事务已适配；受控IRQ干扰强度仍由P3_003单独保留。 | ADAPTED | CORDIC_P1_009, CORDIC_P3_003 |
-| CORDIC_F_027 | SUPPORTED | CTRL0.WORK_MODE=11 DMA；ET6801 Mapping已给出Controller0、Interface0/1、Request39/40及SINCOS/RES1端点。 | READY_FOR_HIL | CORDIC_P2_001 |
+| CORDIC_F_027 | SUPPORTED | CTRL0.WORK_MODE=11 DMA；ET6801 Mapping已给出Controller0、Interface0/1、Request39/40及SINCOS/RES1端点。 | ADAPTED | CORDIC_P2_001 |
 | CORDIC_F_028 | SUPPORTED | STATUS_RPT.RRDY_FLG_RPT的Polling观测与W1C复核已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_029 | SUPPORTED | STATUS_RPT.WR_NARGS_OVF_RPT，W1C；Execution Mapping冻结current FPGATest/HIL已证明的四次未消费提交刺激。该Case不声称测得最小容量。 | ADAPTED | CORDIC_P1_011 |
 | CORDIC_F_030 | SUPPORTED | STATUS_RPT.WR_ARG2_ERROR_RPT自然刺激与W1C已适配；ET6801 FPGA实测表明清报告位后仍需由CRG复位CORDIC0才能清内部错误事务。 | ADAPTED | CORDIC_P1_016 |
@@ -367,7 +367,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_P1_018 | ADAPTED | 三类Source的Mask、Raw、Status分层Case已实现。 |
 | CORDIC_P1_019 | ADAPTED | 三类Source的目标Clear与非目标保持Case已实现。 |
 | CORDIC_P1_020 | ADAPTED | 九类函数顺序执行、结果消费和终态清理Case已实现。 |
-| CORDIC_P2_001 | READY_FOR_HIL | Case已实现并注册；Execution Mapping已闭合当前SVD端点和ET6801验证工程Request事实，待定向HIL确认。 |
+| CORDIC_P2_001 | ADAPTED | Case已实现并注册；Execution Mapping已闭合当前SVD端点和ET6801验证工程Request事实，待定向HIL确认。 |
 | CORDIC_P3_001 | ADAPTED | 仅实现九类Float32代表合法节点的固定重复稳定性；不宣称覆盖定点Codec、边界、完整合法域或统一accuracy budget。 |
 | CORDIC_P3_002 | ADAPTED | CORDIC timed Service通过目标侧DWT返回周期结果，Case只验证数学结果正确前提下的周期样本。 |
 | CORDIC_P3_003 | ADAPTED | Case通过公共Zero-Overhead与IRQ控制接口执行受控Pending隔离；更强的异步ISR干扰仍由独立Gap保留。 |
@@ -431,7 +431,7 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Case | 测试环境 | 实际硬件现象 | 已排除的问题 | 当前判定 | 闭环条件 |
 |---|---|---|---|---|---|
-| `CORDIC_P1_003` | ET6801 FPGA，ARCTAN Scale=0..7 current-code定向HIL及独立重复运行 | Scale=7的Raw和公式结果可稳定重复，绝对误差为`1.475113549724849e-4` | 2026-08-27人工复核批准当前按`1e-3`绝对误差预算验收，历史观测在预算内 | `READY_FOR_RETEST` | 用修改后的Execution Mapping定向回归，形成新的Canonical Result |
+| `CORDIC_P1_003` | ET6801 FPGA，ARCTAN Scale=0..7 current-code定向HIL及独立重复运行 | Scale=7的Raw和公式结果可稳定重复，绝对误差为`1.475113549724849e-4` | 2026-08-27人工复核批准当前按`1e-3`绝对误差预算验收，历史观测在预算内 | `HISTORICAL_FAIL / RETEST_REQUIRED` | 用修改后的Execution Mapping定向回归，形成新的Canonical Result |
 
 本项暂不能直接判定为RTL缺陷，也不能通过自行放宽公共阈值关闭。证据位于`artifacts/runs/20260822_070101_086512_cordic_formal_cases/tests/cordic`和`artifacts/runs/20260822_070244_378_cordic_p1_003_repeat/tests/cordic`。
 
@@ -458,10 +458,10 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CORDIC_P1_003` | FPGA | READY_FOR_RETEST | `CORDIC_F_018` / ARCTAN Scale | 历史Scale=7 Raw稳定，绝对误差`1.475113549724849e-4` | 人工复核已批准当前按`1e-3`绝对误差预算验收 | 用当前代码定向回归；回归前不把历史FAIL改写成PASS | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
-| `CORDIC_P2_001` | FPGA | NOT_EXECUTED | `CORDIC_F_027` / DMA工作模式 | 本次定向HIL未执行DMA Case | ET6801当前SVD/SDK没有经过审核的CORDIC DMAMUX Request和Endpoint路由 | 取得current DMA集成事实后补Execution Mapping并执行 | `pc/et_test_platform/test_cases/cordic/conftest.py` |
+| `CORDIC_P1_003` | FPGA | FAIL | `CORDIC_F_018` / ARCTAN Scale | 历史Scale=7 Raw稳定，绝对误差`1.475113549724849e-4` | 最近一次HIL仍使用历史`1e-4`门限；人工复核已批准当前按`1e-3`预算验收 | 用当前代码定向回归；回归前不把历史FAIL改写成PASS | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
+| `CORDIC_P2_001` | FPGA | NOT_EXECUTED | `CORDIC_F_027` / DMA工作模式 | 最近一次定向HIL未执行DMA Case | Execution Mapping现已闭合，但尚无当前代码的真实DMA运行证据 | 用当前Mapping执行定向HIL | `pc/et_test_platform/profiles/chip_execution_mappings/et6801/cordic_routes.py` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核
 
-`CORDIC_P2_001`在2026-08-21旧全量运行中的SKIP是历史Runner事实，Artifact保持不变；它不是外部接线或仪器阻塞。当前ET6801 SVD声明DMA工作模式，但current SDK/SVD没有经过审核的CORDIC DMAMUX Request和Endpoint路由，因此当前分类是`NOT_EXECUTED / MAPPING_GAP`。Case被选择时由Execution Mapping Gate失败关闭，不能继续生成SKIP，也不能复制旧Revision的Request ID伪造执行。
+`CORDIC_P2_001`在2026-08-21旧全量运行中的SKIP是历史Runner事实，Artifact保持不变；它不是外部接线或仪器阻塞。当前Execution Mapping已经用现行SVD端点和ET6801验证工程Request事实闭合，当前分类是`NOT_EXECUTED / RETEST_REQUIRED`；只有新的真实HIL可以把该Case升级为PASS或FAIL。

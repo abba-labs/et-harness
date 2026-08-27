@@ -1613,7 +1613,7 @@ gap:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=45; MAPPING_GAP=1 | ADAPTED=23; MAPPING_GAP=1 | 8个原语义Gap Case已迁移到ET6801只读Execution Mapping；current-code定向HIL中7个逻辑Case通过，P1_003在ARCTAN Scale=7稳定超过尚未权威化的历史统一1e-4预算；DMA Case因Execution Mapping缺失尚未执行，选择时失败关闭 | `ET6801_cordic.md` |
+| ET6801 | ADAPTED=46 | ADAPTED=24 | 原语义Gap已迁移到ET6801只读Execution Mapping；P1_003已采用人工批准的1e-3误差预算，P2_001已补齐DMA Mapping，两项均等待当前代码定向HIL | `ET6801_cordic.md` |
 
 `SUPPORTED`或历史测试代码存在不等于当前平台已经实现，也不等于当前SHA HIL PASS。当前已完成P0_002、P0_003、P0_004、P1_001～P1_009、P1_011～P1_013、P1_015～P1_020、P2_001和P3_001～P3_003的Source/Design闭合；P2_001在当前DMA映射缺失时按内部集成缺口失败关闭。P1_003 current-code HIL已发现Scale=7误差超出历史统一预算，必须保留FAIL与原始证据，不能通过扩大公共容差或改为SKIP宣称通过。
 
@@ -1653,7 +1653,7 @@ gap:
 3. 数学正确性始终使用独立PC Oracle；历史FPGA输出只用于设计追溯，不能成为Golden。
 4. 所有Hardware Observation使用稳定Endpoint并保留Raw值；Decoded值/Error/Golden属于Measurement。
 5. IRQ Raw、IRQ Status、Service latch和event_count四类来源必须分开。
-6. DMA Case在当前Request Mapping未知时保持MAPPING_GAP；禁止从旧Revision复制DMA ID。
+6. DMA Case必须使用芯片Execution Mapping提供的Request与Endpoint；Mapping闭合前失败关闭，闭合后仍需真实HIL形成结果。
 7. Precision Case用于表征低精度误差并验证高精度预算，不要求所有precision节点满足同一固定容差。
 8. Scale、TAN特殊Codec、float2fixed边界等目标语义不清时保留Gap，不用历史magic factor替代权威定义。
 9. 文档完成后必须运行当前R120/R140 PLAN/Method/Chip Mapping门禁；门禁未实际PASS不得声明CORDIC文档完成。
