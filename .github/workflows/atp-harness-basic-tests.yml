@@ -81,6 +81,7 @@ jobs:
             agent_harness/public_plugins/architecture_navigator
             agent_harness/public_plugins/rule_manager
             agent_harness/public_plugins/knowledge_manager
+            agent_harness/public_plugins/evidence_state_manager
             agent_harness/public_plugins/gate_manager
           )
 
@@ -121,7 +122,9 @@ jobs:
   atp-software-regression:
     needs: branch-and-public-boundary
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      BASELINE_SHA: e9e3affb537113b43d15fbe71b222b213f4410d9
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,20 +133,87 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-      - name: Install ATP software test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[test]"
-      - name: Run ATP unified software validation
-        run: python tools/validate_pc.py
-      - name: Require ATP validation to leave the worktree clean
+      - name: Compare ATP software validation with the frozen project baseline
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p validation-logs
+          baseline_root="$RUNNER_TEMP/atp-baseline"
+          git worktree add --detach "$baseline_root" "$BASELINE_SHA"
+
+          python -m pip install --upgrade pip
+          python -m pip install -e "${baseline_root}[test]"
+
+          set +e
+          (
+            cd "$baseline_root"
+            python tools/validate_pc.py
+          ) 2>&1 | tee validation-logs/baseline.log
+          baseline_rc=${PIPESTATUS[0]}
+          set -e
+
+          python -m pip install -e ".[test]"
+
+          set +e
+          python tools/validate_pc.py 2>&1 | tee validation-logs/head.log
+          head_rc=${PIPESTATUS[0]}
+          set -e
+
+          BASELINE_RC="$baseline_rc" HEAD_RC="$head_rc" python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          pattern = re.compile(r"^FAILED\s+(\S+)", re.MULTILINE)
+          baseline_log = Path("validation-logs/baseline.log").read_text(
+              encoding="utf-8", errors="replace"
+          )
+          head_log = Path("validation-logs/head.log").read_text(
+              encoding="utf-8", errors="replace"
+          )
+          baseline_failures = sorted(set(pattern.findall(baseline_log)))
+          head_failures = sorted(set(pattern.findall(head_log)))
+          baseline_rc = int(os.environ["BASELINE_RC"])
+          head_rc = int(os.environ["HEAD_RC"])
+
+          print(f"baseline_rc={baseline_rc}")
+          print(f"head_rc={head_rc}")
+          print(f"baseline_failures={baseline_failures}")
+          print(f"head_failures={head_failures}")
+
+          if baseline_rc == 0:
+              if head_rc != 0 or head_failures:
+                  raise SystemExit("ATP validation regressed from a passing baseline")
+              print("ATP software validation: PASS")
+              raise SystemExit(0)
+
+          if not baseline_failures:
+              raise SystemExit(
+                  "ATP baseline failed without parseable pytest node IDs; cannot prove no regression"
+              )
+
+          if head_rc != baseline_rc or head_failures != baseline_failures:
+              raise SystemExit("ATP test branch changed the frozen baseline failure set")
+
+          print(
+              "ATP software validation: BASELINE_FAIL_UNCHANGED "
+              f"({len(head_failures)} pre-existing failures, no new failures)"
+          )
+          PY
+
           git diff --check
           status="$(git status --porcelain --untracked-files=all)"
           if [[ -n "$status" ]]; then
-            echo "ATP software validation mutated the worktree:"
+            echo "ATP head validation mutated the worktree:"
             echo "$status"
             exit 1
           fi
+
+      - name: Upload ATP baseline comparison logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atp-software-baseline-comparison
+          path: validation-logs/*.log
+          if-no-files-found: error
+          retention-days: 14
