@@ -8,7 +8,9 @@
 
 static void reset_wdg(void)
 {
+    CRG_unlockClockConfig();
     (void)WDG_testResetModule(ET_MANUAL_WDG);
+    CRG_lockClockConfig();
 }
 
 static void configure_wdg(uint32_t reload)
@@ -49,8 +51,8 @@ int et_manual_wdg_p1_004_module_reset_and_recovery(void)
     enabled_before = WDG_isWatchdogEnabled(ET_MANUAL_WDG) ? 1u : 0u;
     counter_before = WDG_getWatchdogCounterValue(ET_MANUAL_WDG);
 
-    /* 激励：执行模块级复位，不允许触发整机复位。 */
-    (void)WDG_testResetModule(ET_MANUAL_WDG);
+    /* 激励：在CRG写保护已解锁的窗口内执行模块级复位。 */
+    reset_wdg();
     enabled_after_reset = WDG_isWatchdogEnabled(ET_MANUAL_WDG) ? 1u : 0u;
     counter_after_reset = WDG_getWatchdogCounterValue(ET_MANUAL_WDG);
 

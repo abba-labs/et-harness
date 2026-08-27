@@ -105,48 +105,102 @@ int et_manual_fmac_p1_006_float_overflow_clear(void)
 }
 
 /*
- * 测试Feature：负输出置位ADD_OFT_IS_NEG_RPT，软件W1C后状态恢复。
- * 测试方法：FMAC复位后在SAT12模式下装载并读出四个负Q15值；向SR目标位写1后回读。
- * 通过条件：负输出后状态位置位，向SR目标位写1后状态位清零。
+ * 测试Feature：FIR输出加Offset后仍为负数时置位ADD_OFT_IS_NEG_RPT，软件W1C后状态恢复。
+ * 测试方法：FMAC复位后配置SAT16和正Offset，装载单抽头系数及零历史，
+ *           执行有界单抽头FIR负输入事务；目标状态置位后再执行一笔正输入事务，
+ *           撤销实时负值条件，最后调用Driver Test Extension执行W1C。
+ * 通过条件：两笔事务全部收发，负输出后目标状态位置位，正输入恢复后W1C可清零。
  */
 int et_manual_fmac_p1_010_negative_status_clear(void)
 {
+    int16_t coefficient = ET_MANUAL_FMAC_UNIT_COEFFICIENT;
+    int16_t history = ET_MANUAL_FMAC_ZERO_HISTORY;
     int16_t input[ET_MANUAL_FMAC_SAMPLE_COUNT];
+    int16_t recovery_input[ET_MANUAL_FMAC_SAMPLE_COUNT];
+    int16_t output[ET_MANUAL_FMAC_SAMPLE_COUNT] = {0};
+    DRV_Status coefficient_status;
+    DRV_Status history_status;
+    DRV_Status process_status;
+    DRV_Status recovery_status;
+    DRV_Status clear_status;
+    uint32_t accepted_count = 0u;
+    uint32_t read_count = 0u;
+    uint32_t elapsed_cycles = 0u;
+    uint32_t recovery_accepted_count = 0u;
+    uint32_t recovery_read_count = 0u;
+    uint32_t recovery_elapsed_cycles = 0u;
     uint32_t index;
     uint32_t status_after_trigger;
+    uint32_t status_after_recovery;
     uint32_t status_after_clear;
 
     /* 复位：本Case不得继承前一个FMAC Case留下的Sticky状态。 */
     reset_fmac();
-    configure_fmac(FMAC_ADD_OFFSET_AND_SAT_TO_12BIT, 0u, DISABLE);
+    configure_fmac(FMAC_ADD_OFFSET_AND_SAT_TO_16BIT, ET_MANUAL_FMAC_POSITIVE_OFFSET, DISABLE);
 
-    /* 激励：负Q15数据经过非RAW输出路径后必须置位负值状态。 */
+    /* 准备：单抽头系数和零历史使输出因果链保持最小且可解释。 */
+    coefficient_status =
+        FMAC_testLoadX2(&coefficient, 1u, NULL, 0u, ET_MANUAL_FMAC_WAIT_LIMIT);
+    history_status = FMAC_testLoadX1(&history, 1u, ET_MANUAL_FMAC_WAIT_LIMIT);
+
+    /* 激励：负Q15输入经单抽头FIR和正Offset后仍为负数。 */
     for (index = 0u; index < ET_MANUAL_FMAC_SAMPLE_COUNT; ++index)
     {
         input[index] = ET_MANUAL_FMAC_NEGATIVE_INPUT;
     }
 
-    (void)FMAC_testLoadY(input, ET_MANUAL_FMAC_SAMPLE_COUNT, ET_MANUAL_FMAC_WAIT_LIMIT);
-
-    for (index = 0u; index < ET_MANUAL_FMAC_SAMPLE_COUNT; ++index)
-    {
-        (void)FMAC_getFIFOData();
-    }
+    process_status = FMAC_testProcessTimed(ET_MANUAL_FMAC_FUNCTION_FIR, 1u, 0u, input, output,
+                                           ET_MANUAL_FMAC_SAMPLE_COUNT, DISABLE,
+                                           ET_MANUAL_FMAC_WAIT_LIMIT, &accepted_count, &read_count,
+                                           &elapsed_cycles);
 
     status_after_trigger = FMAC_testGetStatusRaw();
 
-    /* 诊断：SVD将该状态定义为SR写1清，Driver未公开该动作。 */
-    WRITE_REG(FMAC->SR, FMAC_SR_ADD_OFT_IS_NEG_RPT_Msk);
+    /* 恢复：正Q15输入撤销实时负值条件，Sticky位留给后续W1C验证。 */
+    for (index = 0u; index < ET_MANUAL_FMAC_SAMPLE_COUNT; ++index)
+    {
+        recovery_input[index] = ET_MANUAL_FMAC_POSITIVE_INPUT;
+    }
+
+    recovery_status = FMAC_testProcessTimed(
+        ET_MANUAL_FMAC_FUNCTION_FIR, 1u, 0u, recovery_input, output,
+        ET_MANUAL_FMAC_SAMPLE_COUNT, DISABLE, ET_MANUAL_FMAC_WAIT_LIMIT,
+        &recovery_accepted_count, &recovery_read_count, &recovery_elapsed_cycles);
+    status_after_recovery = FMAC_testGetStatusRaw();
+
+    /* 清除：实时条件撤销后，统一通过Chip Driver Test Extension执行W1C。 */
+    clear_status = FMAC_testClearDynamicState(ET_MANUAL_FMAC_WAIT_LIMIT);
     status_after_clear = FMAC_testGetStatusRaw();
 
     et_manual_log_text("[MANUAL] chip=ET6801 ip=FMAC case=fmac_p1_010\r\n");
     et_manual_log_u32("[CONFIG] input_count", ET_MANUAL_FMAC_SAMPLE_COUNT);
     et_manual_log_u32("[CONFIG] input_q15", (uint32_t)(uint16_t)ET_MANUAL_FMAC_NEGATIVE_INPUT);
+    et_manual_log_u32("[CONFIG] coefficient_q15", (uint32_t)(uint16_t)coefficient);
+    et_manual_log_u32("[CONFIG] output_offset", ET_MANUAL_FMAC_POSITIVE_OFFSET);
+    et_manual_log_u32("[OBSERVE] coefficient_status", coefficient_status);
+    et_manual_log_u32("[OBSERVE] history_status", history_status);
+    et_manual_log_u32("[OBSERVE] process_status", process_status);
+    et_manual_log_u32("[OBSERVE] accepted_count", accepted_count);
+    et_manual_log_u32("[OBSERVE] read_count", read_count);
+    et_manual_log_u32("[OBSERVE] output_last",
+                      (uint32_t)(uint16_t)output[ET_MANUAL_FMAC_SAMPLE_COUNT - 1u]);
+    et_manual_log_u32("[OBSERVE] elapsed_cycles", elapsed_cycles);
     et_manual_log_u32("[OBSERVE] sr_after_trigger", status_after_trigger);
+    et_manual_log_u32("[OBSERVE] recovery_status", recovery_status);
+    et_manual_log_u32("[OBSERVE] recovery_accepted", recovery_accepted_count);
+    et_manual_log_u32("[OBSERVE] recovery_read", recovery_read_count);
+    et_manual_log_u32("[OBSERVE] recovery_cycles", recovery_elapsed_cycles);
+    et_manual_log_u32("[OBSERVE] sr_after_recovery", status_after_recovery);
+    et_manual_log_u32("[OBSERVE] clear_status", clear_status);
     et_manual_log_u32("[OBSERVE] sr_after_w1c", status_after_clear);
     et_manual_log_u32("[EXPECT] negative_mask", FMAC_SR_ADD_OFT_IS_NEG_RPT_Msk);
 
-    if (((status_after_trigger & FMAC_SR_ADD_OFT_IS_NEG_RPT_Msk) == 0u) ||
+    if ((coefficient_status != DRV_OK) || (history_status != DRV_OK) ||
+        (process_status != DRV_OK) || (accepted_count != ET_MANUAL_FMAC_SAMPLE_COUNT) ||
+        (read_count != ET_MANUAL_FMAC_SAMPLE_COUNT) || (recovery_status != DRV_OK) ||
+        (recovery_accepted_count != ET_MANUAL_FMAC_SAMPLE_COUNT) ||
+        (recovery_read_count != ET_MANUAL_FMAC_SAMPLE_COUNT) || (clear_status != DRV_OK) ||
+        ((status_after_trigger & FMAC_SR_ADD_OFT_IS_NEG_RPT_Msk) == 0u) ||
         ((status_after_clear & FMAC_SR_ADD_OFT_IS_NEG_RPT_Msk) != 0u))
     {
         return ET_MANUAL_RESULT_FAIL;

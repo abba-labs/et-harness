@@ -29,6 +29,7 @@ static const uint32_t g_aes_second_block[4] = {
 static void reset_aes(void)
 {
     CRG_unlockClockConfig();
+    CRG_enablePeripheral(ET_MANUAL_AES_CLOCK);
     CRG_resetPeripheral(ET_MANUAL_AES_CLOCK);
     CRG_lockClockConfig();
 }
@@ -65,6 +66,8 @@ int et_manual_aes_p1_009_output_conflict(void)
     uint32_t observed_status = 0u;
     uint32_t cleared_raw = 0u;
     uint32_t cleared_status = 0u;
+    uint32_t wait_count = ET_MANUAL_AES_TIMEOUT;
+    uint32_t output_pending;
     DRV_Status stimulus_status;
 
     /* Every standalone Case starts from a hardware reset before any configuration. */
@@ -74,17 +77,44 @@ int et_manual_aes_p1_009_output_conflict(void)
     et_manual_log_text("[MANUAL] case=aes_p1_009 feature=output_conflict_irq\r\n");
     (void)AES_testGetInterruptSnapshot(&baseline_raw, &baseline_status);
 
-    /* Keep the first result unread, then submit the second block through the normal input handshake. */
-    stimulus_status = AES_testWriteInputBlockPair(g_aes_first_block, g_aes_second_block,
-                                                  ET_MANUAL_AES_TIMEOUT);
+    /* First complete one normal input handshake and leave its result unread. */
+    stimulus_status = AES_writeDataBlocking(g_aes_first_block, ET_MANUAL_AES_TIMEOUT)
+                          ? DRV_OK
+                          : DRV_TIMEOUT;
+    while ((stimulus_status == DRV_OK) &&
+           ((AES_getStatus() & AES_STS_DATA_OUT_REQ) == 0u) && (wait_count > 0u))
+    {
+        --wait_count;
+    }
+
+    output_pending = ((AES_getStatus() & AES_STS_DATA_OUT_REQ) != 0u) ? 1u : 0u;
+
+    /*
+     * The first output is now known to be pending. Deliberately bypass the
+     * normal DATA_IN_REQ handshake for the second block to create the exact
+     * hardware conflict condition.
+     */
+    if ((stimulus_status == DRV_OK) && (output_pending != 0u))
+    {
+        stimulus_status = AES_testWriteInputBlock(g_aes_second_block);
+    }
+
+    wait_count = ET_MANUAL_AES_TIMEOUT;
+    while ((stimulus_status == DRV_OK) &&
+           ((READ_REG(AES->RPT_AES_INT_RAW) & AES_INT_OUTPUT_CONFLICT) == 0u) &&
+           (wait_count > 0u))
+    {
+        --wait_count;
+    }
+
     (void)AES_testGetInterruptSnapshot(&observed_raw, &observed_status);
 
     AES_clearInterruptStatus(AES_INT_OUTPUT_CONFLICT);
     (void)AES_testGetInterruptSnapshot(&cleared_raw, &cleared_status);
-    AES_disableInterrupt(AES_INT_OUTPUT_CONFLICT);
-    AES_disableModule();
 
     et_manual_log_u32("[OBSERVE] stimulus_status", (uint32_t)stimulus_status);
+    et_manual_log_u32("[OBSERVE] first_output_pending", output_pending);
+    et_manual_log_u32("[OBSERVE] wait_remaining", wait_count);
     et_manual_log_u32("[OBSERVE] baseline_raw", baseline_raw);
     et_manual_log_u32("[OBSERVE] baseline_status", baseline_status);
     et_manual_log_u32("[OBSERVE] output_conflict_raw", observed_raw);
@@ -93,7 +123,7 @@ int et_manual_aes_p1_009_output_conflict(void)
     et_manual_log_u32("[OBSERVE] cleared_status", cleared_status);
     et_manual_log_u32("[EXPECT] output_conflict_mask", AES_INT_OUTPUT_CONFLICT);
 
-    return ((stimulus_status == DRV_OK) &&
+    return ((stimulus_status == DRV_OK) && (wait_count > 0u) &&
             ((observed_raw & AES_INT_OUTPUT_CONFLICT) != 0u) &&
             ((observed_status & AES_INT_OUTPUT_CONFLICT) != 0u) &&
             ((cleared_raw & AES_INT_OUTPUT_CONFLICT) == 0u) &&

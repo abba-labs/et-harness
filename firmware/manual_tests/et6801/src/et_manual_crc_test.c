@@ -31,44 +31,47 @@ static void configure_crc(uint8_t threshold)
     CRC_config(&config);
 }
 
+/*
+ * 测试Feature：CRC FIFO_TRHD=5的历史水位语义。
+ * 测试方法：连续写4个32-bit数据后读Result，再写第5个数据并再次读Result。
+ * 通过条件：前4次写入不更新Result，第5次写入后Result更新，且未发生FIFO Overflow。
+ */
 int et_manual_crc_p1_011_fifo_threshold(void)
 {
-    const uint8_t thresholds[ET_MANUAL_CRC_THRESHOLD_CASE_COUNT] = {
-        ET_MANUAL_CRC_THRESHOLD_MIN, ET_MANUAL_CRC_THRESHOLD_LOW, ET_MANUAL_CRC_THRESHOLD_MID,
-        ET_MANUAL_CRC_THRESHOLD_MAX};
-    uint32_t input[2] = {0x04030201u, 0x08070605u};
-    uint32_t results[ET_MANUAL_CRC_THRESHOLD_CASE_COUNT] = {0u};
-    uint32_t overflows[ET_MANUAL_CRC_THRESHOLD_CASE_COUNT] = {0u};
     uint32_t index;
-    uint8_t passed = 1u;
+    uint32_t result_before;
+    uint32_t result_after_four;
+    uint32_t result_after_five;
+    uint32_t overflow;
 
-    et_manual_log_text("[MANUAL] case=crc_p1_011 feature=fifo_threshold\r\n");
+    /* 配置：从干净CRC状态建立历史验证使用的FIFO_TRHD=5场景。 */
+    reset_crc();
+    configure_crc(ET_MANUAL_CRC_THRESHOLD_HISTORICAL);
+    result_before = CRC_getResult();
 
-    for (index = 0u; index < ET_MANUAL_CRC_THRESHOLD_CASE_COUNT; ++index)
+    /* 激励：前4次写入不触发水位，第5次写入跨过历史阈值。 */
+    for (index = 0u; index < ET_MANUAL_CRC_THRESHOLD_PRE_TRIGGER_WRITES; ++index)
     {
-        /* 复位：每个FIFO Threshold场景都是独立配置，不继承上一阈值的CRC状态。 */
-        reset_crc();
-        configure_crc(thresholds[index]);
-
-        if (CRC_calculate32(input, sizeof(input), &results[index], ET_MANUAL_CRC_TIMEOUT) != DRV_OK)
-        {
-            passed = 0u;
-        }
-
-        overflows[index] = CRC_isFIFOOverflow() ? 1u : 0u;
-        if ((results[index] != ET_MANUAL_CRC_RECOVERY_EXPECTED) || (overflows[index] != 0u))
-        {
-            passed = 0u;
-        }
-
-        et_manual_log_u32("[CONFIG] FIFO_TRHD", thresholds[index]);
-        et_manual_log_u32("[OBSERVE] RESULT", results[index]);
-        et_manual_log_u32("[OBSERVE] FIFO_OVF", overflows[index]);
+        WRITE_REG(CRC->IR, ET_MANUAL_CRC_THRESHOLD_VALUE);
     }
 
-    et_manual_log_u32("[EXPECT] RESULT", ET_MANUAL_CRC_RECOVERY_EXPECTED);
+    result_after_four = CRC_getResult();
+    WRITE_REG(CRC->IR, ET_MANUAL_CRC_THRESHOLD_VALUE);
+    result_after_five = CRC_getResult();
+    overflow = CRC_isFIFOOverflow() ? 1u : 0u;
 
-    return (passed != 0u) ? ET_MANUAL_RESULT_PASS : ET_MANUAL_RESULT_FAIL;
+    /* 观测：同时打印阈值前后的Result和Overflow原始状态。 */
+    et_manual_log_text("[MANUAL] case=crc_p1_011 feature=fifo_threshold\r\n");
+    et_manual_log_u32("[CONFIG] FIFO_TRHD", ET_MANUAL_CRC_THRESHOLD_HISTORICAL);
+    et_manual_log_u32("[OBSERVE] RESULT_before", result_before);
+    et_manual_log_u32("[OBSERVE] RESULT_after_4", result_after_four);
+    et_manual_log_u32("[OBSERVE] RESULT_after_5", result_after_five);
+    et_manual_log_u32("[OBSERVE] FIFO_OVF", overflow);
+
+    return ((result_after_four == result_before) && (result_after_five != result_after_four) &&
+            (overflow == 0u))
+               ? ET_MANUAL_RESULT_PASS
+               : ET_MANUAL_RESULT_FAIL;
 }
 
 int et_manual_crc_p1_012_fifo_overflow_recovery(void)

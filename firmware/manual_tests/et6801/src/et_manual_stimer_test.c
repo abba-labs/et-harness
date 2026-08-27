@@ -6,6 +6,9 @@
 #include "et_manual_test_config.h"
 #include "et_manual_test_internal.h"
 
+/* J-Link writes RELEASE after holding the CPU for the requested observation window. */
+volatile uint32_t et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_RELEASE;
+
 static void reset_stimer(void)
 {
     CRG_unlockClockConfig();
@@ -74,7 +77,8 @@ int et_manual_stimer_p1_001_prescaler_ratio(void)
 
 /*
  * 测试Feature：STIMER在Debugger CPU Halt期间的PAUSE与RUN_FREE策略。
- * 测试方法：STIMER0分别配置PAUSE和RUN_FREE；每个场景先复位，再由J-Link在断点处保持相同时间后继续。
+ * 测试方法：STIMER0分别配置PAUSE和RUN_FREE；每个场景先复位，固件发布阶段门标记后等待，
+ *           J-Link主动Halt CPU并保持相同时间，再写入RELEASE并继续运行。
  * 通过条件：PAUSE计数增量不超过RUN_FREE的十分之一，且RUN_FREE计数增量大于零。
  */
 int et_manual_stimer_p2_003_debugger_halt_behavior(void)
@@ -95,9 +99,15 @@ int et_manual_stimer_p2_003_debugger_halt_behavior(void)
     STIMER_startTimer(ET_MANUAL_STIMER);
     pause_before = STIMER_getTimerCount(ET_MANUAL_STIMER);
 
-    /* 激励：J-Link命中此断点后保持CPU，再继续运行以读取PAUSE计数。 */
+    /* 激励：发布阶段门，J-Link Halt CPU保持观测窗口后写RELEASE。 */
+    et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_PAUSE_READY;
     et_manual_log_text("[ACTION] debugger_hold stage=PAUSE\r\n");
-    __BKPT(0);
+
+    while (et_manual_stimer_debug_gate != ET_MANUAL_STIMER_DEBUG_GATE_RELEASE)
+    {
+        __NOP();
+    }
+
     pause_after = STIMER_getTimerCount(ET_MANUAL_STIMER);
     pause_delta = pause_after - pause_before;
 
@@ -108,9 +118,15 @@ int et_manual_stimer_p2_003_debugger_halt_behavior(void)
     STIMER_startTimer(ET_MANUAL_STIMER);
     run_before = STIMER_getTimerCount(ET_MANUAL_STIMER);
 
-    /* 激励：J-Link保持与PAUSE场景相同的时间，再继续运行。 */
+    /* 激励：发布第二个阶段门，J-Link保持与PAUSE场景相同的窗口。 */
+    et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_RUN_FREE_READY;
     et_manual_log_text("[ACTION] debugger_hold stage=RUN_FREE\r\n");
-    __BKPT(0);
+
+    while (et_manual_stimer_debug_gate != ET_MANUAL_STIMER_DEBUG_GATE_RELEASE)
+    {
+        __NOP();
+    }
+
     run_after = STIMER_getTimerCount(ET_MANUAL_STIMER);
     run_delta = run_after - run_before;
 

@@ -208,16 +208,17 @@ int et_manual_test_run(void)
     et_manual_log_result("stimer_p1_001", result);
     failures += result;
 
-    result = et_manual_stimer_p2_003_debugger_halt_behavior();
-    et_manual_log_result("stimer_p2_003", result);
-    failures += result;
-
     result = et_manual_wdg_p1_004_module_reset_and_recovery();
     et_manual_log_result("wdg_p1_004", result);
     failures += result;
 
     result = et_manual_wdg_p2_001_clock_divider_rate();
     et_manual_log_result("wdg_p2_001", result);
+    failures += result;
+
+    /* Debugger-dependent Case runs last so a missing debugger cannot hide all other evidence. */
+    result = et_manual_stimer_p2_003_debugger_halt_behavior();
+    et_manual_log_result("stimer_p2_003", result);
     failures += result;
 #endif
 

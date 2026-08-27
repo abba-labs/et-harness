@@ -122,7 +122,7 @@ int et_manual_cordic_p2_001_dma_mode_equivalence(void)
     reset_cordic();
     reset_cordic_dma();
     CORDIC_initStruct(&cordic_config);
-    cordic_config.workMode = ET_MANUAL_CORDIC_DMA_WORK_MODE;
+    cordic_config.workMode = CORDIC_WORK_MODE_POLLING;
     CORDIC_init(&cordic_config);
     CORDIC_clearStatus(ET_MANUAL_CORDIC_ALL_STATUS);
 
@@ -130,7 +130,24 @@ int et_manual_cordic_p2_001_dma_mode_equivalence(void)
                          ET_MANUAL_CORDIC_DMA_INPUT_REQUEST);
     SYSCTRL_configDMAMux(ET_MANUAL_CORDIC_DMA, ET_MANUAL_CORDIC_DMA_OUTPUT_INTERFACE,
                          ET_MANUAL_CORDIC_DMA_OUTPUT_REQUEST);
+    SYSCTRL_configDMAMuxReqMode(ET_MANUAL_CORDIC_DMA,
+                               ET_MANUAL_CORDIC_DMA_INPUT_INTERFACE,
+                               DMAMUX_REQ_MODE_BURST);
+    SYSCTRL_configDMAMuxReqMode(ET_MANUAL_CORDIC_DMA,
+                               ET_MANUAL_CORDIC_DMA_OUTPUT_INTERFACE,
+                               DMAMUX_REQ_MODE_BURST);
     (void)AHBDMA_enableModule(ET_MANUAL_CORDIC_DMA);
+
+    AHBDMA_initChannelStruct(&channel_config);
+    input_config_status = AHBDMA_setDefaultM2P(
+        &channel_config, (uint32_t)&input_raw, (uint32_t)&CORDIC->SQRT_CAL,
+        ET_MANUAL_CORDIC_DMA_WORD_COUNT, ET_MANUAL_CORDIC_DMA_INPUT_INTERFACE);
+    channel_config.srcTrWidth = AHBDMA_BITS_32;
+    channel_config.dstTrWidth = AHBDMA_BITS_32;
+    channel_config.srcAddressInc = AHBDMA_INCREMENTAL;
+    (void)AHBDMA_initChannel(ET_MANUAL_CORDIC_DMA, &channel_config,
+                             ET_MANUAL_CORDIC_DMA_INPUT_CHANNEL);
+    (void)AHBDMA_enableChannel(ET_MANUAL_CORDIC_DMA, ET_MANUAL_CORDIC_DMA_INPUT_CHANNEL);
 
     AHBDMA_initChannelStruct(&channel_config);
     output_config_status = AHBDMA_setDefaultP2M(
@@ -143,18 +160,10 @@ int et_manual_cordic_p2_001_dma_mode_equivalence(void)
                              ET_MANUAL_CORDIC_DMA_OUTPUT_CHANNEL);
     (void)AHBDMA_enableChannel(ET_MANUAL_CORDIC_DMA, ET_MANUAL_CORDIC_DMA_OUTPUT_CHANNEL);
 
-    AHBDMA_initChannelStruct(&channel_config);
-    input_config_status = AHBDMA_setDefaultM2P(
-        &channel_config, (uint32_t)&input_raw, (uint32_t)&CORDIC->SQRT_CAL,
-        ET_MANUAL_CORDIC_DMA_WORD_COUNT, ET_MANUAL_CORDIC_DMA_INPUT_INTERFACE);
-    channel_config.srcTrWidth = AHBDMA_BITS_32;
-    channel_config.dstTrWidth = AHBDMA_BITS_32;
-    channel_config.srcAddressInc = AHBDMA_INCREMENTAL;
-    (void)AHBDMA_initChannel(ET_MANUAL_CORDIC_DMA, &channel_config,
-                             ET_MANUAL_CORDIC_DMA_INPUT_CHANNEL);
-
-    /* 激励：结果通道已经就绪后，启动输入通道触发一次SQRT运算。 */
-    (void)AHBDMA_enableChannel(ET_MANUAL_CORDIC_DMA, ET_MANUAL_CORDIC_DMA_INPUT_CHANNEL);
+    /* 激励：两条DMA通道都就绪后，最后切换工作模式以产生首个硬件请求。 */
+    MODIFY_REG(CORDIC->CTRL0, CORDIC_CTRL0_CORDIC_WORK_MODE_Msk,
+               ((uint32_t)ET_MANUAL_CORDIC_DMA_WORK_MODE
+                << CORDIC_CTRL0_CORDIC_WORK_MODE_Pos));
 
     wait_count = ET_MANUAL_CORDIC_WAIT_LIMIT;
     do
