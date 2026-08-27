@@ -148,7 +148,6 @@ jobs:
     timeout-minutes: 60
     env:
       BASELINE_SHA: e9e3affb537113b43d15fbe71b222b213f4410d9
-      LOG_ROOT: ${{ runner.temp }}/atp-validation-logs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -159,6 +158,8 @@ jobs:
           cache: pip
       - name: Compare ATP software validation with the frozen project baseline
         shell: bash
+        env:
+          LOG_ROOT: ${{ runner.temp }}/atp-validation-logs
         run: |
           set -euo pipefail
           mkdir -p "$LOG_ROOT"
