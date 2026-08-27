@@ -1,0 +1,25 @@
+{
+  "schema": "et-harness-project-import-v0.1",
+  "source": {
+    "kind": "user-uploaded-local-snapshot",
+    "historical_repository": "Abba-shenfu/Automated_Testing_Platform",
+    "historical_reference_branch": "review_code",
+    "last_remote_reference_revision": "a45dee76c2eefab1e69c14003ac3def01f2a7c89",
+    "import_commit_in_et_harness": "25f96e9bfd82562a6ae0b99d5ec6330ea4089d2a"
+  },
+  "target": {
+    "repository": "abba-labs/et-harness",
+    "long_lived_branch": "project/automated-testing-platform",
+    "test_branch": "test/automated-testing-platform-harness-integration-v0.1",
+    "test_baseline_revision": "e9e3affb537113b43d15fbe71b222b213f4410d9"
+  },
+  "project_plugin": {
+    "path": "agent_harness/projects/automated_testing_platform",
+    "migration_mode": "review-and-adapt-not-merge",
+    "legacy_wrap_branch": "integration/harness-project-plugin-adapter-v0.1"
+  },
+  "history": {
+    "source_history_preserved_in_target": false,
+    "authoritative_pre_import_history": "Abba-shenfu/Automated_Testing_Platform"
+  }
+}

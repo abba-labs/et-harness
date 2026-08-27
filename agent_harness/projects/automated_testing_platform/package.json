@@ -1,0 +1,53 @@
+{
+  "name": "@agent-harness/project-automated-testing-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automated Testing Platform Project Plugin: project identity and data-only A/R/K/G routing",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "project.yaml",
+    "architecture",
+    "rules",
+    "knowledge",
+    "gates",
+    "cordis.patch.yml",
+    "README.md",
+    "IMPORT_SOURCE.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/project-manager": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/project-contract": "file:../../project_contract",
+    "@agent-harness/project-manager": "file:../../public_plugins/project_manager",
+    "@agent-harness/architecture-navigator": "file:../../public_plugins/architecture_navigator",
+    "@agent-harness/rule-manager": "file:../../public_plugins/rule_manager",
+    "@agent-harness/knowledge-manager": "file:../../public_plugins/knowledge_manager",
+    "@agent-harness/gate-manager": "file:../../public_plugins/gate_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
