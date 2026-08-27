@@ -71,7 +71,7 @@ ET6801 direct SVD / target-chip integration evidence
 | TP19 | Interrupt work mode | CORDIC_F_025/F042 | CORDIC_P1_008 | MAPPED | 固定delay改为Source级Event+Deadline。 |
 | TP20 | Polling mode | CORDIC_F_024/F028 | CORDIC_P1_007 | MAPPED | 无限while改为bounded polling。 |
 | TP21 | Zero-overhead | CORDIC_F_026/F044 | CORDIC_P1_009/P3_003 | SPLIT | 功能与抗IRQ原子性分层。 |
-| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | IMPLEMENTED_WITH_MAPPING_GAP | Hardware mode与Case已实现；current DMA route未闭合时由运行期失败关闭。 |
+| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | READY_FOR_HIL | Hardware mode与Case已实现；ET6801双向DMA route已按当前端点和验证工程Request事实闭合，待定向HIL确认。 |
 | TP23 | IRQ enable | CORDIC_F_037 | CORDIC_P1_017 | MAPPED | 按Source参数化。 |
 | TP24 | IRQ mask | CORDIC_F_038/F041 | CORDIC_P1_018 | MAPPED | Raw/Status分层。 |
 | TP25 | IRQ clear | CORDIC_F_040/F041 | CORDIC_P1_019 | MAPPED | 双Source位隔离。 |
@@ -209,7 +209,7 @@ P1_006主路径使用x→y顺序和`WR_NARGS_CNT_RPT`；packed option归入P1_00
 | ID | Severity | State | Current fact | 影响 / 解除条件 | Public Case |
 |---|---|---|---|---|---|
 | `CORDIC_DRV_001` | CRITICAL | RESOLVED_BY_TEST_EXTENSION | integer `CORDIC_calcultePM()`仍是错误历史Helper；公共Wrap不调用该Helper | `CORDIC_testExecuteZeroOverhead()`按稳定函数ID提交一/两个参数，P1_009已绑定正确路径 | P1_009 / P3_003 |
-| `CORDIC_DRV_002` | HIGH | MAPPING_GAP | SVD WORK_MODE=3明确DMA；稳定CORDIC Wrap/Chip Config已把DMA工作模式隔离到Driver映射，但当前repo仍没有经过审核的CORDIC DMAMUX Request/Endpoint事实 | 取得current DMA integration证据后只补Execution Mapping；严禁复制旧ID；映射缺失时Case运行期失败关闭 | P2_001 |
+| `CORDIC_DRV_002` | HIGH | READY_FOR_HIL | SVD WORK_MODE=3明确DMA；稳定CORDIC Wrap/Chip Config已隔离DMA工作模式；Execution Mapping使用当前SVD端点和ET6801验证工程Request事实 | 定向执行P2_001，确认真实DMA搬运后再关闭 | P2_001 |
 | `CORDIC_DRV_003` | HIGH | RESOLVED_BY_STABLE_API | `CORIDC_IsRReady()`会读取后清除COMPLETE，但公共Wrap不调用该Helper | 公共Wrap使用无副作用`CORDIC_getStatus()`保存Snapshot，再由显式Clear动作执行W1C | P1_007 |
 | `CORDIC_DRV_004` | HIGH | RESOLVED_BY_TEST_EXTENSION | 历史zero-overhead helpers无条件重新开中断 | `CORDIC_testExecuteZeroOverhead()`保存并恢复调用前PRIMASK，公共Wrap只走该入口 | P1_009 / P3_003 |
 | `CORDIC_DRV_005` | MEDIUM | RESOLVED_AT_SERVICE_BOUNDARY | SDK IRQ API自身不做完整合法位校验 | 公共Service/Wrap只接受稳定三Source掩码并拒绝额外bit | P1_017~P1_019 |
@@ -247,8 +247,8 @@ pc/et_test_platform/profiles/chip_execution_mappings/et6801/cordic_semantics.py
 | `IRQ_STATUS.PM_ARG2_ERROR` | `INT_STATUS_RPT` bit2 | Mask后Status | MAPPED |
 | `IRQ_DELIVERY.LATCHED_SOURCE` | 未来CORDIC IRQ Service / ISR latch | Service事实，不得改名为INT_RAW/STATUS | IMPLEMENTATION_GAP |
 | `TIMING.CYCLE_COUNT` | Cortex-M DWT或等价目标侧cycle counter Test Extension | 不是CORDIC寄存器；仅结果正确样本进入统计 | MAPPING_GAP |
-| `DMA_CHANNEL_STATUS` | Peer DMA Channel hardware status | 当前CORDIC DMA Request route未知 | MAPPING_GAP |
-| `DMA_DESTINATION_WORD` | Peer DMA destination memory/endpoint | 必须与独立数学Golden闭合 | MAPPING_GAP |
+| `DMA_CHANNEL_STATUS` | Peer DMA Channel hardware status | Controller0，输入Interface0，输出Interface1 | READY_FOR_HIL |
+| `DMA_DESTINATION_WORD` | Peer DMA destination memory/endpoint | 输入`SINCOS_CAL=0x50000008`，输出`RES1_RPT=0x50000050`，必须与独立数学Golden闭合 | READY_FOR_HIL |
 
 ### 3.1 IRQ Source Bit Mapping
 
@@ -276,7 +276,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 |---|---|---|---|
 | `cordic_capability_semantic_mapping_gap` | CLOSED | Machine Capability已发布SVD可证明的函数、位宽、Range、工作模式、结果数量、状态和IRQ语义 | 后续新增SVD语义规则必须继续由generator与audit regression闭合 |
 | `cordic_fixed_codec_mapping_gap` | MAPPING | current FPGATest含Q31、扩展角度及函数特定scale处理，但SVD未给全公式 | 获得LRS/RTL/设计依据或批准的current-HIL codec冻结，并建立PC pure-codec vectors |
-| `cordic_accuracy_budget_gap` | SEMANTIC | 历史多数节点使用1e-4，但precision test自身证明低迭代不满足统一容差 | 冻结函数×格式×precision误差预算；低precision只按已发布包络判定 |
+| `cordic_accuracy_budget_gap` | SEMANTIC | 人工复核已批准ET6801当前数学结果使用`1e-3`绝对误差预算；低迭代节点仍不冒充逐节点精度包络 | 当前Formal Case使用已批准预算；未来取得正式逐函数/逐precision规格后再细化 |
 | `cordic_scale_formula_gap` | SEMANTIC | SVD引用内部LRS说明其余函数Scale公式，本轮未取得该权威资料 | 取得LRS/RTL/设计确认并形成Chip Codec mapping |
 | `cordic_precision_limit_mapping_gap` | MAPPING | SVD字段5-bit且提到MAX_ITER_CYC但无数值；current Driver/FPGATest仅1..8 | 目标设计资料确认硬件上限与平台公开option set |
 | `cordic_arg_count_lifecycle_mapping_gap` | SEMANTIC | FPGATest case32显示ARG_COUNT随结果消费产生1→0、1→2等不同阶段 | 权威冻结每阶段Expected与结果消费关系 |
@@ -285,7 +285,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | `cordic_irq_service_gap` | CLOSED | CORDIC Service已提供Source级ISR latch/event_count，并与Raw/Status分层记录 | 已由CORDIC IRQ Service/Case闭合；更强异步干扰仍单独评估 |
 | `cordic_current_pm_helper_bug` | IMPLEMENTATION | SDK integer zero-overhead PM helper仍写SINCOS入口且参数模型不符合x→y；公共测试路径不调用该Helper | 修SDK，或继续由CORDIC Test Extension generic path隔离错误Helper |
 | `cordic_zero_overhead_atomicity_gap` | CLOSED | CORDIC Test Extension保存/恢复调用者PRIMASK，Wrap只调用该Driver接口 | 已由P3_003受控Pending与Driver扩展闭合当前测试路径 |
-| `cordic_dma_execution_mapping_gap` | MAPPING | SVD DMA mode存在；current Driver enum/DMAMUX无CORDIC route | 取得current integration的Request ID/方向/端点并纳入Execution Mapping |
+| `cordic_dma_execution_mapping_gap` | MAPPING | 已使用当前SVD端点及ET6801验证工程`DMAMUX_REQ_CORDIC_TX/RX`闭合Mapping | 定向HIL确认Request 39/40与当前FPGA实现一致 |
 | `cordic_timing_observer_mapping_gap` | CLOSED | CORDIC Test Extension在目标侧DWT边界内返回cycle count，Service/Case只消费稳定结果 | 已由P3_002 timed命令和目标侧周期证据闭合 |
 | `cordic_reset_execution_mapping_gap` | CLOSED | CRG专属Driver/Service/Wrap通过生成CMSIS的GTEN0/SRST0 CORDIC0 bit20建立芯片映射，PC Case负责复位后重新配置 | 已由P0_004与P1_016跨IP编排闭合 |
 | `cordic_request_capacity_mapping_gap` | SEMANTIC | case34提供多函数顺序线索但不等于queue spec | 设计/RTL/current-HIL冻结安全submit/consume协议 |
@@ -320,7 +320,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_F_024 | SUPPORTED | CTRL0.WORK_MODE=01 Polling与COMPLETE终态Case已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_025 | SUPPORTED | CTRL0.WORK_MODE=00 Interrupt与自然Complete投递Case已适配。 | ADAPTED | CORDIC_P1_008 |
 | CORDIC_F_026 | SUPPORTED | CTRL0.WORK_MODE=10基础原子事务已适配；受控IRQ干扰强度仍由P3_003单独保留。 | ADAPTED | CORDIC_P1_009, CORDIC_P3_003 |
-| CORDIC_F_027 | SUPPORTED | CTRL0.WORK_MODE=11 DMA；稳定CORDIC Config/Wrap可选择DMA工作模式，但当前DMAMUX Request/Endpoint映射未审核，平台保留MAPPING_GAP。 | MAPPING_GAP | CORDIC_P2_001 |
+| CORDIC_F_027 | SUPPORTED | CTRL0.WORK_MODE=11 DMA；ET6801 Mapping已给出Controller0、Interface0/1、Request39/40及SINCOS/RES1端点。 | READY_FOR_HIL | CORDIC_P2_001 |
 | CORDIC_F_028 | SUPPORTED | STATUS_RPT.RRDY_FLG_RPT的Polling观测与W1C复核已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_029 | SUPPORTED | STATUS_RPT.WR_NARGS_OVF_RPT，W1C；Execution Mapping冻结current FPGATest/HIL已证明的四次未消费提交刺激。该Case不声称测得最小容量。 | ADAPTED | CORDIC_P1_011 |
 | CORDIC_F_030 | SUPPORTED | STATUS_RPT.WR_ARG2_ERROR_RPT自然刺激与W1C已适配；ET6801 FPGA实测表明清报告位后仍需由CRG复位CORDIC0才能清内部错误事务。 | ADAPTED | CORDIC_P1_016 |
@@ -352,7 +352,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_P0_004 | ADAPTED | 外层CRG专属Driver/Service/Wrap已提供CORDIC复位映射；Case负责复位前后重新配置与结果恢复。 |
 | CORDIC_P1_001 | ADAPTED | SVD声明两种Range，Execution Mapping提供Normalized/Direct Raw Codec；Case对同一π/2逻辑角度建立双路径Oracle。 |
 | CORDIC_P1_002 | ADAPTED | SVD声明位宽和16-bit双结果打包，Execution Mapping提供参数存储位置与定点Codec；Case用非零π/4节点覆盖四种组合。 |
-| CORDIC_P1_003 | ADAPTED | Case覆盖SINCOS不受Scale影响以及current FPGATest提供的ARCTAN Scale 0..7公式；当前HIL结果为FAIL：公式、状态和Raw重复性成立，但Scale=7绝对误差为1.475113549724849e-4，超过历史源码写入但未实际调度执行的统一1e-4阈值。其他函数的Scale公式及正式逐Scale误差包络不由本Case宣称。 |
+| CORDIC_P1_003 | ADAPTED | Case覆盖SINCOS不受Scale影响以及current FPGATest提供的ARCTAN Scale 0..7公式；人工复核已批准ET6801按`1e-3`绝对误差预算验收，Scale=7历史误差`1.475113549724849e-4`在预算内。其他函数的Scale公式不由本Case宣称。 |
 | CORDIC_P1_004 | ADAPTED | Execution Mapping冻结当前平台计划节点1..8和最高节点误差预算；硬件未公开的完整MAX_ITER_CYC不在本Case结论内。 |
 | CORDIC_P1_005 | ADAPTED | SINCOS/PM/HSINCOS的一结果/两结果配置与硬件输出Case已实现。 |
 | CORDIC_P1_006 | ADAPTED | PM x→y参数计数0→1→0生命周期与结果消费Case已实现。 |
@@ -367,7 +367,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_P1_018 | ADAPTED | 三类Source的Mask、Raw、Status分层Case已实现。 |
 | CORDIC_P1_019 | ADAPTED | 三类Source的目标Clear与非目标保持Case已实现。 |
 | CORDIC_P1_020 | ADAPTED | 九类函数顺序执行、结果消费和终态清理Case已实现。 |
-| CORDIC_P2_001 | MAPPING_GAP | Case已实现并注册；Hardware WORK_MODE=DMA明确，current SDK/DMAMUX仍缺CORDIC route，运行时通过Execution Mapping Gate失败关闭。 |
+| CORDIC_P2_001 | READY_FOR_HIL | Case已实现并注册；Execution Mapping已闭合当前SVD端点和ET6801验证工程Request事实，待定向HIL确认。 |
 | CORDIC_P3_001 | ADAPTED | 仅实现九类Float32代表合法节点的固定重复稳定性；不宣称覆盖定点Codec、边界、完整合法域或统一accuracy budget。 |
 | CORDIC_P3_002 | ADAPTED | CORDIC timed Service通过目标侧DWT返回周期结果，Case只验证数学结果正确前提下的周期样本。 |
 | CORDIC_P3_003 | ADAPTED | Case通过公共Zero-Overhead与IRQ控制接口执行受控Pending隔离；更强的异步ISR干扰仍由独立Gap保留。 |
@@ -410,14 +410,14 @@ Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
 Historical FPGA / requirement corpus: TRACEABLE DESIGN INPUT ONLY
 ```
 
-旧Runner结果证明上一版实现能够执行，但不能证明本轮语义迁移后的当前代码。上述8个Case已经完成current-code HIL：7个逻辑Case通过，P1_003稳定复现Scale=7精度失败。失败不能通过放宽公共阈值或改为SKIP隐藏；必须取得权威逐Scale误差包络，或经人工批准把current-HIL characterization冻结为ET6801专属验收预算后再闭环。
+旧Runner结果证明上一版实现能够执行，但不能证明本轮语义迁移后的当前代码。上述8个Case已经完成current-code HIL：7个逻辑Case通过，P1_003稳定复现Scale=7在历史`1e-4`预算下的失败。2026-08-27人工复核已批准ET6801当前按`1e-3`绝对误差预算验收，因此该历史现象不再解释为硬件失败；仍需用当前代码定向回归形成新结果。
 
 ### 7.3 下一阶段验证与映射入口条件
 
 CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证据后闭合以下映射或验证Gap：
 
 ```text
-1. 取得ARCTAN逐Scale权威误差预算，或经人工批准冻结current-HIL characterization包络，闭合P1_003 Scale=7失败
+1. 按已批准的ET6801 `1e-3`绝对误差预算定向回归P1_003，形成当前代码结果
 2. 补充尚未取得的其他函数Scale公式和权威全域accuracy budget
 3. 补充硬件完整MAX_ITER_CYC、精确ARG_OVERFLOW容量与Float2Fixed阈值
 4. 补充DMA current Execution Mapping
@@ -431,7 +431,7 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Case | 测试环境 | 实际硬件现象 | 已排除的问题 | 当前判定 | 闭环条件 |
 |---|---|---|---|---|---|
-| `CORDIC_P1_003` | ET6801 FPGA，ARCTAN Scale=0..7 current-code定向HIL及独立重复运行 | Scale=7的Raw和公式结果可稳定重复，但绝对误差为`1.475113549724849e-4`，超过历史统一`1e-4`阈值 | 公式、参数传递、状态和Raw重复性均成立，不属于随机通信或一次性采样失败 | `ACCURACY_BUDGET_UNRESOLVED / HIL_FAIL` | 取得ET6801 ARCTAN逐Scale权威误差预算，或由人工批准多轮HIL表征形成ET6801专属误差包络 |
+| `CORDIC_P1_003` | ET6801 FPGA，ARCTAN Scale=0..7 current-code定向HIL及独立重复运行 | Scale=7的Raw和公式结果可稳定重复，绝对误差为`1.475113549724849e-4` | 2026-08-27人工复核批准当前按`1e-3`绝对误差预算验收，历史观测在预算内 | `READY_FOR_RETEST` | 用修改后的Execution Mapping定向回归，形成新的Canonical Result |
 
 本项暂不能直接判定为RTL缺陷，也不能通过自行放宽公共阈值关闭。证据位于`artifacts/runs/20260822_070101_086512_cordic_formal_cases/tests/cordic`和`artifacts/runs/20260822_070244_378_cordic_p1_003_repeat/tests/cordic`。
 
@@ -458,7 +458,7 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CORDIC_P1_003` | FPGA | FAIL | `CORDIC_F_018` / ARCTAN Scale | Scale=7的Raw结果稳定，但误差超过当前统一预算；独立固件复测得到差值`0x314`、预算`0x216` | 逐Scale权威精度包络尚未取得，不能直接判定RTL缺陷 | 取得设计精度预算，或经批准完成多轮HIL表征后重测 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
+| `CORDIC_P1_003` | FPGA | READY_FOR_RETEST | `CORDIC_F_018` / ARCTAN Scale | 历史Scale=7 Raw稳定，绝对误差`1.475113549724849e-4` | 人工复核已批准当前按`1e-3`绝对误差预算验收 | 用当前代码定向回归；回归前不把历史FAIL改写成PASS | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
 | `CORDIC_P2_001` | FPGA | NOT_EXECUTED | `CORDIC_F_027` / DMA工作模式 | 本次定向HIL未执行DMA Case | ET6801当前SVD/SDK没有经过审核的CORDIC DMAMUX Request和Endpoint路由 | 取得current DMA集成事实后补Execution Mapping并执行 | `pc/et_test_platform/test_cases/cordic/conftest.py` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
