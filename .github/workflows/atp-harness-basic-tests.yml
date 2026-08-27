@@ -104,18 +104,41 @@ jobs:
             npm run build
           )
 
-      - name: Require deterministic Project Plugin outputs
+          if ! git diff --quiet -- "$plugin_dir"; then
+            echo "ATP Project Plugin tests changed tracked plugin resources:"
+            git diff -- "$plugin_dir"
+            exit 1
+          fi
+
+      - name: Remove expected build products and require a clean worktree
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf agent_harness/projects/automated_testing_platform/dist
-          rm -f agent_harness/projects/automated_testing_platform/package-lock.json
+          package_dirs=(
+            agent_harness/governance_core
+            agent_harness/project_contract
+            agent_harness/public_plugins/project_manager
+            agent_harness/public_plugins/architecture_navigator
+            agent_harness/public_plugins/rule_manager
+            agent_harness/public_plugins/knowledge_manager
+            agent_harness/public_plugins/evidence_state_manager
+            agent_harness/public_plugins/gate_manager
+            agent_harness/projects/automated_testing_platform
+          )
+
+          for package_dir in "${package_dirs[@]}"; do
+            git clean -fdx -- "$package_dir/dist" "$package_dir/package-lock.json"
+            while IFS= read -r -d '' tracked_path; do
+              git restore --source=HEAD --worktree -- "$tracked_path"
+            done < <(git ls-files -z -- "$package_dir/dist" "$package_dir/package-lock.json")
+          done
+
           git diff --check
           status="$(git status --porcelain --untracked-files=all)"
           if [[ -n "$status" ]]; then
-            echo "ATP Project Plugin validation mutated the worktree:"
+            echo "ATP Project Plugin validation left unexpected worktree changes:"
             echo "$status"
-            git diff -- agent_harness/projects/automated_testing_platform
+            git diff
             exit 1
           fi
 
@@ -125,6 +148,7 @@ jobs:
     timeout-minutes: 60
     env:
       BASELINE_SHA: e9e3affb537113b43d15fbe71b222b213f4410d9
+      LOG_ROOT: ${{ runner.temp }}/atp-validation-logs
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,7 +161,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p validation-logs
+          mkdir -p "$LOG_ROOT"
           baseline_root="$RUNNER_TEMP/atp-baseline"
           git worktree add --detach "$baseline_root" "$BASELINE_SHA"
 
@@ -148,14 +172,14 @@ jobs:
           (
             cd "$baseline_root"
             python tools/validate_pc.py
-          ) 2>&1 | tee validation-logs/baseline.log
+          ) 2>&1 | tee "$LOG_ROOT/baseline.log"
           baseline_rc=${PIPESTATUS[0]}
           set -e
 
           python -m pip install -e ".[test]"
 
           set +e
-          python tools/validate_pc.py 2>&1 | tee validation-logs/head.log
+          python tools/validate_pc.py 2>&1 | tee "$LOG_ROOT/head.log"
           head_rc=${PIPESTATUS[0]}
           set -e
 
@@ -164,11 +188,12 @@ jobs:
           import re
           from pathlib import Path
 
+          log_root = Path(os.environ["LOG_ROOT"])
           pattern = re.compile(r"^FAILED\s+(\S+)", re.MULTILINE)
-          baseline_log = Path("validation-logs/baseline.log").read_text(
+          baseline_log = (log_root / "baseline.log").read_text(
               encoding="utf-8", errors="replace"
           )
-          head_log = Path("validation-logs/head.log").read_text(
+          head_log = (log_root / "head.log").read_text(
               encoding="utf-8", errors="replace"
           )
           baseline_failures = sorted(set(pattern.findall(baseline_log)))
@@ -214,6 +239,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: atp-software-baseline-comparison
-          path: validation-logs/*.log
+          path: ${{ runner.temp }}/atp-validation-logs/*.log
           if-no-files-found: error
           retention-days: 14
