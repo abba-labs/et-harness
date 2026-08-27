@@ -1,0 +1,476 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: sdfm
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  sdfm0:
+    svd_name: SDFM0
+  sdfm1:
+    svd_name: SDFM1
+  sdfm2:
+    svd_name: SDFM2
+  sdfm3:
+    svd_name: SDFM3
+capabilities:
+  features:
+    cevt1:
+    - sdfm0
+    - sdfm1
+    - sdfm2
+    - sdfm3
+    cevt2:
+    - sdfm0
+    - sdfm1
+    - sdfm2
+    - sdfm3
+    dma:
+    - sdfm0
+    - sdfm1
+    - sdfm2
+    - sdfm3
+    flt_ffsync:
+    - sdfm0
+    - sdfm1
+    - sdfm2
+    - sdfm3
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    dr0:
+      sdfm0:
+        svd_name: SDFM0_DR0
+        irqn: 142
+      sdfm1:
+        svd_name: SDFM1_DR0
+        irqn: 147
+      sdfm2:
+        svd_name: SDFM2_DR0
+        irqn: 152
+      sdfm3:
+        svd_name: SDFM3_DR0
+        irqn: 157
+    dr1:
+      sdfm0:
+        svd_name: SDFM0_DR1
+        irqn: 143
+      sdfm1:
+        svd_name: SDFM1_DR1
+        irqn: 148
+      sdfm2:
+        svd_name: SDFM2_DR1
+        irqn: 153
+      sdfm3:
+        svd_name: SDFM3_DR1
+        irqn: 158
+    dr2:
+      sdfm0:
+        svd_name: SDFM0_DR2
+        irqn: 144
+      sdfm1:
+        svd_name: SDFM1_DR2
+        irqn: 149
+      sdfm2:
+        svd_name: SDFM2_DR2
+        irqn: 154
+      sdfm3:
+        svd_name: SDFM3_DR2
+        irqn: 159
+    dr3:
+      sdfm0:
+        svd_name: SDFM0_DR3
+        irqn: 145
+      sdfm1:
+        svd_name: SDFM1_DR3
+        irqn: 150
+      sdfm2:
+        svd_name: SDFM2_DR3
+        irqn: 155
+      sdfm3:
+        svd_name: SDFM3_DR3
+        irqn: 160
+    error:
+      sdfm0:
+        svd_name: SDFM0_ERR
+        irqn: 141
+      sdfm1:
+        svd_name: SDFM1_ERR
+        irqn: 146
+      sdfm2:
+        svd_name: SDFM2_ERR
+        irqn: 151
+      sdfm3:
+        svd_name: SDFM3_ERR
+        irqn: 156
+  identities:
+    base_address:
+      sdfm0: '0x40115000'
+      sdfm1: '0x40116000'
+      sdfm2: '0x40117000'
+      sdfm3: '0x40118000'
+evidence:
+  sdfm.feature.cevt1:
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[0].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[1].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[2].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[3].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[0].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[1].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[2].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[3].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[0].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[1].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[2].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[3].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[0].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[1].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[2].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[3].SDEN.CEVT1_EN
+    rule: boolean_enable_field
+  sdfm.feature.cevt2:
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[0].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[1].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[2].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[3].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[0].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[1].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[2].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[3].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[0].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[1].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[2].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[3].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[0].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[1].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[2].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[3].SDEN.CEVT2_EN
+    rule: boolean_enable_field
+  sdfm.feature.dma:
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[0].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[1].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[2].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[3].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[0].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[1].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[2].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[3].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[0].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[1].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[2].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[3].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[0].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[1].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[2].SDEN.DMA_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[3].SDEN.DMA_EN
+    rule: boolean_enable_field
+  sdfm.feature.flt_ffsync:
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[0].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[1].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[2].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm0
+    kind: field
+    path: SDFM0.SDCHNX_GRP[3].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[0].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[1].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[2].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm1
+    kind: field
+    path: SDFM1.SDCHNX_GRP[3].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[0].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[1].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[2].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm2
+    kind: field
+    path: SDFM2.SDCHNX_GRP[3].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[0].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[1].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[2].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  - instance: sdfm3
+    kind: field
+    path: SDFM3.SDCHNX_GRP[3].SDEN.FLT_FFSYNC_EN
+    rule: boolean_enable_field
+  sdfm.identity.base_address:
+  - instance: sdfm0
+    kind: peripheral
+    path: SDFM0.baseAddress
+    rule: direct
+  - instance: sdfm1
+    kind: peripheral
+    path: SDFM1.baseAddress
+    rule: direct
+  - instance: sdfm2
+    kind: peripheral
+    path: SDFM2.baseAddress
+    rule: direct
+  - instance: sdfm3
+    kind: peripheral
+    path: SDFM3.baseAddress
+    rule: direct
+  sdfm.interrupt.dr0:
+  - instance: sdfm0
+    kind: interrupt
+    path: SDFM0.interrupt.SDFM0_DR0
+    rule: direct
+  - instance: sdfm1
+    kind: interrupt
+    path: SDFM1.interrupt.SDFM1_DR0
+    rule: direct
+  - instance: sdfm2
+    kind: interrupt
+    path: SDFM2.interrupt.SDFM2_DR0
+    rule: direct
+  - instance: sdfm3
+    kind: interrupt
+    path: SDFM3.interrupt.SDFM3_DR0
+    rule: direct
+  sdfm.interrupt.dr1:
+  - instance: sdfm0
+    kind: interrupt
+    path: SDFM0.interrupt.SDFM0_DR1
+    rule: direct
+  - instance: sdfm1
+    kind: interrupt
+    path: SDFM1.interrupt.SDFM1_DR1
+    rule: direct
+  - instance: sdfm2
+    kind: interrupt
+    path: SDFM2.interrupt.SDFM2_DR1
+    rule: direct
+  - instance: sdfm3
+    kind: interrupt
+    path: SDFM3.interrupt.SDFM3_DR1
+    rule: direct
+  sdfm.interrupt.dr2:
+  - instance: sdfm0
+    kind: interrupt
+    path: SDFM0.interrupt.SDFM0_DR2
+    rule: direct
+  - instance: sdfm1
+    kind: interrupt
+    path: SDFM1.interrupt.SDFM1_DR2
+    rule: direct
+  - instance: sdfm2
+    kind: interrupt
+    path: SDFM2.interrupt.SDFM2_DR2
+    rule: direct
+  - instance: sdfm3
+    kind: interrupt
+    path: SDFM3.interrupt.SDFM3_DR2
+    rule: direct
+  sdfm.interrupt.dr3:
+  - instance: sdfm0
+    kind: interrupt
+    path: SDFM0.interrupt.SDFM0_DR3
+    rule: direct
+  - instance: sdfm1
+    kind: interrupt
+    path: SDFM1.interrupt.SDFM1_DR3
+    rule: direct
+  - instance: sdfm2
+    kind: interrupt
+    path: SDFM2.interrupt.SDFM2_DR3
+    rule: direct
+  - instance: sdfm3
+    kind: interrupt
+    path: SDFM3.interrupt.SDFM3_DR3
+    rule: direct
+  sdfm.interrupt.error:
+  - instance: sdfm0
+    kind: interrupt
+    path: SDFM0.interrupt.SDFM0_ERR
+    rule: direct
+  - instance: sdfm1
+    kind: interrupt
+    path: SDFM1.interrupt.SDFM1_ERR
+    rule: direct
+  - instance: sdfm2
+    kind: interrupt
+    path: SDFM2.interrupt.SDFM2_ERR
+    rule: direct
+  - instance: sdfm3
+    kind: interrupt
+    path: SDFM3.interrupt.SDFM3_ERR
+    rule: direct

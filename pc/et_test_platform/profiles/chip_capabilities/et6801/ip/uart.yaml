@@ -1,0 +1,258 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: uart
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  uart0:
+    svd_name: UART0
+  uart1:
+    svd_name: UART1
+  uart2:
+    svd_name: UART2
+  uart3:
+    svd_name: UART3
+  uart4:
+    svd_name: UART4
+  uart5:
+    svd_name: UART5
+  uart6:
+    svd_name: UART6
+  uart7:
+    svd_name: UART7
+capabilities:
+  features:
+    rs485:
+    - uart0
+    - uart1
+    - uart2
+    - uart3
+    - uart4
+    - uart5
+    - uart6
+    - uart7
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      uart0:
+        svd_name: UART0
+        irqn: 24
+      uart1:
+        svd_name: UART1
+        irqn: 25
+      uart2:
+        svd_name: UART2
+        irqn: 26
+      uart3:
+        svd_name: UART3
+        irqn: 27
+      uart4:
+        svd_name: UART4
+        irqn: 28
+      uart5:
+        svd_name: UART5
+        irqn: 29
+      uart6:
+        svd_name: UART6
+        irqn: 30
+      uart7:
+        svd_name: UART7
+        irqn: 31
+  identities:
+    base_address:
+      uart0: '0x40500000'
+      uart1: '0x40501000'
+      uart2: '0x40502000'
+      uart3: '0x40503000'
+      uart4: '0x40504000'
+      uart5: '0x40505000'
+      uart6: '0x40506000'
+      uart7: '0x40507000'
+    peripheral_id:
+      uart0: 0
+      uart1: 0
+      uart2: 0
+      uart3: 0
+      uart4: 0
+      uart5: 0
+      uart6: 0
+      uart7: 0
+    uart_component_version:
+      uart0: 0
+      uart1: 0
+      uart2: 0
+      uart3: 0
+      uart4: 0
+      uart5: 0
+      uart6: 0
+      uart7: 0
+evidence:
+  uart.feature.rs485:
+  - instance: uart0
+    kind: field
+    path: UART0.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart1
+    kind: field
+    path: UART1.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart2
+    kind: field
+    path: UART2.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart3
+    kind: field
+    path: UART3.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart4
+    kind: field
+    path: UART4.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart5
+    kind: field
+    path: UART5.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart6
+    kind: field
+    path: UART6.TCR.RS485_EN
+    rule: boolean_enable_field
+  - instance: uart7
+    kind: field
+    path: UART7.TCR.RS485_EN
+    rule: boolean_enable_field
+  uart.identity.base_address:
+  - instance: uart0
+    kind: peripheral
+    path: UART0.baseAddress
+    rule: direct
+  - instance: uart1
+    kind: peripheral
+    path: UART1.baseAddress
+    rule: direct
+  - instance: uart2
+    kind: peripheral
+    path: UART2.baseAddress
+    rule: direct
+  - instance: uart3
+    kind: peripheral
+    path: UART3.baseAddress
+    rule: direct
+  - instance: uart4
+    kind: peripheral
+    path: UART4.baseAddress
+    rule: direct
+  - instance: uart5
+    kind: peripheral
+    path: UART5.baseAddress
+    rule: direct
+  - instance: uart6
+    kind: peripheral
+    path: UART6.baseAddress
+    rule: direct
+  - instance: uart7
+    kind: peripheral
+    path: UART7.baseAddress
+    rule: direct
+  uart.identity.peripheral_id:
+  - instance: uart0
+    kind: field
+    path: UART0.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart1
+    kind: field
+    path: UART1.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart2
+    kind: field
+    path: UART2.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart3
+    kind: field
+    path: UART3.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart4
+    kind: field
+    path: UART4.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart5
+    kind: field
+    path: UART5.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart6
+    kind: field
+    path: UART6.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  - instance: uart7
+    kind: field
+    path: UART7.CTR.PERIPHERAL_ID
+    rule: readonly_reset_identity
+  uart.identity.uart_component_version:
+  - instance: uart0
+    kind: field
+    path: UART0.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart1
+    kind: field
+    path: UART1.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart2
+    kind: field
+    path: UART2.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart3
+    kind: field
+    path: UART3.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart4
+    kind: field
+    path: UART4.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart5
+    kind: field
+    path: UART5.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart6
+    kind: field
+    path: UART6.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  - instance: uart7
+    kind: field
+    path: UART7.UCV.UART_COMPONENT_VERSION
+    rule: readonly_reset_identity
+  uart.interrupt.irq:
+  - instance: uart0
+    kind: interrupt
+    path: UART0.interrupt.UART0
+    rule: direct
+  - instance: uart1
+    kind: interrupt
+    path: UART1.interrupt.UART1
+    rule: direct
+  - instance: uart2
+    kind: interrupt
+    path: UART2.interrupt.UART2
+    rule: direct
+  - instance: uart3
+    kind: interrupt
+    path: UART3.interrupt.UART3
+    rule: direct
+  - instance: uart4
+    kind: interrupt
+    path: UART4.interrupt.UART4
+    rule: direct
+  - instance: uart5
+    kind: interrupt
+    path: UART5.interrupt.UART5
+    rule: direct
+  - instance: uart6
+    kind: interrupt
+    path: UART6.interrupt.UART6
+    rule: direct
+  - instance: uart7
+    kind: interrupt
+    path: UART7.interrupt.UART7
+    rule: direct

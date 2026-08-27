@@ -1,0 +1,160 @@
+schema: et.module-profile.v1
+id: operator-pipeline
+summary: 一键运行、环境配置、编译部署、测试、Artifact事务和报告导出。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - run_config.yaml -> Operator Launcher -> Pipeline Profile -> Build/Deploy/Test/Report
+  - One invocation -> One run_id -> artifacts/runs/<run_id> + artifacts/reports/<timestamp>_<report>
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 配置、工具和Artifact总约束
+      required: true
+    - path: report/design/rules/R500_operator_pipeline.md
+      reason: Operator、Run Config、Pipeline与Artifact契约
+      required: true
+    - path: tools/README.md
+      reason: 工具目录和稳定入口规则
+      required: true
+  rules:
+    - operator_pipeline
+    - python_style_documentation
+  protected_scopes:
+    - pc/et_test_platform/test_cases/**
+    - firmware/services/**
+    - firmware/wrap/**
+
+changes:
+  manual-capture:
+    read:
+      - path: report/design/rules/R340_firmware_manual_diagnostics.md
+        reason: 手动诊断串口捕获工具的职责和结果边界
+        required: true
+      - path: tools/manual_test
+        reason: 独立手动诊断串口捕获工具
+        required: false
+    rules:
+      - firmware_manual_diagnostics
+      - python_style_documentation
+    write_scopes:
+      - tools/manual_test/**
+      - pc/et_test_platform/framework_validation/unit/operator/test_manual_serial_capture.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_manual_serial_capture.py
+
+  environment:
+    read:
+      - path: pyproject.toml
+        reason: Python依赖、测试发现和工具版本入口
+        required: true
+      - path: .github/workflows/pc-quality.yml
+        reason: 持续集成的软件总门禁入口
+        required: true
+      - path: tools/runner/bootstrap.py
+        reason: 本地环境创建和依赖检查入口
+        required: true
+    rules:
+      - operator_pipeline
+      - python_style_documentation
+    write_scopes:
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/**
+      - tools/runner/bootstrap.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+      - python tools/validate_pc.py
+
+  docs:
+    read:
+      - path: tools/README.md
+        reason: 工具目录导航和稳定入口说明
+        required: true
+    rules:
+      - operator_pipeline
+    write_scopes:
+      - tools/**/*.md
+      - artifacts/README.md
+      - README.md
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+
+  config:
+    read:
+      - path: run_config.example.yaml
+        reason: 唯一受控配置模板
+        required: true
+      - path: tools/runner/run_config_gui_schema.yaml
+        reason: GUI字段和布局Schema
+        required: true
+    rules:
+      - operator_pipeline
+    write_scopes:
+      - run_config.example.yaml
+      - tools/runner/run_config_gui.py
+      - tools/runner/run_config_gui_schema.yaml
+      - pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+
+  pipeline:
+    read:
+      - path: tools/runner
+        reason: 稳定Operator和Pipeline入口
+        required: true
+      - path: tools/profiles/pipeline
+        reason: 目标相关受控Pipeline Profile
+        required: true
+    rules:
+      - operator_pipeline
+    write_scopes:
+      - tools/runner/**
+      - tools/profiles/pipeline/**
+      - run_test.bat
+      - run_config_gui.bat
+      - pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+
+  report:
+    read:
+      - path: tools/reporting
+        reason: Canonical Result到人工报告的转换
+        required: true
+      - path: pc/et_test_platform/results
+        reason: 报告输入的Canonical Result
+        required: true
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: 报告不得重新判定PASS/FAIL
+        required: true
+    rules:
+      - operator_pipeline
+      - canonical_result_evidence
+    write_scopes:
+      - tools/reporting/**
+      - pc/et_test_platform/results/**
+      - pc/et_test_platform/framework_validation/unit/results/test_case_report.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/results/test_case_report.py
+
+  artifact:
+    read:
+      - path: artifacts/README.md
+        reason: R500约束下的运行产物目录使用与查找说明
+        required: true
+      - path: tools/runner
+        reason: run_id和Artifact事务实现
+        required: true
+    rules:
+      - operator_pipeline
+    write_scopes:
+      - artifacts/README.md
+      - tools/runner/**
+      - pc/et_test_platform/scheduling/run_context.py
+      - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py

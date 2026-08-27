@@ -1,0 +1,40 @@
+schema: et-ip-capability/v1
+chip: et6801
+ip: dma
+
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 1
+
+instances:
+  dma0:
+    svd_name: AHBDMA0
+  dma1:
+    svd_name: AHBDMA1
+
+generated:
+  capabilities:
+    dma.feature.interrupt.error: [dma0, dma1]
+    dma.feature.interrupt.transfer_done: [dma0, dma1]
+    dma.feature.transfer.memory_to_memory: [dma0, dma1]
+
+    dma.identity.component_id:
+      dma0: "0x44571110"
+      dma1: "0x44571110"
+
+    dma.limit.channel_count:
+      dma0: 8
+      dma1: 8
+
+    dma.limit.max_block_transfers:
+      dma0: 4095
+      dma1: 4095
+
+    dma.option.transfer_width_bits:
+      dma0: [8, 16, 32]
+      dma1: [8, 16, 32]
+
+manual:
+  set: {}
+  remove: []

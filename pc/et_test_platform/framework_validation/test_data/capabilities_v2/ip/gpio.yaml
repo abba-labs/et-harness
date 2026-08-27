@@ -1,0 +1,41 @@
+schema: et-ip-capability/v2
+chip: et_contract_test
+ip: gpio
+
+source:
+  file: contract_test.svd
+  sha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  generator_version: 2
+
+instances:
+  gpio0:
+    svd_name: GPIO0
+
+capabilities:
+  features:
+    edge_interrupt: [gpio0]
+  limits:
+    pin_count:
+      gpio0: 32
+  options:
+    interrupt_edges:
+      gpio0: [rising, falling, both]
+  parameters: {}
+  interrupts:
+    combined:
+      gpio0: {svd_name: GPIO0_COMBINED, irqn: 40}
+  identities:
+    base_address:
+      gpio0: "0x40400000"
+
+evidence:
+  gpio.feature.edge_interrupt:
+    - {instance: gpio0, kind: field, path: GPIO0.INT_TYPE.EDGE, rule: field_presence}
+  gpio.limit.pin_count:
+    - {instance: gpio0, kind: register, path: GPIO0.DATA, rule: register_width}
+  gpio.option.interrupt_edges:
+    - {instance: gpio0, kind: field, path: GPIO0.INT_POLARITY.POLARITY, rule: inline_values}
+  gpio.interrupt.combined:
+    - {instance: gpio0, kind: interrupt, path: GPIO0.interrupt.GPIO0_COMBINED, rule: direct}
+  gpio.identity.base_address:
+    - {instance: gpio0, kind: peripheral, path: GPIO0.baseAddress, rule: direct}

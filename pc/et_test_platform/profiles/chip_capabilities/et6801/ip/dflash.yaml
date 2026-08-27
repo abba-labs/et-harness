@@ -1,0 +1,188 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: dflash
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  dflash0:
+    svd_name: DFLASH
+capabilities:
+  features:
+    efc_apbs_ecc2_b_buserr:
+    - dflash0
+    efc_apbs_efcnwork_buserr:
+    - dflash0
+    efc_apbs_inc_buserr:
+    - dflash0
+    efc_apbs_pgs_buserr:
+    - dflash0
+    efc_apbs_pwroff_buserr:
+    - dflash0
+    efc_apbs_wpt_buserr:
+    - dflash0
+    efc_axis_ecc2_b_buserr:
+    - dflash0
+    efc_axis_efcnwork_buserr:
+    - dflash0
+    efc_axis_pgs_buserr:
+    - dflash0
+    efc_axis_pwroff_buserr:
+    - dflash0
+    efc_axis_rdp_buserr:
+    - dflash0
+    efc_axis_wpt_buserr:
+    - dflash0
+    efc_axis_wr_dummybvld:
+    - dflash0
+    efc_cache:
+    - dflash0
+    efc_ecc_errgen:
+    - dflash0
+    efc_main_ecc:
+    - dflash0
+    efc_nvr_config_ecc:
+    - dflash0
+    efc_nvr_ecc:
+    - dflash0
+    efc_perfnmr:
+    - dflash0
+    efc_rdn:
+    - dflash0
+    efc_vread0_chk:
+    - dflash0
+    efc_write:
+    - dflash0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    efc2:
+      dflash0:
+        svd_name: EFC2
+        irqn: 96
+  identities:
+    base_address:
+      dflash0: '0x40604000'
+evidence:
+  dflash.feature.efc_apbs_ecc2_b_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_ECC2B_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_apbs_efcnwork_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_EFCNWORK_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_apbs_inc_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_INC_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_apbs_pgs_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_PGS_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_apbs_pwroff_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_PWROFF_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_apbs_wpt_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_APBS_WPT_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_ecc2_b_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_ECC2B_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_efcnwork_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_EFCNWORK_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_pgs_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_PGS_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_pwroff_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_PWROFF_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_rdp_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_RDP_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_wpt_buserr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_WPT_BUSERR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_axis_wr_dummybvld:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_AXIS_WR_DUMMYBVLD_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_cache:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CACHE.EFC_CACHE_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_ecc_errgen:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_ECC.EFC_ECC_ERRGEN_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_main_ecc:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_ECC.EFC_MAIN_ECC_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_nvr_config_ecc:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_ECC.EFC_NVR_CFG_ECC_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_nvr_ecc:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_ECC.EFC_NVR_ECC_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_perfnmr:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_PERFNMR_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_rdn:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_RDN.EFC_RDN_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_vread0_chk:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_VREAD0_CHK_EN
+    rule: boolean_enable_field
+  dflash.feature.efc_write:
+  - instance: dflash0
+    kind: field
+    path: DFLASH.EFC_CTRL.EFC_WRITE_EN
+    rule: boolean_enable_field
+  dflash.identity.base_address:
+  - instance: dflash0
+    kind: peripheral
+    path: DFLASH.baseAddress
+    rule: direct
+  dflash.interrupt.efc2:
+  - instance: dflash0
+    kind: interrupt
+    path: DFLASH.interrupt.EFC2
+    rule: direct

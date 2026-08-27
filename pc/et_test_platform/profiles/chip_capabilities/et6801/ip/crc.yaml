@@ -1,0 +1,271 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: crc
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  crc0:
+    svd_name: CRC
+capabilities:
+  features:
+    alr:
+    - crc0
+    byteswap:
+    - crc0
+    check:
+    - crc0
+    fifo_overflow:
+    - crc0
+    fifo_threshold:
+    - crc0
+    initial_seed:
+    - crc0
+    irq_clear:
+    - crc0
+    irq_enable:
+    - crc0
+    irq_force:
+    - crc0
+    irq_mask:
+    - crc0
+    irq_raw_status:
+    - crc0
+    irq_status:
+    - crc0
+    length:
+    - crc0
+    module_enable:
+    - crc0
+    polynomial:
+    - crc0
+    refin:
+    - crc0
+    refout:
+    - crc0
+    result:
+    - crc0
+    xor_out:
+    - crc0
+  limits:
+    fifo_threshold_max:
+      crc0: 8
+    length_field_max:
+      crc0: 65535
+  options:
+    byte_swap_modes:
+      crc0:
+      - crc16
+      - crc32
+    irq_sources:
+      crc0:
+      - bus_error
+      - length_error
+      - check_error
+    modes:
+      crc0:
+      - crc8
+      - crc16
+      - crc32
+  parameters:
+    result_width_bits:
+      crc0:
+        crc16: 16
+        crc32: 32
+        crc8: 8
+  interrupts:
+    irq:
+      crc0:
+        svd_name: CRC
+        irqn: 4
+  identities:
+    base_address:
+      crc0: '0x40206000'
+evidence:
+  crc.feature.alr:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_ALR_EN
+    rule: crc_control_field
+  crc.feature.byteswap:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_BYTESWAP_EN
+    rule: crc_control_field
+  crc.feature.check:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_CHECK_EN
+    rule: crc_control_field
+  crc.feature.fifo_overflow:
+  - instance: crc0
+    kind: register
+    path: CRC.FIFO_OVF
+    rule: crc_register_role
+  crc.feature.fifo_threshold:
+  - instance: crc0
+    kind: field
+    path: CRC.FIFO_TRHD.CRC_FIFO_TRHD
+    rule: crc_register_role
+  crc.feature.initial_seed:
+  - instance: crc0
+    kind: field
+    path: CRC.INI.CRC_INI
+    rule: crc_register_role
+  crc.feature.irq_clear:
+  - instance: crc0
+    kind: field
+    path: CRC.INT_CLR.CRC_BEF_INT_CLR
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_CLR.CRC_CMF_INT_CLR
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_CLR.CRC_LEF_INT_CLR
+    rule: crc_register_role
+  crc.feature.irq_enable:
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_BEF_INT_EN
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_CMF_INT_EN
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_LEF_INT_EN
+    rule: crc_register_role
+  crc.feature.irq_force:
+  - instance: crc0
+    kind: field
+    path: CRC.INT_FORCE_IND.CRC_BEF_INT_FORCE_IND
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_FORCE_IND.CRC_CMF_INT_FORCE_IND
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_FORCE_IND.CRC_LEF_INT_FORCE_IND
+    rule: crc_register_role
+  crc.feature.irq_mask:
+  - instance: crc0
+    kind: field
+    path: CRC.INT_MASK.CRC_BEF_INT_MASK
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_MASK.CRC_CMF_INT_MASK
+    rule: crc_register_role
+  - instance: crc0
+    kind: field
+    path: CRC.INT_MASK.CRC_LEF_INT_MASK
+    rule: crc_register_role
+  crc.feature.irq_raw_status:
+  - instance: crc0
+    kind: register
+    path: CRC.INT_RAW_RPT
+    rule: crc_register_role
+  crc.feature.irq_status:
+  - instance: crc0
+    kind: register
+    path: CRC.INT_STATUS_RPT
+    rule: crc_register_role
+  crc.feature.length:
+  - instance: crc0
+    kind: field
+    path: CRC.LENGTH.CRC_LENGTH
+    rule: crc_register_role
+  crc.feature.module_enable:
+  - instance: crc0
+    kind: field
+    path: CRC.MODULE_EN.CRC_EN
+    rule: crc_register_role
+  crc.feature.polynomial:
+  - instance: crc0
+    kind: field
+    path: CRC.POLY.CRC_POLY
+    rule: crc_register_role
+  crc.feature.refin:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_REFIN_EN
+    rule: crc_control_field
+  crc.feature.refout:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_REFOUT_EN
+    rule: crc_control_field
+  crc.feature.result:
+  - instance: crc0
+    kind: register
+    path: CRC.RES
+    rule: crc_register_role
+  crc.feature.xor_out:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_XORSEL
+    rule: crc_control_field
+  crc.identity.base_address:
+  - instance: crc0
+    kind: peripheral
+    path: CRC.baseAddress
+    rule: direct
+  crc.interrupt.irq:
+  - instance: crc0
+    kind: interrupt
+    path: CRC.interrupt.CRC
+    rule: direct
+  crc.limit.fifo_threshold_max:
+  - instance: crc0
+    kind: field
+    path: CRC.FIFO_TRHD.CRC_FIFO_TRHD
+    rule: description_declares_reset_maximum
+  crc.limit.length_field_max:
+  - instance: crc0
+    kind: field
+    path: CRC.LENGTH.CRC_LENGTH
+    rule: field_encoding_max
+  crc.option.byte_swap_modes:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_BYTESWAP_EN
+    rule: description_mode_scope
+  crc.option.irq_sources:
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_BEF_INT_EN
+    rule: interrupt_source_description
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_CMF_INT_EN
+    rule: interrupt_source_description
+  - instance: crc0
+    kind: field
+    path: CRC.INT_EN.CRC_LEF_INT_EN
+    rule: interrupt_source_description
+  crc.option.modes:
+  - instance: crc0
+    kind: field
+    path: CRC.CTRL.CRC_KERNEL_SEL
+    rule: crc_kernel_labels
+  crc.parameter.result_width_bits:
+  - instance: crc0
+    kind: register
+    path: CRC.RES
+    rule: mode_label_width
+    member: crc16
+  - instance: crc0
+    kind: register
+    path: CRC.RES
+    rule: mode_label_width
+    member: crc32
+  - instance: crc0
+    kind: register
+    path: CRC.RES
+    rule: mode_label_width
+    member: crc8

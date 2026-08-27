@@ -1,0 +1,772 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: adc
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  adc0:
+    svd_name: ADC0
+  adc1:
+    svd_name: ADC1
+  adc2:
+    svd_name: ADC2
+capabilities:
+  features:
+    adc_cap_discharge:
+    - adc0
+    - adc1
+    - adc2
+    eoc_dly:
+    - adc0
+    - adc1
+    - adc2
+    flt:
+    - adc0
+    - adc1
+    - adc2
+    pflt:
+    - adc0
+    - adc1
+    - adc2
+    sarc_adc:
+    - adc0
+    - adc1
+    - adc2
+    sarc_blanking:
+    - adc0
+    - adc1
+    - adc2
+    sarc_cal_gain:
+    - adc0
+    - adc1
+    - adc2
+    sarc_cal_os:
+    - adc0
+    - adc1
+    - adc2
+    sarc_sarc:
+    - adc0
+    - adc1
+    - adc2
+    sarc_vc_filter:
+    - adc0
+    - adc1
+    - adc2
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    evtint:
+      adc0:
+        svd_name: ADC0_EVTINT
+        irqn: 120
+      adc1:
+        svd_name: ADC1_EVTINT
+        irqn: 125
+      adc2:
+        svd_name: ADC2_EVTINT
+        irqn: 130
+    int0:
+      adc1:
+        svd_name: ADC1_INT0
+        irqn: 126
+      adc2:
+        svd_name: ADC2_INT0
+        irqn: 131
+    int01:
+      adc0:
+        svd_name: ADC0_INT01
+        irqn: 121
+    int1:
+      adc1:
+        svd_name: ADC1_INT1
+        irqn: 127
+      adc2:
+        svd_name: ADC2_INT1
+        irqn: 132
+    int2:
+      adc0:
+        svd_name: ADC0_INT2
+        irqn: 123
+      adc1:
+        svd_name: ADC1_INT2
+        irqn: 128
+      adc2:
+        svd_name: ADC2_INT2
+        irqn: 133
+    int3:
+      adc0:
+        svd_name: ADC0_INT3
+        irqn: 124
+      adc1:
+        svd_name: ADC1_INT3
+        irqn: 129
+      adc2:
+        svd_name: ADC2_INT3
+        irqn: 134
+    interrupt:
+      adc0:
+        svd_name: ADC0_INT
+        irqn: 122
+  identities:
+    base_address:
+      adc0: '0x40119000'
+      adc1: '0x4011A000'
+      adc2: '0x4011B000'
+evidence:
+  adc.feature.adc_cap_discharge:
+  - instance: adc0
+    kind: field
+    path: ADC0.ADC_CTL0.ADC_CAP_DISCHARGE_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.ADC_CTL0.ADC_CAP_DISCHARGE_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.ADC_CTL0.ADC_CAP_DISCHARGE_EN
+    rule: boolean_enable_field
+  adc.feature.eoc_dly:
+  - instance: adc0
+    kind: field
+    path: ADC0.EOC_CTL.EOC_DLY_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.EOC_CTL.EOC_DLY_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.EOC_CTL.EOC_DLY_EN
+    rule: boolean_enable_field
+  adc.feature.flt:
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[0].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[10].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[11].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[12].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[13].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[14].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[15].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[1].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[2].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[3].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[4].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[5].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[6].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[7].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[8].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PC_GRP[9].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[0].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[10].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[11].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[12].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[13].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[14].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[15].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[1].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[2].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[3].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[4].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[5].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[6].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[7].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[8].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PC_GRP[9].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[0].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[10].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[11].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[12].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[13].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[14].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[15].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[1].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[2].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[3].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[4].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[5].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[6].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[7].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[8].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PC_GRP[9].PC_CTL.FLT_EN
+    rule: boolean_enable_field
+  adc.feature.pflt:
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[0].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[1].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[2].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[3].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[4].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[5].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[6].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.PFC_GRP[7].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[0].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[1].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[2].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[3].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[4].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[5].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[6].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.PFC_GRP[7].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[0].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[1].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[2].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[3].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[4].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[5].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[6].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.PFC_GRP[7].PFC_CTL.PFLT_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_adc:
+  - instance: adc0
+    kind: field
+    path: ADC0.ADC_CTL0.SARC_ADC_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.ADC_CTL0.SARC_ADC_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.ADC_CTL0.SARC_ADC_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_blanking:
+  - instance: adc0
+    kind: field
+    path: ADC0.BLK_CTL0.SARC_BLANKING_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.BLK_CTL0.SARC_BLANKING_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.BLK_CTL0.SARC_BLANKING_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_cal_gain:
+  - instance: adc0
+    kind: field
+    path: ADC0.CAL_GAIN.SARC_CAL_GAIN_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.CAL_GAIN.SARC_CAL_GAIN_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.CAL_GAIN.SARC_CAL_GAIN_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_cal_os:
+  - instance: adc0
+    kind: field
+    path: ADC0.CAL_OS.SARC_CAL_OS_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.CAL_OS.SARC_CAL_OS_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.CAL_OS.SARC_CAL_OS_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_sarc:
+  - instance: adc0
+    kind: field
+    path: ADC0.ADC_CTL0.SARC_SARC_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.ADC_CTL0.SARC_SARC_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.ADC_CTL0.SARC_SARC_EN
+    rule: boolean_enable_field
+  adc.feature.sarc_vc_filter:
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[0].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[10].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[11].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[12].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[13].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[14].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[15].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[1].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[2].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[3].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[4].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[5].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[6].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[7].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[8].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc0
+    kind: field
+    path: ADC0.VC_CTL[9].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[0].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[10].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[11].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[12].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[13].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[14].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[15].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[1].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[2].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[3].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[4].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[5].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[6].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[7].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[8].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc1
+    kind: field
+    path: ADC1.VC_CTL[9].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[0].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[10].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[11].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[12].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[13].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[14].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[15].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[1].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[2].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[3].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[4].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[5].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[6].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[7].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[8].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  - instance: adc2
+    kind: field
+    path: ADC2.VC_CTL[9].VC_CTL.SARC_VC_FILTER_EN
+    rule: boolean_enable_field
+  adc.identity.base_address:
+  - instance: adc0
+    kind: peripheral
+    path: ADC0.baseAddress
+    rule: direct
+  - instance: adc1
+    kind: peripheral
+    path: ADC1.baseAddress
+    rule: direct
+  - instance: adc2
+    kind: peripheral
+    path: ADC2.baseAddress
+    rule: direct
+  adc.interrupt.evtint:
+  - instance: adc0
+    kind: interrupt
+    path: ADC0.interrupt.ADC0_EVTINT
+    rule: direct
+  - instance: adc1
+    kind: interrupt
+    path: ADC1.interrupt.ADC1_EVTINT
+    rule: direct
+  - instance: adc2
+    kind: interrupt
+    path: ADC2.interrupt.ADC2_EVTINT
+    rule: direct
+  adc.interrupt.int0:
+  - instance: adc1
+    kind: interrupt
+    path: ADC1.interrupt.ADC1_INT0
+    rule: direct
+  - instance: adc2
+    kind: interrupt
+    path: ADC2.interrupt.ADC2_INT0
+    rule: direct
+  adc.interrupt.int01:
+  - instance: adc0
+    kind: interrupt
+    path: ADC0.interrupt.ADC0_INT01
+    rule: direct
+  adc.interrupt.int1:
+  - instance: adc1
+    kind: interrupt
+    path: ADC1.interrupt.ADC1_INT1
+    rule: direct
+  - instance: adc2
+    kind: interrupt
+    path: ADC2.interrupt.ADC2_INT1
+    rule: direct
+  adc.interrupt.int2:
+  - instance: adc0
+    kind: interrupt
+    path: ADC0.interrupt.ADC0_INT2
+    rule: direct
+  - instance: adc1
+    kind: interrupt
+    path: ADC1.interrupt.ADC1_INT2
+    rule: direct
+  - instance: adc2
+    kind: interrupt
+    path: ADC2.interrupt.ADC2_INT2
+    rule: direct
+  adc.interrupt.int3:
+  - instance: adc0
+    kind: interrupt
+    path: ADC0.interrupt.ADC0_INT3
+    rule: direct
+  - instance: adc1
+    kind: interrupt
+    path: ADC1.interrupt.ADC1_INT3
+    rule: direct
+  - instance: adc2
+    kind: interrupt
+    path: ADC2.interrupt.ADC2_INT3
+    rule: direct
+  adc.interrupt.interrupt:
+  - instance: adc0
+    kind: interrupt
+    path: ADC0.interrupt.ADC0_INT
+    rule: direct

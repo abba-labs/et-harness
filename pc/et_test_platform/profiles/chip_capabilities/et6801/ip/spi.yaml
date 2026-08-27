@@ -1,0 +1,120 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: spi
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  spi0:
+    svd_name: SPI0
+  spi1:
+    svd_name: SPI1
+  spi2:
+    svd_name: SPI2
+  spi3:
+    svd_name: SPI3
+capabilities:
+  features:
+    ssic:
+    - spi0
+    - spi1
+    - spi2
+    - spi3
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      spi0:
+        svd_name: SPI0
+        irqn: 35
+      spi1:
+        svd_name: SPI1
+        irqn: 36
+      spi2:
+        svd_name: SPI2
+        irqn: 37
+      spi3:
+        svd_name: SPI3
+        irqn: 38
+  identities:
+    base_address:
+      spi0: '0x4050B000'
+      spi1: '0x4050C000'
+      spi2: '0x4050D000'
+      spi3: '0x4050E000'
+    ssic_comp_version:
+      spi0: 842019114
+      spi1: 842019114
+      spi2: 842019114
+      spi3: 842019114
+evidence:
+  spi.feature.ssic:
+  - instance: spi0
+    kind: field
+    path: SPI0.SSIENR.SSIC_EN
+    rule: boolean_enable_field
+  - instance: spi1
+    kind: field
+    path: SPI1.SSIENR.SSIC_EN
+    rule: boolean_enable_field
+  - instance: spi2
+    kind: field
+    path: SPI2.SSIENR.SSIC_EN
+    rule: boolean_enable_field
+  - instance: spi3
+    kind: field
+    path: SPI3.SSIENR.SSIC_EN
+    rule: boolean_enable_field
+  spi.identity.base_address:
+  - instance: spi0
+    kind: peripheral
+    path: SPI0.baseAddress
+    rule: direct
+  - instance: spi1
+    kind: peripheral
+    path: SPI1.baseAddress
+    rule: direct
+  - instance: spi2
+    kind: peripheral
+    path: SPI2.baseAddress
+    rule: direct
+  - instance: spi3
+    kind: peripheral
+    path: SPI3.baseAddress
+    rule: direct
+  spi.identity.ssic_comp_version:
+  - instance: spi0
+    kind: field
+    path: SPI0.SSIC_VERSION_ID.SSIC_COMP_VERSION
+    rule: readonly_reset_identity
+  - instance: spi1
+    kind: field
+    path: SPI1.SSIC_VERSION_ID.SSIC_COMP_VERSION
+    rule: readonly_reset_identity
+  - instance: spi2
+    kind: field
+    path: SPI2.SSIC_VERSION_ID.SSIC_COMP_VERSION
+    rule: readonly_reset_identity
+  - instance: spi3
+    kind: field
+    path: SPI3.SSIC_VERSION_ID.SSIC_COMP_VERSION
+    rule: readonly_reset_identity
+  spi.interrupt.irq:
+  - instance: spi0
+    kind: interrupt
+    path: SPI0.interrupt.SPI0
+    rule: direct
+  - instance: spi1
+    kind: interrupt
+    path: SPI1.interrupt.SPI1
+    rule: direct
+  - instance: spi2
+    kind: interrupt
+    path: SPI2.interrupt.SPI2
+    rule: direct
+  - instance: spi3
+    kind: interrupt
+    path: SPI3.interrupt.SPI3
+    rule: direct

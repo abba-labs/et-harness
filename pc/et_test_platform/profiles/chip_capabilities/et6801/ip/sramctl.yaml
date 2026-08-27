@@ -1,0 +1,188 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: sramctl
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  sramctl0:
+    svd_name: SRAMCTL0
+  sramctl1:
+    svd_name: SRAMCTL1
+capabilities:
+  features:
+    axi2_sram_lp:
+    - sramctl0
+    - sramctl1
+    bank0_ecc_merr_interrupt:
+    - sramctl0
+    - sramctl1
+    bank0_ecc_serr_interrupt:
+    - sramctl0
+    - sramctl1
+    bank1_ecc_merr_interrupt:
+    - sramctl0
+    - sramctl1
+    bank1_ecc_serr_interrupt:
+    - sramctl0
+    - sramctl1
+    bresp_with_ecc:
+    - sramctl0
+    - sramctl1
+    ecc_chk:
+    - sramctl0
+    - sramctl1
+    init:
+    - sramctl0
+    - sramctl1
+    rresp_with_ecc:
+    - sramctl0
+    - sramctl1
+    serr_correction:
+    - sramctl0
+    - sramctl1
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    sram0_ecc_merr:
+      sramctl0:
+        svd_name: SRAM0_ECC_MERR
+        irqn: 100
+    sram0_ecc_serr:
+      sramctl0:
+        svd_name: SRAM0_ECC_SERR
+        irqn: 99
+    sram1_ecc_merr:
+      sramctl1:
+        svd_name: SRAM1_ECC_MERR
+        irqn: 102
+    sram1_ecc_serr:
+      sramctl1:
+        svd_name: SRAM1_ECC_SERR
+        irqn: 101
+  identities:
+    base_address:
+      sramctl0: '0x40608000'
+      sramctl1: '0x40609000'
+evidence:
+  sramctl.feature.axi2_sram_lp:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.AXI2SRAM_LP_CTRL.AXI2SRAM_LP_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.AXI2SRAM_LP_CTRL.AXI2SRAM_LP_EN
+    rule: boolean_enable_field
+  sramctl.feature.bank0_ecc_merr_interrupt:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.INT_EN.BANK0_ECC_MERR_INT_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.INT_EN.BANK0_ECC_MERR_INT_EN
+    rule: boolean_enable_field
+  sramctl.feature.bank0_ecc_serr_interrupt:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.INT_EN.BANK0_ECC_SERR_INT_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.INT_EN.BANK0_ECC_SERR_INT_EN
+    rule: boolean_enable_field
+  sramctl.feature.bank1_ecc_merr_interrupt:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.INT_EN.BANK1_ECC_MERR_INT_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.INT_EN.BANK1_ECC_MERR_INT_EN
+    rule: boolean_enable_field
+  sramctl.feature.bank1_ecc_serr_interrupt:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.INT_EN.BANK1_ECC_SERR_INT_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.INT_EN.BANK1_ECC_SERR_INT_EN
+    rule: boolean_enable_field
+  sramctl.feature.bresp_with_ecc:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.AXI2SRAM_CTRL.BRESP_WITH_ECC_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.AXI2SRAM_CTRL.BRESP_WITH_ECC_EN
+    rule: boolean_enable_field
+  sramctl.feature.ecc_chk:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.AXI2SRAM_CTRL.ECC_CHK_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.AXI2SRAM_CTRL.ECC_CHK_EN
+    rule: boolean_enable_field
+  sramctl.feature.init:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.INIT_EN.INIT_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.INIT_EN.INIT_EN
+    rule: boolean_enable_field
+  sramctl.feature.rresp_with_ecc:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.AXI2SRAM_CTRL.RRESP_WITH_ECC_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.AXI2SRAM_CTRL.RRESP_WITH_ECC_EN
+    rule: boolean_enable_field
+  sramctl.feature.serr_correction:
+  - instance: sramctl0
+    kind: field
+    path: SRAMCTL0.AXI2SRAM_CTRL.SERR_CORRECTION_EN
+    rule: boolean_enable_field
+  - instance: sramctl1
+    kind: field
+    path: SRAMCTL1.AXI2SRAM_CTRL.SERR_CORRECTION_EN
+    rule: boolean_enable_field
+  sramctl.identity.base_address:
+  - instance: sramctl0
+    kind: peripheral
+    path: SRAMCTL0.baseAddress
+    rule: direct
+  - instance: sramctl1
+    kind: peripheral
+    path: SRAMCTL1.baseAddress
+    rule: direct
+  sramctl.interrupt.sram0_ecc_merr:
+  - instance: sramctl0
+    kind: interrupt
+    path: SRAMCTL0.interrupt.SRAM0_ECC_MERR
+    rule: direct
+  sramctl.interrupt.sram0_ecc_serr:
+  - instance: sramctl0
+    kind: interrupt
+    path: SRAMCTL0.interrupt.SRAM0_ECC_SERR
+    rule: direct
+  sramctl.interrupt.sram1_ecc_merr:
+  - instance: sramctl1
+    kind: interrupt
+    path: SRAMCTL1.interrupt.SRAM1_ECC_MERR
+    rule: direct
+  sramctl.interrupt.sram1_ecc_serr:
+  - instance: sramctl1
+    kind: interrupt
+    path: SRAMCTL1.interrupt.SRAM1_ECC_SERR
+    rule: direct

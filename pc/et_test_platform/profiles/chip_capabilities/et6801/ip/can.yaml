@@ -1,0 +1,117 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: can
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  can0:
+    svd_name: CAN0
+  can1:
+    svd_name: CAN1
+  can2:
+    svd_name: CAN2
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    dmu:
+      can0:
+        svd_name: CAN0_DMU
+        irqn: 41
+      can1:
+        svd_name: CAN1_DMU
+        irqn: 44
+      can2:
+        svd_name: CAN2_DMU
+        irqn: 47
+    ecc:
+      can2:
+        svd_name: CAN_ECC
+        irqn: 48
+    int0:
+      can0:
+        svd_name: CAN0_INT0
+        irqn: 39
+      can1:
+        svd_name: CAN1_INT0
+        irqn: 42
+      can2:
+        svd_name: CAN2_INT0
+        irqn: 45
+    int1:
+      can0:
+        svd_name: CAN0_INT1
+        irqn: 40
+      can1:
+        svd_name: CAN1_INT1
+        irqn: 43
+      can2:
+        svd_name: CAN2_INT1
+        irqn: 46
+  identities:
+    base_address:
+      can0: '0x40518000'
+      can1: '0x40520000'
+      can2: '0x40528000'
+evidence:
+  can.identity.base_address:
+  - instance: can0
+    kind: peripheral
+    path: CAN0.baseAddress
+    rule: direct
+  - instance: can1
+    kind: peripheral
+    path: CAN1.baseAddress
+    rule: direct
+  - instance: can2
+    kind: peripheral
+    path: CAN2.baseAddress
+    rule: direct
+  can.interrupt.dmu:
+  - instance: can0
+    kind: interrupt
+    path: CAN0.interrupt.CAN0_DMU
+    rule: direct
+  - instance: can1
+    kind: interrupt
+    path: CAN1.interrupt.CAN1_DMU
+    rule: direct
+  - instance: can2
+    kind: interrupt
+    path: CAN2.interrupt.CAN2_DMU
+    rule: direct
+  can.interrupt.ecc:
+  - instance: can2
+    kind: interrupt
+    path: CAN2.interrupt.CAN_ECC
+    rule: direct
+  can.interrupt.int0:
+  - instance: can0
+    kind: interrupt
+    path: CAN0.interrupt.CAN0_INT0
+    rule: direct
+  - instance: can1
+    kind: interrupt
+    path: CAN1.interrupt.CAN1_INT0
+    rule: direct
+  - instance: can2
+    kind: interrupt
+    path: CAN2.interrupt.CAN2_INT0
+    rule: direct
+  can.interrupt.int1:
+  - instance: can0
+    kind: interrupt
+    path: CAN0.interrupt.CAN0_INT1
+    rule: direct
+  - instance: can1
+    kind: interrupt
+    path: CAN1.interrupt.CAN1_INT1
+    rule: direct
+  - instance: can2
+    kind: interrupt
+    path: CAN2.interrupt.CAN2_INT1
+    rule: direct

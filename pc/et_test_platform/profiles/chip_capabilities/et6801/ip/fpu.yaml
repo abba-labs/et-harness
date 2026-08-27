@@ -1,0 +1,25 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: fpu
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  fpu0:
+    svd_name: FPU
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      fpu0: '0xE000EF34'
+evidence:
+  fpu.identity.base_address:
+  - instance: fpu0
+    kind: peripheral
+    path: FPU.baseAddress
+    rule: direct

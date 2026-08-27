@@ -1,0 +1,45 @@
+schema: et-ip-capability/v2
+chip: et_contract_test
+ip: uart
+
+source:
+  file: contract_test.svd
+  sha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  generator_version: 2
+
+instances:
+  uart0:
+    svd_name: UART0
+
+capabilities:
+  features:
+    fifo: [uart0]
+  limits:
+    fifo_depth:
+      uart0: 32
+  options:
+    data_bits:
+      uart0: [5, 6, 7, 8]
+    parity_modes:
+      uart0: [none, odd, even]
+  parameters: {}
+  interrupts:
+    rx_available:
+      uart0: {svd_name: UART0_RX, irqn: 30}
+  identities:
+    base_address:
+      uart0: "0x40300000"
+
+evidence:
+  uart.feature.fifo:
+    - {instance: uart0, kind: field, path: UART0.FCR.FIFOE, rule: field_presence}
+  uart.limit.fifo_depth:
+    - {instance: uart0, kind: field, path: UART0.CPR.FIFO_MODE, rule: encoded_value}
+  uart.option.data_bits:
+    - {instance: uart0, kind: field, path: UART0.LCR.DLS, rule: inline_values}
+  uart.option.parity_modes:
+    - {instance: uart0, kind: field, path: UART0.LCR.PEN, rule: inline_values}
+  uart.interrupt.rx_available:
+    - {instance: uart0, kind: interrupt, path: UART0.interrupt.UART0_RX, rule: direct}
+  uart.identity.base_address:
+    - {instance: uart0, kind: peripheral, path: UART0.baseAddress, rule: direct}

@@ -1,0 +1,630 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: acmp
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  acmp0:
+    svd_name: ACMP0
+  acmp1:
+    svd_name: ACMP1
+  acmp2:
+    svd_name: ACMP2
+  acmp3:
+    svd_name: ACMP3
+  acmp4:
+    svd_name: ACMP4
+  acmp5:
+    svd_name: ACMP5
+  acmp6:
+    svd_name: ACMP6
+  acmp7:
+    svd_name: ACMP7
+  acmp8:
+    svd_name: ACMP8
+  acmp9:
+    svd_name: ACMP9
+  acmp10:
+    svd_name: ACMP10
+capabilities:
+  features:
+    cmp0:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmp1:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmpc_dac0:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmpc_dac0_hdsk:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmpc_dac1:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmpc_dac1_hdsk:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmph_dgt_flt:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+    cmpl_dgt_flt:
+    - acmp0
+    - acmp1
+    - acmp2
+    - acmp3
+    - acmp4
+    - acmp5
+    - acmp6
+    - acmp7
+    - acmp8
+    - acmp9
+    - acmp10
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      acmp0:
+        svd_name: ACMP0
+        irqn: 107
+      acmp1:
+        svd_name: ACMP1
+        irqn: 108
+      acmp2:
+        svd_name: ACMP2
+        irqn: 109
+      acmp3:
+        svd_name: ACMP3
+        irqn: 110
+      acmp4:
+        svd_name: ACMP4
+        irqn: 111
+      acmp5:
+        svd_name: ACMP5
+        irqn: 112
+      acmp6:
+        svd_name: ACMP6
+        irqn: 113
+      acmp7:
+        svd_name: ACMP7
+        irqn: 114
+      acmp8:
+        svd_name: ACMP8
+        irqn: 115
+      acmp9:
+        svd_name: ACMP9
+        irqn: 116
+      acmp10:
+        svd_name: ACMP10
+        irqn: 117
+  identities:
+    base_address:
+      acmp0: '0x40104000'
+      acmp1: '0x40105000'
+      acmp2: '0x40106000'
+      acmp3: '0x40107000'
+      acmp4: '0x40108000'
+      acmp5: '0x40109000'
+      acmp6: '0x4010A000'
+      acmp7: '0x4010B000'
+      acmp8: '0x4010C000'
+      acmp9: '0x4010D000'
+      acmp10: '0x4010E000'
+evidence:
+  acmp.feature.cmp0:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.CMP_ANA_SET.CMP0_EN
+    rule: boolean_enable_field
+  acmp.feature.cmp1:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.CMP_ANA_SET.CMP1_EN
+    rule: boolean_enable_field
+  acmp.feature.cmpc_dac0:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.CMP_ANA_SET.CMPC_DAC0_EN
+    rule: boolean_enable_field
+  acmp.feature.cmpc_dac0_hdsk:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.DAC_HDSK_EN.CMPC_DAC0_HDSK_EN
+    rule: boolean_enable_field
+  acmp.feature.cmpc_dac1:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.CMP_ANA_SET.CMPC_DAC1_EN
+    rule: boolean_enable_field
+  acmp.feature.cmpc_dac1_hdsk:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.DAC_HDSK_EN.CMPC_DAC1_HDSK_EN
+    rule: boolean_enable_field
+  acmp.feature.cmph_dgt_flt:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.DGTFLT_CTL.CMPH_DGT_FLT_EN
+    rule: boolean_enable_field
+  acmp.feature.cmpl_dgt_flt:
+  - instance: acmp0
+    kind: field
+    path: ACMP0.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp1
+    kind: field
+    path: ACMP1.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp10
+    kind: field
+    path: ACMP10.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp2
+    kind: field
+    path: ACMP2.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp3
+    kind: field
+    path: ACMP3.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp4
+    kind: field
+    path: ACMP4.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp5
+    kind: field
+    path: ACMP5.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp6
+    kind: field
+    path: ACMP6.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp7
+    kind: field
+    path: ACMP7.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp8
+    kind: field
+    path: ACMP8.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  - instance: acmp9
+    kind: field
+    path: ACMP9.DGTFLT_CTL.CMPL_DGT_FLT_EN
+    rule: boolean_enable_field
+  acmp.identity.base_address:
+  - instance: acmp0
+    kind: peripheral
+    path: ACMP0.baseAddress
+    rule: direct
+  - instance: acmp1
+    kind: peripheral
+    path: ACMP1.baseAddress
+    rule: direct
+  - instance: acmp10
+    kind: peripheral
+    path: ACMP10.baseAddress
+    rule: direct
+  - instance: acmp2
+    kind: peripheral
+    path: ACMP2.baseAddress
+    rule: direct
+  - instance: acmp3
+    kind: peripheral
+    path: ACMP3.baseAddress
+    rule: direct
+  - instance: acmp4
+    kind: peripheral
+    path: ACMP4.baseAddress
+    rule: direct
+  - instance: acmp5
+    kind: peripheral
+    path: ACMP5.baseAddress
+    rule: direct
+  - instance: acmp6
+    kind: peripheral
+    path: ACMP6.baseAddress
+    rule: direct
+  - instance: acmp7
+    kind: peripheral
+    path: ACMP7.baseAddress
+    rule: direct
+  - instance: acmp8
+    kind: peripheral
+    path: ACMP8.baseAddress
+    rule: direct
+  - instance: acmp9
+    kind: peripheral
+    path: ACMP9.baseAddress
+    rule: direct
+  acmp.interrupt.irq:
+  - instance: acmp0
+    kind: interrupt
+    path: ACMP0.interrupt.ACMP0
+    rule: direct
+  - instance: acmp1
+    kind: interrupt
+    path: ACMP1.interrupt.ACMP1
+    rule: direct
+  - instance: acmp10
+    kind: interrupt
+    path: ACMP10.interrupt.ACMP10
+    rule: direct
+  - instance: acmp2
+    kind: interrupt
+    path: ACMP2.interrupt.ACMP2
+    rule: direct
+  - instance: acmp3
+    kind: interrupt
+    path: ACMP3.interrupt.ACMP3
+    rule: direct
+  - instance: acmp4
+    kind: interrupt
+    path: ACMP4.interrupt.ACMP4
+    rule: direct
+  - instance: acmp5
+    kind: interrupt
+    path: ACMP5.interrupt.ACMP5
+    rule: direct
+  - instance: acmp6
+    kind: interrupt
+    path: ACMP6.interrupt.ACMP6
+    rule: direct
+  - instance: acmp7
+    kind: interrupt
+    path: ACMP7.interrupt.ACMP7
+    rule: direct
+  - instance: acmp8
+    kind: interrupt
+    path: ACMP8.interrupt.ACMP8
+    rule: direct
+  - instance: acmp9
+    kind: interrupt
+    path: ACMP9.interrupt.ACMP9
+    rule: direct

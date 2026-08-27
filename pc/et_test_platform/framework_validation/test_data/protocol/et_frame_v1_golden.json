@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "vectors": [
+    {
+      "name": "framework_hello_request",
+      "hex": "455401010000080001000000d4c3b2a100000100000000002d77608d"
+    },
+    {
+      "name": "framework_echo_response",
+      "hex": "4554010200000a000200000040302010000002000000000045547a4e60d3"
+    }
+  ]
+}

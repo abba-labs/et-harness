@@ -1,0 +1,39 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: wag
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  wag0:
+    svd_name: WAG
+capabilities:
+  features:
+    dma:
+    - wag0
+    load:
+    - wag0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      wag0: '0x40103000'
+evidence:
+  wag.feature.dma:
+  - instance: wag0
+    kind: field
+    path: WAG.DMA_EN.WAG_DMA_EN
+    rule: boolean_enable_field
+  wag.feature.load:
+  - instance: wag0
+    kind: field
+    path: WAG.LOAD_EN.WAG_LOAD_EN
+    rule: boolean_enable_field
+  wag.identity.base_address:
+  - instance: wag0
+    kind: peripheral
+    path: WAG.baseAddress
+    rule: direct

@@ -1,0 +1,242 @@
+schema: et.module-profile.v1
+id: firmware-platform
+summary: 跨IP固件协议、命令路由、资源、中断及芯片构建适配。
+parameters:
+  required: []
+  optional: [chip]
+architecture_chain:
+  - UART ISR -> Ring Buffer -> ET-Frame -> Service Router -> Own Service
+  - Service -> Own Wrap -> Own Chip Driver
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: Firmware公共层和芯片适配边界
+      required: true
+    - path: report/design/rules/R300_firmware_service.md
+      reason: Firmware Service稳定执行边界
+      required: true
+    - path: report/design/rules/R330_firmware_c_style.md
+      reason: 平台自有Firmware C源码的格式、函数可读性、注释和语义常量规则
+      required: true
+  rules:
+    - firmware_service_responsibility
+    - firmware_wrap_responsibility
+    - firmware_c_style
+  protected_scopes:
+    - pc/et_test_platform/test_cases/**
+    - pc/et_test_platform/drivers/**
+
+changes:
+  manual-test:
+    required_parameters: [chip]
+    read:
+      - path: report/design/rules/R340_firmware_manual_diagnostics.md
+        reason: 手动诊断入口、极简Case、打印和自动化隔离规则
+        required: true
+      - path: firmware/manual_tests/{chip}
+        reason: 目标芯片现有手动诊断代码
+        required: false
+      - path: firmware/application/src/main.c
+        reason: 自动化与手动固件的唯一编译期入口分支
+        required: true
+      - path: firmware/chips/{chip}
+        reason: 允许复用的目标芯片Startup、System和ET SDK Driver
+        required: false
+    rules:
+      - firmware_manual_diagnostics
+      - firmware_c_style
+      - chip_adaptation_boundary
+    write_scopes:
+      - firmware/manual_tests/{chip}/**
+      - firmware/application/src/main.c
+      - firmware/chips/{chip}/project.yaml
+      - firmware/build/{chip}/**
+    validation:
+      - python tools/quality/check_firmware_c_format.py
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+  application:
+    read:
+      - path: firmware/application
+        reason: Firmware公共入口、初始化顺序和控制UART ISR
+        required: true
+      - path: report/design/rules/R400_et_frame_v1.md
+        reason: 控制通信Wire和事务契约
+        required: true
+      - path: report/design/rules/R320_interrupt_subsystem.md
+        reason: 控制UART中断注册、分发和清理边界
+        required: true
+    rules:
+      - firmware_service_responsibility
+      - firmware_wrap_responsibility
+      - interrupt_subsystem
+      - et_frame_v1
+    write_scopes:
+      - firmware/application/**
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  service-registry:
+    read:
+      - path: firmware/services/include/et_services.h
+        reason: 公共Service组合和注册入口
+        required: true
+      - path: firmware/services/src/et_services.c
+        reason: 公共Service生命周期和路由注册实现
+        required: true
+    rules:
+      - firmware_service_responsibility
+      - et_frame_v1
+    write_scopes:
+      - firmware/services/include/et_service_factory.h
+      - firmware/services/include/et_services.h
+      - firmware/services/src/et_services.c
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  wrap-contract:
+    read:
+      - path: firmware/wrap/include/et_wrap_status.h
+        reason: 所有IP Wrap共用的稳定状态语义
+        required: true
+      - path: firmware/wrap/include/et_irq_types.h
+        reason: 所有IP Wrap共用的中断语义类型
+        required: true
+    rules:
+      - firmware_wrap_responsibility
+      - interrupt_subsystem
+    write_scopes:
+      - firmware/wrap/include/et_wrap_status.h
+      - firmware/wrap/include/et_irq_types.h
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  docs:
+    read:
+      - path: firmware/README.md
+        reason: Firmware目录导航和局部使用说明
+        required: true
+    rules:
+      - firmware_service_responsibility
+      - firmware_wrap_responsibility
+    write_scopes:
+      - firmware/**/*.md
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+
+  framework:
+    read:
+      - path: firmware/framework
+        reason: 公共协议、命令、缓冲区、资源和中断实现
+        required: true
+      - path: report/design/rules/R400_et_frame_v1.md
+        reason: 公共Wire和事务契约
+        required: true
+    rules:
+      - et_frame_v1
+      - interrupt_subsystem
+    write_scopes:
+      - firmware/framework/**
+      - tools/validation/run_uart_protocol_fault_smoke.py
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+
+  irq:
+    read:
+      - path: firmware/framework
+        reason: IRQ Manager和公共回调分发
+        required: true
+      - path: firmware/wrap/include/et_irq_wrap.h
+        reason: 稳定IRQ Wrap接口
+        required: true
+      - path: report/design/rules/R320_interrupt_subsystem.md
+        reason: IRQ语义、绑定、分发和清理契约
+        required: true
+    rules:
+      - interrupt_subsystem
+      - firmware_wrap_responsibility
+    write_scopes:
+      - firmware/framework/**
+      - firmware/wrap/include/et_irq_wrap.h
+      - firmware/wrap/src/et_irq_wrap.c
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_irq_*_native.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract/test_irq_manager_reliability_native.py pc/et_test_platform/framework_validation/unit/firmware_contract/test_irq_capture_fault_contract.py
+
+  chip:
+    required_parameters: [chip]
+    read:
+      - path: firmware/chips/{chip}
+        reason: 目标芯片SDK、启动、系统和驱动适配
+        required: false
+      - path: firmware/boards
+        reason: Board宏和Chip Wrap Config绑定
+        required: true
+    rules:
+      - chip_adaptation_boundary
+      - firmware_wrap_responsibility
+      - firmware_c_style
+    write_scopes:
+      - firmware/chips/{chip}/**
+      - firmware/boards/**
+      - firmware/build/{chip}/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+
+  build:
+    required_parameters: [chip]
+    read:
+      - path: firmware/chips/{chip}/project.yaml
+        reason: 目标芯片工程Manifest
+        required: false
+      - path: tools/firmware
+        reason: 工程生成、编译和下载工具
+        required: true
+    rules:
+      - chip_adaptation_boundary
+    write_scopes:
+      - firmware/chips/{chip}/project.yaml
+      - firmware/build/{chip}/**
+      - tools/firmware/**
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+
+  formatting:
+    read:
+      - path: .clang-format
+        reason: 平台自有Firmware C源码的唯一格式配置
+        required: false
+      - path: tools/quality/check_firmware_c_format.py
+        reason: 自动格式检查、范围保护和只读Diff分类入口
+        required: false
+      - path: tools/quality/check_firmware_c_quality.py
+        reason: 函数Doxygen、Flow导航和可读性增量门禁
+        required: false
+    rules:
+      - firmware_c_style
+    write_scopes:
+      - .clang-format
+      - firmware/application/**
+      - firmware/boards/**
+      - firmware/framework/**
+      - firmware/services/**
+      - firmware/wrap/**
+      - tools/quality/check_firmware_c_format.py
+      - tools/quality/check_firmware_c_quality.py
+      - tools/validate_pc.py
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_format.py
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_quality.py
+    validation:
+      - python tools/quality/check_firmware_c_format.py
+      - python tools/quality/check_firmware_c_quality.py
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_format.py
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_quality.py

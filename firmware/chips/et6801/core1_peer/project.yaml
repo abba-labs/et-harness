@@ -1,0 +1,80 @@
+schema_version: 1
+chip: et6801
+device: ET6801
+template_root: project
+template_project: firmware/chips/et6801/keil/templates/base.uvprojx
+template_options: firmware/chips/et6801/keil/templates/base.uvoptx
+output_project: firmware/build/et6801/core1_peer/ET6801_Core1_Peer.uvprojx
+jlink_settings: firmware/chips/et6801/core1_peer/debug/JLinkSettings.ini
+
+targets:
+  - name: ET6801_CORE1_ITCM_PEER
+    template_target: ET6801_FPGA_ITCM
+    define: ET_TARGET_FPGA
+    output_name: et6801_core1_itcm_peer
+    output_directory: .\Objects\CORE1_ITCM_PEER\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/core1_peer/linker/link_core1_itcm.sct
+    debug_driver: jlink
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IROM(0x00000000,0x40000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 1
+      update_flash_before_debugging: 0
+    defines:
+      - ET6801
+      - CPU1_CODE
+      - ITCM_CODE
+      - FPGA_VERSION
+      - ET_TARGET_FPGA
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+  - name: ET6801_CORE1_PFLASH1_PEER
+    template_target: ET6801_SILICON_FLASH
+    define: ET_TARGET_SILICON
+    output_name: et6801_core1_pflash1_peer
+    output_directory: .\Objects\CORE1_PFLASH1_PEER\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/core1_peer/linker/link_core1_pflash1.sct
+    flash_driver: 'UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0ET6801 -FS08080000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM))'
+    debug_driver: jlink
+    jlink_flash_loader_args: '-FN1 -FF0ET6801.FLM -FS08080000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM)'
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IROM(0x08080000,0x80000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 0
+      update_flash_before_debugging: 1
+    defines:
+      - ET6801
+      - CPU1_CODE
+      - FLASH_CODE
+      - FPGA_VERSION
+      - ET_TARGET_SILICON
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+
+project_groups:
+  Core1_Peer:
+    - firmware/chips/et6801/core1_peer/include/et_core1_peer_shared.h
+    - firmware/chips/et6801/core1_peer/src/et_core1_peer_main.c
+  Chip_Startup:
+    - firmware/chips/et6801/sdk/CMSIS/Device/Source/ARM/startup_et6801.s
+  Chip_System:
+    - firmware/chips/et6801/sdk/CMSIS/Device/Source/system_et6x.c
+  Chip_Drivers:
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_dualcore.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_spinlock.c
+
+project_includes:
+  - firmware/chips/et6801/core1_peer/include
+  - firmware/chips/et6801/sdk/CMSIS/Core/Include
+  - firmware/chips/et6801/sdk/CMSIS/Device/Include
+  - firmware/chips/et6801/sdk/ET6x_Driver/Inc

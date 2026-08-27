@@ -1,0 +1,107 @@
+schema: et.module-profile.v1
+id: companion-platform
+summary: 通用FPGA配测平台、开发板Peer和外部仪器的公共接口与实现。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - Formal Case -> Instrument/Companion Interface -> Device Adapter -> Hardware
+  - Hardware Observation -> Canonical Observation -> Case Assertion
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 配测设备、芯片中立和硬件证据边界
+      required: true
+    - path: companion/README.md
+      reason: 当前配测设备代码定位
+      required: true
+    - path: pc/et_test_platform/instruments
+      reason: PC仪器公共接口
+      required: true
+  rules:
+    - pc_layer_responsibilities
+    - canonical_result_evidence
+    - companion_platform_responsibility
+  protected_scopes:
+    - firmware/services/**
+    - firmware/wrap/**
+
+changes:
+  docs:
+    read:
+      - path: companion/README.md
+        reason: 配测设备目录导航和当前实现状态
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - canonical_result_evidence
+      - companion_platform_responsibility
+    write_scopes:
+      - companion/**/*.md
+      - pc/et_test_platform/instruments/**/*.md
+    validation:
+      - python tools/governance/compile_task_context.py validate
+
+  interface:
+    read:
+      - path: pc/et_test_platform/instruments
+        reason: 仪器和配测设备稳定公共接口
+        required: true
+    rules:
+      - pc_layer_responsibilities
+    write_scopes:
+      - pc/et_test_platform/instruments/**
+      - pc/et_test_platform/framework_validation/unit/instruments/**
+    validation:
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/instruments
+
+  companion:
+    read:
+      - path: companion
+        reason: 配测设备Firmware和RTL代码
+        required: true
+    rules:
+      - companion_platform_responsibility
+      - canonical_result_evidence
+    write_scopes:
+      - companion/**
+      - pc/et_test_platform/instruments/**
+    validation:
+      - python tools/validate_pc.py
+
+  fpga:
+    read:
+      - path: tools/fpga
+        reason: FPGA配置、JTAG和现有诊断流程
+        required: true
+      - path: companion
+        reason: 通用FPGA配测平台代码
+        required: true
+    rules:
+      - operator_pipeline
+      - companion_platform_responsibility
+      - canonical_result_evidence
+    write_scopes:
+      - companion/**
+      - tools/fpga/**
+      - tools/validation/fpga_*.tcl
+      - tools/validation/run_xc7z045_*.ps1
+      - pc/et_test_platform/instruments/**
+    validation:
+      - python tools/validate_pc.py
+
+  instrument:
+    read:
+      - path: pc/et_test_platform/instruments
+        reason: 外部仪器接口与Adapter
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - canonical_result_evidence
+      - companion_platform_responsibility
+    write_scopes:
+      - pc/et_test_platform/instruments/**
+      - pc/et_test_platform/framework_validation/unit/instruments/**
+    validation:
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/instruments

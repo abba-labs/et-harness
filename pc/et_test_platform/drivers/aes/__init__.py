@@ -1,0 +1,77 @@
+# AES PC Driver 公共导出入口。
+#
+# 职责：导出稳定 AES Model、协议常量和 Driver API。
+# 边界：导入阶段不执行设备操作，也不暴露内部实现。
+# 依赖：仅依赖本 AES Driver Package。
+
+from .contract import (
+    AES_BLOCK_SIZE,
+    AES_CAPABILITIES_SIZE,
+    AES_CONFIGURE_SIZE,
+    AES_DATA_LENGTH_SIZE,
+    AES_IRQ_SNAPSHOT_SIZE,
+    AES_IRQ_TRANSFER_STATUS_SIZE,
+    AES_IV_SIZE,
+    AES_KEY_SET_SIZE,
+    AES_PROCESS_RESULT_SIZE,
+    AES_PROCESS_SIZE,
+    AES_SERVICE_API_VERSION,
+    AES_SERVICE_ID,
+    AES_STATUS_SIZE,
+    AES_TIMED_RESULT_SIZE,
+    AesCommand,
+)
+from .driver import AesDriver
+from .models import (
+    AesCapabilities,
+    AesConfig,
+    AesDirection,
+    AesDmaTransferMode,
+    AesEndian,
+    AesFeature,
+    AesIrqEvent,
+    AesIrqSnapshot,
+    AesIrqTransferState,
+    AesIrqTransferStatus,
+    AesKeySize,
+    AesMode,
+    AesPadding,
+    AesProcessResult,
+    AesStatus,
+    AesTimedResult,
+)
+
+__all__ = [
+    "AES_BLOCK_SIZE",
+    "AES_CAPABILITIES_SIZE",
+    "AES_CONFIGURE_SIZE",
+    "AES_DATA_LENGTH_SIZE",
+    "AES_IV_SIZE",
+    "AES_KEY_SET_SIZE",
+    "AES_PROCESS_RESULT_SIZE",
+    "AES_PROCESS_SIZE",
+    "AES_SERVICE_API_VERSION",
+    "AES_SERVICE_ID",
+    "AES_STATUS_SIZE",
+    "AES_TIMED_RESULT_SIZE",
+    "AES_IRQ_SNAPSHOT_SIZE",
+    "AES_IRQ_TRANSFER_STATUS_SIZE",
+    "AesCapabilities",
+    "AesCommand",
+    "AesConfig",
+    "AesDirection",
+    "AesDmaTransferMode",
+    "AesDriver",
+    "AesEndian",
+    "AesFeature",
+    "AesIrqEvent",
+    "AesIrqSnapshot",
+    "AesIrqTransferState",
+    "AesIrqTransferStatus",
+    "AesKeySize",
+    "AesMode",
+    "AesPadding",
+    "AesProcessResult",
+    "AesStatus",
+    "AesTimedResult",
+]

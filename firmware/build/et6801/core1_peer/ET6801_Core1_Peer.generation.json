@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "chip": "et6801",
+  "manifest": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\core1_peer\\project.yaml",
+  "template": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\keil\\templates\\base.uvprojx",
+  "template_root": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code",
+  "sdk_root": null,
+  "output": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvprojx",
+  "sha256": "d6d97322cc823c5f6578036fdd393b2399a2f08f0c2134bd329a580b689efe6b",
+  "targets": [
+    {
+      "name": "ET6801_CORE1_ITCM_PEER",
+      "template_target": "ET6801_FPGA_ITCM",
+      "defines": [
+        "ET6801",
+        "CPU1_CODE",
+        "ITCM_CODE",
+        "FPGA_VERSION",
+        "ET_TARGET_FPGA",
+        "ET_ENABLE_TEST_DRIVER_EXTENSIONS"
+      ],
+      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_itcm.sct",
+      "project_includes": []
+    },
+    {
+      "name": "ET6801_CORE1_PFLASH1_PEER",
+      "template_target": "ET6801_SILICON_FLASH",
+      "defines": [
+        "ET6801",
+        "CPU1_CODE",
+        "FLASH_CODE",
+        "FPGA_VERSION",
+        "ET_TARGET_SILICON",
+        "ET_ENABLE_TEST_DRIVER_EXTENSIONS"
+      ],
+      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_pflash1.sct",
+      "project_includes": []
+    }
+  ],
+  "support_files": {
+    "keil_options": {
+      "source": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\keil\\templates\\base.uvoptx",
+      "output": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvoptx",
+      "sha256": "4b91db0c1c88b04e3d83d65309771734858f13f4c9738f4dc83351ec72f8237b"
+    },
+    "jlink_settings": {
+      "source": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\chips\\et6801\\core1_peer\\debug\\JLinkSettings.ini",
+      "output": "D:\\lihuan\\vibe_code\\codex\\projects\\Et_Automated_Testing_Platform\\Et_Automated_Testing_Platform_Code\\firmware\\build\\et6801\\core1_peer\\JLinkSettings.ini",
+      "sha256": "14d040953d4fa9bdf2b675a2edc9ede197aef18a9ede669008445a0ae7dccd37"
+    }
+  }
+}

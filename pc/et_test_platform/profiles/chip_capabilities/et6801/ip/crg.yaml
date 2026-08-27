@@ -1,0 +1,46 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: crg
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  crg0:
+    svd_name: CRG
+capabilities:
+  features:
+    clk_test:
+    - crg0
+    osccal:
+    - crg0
+    osccal_extclk:
+    - crg0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      crg0: '0x4040C000'
+evidence:
+  crg.feature.clk_test:
+  - instance: crg0
+    kind: field
+    path: CRG.CLK_TEST_EN.CRG_CLK_TEST_EN
+    rule: boolean_enable_field
+  crg.feature.osccal:
+  - instance: crg0
+    kind: field
+    path: CRG.OSCCAL_EN.CRG_OSCCAL_EN
+    rule: boolean_enable_field
+  crg.feature.osccal_extclk:
+  - instance: crg0
+    kind: field
+    path: CRG.OSCCAL_CFG.CRG_OSCCAL_EXTCLK_EN
+    rule: boolean_enable_field
+  crg.identity.base_address:
+  - instance: crg0
+    kind: peripheral
+    path: CRG.baseAddress
+    rule: direct

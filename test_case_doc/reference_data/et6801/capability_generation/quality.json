@@ -1,0 +1,3289 @@
+{
+  "chip": "et6801",
+  "issues": [
+    {
+      "capability": "dma.parameter.fifo_depth",
+      "code": "component_parameter_domain_conflict",
+      "detail": "member-scoped component parameter has 2 explicit value domains",
+      "ip": "dma",
+      "severity": "warning"
+    },
+    {
+      "capability": "aes.feature.status",
+      "code": "generic_capability_name",
+      "detail": "name is too generic for stable natural-language lookup",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=mixed",
+      "ip": "adcreg",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "fpu",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "fpu_cpacr",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "iomux",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=mixed",
+      "ip": "nvic",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "nvic_stir",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=read_only",
+      "ip": "pf",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=mixed",
+      "ip": "scb",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "scb_actrl",
+      "severity": "warning"
+    },
+    {
+      "code": "identity_only_without_explicit_candidates",
+      "detail": "no semantic capability or explicit generic SVD candidate was found; register surface=writable",
+      "ip": "syscnt_ro",
+      "severity": "warning"
+    },
+    {
+      "capability": "aes.feature.iv",
+      "code": "short_name_token",
+      "detail": "opaque short token(s): iv",
+      "severity": "warning"
+    }
+  ],
+  "per_ip": {
+    "acmp": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 1474
+      },
+      "capabilities": {
+        "features": 8,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 10,
+      "capability_ids": [
+        "acmp.feature.cmp0",
+        "acmp.feature.cmp1",
+        "acmp.feature.cmpc_dac0",
+        "acmp.feature.cmpc_dac0_hdsk",
+        "acmp.feature.cmpc_dac1",
+        "acmp.feature.cmpc_dac1_hdsk",
+        "acmp.feature.cmph_dgt_flt",
+        "acmp.feature.cmpl_dgt_flt",
+        "acmp.identity.base_address",
+        "acmp.interrupt.irq"
+      ],
+      "capability_values": 110,
+      "classified_facts": 110,
+      "evidence_entries": 110,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 11,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.069444,
+      "unclassified_facts": 1474
+    },
+    "adc": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 1893
+      },
+      "capabilities": {
+        "features": 10,
+        "identities": 1,
+        "interrupts": 7,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 18,
+      "capability_ids": [
+        "adc.feature.adc_cap_discharge",
+        "adc.feature.eoc_dly",
+        "adc.feature.flt",
+        "adc.feature.pflt",
+        "adc.feature.sarc_adc",
+        "adc.feature.sarc_blanking",
+        "adc.feature.sarc_cal_gain",
+        "adc.feature.sarc_cal_os",
+        "adc.feature.sarc_sarc",
+        "adc.feature.sarc_vc_filter",
+        "adc.identity.base_address",
+        "adc.interrupt.evtint",
+        "adc.interrupt.int0",
+        "adc.interrupt.int01",
+        "adc.interrupt.int1",
+        "adc.interrupt.int2",
+        "adc.interrupt.int3",
+        "adc.interrupt.interrupt"
+      ],
+      "capability_values": 48,
+      "classified_facts": 159,
+      "evidence_entries": 159,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 3,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.077485,
+      "unclassified_facts": 1893
+    },
+    "adcreg": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 52
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "adcreg.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "mixed",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.018868,
+      "unclassified_facts": 52
+    },
+    "aes": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 4
+      },
+      "capabilities": {
+        "features": 12,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 3,
+        "options": 7,
+        "parameters": 0
+      },
+      "capability_definitions": 24,
+      "capability_ids": [
+        "aes.feature.cpu_register_path",
+        "aes.feature.ctr_counter",
+        "aes.feature.decryption",
+        "aes.feature.dma",
+        "aes.feature.dma_fifo_path",
+        "aes.feature.encryption",
+        "aes.feature.interrupts",
+        "aes.feature.iv",
+        "aes.feature.key",
+        "aes.feature.module_enable",
+        "aes.feature.padding",
+        "aes.feature.status",
+        "aes.identity.base_address",
+        "aes.interrupt.irq",
+        "aes.limit.block_size_bytes",
+        "aes.limit.data_length_bits",
+        "aes.limit.data_length_max",
+        "aes.option.directions",
+        "aes.option.dma_modes",
+        "aes.option.endian_modes",
+        "aes.option.irq_sources",
+        "aes.option.key_sizes",
+        "aes.option.modes",
+        "aes.option.padding_modes"
+      ],
+      "capability_values": 24,
+      "classified_facts": 37,
+      "evidence_entries": 47,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.902439,
+      "unclassified_facts": 4
+    },
+    "can": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 1221
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 4,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 5,
+      "capability_ids": [
+        "can.identity.base_address",
+        "can.interrupt.dmu",
+        "can.interrupt.ecc",
+        "can.interrupt.int0",
+        "can.interrupt.int1"
+      ],
+      "capability_values": 13,
+      "classified_facts": 13,
+      "evidence_entries": 13,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 3,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.010535,
+      "unclassified_facts": 1221
+    },
+    "can_misc": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 132
+      },
+      "capabilities": {
+        "features": 2,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 3,
+      "capability_ids": [
+        "can_misc.feature.error_interrupt",
+        "can_misc.feature.warn_interrupt",
+        "can_misc.identity.base_address"
+      ],
+      "capability_values": 9,
+      "classified_facts": 9,
+      "evidence_entries": 9,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 3,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.06383,
+      "unclassified_facts": 132
+    },
+    "clb": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 2064
+      },
+      "capabilities": {
+        "features": 11,
+        "identities": 1,
+        "interrupts": 6,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 18,
+      "capability_ids": [
+        "clb.feature.cnt1_lfsr",
+        "clb.feature.cnt1_match_o_tap",
+        "clb.feature.cnt1_match_t_tap",
+        "clb.feature.cnt2_lfsr",
+        "clb.feature.cnt2_match_o_tap",
+        "clb.feature.cnt2_match_t_tap",
+        "clb.feature.cnt3_lfsr",
+        "clb.feature.cnt3_match_o_tap",
+        "clb.feature.cnt3_match_t_tap",
+        "clb.feature.load",
+        "clb.feature.pipeline",
+        "clb.identity.base_address",
+        "clb.interrupt.int0",
+        "clb.interrupt.int1",
+        "clb.interrupt.int2",
+        "clb.interrupt.int3",
+        "clb.interrupt.int4",
+        "clb.interrupt.int5"
+      ],
+      "capability_values": 18,
+      "classified_facts": 73,
+      "evidence_entries": 73,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 60
+      },
+      "semantic_candidate_facts": 60,
+      "semantic_candidate_group_counts": {
+        "feature": 3
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "CLB.TILE_GRP[0].AOC1.EN",
+            "CLB.TILE_GRP[0].AOC2.EN",
+            "CLB.TILE_GRP[0].AOC3.EN"
+          ],
+          "instances": [
+            "clb0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 48,
+          "path_pattern": "tile_grp[#].aoc#.en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "CLB.TILE_GRP[0].PRSTRB.EN",
+            "CLB.TILE_GRP[1].PRSTRB.EN",
+            "CLB.TILE_GRP[2].PRSTRB.EN"
+          ],
+          "instances": [
+            "clb0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 6,
+          "path_pattern": "tile_grp[#].prstrb.en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "CLB.TILE_GRP[0].SPITRANS.EN",
+            "CLB.TILE_GRP[1].SPITRANS.EN",
+            "CLB.TILE_GRP[2].SPITRANS.EN"
+          ],
+          "instances": [
+            "clb0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 6,
+          "path_pattern": "tile_grp[#].spitrans.en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.03416,
+      "unclassified_facts": 2064
+    },
+    "cordic": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 37
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "cordic.identity.base_address",
+        "cordic.interrupt.irq"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.051282,
+      "unclassified_facts": 37
+    },
+    "cpu": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 138
+      },
+      "capabilities": {
+        "features": 2,
+        "identities": 1,
+        "interrupts": 3,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 6,
+      "capability_ids": [
+        "cpu.feature.m7_dtcm_ecc",
+        "cpu.feature.m7_itcm_ecc",
+        "cpu.identity.base_address",
+        "cpu.interrupt.core2_peri_timeout",
+        "cpu.interrupt.misc",
+        "cpu.interrupt.peri2_core_timeout"
+      ],
+      "capability_values": 10,
+      "classified_facts": 10,
+      "evidence_entries": 10,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.067568,
+      "unclassified_facts": 138
+    },
+    "crc": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 6
+      },
+      "capabilities": {
+        "features": 19,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 2,
+        "options": 3,
+        "parameters": 1
+      },
+      "capability_definitions": 27,
+      "capability_ids": [
+        "crc.feature.alr",
+        "crc.feature.byteswap",
+        "crc.feature.check",
+        "crc.feature.fifo_overflow",
+        "crc.feature.fifo_threshold",
+        "crc.feature.initial_seed",
+        "crc.feature.irq_clear",
+        "crc.feature.irq_enable",
+        "crc.feature.irq_force",
+        "crc.feature.irq_mask",
+        "crc.feature.irq_raw_status",
+        "crc.feature.irq_status",
+        "crc.feature.length",
+        "crc.feature.module_enable",
+        "crc.feature.polynomial",
+        "crc.feature.refin",
+        "crc.feature.refout",
+        "crc.feature.result",
+        "crc.feature.xor_out",
+        "crc.identity.base_address",
+        "crc.interrupt.irq",
+        "crc.limit.fifo_threshold_max",
+        "crc.limit.length_field_max",
+        "crc.option.byte_swap_modes",
+        "crc.option.irq_sources",
+        "crc.option.modes",
+        "crc.parameter.result_width_bits"
+      ],
+      "capability_values": 29,
+      "classified_facts": 30,
+      "evidence_entries": 39,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.833333,
+      "unclassified_facts": 6
+    },
+    "crg": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 302
+      },
+      "capabilities": {
+        "features": 3,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 4,
+      "capability_ids": [
+        "crg.feature.clk_test",
+        "crg.feature.osccal",
+        "crg.feature.osccal_extclk",
+        "crg.identity.base_address"
+      ],
+      "capability_values": 4,
+      "classified_facts": 4,
+      "evidence_entries": 4,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.013072,
+      "unclassified_facts": 302
+    },
+    "dac": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 56
+      },
+      "capabilities": {
+        "features": 2,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 4,
+      "capability_ids": [
+        "dac.feature.dac_hdsk",
+        "dac.feature.dac_interrupt",
+        "dac.identity.base_address",
+        "dac.interrupt.irq"
+      ],
+      "capability_values": 8,
+      "classified_facts": 8,
+      "evidence_entries": 8,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.125,
+      "unclassified_facts": 56
+    },
+    "dflash": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 97
+      },
+      "capabilities": {
+        "features": 22,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 24,
+      "capability_ids": [
+        "dflash.feature.efc_apbs_ecc2_b_buserr",
+        "dflash.feature.efc_apbs_efcnwork_buserr",
+        "dflash.feature.efc_apbs_inc_buserr",
+        "dflash.feature.efc_apbs_pgs_buserr",
+        "dflash.feature.efc_apbs_pwroff_buserr",
+        "dflash.feature.efc_apbs_wpt_buserr",
+        "dflash.feature.efc_axis_ecc2_b_buserr",
+        "dflash.feature.efc_axis_efcnwork_buserr",
+        "dflash.feature.efc_axis_pgs_buserr",
+        "dflash.feature.efc_axis_pwroff_buserr",
+        "dflash.feature.efc_axis_rdp_buserr",
+        "dflash.feature.efc_axis_wpt_buserr",
+        "dflash.feature.efc_axis_wr_dummybvld",
+        "dflash.feature.efc_cache",
+        "dflash.feature.efc_ecc_errgen",
+        "dflash.feature.efc_main_ecc",
+        "dflash.feature.efc_nvr_config_ecc",
+        "dflash.feature.efc_nvr_ecc",
+        "dflash.feature.efc_perfnmr",
+        "dflash.feature.efc_rdn",
+        "dflash.feature.efc_vread0_chk",
+        "dflash.feature.efc_write",
+        "dflash.identity.base_address",
+        "dflash.interrupt.efc2"
+      ],
+      "capability_values": 24,
+      "classified_facts": 24,
+      "evidence_entries": 24,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.198347,
+      "unclassified_facts": 97
+    },
+    "dma": {
+      "audit_reason_counts": {
+        "ambiguous_semantics": 16,
+        "no_semantic_mapping": 424,
+        "unsupported_encoding": 48
+      },
+      "capabilities": {
+        "features": 8,
+        "identities": 2,
+        "interrupts": 6,
+        "limits": 2,
+        "options": 24,
+        "parameters": 14
+      },
+      "capability_definitions": 56,
+      "capability_ids": [
+        "dma.feature.control_writeback",
+        "dma.feature.destination_scatter",
+        "dma.feature.destination_status_update",
+        "dma.feature.linked_list_destination",
+        "dma.feature.linked_list_source",
+        "dma.feature.multi_block",
+        "dma.feature.source_gather",
+        "dma.feature.source_status_update",
+        "dma.identity.base_address",
+        "dma.identity.dma_comp_type",
+        "dma.interrupt.block",
+        "dma.interrupt.combined",
+        "dma.interrupt.destination_transaction",
+        "dma.interrupt.error",
+        "dma.interrupt.source_transaction",
+        "dma.interrupt.transfer_done",
+        "dma.limit.max_dest_msize",
+        "dma.limit.max_source_msize",
+        "dma.option.bus_lock",
+        "dma.option.bus_lock_level",
+        "dma.option.channel_enable",
+        "dma.option.channel_lock",
+        "dma.option.dest_msize",
+        "dma.option.destination_hs_pol",
+        "dma.option.destination_master_select",
+        "dma.option.dinc",
+        "dma.option.dma_enable",
+        "dma.option.done",
+        "dma.option.fcmode",
+        "dma.option.fifo_mode",
+        "dma.option.hs_sel_destination",
+        "dma.option.hs_sel_source",
+        "dma.option.interrupt_enable",
+        "dma.option.linked_list_master_select",
+        "dma.option.protctl",
+        "dma.option.reload_destination",
+        "dma.option.reload_source",
+        "dma.option.sinc",
+        "dma.option.source_hs_pol",
+        "dma.option.source_master_select",
+        "dma.option.source_msize",
+        "dma.option.transfer_type_and_flow_control",
+        "dma.parameter.control_writeback",
+        "dma.parameter.destination_master_select",
+        "dma.parameter.destination_scatter",
+        "dma.parameter.fifo_depth",
+        "dma.parameter.linked_list_master_select",
+        "dma.parameter.lock",
+        "dma.parameter.max_block_size",
+        "dma.parameter.max_mult_size",
+        "dma.parameter.multi_block",
+        "dma.parameter.multi_block_type",
+        "dma.parameter.source_gather",
+        "dma.parameter.source_master_select",
+        "dma.parameter.status_destination",
+        "dma.parameter.status_source"
+      ],
+      "capability_values": 308,
+      "classified_facts": 692,
+      "evidence_entries": 788,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 1,
+      "parameter_domain_value_conflicts": [
+        {
+          "capability": "dma.parameter.fifo_depth",
+          "value_sets": [
+            {
+              "example_paths": [
+                "AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_FIFO_DEPTH",
+                "AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_FIFO_DEPTH",
+                "AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_FIFO_DEPTH"
+              ],
+              "instances": [
+                "dma0",
+                "dma1"
+              ],
+              "members": [
+                "channel_0",
+                "channel_1",
+                "channel_2",
+                "channel_3",
+                "channel_4",
+                "channel_5",
+                "channel_7"
+              ],
+              "occurrence_count": 14,
+              "values": [
+                "fifo_depth_8",
+                "fifo_depth_16",
+                "fifo_depth_32",
+                "fifo_depth_64",
+                "fifo_depth_128",
+                "fifo_depth_256"
+              ]
+            },
+            {
+              "example_paths": [
+                "AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_FIFO_DEPTH",
+                "AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_FIFO_DEPTH"
+              ],
+              "instances": [
+                "dma0",
+                "dma1"
+              ],
+              "members": [
+                "channel_6"
+              ],
+              "occurrence_count": 2,
+              "values": [
+                "ifo_depth_8",
+                "fifo_depth_16",
+                "fifo_depth_32",
+                "fifo_depth_64",
+                "fifo_depth_128",
+                "fifo_depth_256"
+              ]
+            }
+          ]
+        }
+      ],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "option": 96
+      },
+      "semantic_candidate_facts": 96,
+      "semantic_candidate_group_counts": {
+        "option": 6
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-only",
+          "example_paths": [
+            "AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.FIFO_EMPTY",
+            "AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.FIFO_EMPTY",
+            "AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.FIFO_EMPTY"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "channelx_config_ch#.cfgx_l#.fifo_empty",
+          "reason": "no_semantic_mapping",
+          "rule": "inline_values",
+          "source_names": [
+            "FIFO_EMPTY"
+          ],
+          "values": [
+            "not_empty",
+            "empty"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_CH_L",
+            "AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_CH_L",
+            "AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_CH_L"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "channelx_config_ch#.cfgx_l#.lock_ch_l",
+          "reason": "no_semantic_mapping",
+          "rule": "inline_values",
+          "source_names": [
+            "LOCK_CH_L"
+          ],
+          "values": [
+            "lock_ch_l_0",
+            "lock_ch_l_1",
+            "lock_ch_l_2",
+            "lock_ch_l_3"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_DTW",
+            "AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_DTW",
+            "AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_DTW"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "dma_comp_params_ch#.ch#_dtw",
+          "reason": "unsupported_encoding",
+          "rule": "inline_values",
+          "source_names": [
+            "CH0_DTW",
+            "CH1_DTW",
+            "CH2_DTW",
+            "CH3_DTW",
+            "CH4_DTW",
+            "CH5_DTW",
+            "CH6_DTW",
+            "CH7_DTW"
+          ],
+          "values": [
+            "no_hardcode",
+            "dtw_8",
+            "dtw_16",
+            "dtw_32",
+            "dtw_64",
+            "dtw_128",
+            "dtw_256",
+            "reserved"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_FC",
+            "AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_FC",
+            "AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_FC"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "dma_comp_params_ch#.ch#_fc",
+          "reason": "unsupported_encoding",
+          "rule": "inline_values",
+          "source_names": [
+            "CH0_FC",
+            "CH1_FC",
+            "CH2_FC",
+            "CH3_FC",
+            "CH4_FC",
+            "CH5_FC",
+            "CH6_FC",
+            "CH7_FC"
+          ],
+          "values": [
+            "fc_dma",
+            "fc_source",
+            "fc_destination",
+            "fc_any"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_HC_LLP",
+            "AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_HC_LLP",
+            "AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_HC_LLP"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "dma_comp_params_ch#.ch#_hc_llp",
+          "reason": "ambiguous_semantics",
+          "rule": "inline_values",
+          "source_names": [
+            "CH0_HC_LLP",
+            "CH1_HC_LLP",
+            "CH2_HC_LLP",
+            "CH3_HC_LLP",
+            "CH4_HC_LLP",
+            "CH5_HC_LLP",
+            "CH6_HC_LLP",
+            "CH7_HC_LLP"
+          ],
+          "values": [
+            "programmable",
+            "hardcoded"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_STW",
+            "AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_STW",
+            "AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_STW"
+          ],
+          "instances": [
+            "dma0",
+            "dma1"
+          ],
+          "kind": "option",
+          "occurrence_count": 16,
+          "path_pattern": "dma_comp_params_ch#.ch#_stw",
+          "reason": "unsupported_encoding",
+          "rule": "inline_values",
+          "source_names": [
+            "CH0_STW",
+            "CH1_STW",
+            "CH2_STW",
+            "CH3_STW",
+            "CH4_STW",
+            "CH5_STW",
+            "CH6_STW",
+            "CH7_STW"
+          ],
+          "values": [
+            "no_hardcode",
+            "stw_8",
+            "stw_16",
+            "stw_32",
+            "stw_64",
+            "stw_128",
+            "stw_256",
+            "reserved"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.586441,
+      "unclassified_facts": 488
+    },
+    "emif": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 334
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "emif.feature.config_sdr",
+        "emif.identity.base_address"
+      ],
+      "capability_values": 3,
+      "classified_facts": 3,
+      "evidence_entries": 3,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.008902,
+      "unclassified_facts": 334
+    },
+    "etimer": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 720
+      },
+      "capabilities": {
+        "features": 3,
+        "identities": 1,
+        "interrupts": 12,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 16,
+      "capability_ids": [
+        "etimer.feature.cap_load",
+        "etimer.feature.fault",
+        "etimer.feature.sync_out_event",
+        "etimer.identity.base_address",
+        "etimer.interrupt.etimer1",
+        "etimer.interrupt.etimer10",
+        "etimer.interrupt.etimer11",
+        "etimer.interrupt.etimer2",
+        "etimer.interrupt.etimer3",
+        "etimer.interrupt.etimer4",
+        "etimer.interrupt.etimer5",
+        "etimer.interrupt.etimer6",
+        "etimer.interrupt.etimer7",
+        "etimer.interrupt.etimer8",
+        "etimer.interrupt.etimer9",
+        "etimer.interrupt.irq"
+      ],
+      "capability_values": 16,
+      "classified_facts": 38,
+      "evidence_entries": 38,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 12
+      },
+      "semantic_candidate_facts": 12,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "ETIMER.CORE[0].SYNC_CTRL.SYNC_IN_EN",
+            "ETIMER.CORE[10].SYNC_CTRL.SYNC_IN_EN",
+            "ETIMER.CORE[11].SYNC_CTRL.SYNC_IN_EN"
+          ],
+          "instances": [
+            "etimer0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 12,
+          "path_pattern": "core[#].sync_ctrl.sync_in_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "SYNC_IN_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.050132,
+      "unclassified_facts": 720
+    },
+    "fmac": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 43
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "fmac.identity.base_address",
+        "fmac.interrupt.irq"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_facts": 1,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "FMAC.PARAM.ENABLE"
+          ],
+          "instances": [
+            "fmac0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "param.enable",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "ENABLE"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.044444,
+      "unclassified_facts": 43
+    },
+    "fpu": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 24
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "fpu.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.04,
+      "unclassified_facts": 24
+    },
+    "fpu_cpacr": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 1
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "fpu_cpacr.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.5,
+      "unclassified_facts": 1
+    },
+    "gpio": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 4725
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 17,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 18,
+      "capability_ids": [
+        "gpio.identity.base_address",
+        "gpio.interrupt.combined",
+        "gpio.interrupt.line_0",
+        "gpio.interrupt.line_1",
+        "gpio.interrupt.line_10",
+        "gpio.interrupt.line_11",
+        "gpio.interrupt.line_12",
+        "gpio.interrupt.line_13",
+        "gpio.interrupt.line_14",
+        "gpio.interrupt.line_15",
+        "gpio.interrupt.line_2",
+        "gpio.interrupt.line_3",
+        "gpio.interrupt.line_4",
+        "gpio.interrupt.line_5",
+        "gpio.interrupt.line_6",
+        "gpio.interrupt.line_7",
+        "gpio.interrupt.line_8",
+        "gpio.interrupt.line_9"
+      ],
+      "capability_values": 34,
+      "classified_facts": 34,
+      "evidence_entries": 34,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 9,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.007144,
+      "unclassified_facts": 4725
+    },
+    "i2c": {
+      "audit_reason_counts": {
+        "disabled_component_parameter": 9,
+        "no_semantic_mapping": 693
+      },
+      "capabilities": {
+        "features": 12,
+        "identities": 3,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 16,
+      "capability_ids": [
+        "i2c.feature.ic_sar2_smbus_arp",
+        "i2c.feature.ic_sar3_smbus_arp",
+        "i2c.feature.ic_sar4_smbus_arp",
+        "i2c.feature.sda_stuck_recovery",
+        "i2c.feature.smbus_alert",
+        "i2c.feature.smbus_arp",
+        "i2c.feature.smbus_persistent_slv_addr",
+        "i2c.feature.smbus_persistent_slv_addr2",
+        "i2c.feature.smbus_persistent_slv_addr3",
+        "i2c.feature.smbus_persistent_slv_addr4",
+        "i2c.feature.smbus_slave_quick",
+        "i2c.feature.smbus_suspend",
+        "i2c.identity.base_address",
+        "i2c.identity.ic_comp_type",
+        "i2c.identity.ic_comp_version",
+        "i2c.interrupt.irq"
+      ],
+      "capability_values": 48,
+      "classified_facts": 48,
+      "evidence_entries": 48,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 3,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 21
+      },
+      "semantic_candidate_facts": 21,
+      "semantic_candidate_group_counts": {
+        "feature": 6
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "I2C0.IC_CON.IC_RESTART_EN",
+            "I2C1.IC_CON.IC_RESTART_EN",
+            "I2C2.IC_CON.IC_RESTART_EN"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 3,
+          "path_pattern": "ic_con.ic_restart_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "IC_RESTART_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "I2C0.IC_ENABLE.ENABLE",
+            "I2C1.IC_ENABLE.ENABLE",
+            "I2C2.IC_ENABLE.ENABLE"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 3,
+          "path_pattern": "ic_enable.enable",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "ENABLE"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "I2C0.IC_ENABLE.IC_SAR2_EN",
+            "I2C1.IC_ENABLE.IC_SAR2_EN",
+            "I2C2.IC_ENABLE.IC_SAR2_EN"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 3,
+          "path_pattern": "ic_enable.ic_sar#_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "IC_SAR2_EN"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "I2C0.IC_ENABLE.IC_SAR3_EN",
+            "I2C0.IC_ENABLE.IC_SAR4_EN",
+            "I2C1.IC_ENABLE.IC_SAR3_EN"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 6,
+          "path_pattern": "ic_enable.ic_sar#_en",
+          "reason": "disabled_component_parameter",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "IC_SAR3_EN",
+            "IC_SAR4_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "I2C0.IC_ENABLE.IC_SAR_EN",
+            "I2C1.IC_ENABLE.IC_SAR_EN",
+            "I2C2.IC_ENABLE.IC_SAR_EN"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 3,
+          "path_pattern": "ic_enable.ic_sar_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "IC_SAR_EN"
+          ]
+        },
+        {
+          "access": "read-only",
+          "example_paths": [
+            "I2C0.IC_ENABLE_STATUS.IC_EN",
+            "I2C1.IC_ENABLE_STATUS.IC_EN",
+            "I2C2.IC_ENABLE_STATUS.IC_EN"
+          ],
+          "instances": [
+            "i2c0",
+            "i2c1",
+            "i2c2"
+          ],
+          "kind": "feature",
+          "occurrence_count": 3,
+          "path_pattern": "ic_enable_status.ic_en",
+          "reason": "disabled_component_parameter",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "IC_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.064,
+      "unclassified_facts": 702
+    },
+    "iomux": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 900
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "iomux.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.00111,
+      "unclassified_facts": 900
+    },
+    "ipcm": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 307
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 16,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 17,
+      "capability_ids": [
+        "ipcm.identity.base_address",
+        "ipcm.interrupt.ipcm1",
+        "ipcm.interrupt.ipcm10",
+        "ipcm.interrupt.ipcm11",
+        "ipcm.interrupt.ipcm12",
+        "ipcm.interrupt.ipcm13",
+        "ipcm.interrupt.ipcm14",
+        "ipcm.interrupt.ipcm15",
+        "ipcm.interrupt.ipcm2",
+        "ipcm.interrupt.ipcm3",
+        "ipcm.interrupt.ipcm4",
+        "ipcm.interrupt.ipcm5",
+        "ipcm.interrupt.ipcm6",
+        "ipcm.interrupt.ipcm7",
+        "ipcm.interrupt.ipcm8",
+        "ipcm.interrupt.ipcm9",
+        "ipcm.interrupt.irq"
+      ],
+      "capability_values": 17,
+      "classified_facts": 17,
+      "evidence_entries": 17,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.052469,
+      "unclassified_facts": 307
+    },
+    "lin": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 628
+      },
+      "capabilities": {
+        "features": 35,
+        "identities": 1,
+        "interrupts": 2,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 38,
+      "capability_ids": [
+        "lin.feature.abort_flag_interrupt",
+        "lin.feature.autobaud",
+        "lin.feature.checksum_error_interrupt",
+        "lin.feature.checksum_warn_interrupt",
+        "lin.feature.collision_error_interrupt",
+        "lin.feature.collision_warn_interrupt",
+        "lin.feature.fusa_parity_error_inject",
+        "lin.feature.head_error_interrupt",
+        "lin.feature.head_receive_done_interrupt",
+        "lin.feature.head_transmit_done_interrupt",
+        "lin.feature.head_warn_interrupt",
+        "lin.feature.id_parity_error_interrupt",
+        "lin.feature.id_parity_warn_interrupt",
+        "lin.feature.loop_test",
+        "lin.feature.oversample_error_interrupt",
+        "lin.feature.oversample_warn_interrupt",
+        "lin.feature.parity_error_interrupt",
+        "lin.feature.parity_warn_interrupt",
+        "lin.feature.perror2_bus_error",
+        "lin.feature.perror_interrupt",
+        "lin.feature.perror_warn_interrupt",
+        "lin.feature.rsp_error_interrupt",
+        "lin.feature.rsp_receive_done_interrupt",
+        "lin.feature.rsp_transmit_done_interrupt",
+        "lin.feature.rsp_warn_interrupt",
+        "lin.feature.sleep",
+        "lin.feature.sleep_flag_interrupt",
+        "lin.feature.stuck_error_interrupt",
+        "lin.feature.stuck_warn_interrupt",
+        "lin.feature.sync_done_interrupt",
+        "lin.feature.timeout",
+        "lin.feature.timeout_error_interrupt",
+        "lin.feature.timeout_warn_interrupt",
+        "lin.feature.wakeup",
+        "lin.feature.wakeup_flag_interrupt",
+        "lin.identity.base_address",
+        "lin.interrupt.error",
+        "lin.interrupt.func"
+      ],
+      "capability_values": 76,
+      "classified_facts": 92,
+      "evidence_entries": 92,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 2
+      },
+      "semantic_candidate_facts": 2,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "LIN0.EN.LIN_EN",
+            "LIN1.EN.LIN_EN"
+          ],
+          "instances": [
+            "lin0",
+            "lin1"
+          ],
+          "kind": "feature",
+          "occurrence_count": 2,
+          "path_pattern": "en.lin_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "LIN_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.127778,
+      "unclassified_facts": 628
+    },
+    "mpu": {
+      "audit_reason_counts": {
+        "disabled_component_parameter": 1,
+        "no_semantic_mapping": 17
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "mpu.feature.region",
+        "mpu.identity.base_address"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_facts": 1,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-only",
+          "example_paths": [
+            "MPU.MPU_CTRL.ENABLE"
+          ],
+          "instances": [
+            "mpu0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "mpu_ctrl.enable",
+          "reason": "disabled_component_parameter",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "ENABLE"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.1,
+      "unclassified_facts": 18
+    },
+    "nvic": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 140
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "nvic.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "mixed",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.007092,
+      "unclassified_facts": 140
+    },
+    "nvic_stir": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 1
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "nvic_stir.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.5,
+      "unclassified_facts": 1
+    },
+    "pf": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 22
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "pf.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "read_only",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.043478,
+      "unclassified_facts": 22
+    },
+    "pflash": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 68
+      },
+      "capabilities": {
+        "features": 24,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 26,
+      "capability_ids": [
+        "pflash.feature.efc_apbs_ecc2_b_buserr",
+        "pflash.feature.efc_apbs_efcnwork_buserr",
+        "pflash.feature.efc_apbs_inc_buserr",
+        "pflash.feature.efc_apbs_pgs_buserr",
+        "pflash.feature.efc_apbs_pwroff_buserr",
+        "pflash.feature.efc_apbs_wpt_buserr",
+        "pflash.feature.efc_axis_ecc2_b_buserr",
+        "pflash.feature.efc_axis_efcnwork_buserr",
+        "pflash.feature.efc_axis_pgs_buserr",
+        "pflash.feature.efc_axis_pwroff_buserr",
+        "pflash.feature.efc_axis_wpt_buserr",
+        "pflash.feature.efc_axis_wr_dummybvld",
+        "pflash.feature.efc_cache",
+        "pflash.feature.efc_ecc_errgen",
+        "pflash.feature.efc_main_ecc",
+        "pflash.feature.efc_nvr_config_ecc",
+        "pflash.feature.efc_nvr_ecc",
+        "pflash.feature.efc_perfnmr",
+        "pflash.feature.efc_rdn0",
+        "pflash.feature.efc_rdn1",
+        "pflash.feature.efc_rdn2",
+        "pflash.feature.efc_rdn3",
+        "pflash.feature.efc_vread0_chk",
+        "pflash.feature.efc_write",
+        "pflash.identity.base_address",
+        "pflash.interrupt.efc1"
+      ],
+      "capability_values": 26,
+      "classified_facts": 26,
+      "evidence_entries": 26,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.276596,
+      "unclassified_facts": 68
+    },
+    "qep": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 396
+      },
+      "capabilities": {
+        "features": 3,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 5,
+      "capability_ids": [
+        "qep.feature.cfg2_cap",
+        "qep.feature.cfg2_pccu_cmp",
+        "qep.feature.cfg2_wdg",
+        "qep.identity.base_address",
+        "qep.interrupt.irq"
+      ],
+      "capability_values": 30,
+      "classified_facts": 30,
+      "evidence_entries": 30,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 6,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 6
+      },
+      "semantic_candidate_facts": 6,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "QEP0.CTRL1.CFG2UT_EN",
+            "QEP1.CTRL1.CFG2UT_EN",
+            "QEP2.CTRL1.CFG2UT_EN"
+          ],
+          "instances": [
+            "qep0",
+            "qep1",
+            "qep2",
+            "qep3",
+            "qep4",
+            "qep5"
+          ],
+          "kind": "feature",
+          "occurrence_count": 6,
+          "path_pattern": "ctrl#.cfg#ut_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "CFG2UT_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.070423,
+      "unclassified_facts": 396
+    },
+    "qspi": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 112
+      },
+      "capabilities": {
+        "features": 7,
+        "identities": 2,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 10,
+      "capability_ids": [
+        "qspi.feature.clk_stretch",
+        "qspi.feature.spi_dws",
+        "qspi.feature.spi_xip_tpm",
+        "qspi.feature.ssic",
+        "qspi.feature.ssic_xip_cont_xfer",
+        "qspi.feature.xip_inst",
+        "qspi.feature.xip_md_bit",
+        "qspi.identity.base_address",
+        "qspi.identity.ssic_comp_version",
+        "qspi.interrupt.irq"
+      ],
+      "capability_values": 10,
+      "classified_facts": 10,
+      "evidence_entries": 10,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.081967,
+      "unclassified_facts": 112
+    },
+    "scb": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 77
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "scb.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "mixed",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.012821,
+      "unclassified_facts": 77
+    },
+    "scb_actrl": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 4
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "scb_actrl.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.2,
+      "unclassified_facts": 4
+    },
+    "sdfm": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 976
+      },
+      "capabilities": {
+        "features": 4,
+        "identities": 1,
+        "interrupts": 5,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 10,
+      "capability_ids": [
+        "sdfm.feature.cevt1",
+        "sdfm.feature.cevt2",
+        "sdfm.feature.dma",
+        "sdfm.feature.flt_ffsync",
+        "sdfm.identity.base_address",
+        "sdfm.interrupt.dr0",
+        "sdfm.interrupt.dr1",
+        "sdfm.interrupt.dr2",
+        "sdfm.interrupt.dr3",
+        "sdfm.interrupt.error"
+      ],
+      "capability_values": 40,
+      "classified_facts": 88,
+      "evidence_entries": 88,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 4,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.082707,
+      "unclassified_facts": 976
+    },
+    "spi": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 376
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 2,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 4,
+      "capability_ids": [
+        "spi.feature.ssic",
+        "spi.identity.base_address",
+        "spi.identity.ssic_comp_version",
+        "spi.interrupt.irq"
+      ],
+      "capability_values": 16,
+      "classified_facts": 16,
+      "evidence_entries": 16,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 4,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.040816,
+      "unclassified_facts": 376
+    },
+    "spinlock": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 73
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "spinlock.feature.sl_two_step_mode",
+        "spinlock.identity.base_address"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_facts": 1,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SPINLOCK.SL_LOCK_EN.SL_LOCK_EN"
+          ],
+          "instances": [
+            "spinlock0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "sl_lock_en.sl_lock_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "SL_LOCK_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.026667,
+      "unclassified_facts": 73
+    },
+    "sramctl": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 166
+      },
+      "capabilities": {
+        "features": 10,
+        "identities": 1,
+        "interrupts": 4,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 15,
+      "capability_ids": [
+        "sramctl.feature.axi2_sram_lp",
+        "sramctl.feature.bank0_ecc_merr_interrupt",
+        "sramctl.feature.bank0_ecc_serr_interrupt",
+        "sramctl.feature.bank1_ecc_merr_interrupt",
+        "sramctl.feature.bank1_ecc_serr_interrupt",
+        "sramctl.feature.bresp_with_ecc",
+        "sramctl.feature.ecc_chk",
+        "sramctl.feature.init",
+        "sramctl.feature.rresp_with_ecc",
+        "sramctl.feature.serr_correction",
+        "sramctl.identity.base_address",
+        "sramctl.interrupt.sram0_ecc_merr",
+        "sramctl.interrupt.sram0_ecc_serr",
+        "sramctl.interrupt.sram1_ecc_merr",
+        "sramctl.interrupt.sram1_ecc_serr"
+      ],
+      "capability_values": 26,
+      "classified_facts": 26,
+      "evidence_entries": 26,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 2
+      },
+      "semantic_candidate_facts": 2,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SRAMCTL0.AXI2SRAM_LP_CTRL.RAM_LS_LP_EN",
+            "SRAMCTL1.AXI2SRAM_LP_CTRL.RAM_LS_LP_EN"
+          ],
+          "instances": [
+            "sramctl0",
+            "sramctl1"
+          ],
+          "kind": "feature",
+          "occurrence_count": 2,
+          "path_pattern": "axi#sram_lp_ctrl.ram_ls_lp_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "RAM_LS_LP_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.135417,
+      "unclassified_facts": 166
+    },
+    "srpwm": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 7686
+      },
+      "capabilities": {
+        "features": 25,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 27,
+      "capability_ids": [
+        "srpwm.feature.aq_control_ldsync",
+        "srpwm.feature.burst",
+        "srpwm.feature.burst_ldsync",
+        "srpwm.feature.cmp_ldsync",
+        "srpwm.feature.dbsel_ldsync",
+        "srpwm.feature.epwm_dma_div",
+        "srpwm.feature.epwm_dma_multi",
+        "srpwm.feature.epwm_evtint_div",
+        "srpwm.feature.epwm_evtint_multi",
+        "srpwm.feature.epwm_sadc0_div",
+        "srpwm.feature.epwm_sadc0_multi",
+        "srpwm.feature.epwm_sadc1_div",
+        "srpwm.feature.epwm_sadc1_multi",
+        "srpwm.feature.fpp_block_dly",
+        "srpwm.feature.fpp_flt",
+        "srpwm.feature.fpp_fpt_count",
+        "srpwm.feature.pstp_exc",
+        "srpwm.feature.pstp_glb_force",
+        "srpwm.feature.pstp_swap_sync",
+        "srpwm.feature.rsntpl_dly",
+        "srpwm.feature.scmp_ldsync",
+        "srpwm.feature.shd_multicfg_align",
+        "srpwm.feature.tb_prd_ldsync",
+        "srpwm.feature.tcnt_capture",
+        "srpwm.feature.vsw",
+        "srpwm.identity.base_address",
+        "srpwm.interrupt.irq"
+      ],
+      "capability_values": 486,
+      "classified_facts": 756,
+      "evidence_entries": 756,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 18,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 54
+      },
+      "semantic_candidate_facts": 54,
+      "semantic_candidate_group_counts": {
+        "feature": 3
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SRPWM0.DB_LDSYNC.DB_LDSYNC_EN",
+            "SRPWM1.DB_LDSYNC.DB_LDSYNC_EN",
+            "SRPWM10.DB_LDSYNC.DB_LDSYNC_EN"
+          ],
+          "instances": [
+            "srpwm0",
+            "srpwm1",
+            "srpwm10",
+            "srpwm11",
+            "srpwm12",
+            "srpwm13",
+            "srpwm14",
+            "srpwm15",
+            "srpwm16",
+            "srpwm17",
+            "srpwm2",
+            "srpwm3",
+            "srpwm4",
+            "srpwm5",
+            "srpwm6",
+            "srpwm7",
+            "srpwm8",
+            "srpwm9"
+          ],
+          "kind": "feature",
+          "occurrence_count": 18,
+          "path_pattern": "db_ldsync.db_ldsync_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "DB_LDSYNC_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SRPWM0.TB_CTL.TB_SYNC_EN",
+            "SRPWM1.TB_CTL.TB_SYNC_EN",
+            "SRPWM10.TB_CTL.TB_SYNC_EN"
+          ],
+          "instances": [
+            "srpwm0",
+            "srpwm1",
+            "srpwm10",
+            "srpwm11",
+            "srpwm12",
+            "srpwm13",
+            "srpwm14",
+            "srpwm15",
+            "srpwm16",
+            "srpwm17",
+            "srpwm2",
+            "srpwm3",
+            "srpwm4",
+            "srpwm5",
+            "srpwm6",
+            "srpwm7",
+            "srpwm8",
+            "srpwm9"
+          ],
+          "kind": "feature",
+          "occurrence_count": 18,
+          "path_pattern": "tb_ctl.tb_sync_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "TB_SYNC_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SRPWM0.TB_PH_LDSYNC.TB_PH_LDSYNC_EN",
+            "SRPWM1.TB_PH_LDSYNC.TB_PH_LDSYNC_EN",
+            "SRPWM10.TB_PH_LDSYNC.TB_PH_LDSYNC_EN"
+          ],
+          "instances": [
+            "srpwm0",
+            "srpwm1",
+            "srpwm10",
+            "srpwm11",
+            "srpwm12",
+            "srpwm13",
+            "srpwm14",
+            "srpwm15",
+            "srpwm16",
+            "srpwm17",
+            "srpwm2",
+            "srpwm3",
+            "srpwm4",
+            "srpwm5",
+            "srpwm6",
+            "srpwm7",
+            "srpwm8",
+            "srpwm9"
+          ],
+          "kind": "feature",
+          "occurrence_count": 18,
+          "path_pattern": "tb_ph_ldsync.tb_ph_ldsync_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "TB_PH_LDSYNC_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.089552,
+      "unclassified_facts": 7686
+    },
+    "srpwmcom": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 227
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "srpwmcom.feature.ultra_hrpwm",
+        "srpwmcom.identity.base_address"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.008734,
+      "unclassified_facts": 227
+    },
+    "stimer": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 270
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "stimer.identity.base_address",
+        "stimer.interrupt.irq"
+      ],
+      "capability_values": 12,
+      "classified_facts": 12,
+      "evidence_entries": 12,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 6,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.042553,
+      "unclassified_facts": 270
+    },
+    "sysc": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 489
+      },
+      "capabilities": {
+        "features": 12,
+        "identities": 1,
+        "interrupts": 8,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 21,
+      "capability_ids": [
+        "sysc.feature.aes_work_hard",
+        "sysc.feature.d2_a_pmu_borh_warn",
+        "sysc.feature.d2_a_pmu_borl_warn",
+        "sysc.feature.d2_a_pmu_sysldo_ocp",
+        "sysc.feature.emif0",
+        "sysc.feature.emif1",
+        "sysc.feature.halt_mode",
+        "sysc.feature.iptest_adc_dac_mode",
+        "sysc.feature.mttcan_ecc",
+        "sysc.feature.wave_gen",
+        "sysc.feature.wdg0_halt_mode",
+        "sysc.feature.wdg1_halt_mode",
+        "sysc.identity.base_address",
+        "sysc.interrupt.core2_core",
+        "sysc.interrupt.hbus1_timeout",
+        "sysc.interrupt.hbus2_timeout",
+        "sysc.interrupt.hbus3_timeout",
+        "sysc.interrupt.irq",
+        "sysc.interrupt.pbus1_timeout",
+        "sysc.interrupt.pbus2_timeout",
+        "sysc.interrupt.pbus3_timeout"
+      ],
+      "capability_values": 21,
+      "classified_facts": 21,
+      "evidence_entries": 21,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 33
+      },
+      "semantic_candidate_facts": 33,
+      "semantic_candidate_group_counts": {
+        "feature": 18
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_DAC.D2A_BDAC0_EN",
+            "SYSC.AFE_DAC.D2A_BDAC1_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 2,
+          "path_pattern": "afe_dac.d#a_bdac#_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_BDAC0_EN",
+            "D2A_BDAC1_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_MUX.D2A_AFE_MUX_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_mux.d#a_afe_mux_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_AFE_MUX_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_2P5.D2A_REF2P5_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_#p#.d#a_ref#p#_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_REF2P5_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_2P5.D2A_REF2P5_HIZ_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_#p#.d#a_ref#p#_hiz_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_REF2P5_HIZ_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_2P5.D2A_REF2P5_OV_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_#p#.d#a_ref#p#_ov_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_REF2P5_OV_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_2P5.D2A_REF2P5_UV_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_#p#.d#a_ref#p#_uv_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_REF2P5_UV_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_GEN.D2A_AFE_TEMPSENSOR_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_gen.d#a_afe_tempsensor_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_AFE_TEMPSENSOR_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.AFE_REF_GEN.D2A_AFE_TESTBUF_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "afe_ref_gen.d#a_afe_testbuf_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_AFE_TESTBUF_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.CMU_BG.D2A_CMU_TEMPSENSOR_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "cmu_bg.d#a_cmu_tempsensor_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_CMU_TEMPSENSOR_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.DMA_A_MUX[0].DMA_A_EN",
+            "SYSC.DMA_A_MUX[1].DMA_A_EN",
+            "SYSC.DMA_A_MUX[2].DMA_A_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 8,
+          "path_pattern": "dma_a_mux[#].dma_a_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "DMA_A_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.DMA_B_MUX[0].DMA_B_EN",
+            "SYSC.DMA_B_MUX[1].DMA_B_EN",
+            "SYSC.DMA_B_MUX[2].DMA_B_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 8,
+          "path_pattern": "dma_b_mux[#].dma_b_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "DMA_B_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_OTP.D2A_PMU_OTP_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_otp.d#a_pmu_otp_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_OTP_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_POR_HV.D2A_PMU_BORH_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_por_hv.d#a_pmu_borh_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_BORH_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_POR_HV.D2A_PMU_OVRH_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_por_hv.d#a_pmu_ovrh_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_OVRH_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_POR_LV.D2A_PMU_BORL_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_por_lv.d#a_pmu_borl_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_BORL_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_POR_LV.D2A_PMU_OVRL_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_por_lv.d#a_pmu_ovrl_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_OVRL_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_REF_GEN.D2A_PMU_TEMPSENSOR_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_ref_gen.d#a_pmu_tempsensor_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_TEMPSENSOR_EN"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "SYSC.PMU_TOP.D2A_PMU_TEST_EN"
+          ],
+          "instances": [
+            "sysc0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "pmu_top.d#a_pmu_test_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "D2A_PMU_TEST_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.041176,
+      "unclassified_facts": 489
+    },
+    "syscnt_ctrl": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 5
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "syscnt_ctrl.feature.counter",
+        "syscnt_ctrl.identity.base_address"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.285714,
+      "unclassified_facts": 5
+    },
+    "syscnt_ro": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 2
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 1,
+      "capability_ids": [
+        "syscnt_ro.identity.base_address"
+      ],
+      "capability_values": 1,
+      "classified_facts": 1,
+      "evidence_entries": 1,
+      "identity_only": true,
+      "identity_only_review": "no_explicit_candidates",
+      "identity_only_surface": "writable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.333333,
+      "unclassified_facts": 2
+    },
+    "systick": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 8
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 2,
+      "capability_ids": [
+        "systick.feature.counter",
+        "systick.identity.base_address"
+      ],
+      "capability_values": 2,
+      "classified_facts": 2,
+      "evidence_entries": 2,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.2,
+      "unclassified_facts": 8
+    },
+    "uart": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 848
+      },
+      "capabilities": {
+        "features": 1,
+        "identities": 3,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 5,
+      "capability_ids": [
+        "uart.feature.rs485",
+        "uart.identity.base_address",
+        "uart.identity.peripheral_id",
+        "uart.identity.uart_component_version",
+        "uart.interrupt.irq"
+      ],
+      "capability_values": 40,
+      "classified_facts": 40,
+      "evidence_entries": 40,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 8,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 16
+      },
+      "semantic_candidate_facts": 16,
+      "semantic_candidate_group_counts": {
+        "feature": 2
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "UART0.DE_EN.DE_ENABLE",
+            "UART1.DE_EN.DE_ENABLE",
+            "UART2.DE_EN.DE_ENABLE"
+          ],
+          "instances": [
+            "uart0",
+            "uart1",
+            "uart2",
+            "uart3",
+            "uart4",
+            "uart5",
+            "uart6",
+            "uart7"
+          ],
+          "kind": "feature",
+          "occurrence_count": 8,
+          "path_pattern": "de_en.de_enable",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "DE_ENABLE"
+          ]
+        },
+        {
+          "access": "read-write",
+          "example_paths": [
+            "UART0.RE_EN.RE_ENABLE",
+            "UART1.RE_EN.RE_ENABLE",
+            "UART2.RE_EN.RE_ENABLE"
+          ],
+          "instances": [
+            "uart0",
+            "uart1",
+            "uart2",
+            "uart3",
+            "uart4",
+            "uart5",
+            "uart6",
+            "uart7"
+          ],
+          "kind": "feature",
+          "occurrence_count": 8,
+          "path_pattern": "re_en.re_enable",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "RE_ENABLE"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.045045,
+      "unclassified_facts": 848
+    },
+    "wag": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 34
+      },
+      "capabilities": {
+        "features": 2,
+        "identities": 1,
+        "interrupts": 0,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 3,
+      "capability_ids": [
+        "wag.feature.dma",
+        "wag.feature.load",
+        "wag.identity.base_address"
+      ],
+      "capability_values": 3,
+      "classified_facts": 3,
+      "evidence_entries": 3,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_facts": 1,
+      "semantic_candidate_group_counts": {
+        "feature": 1
+      },
+      "semantic_candidate_groups": [
+        {
+          "access": "read-write",
+          "example_paths": [
+            "WAG.EN.WAG_EN"
+          ],
+          "instances": [
+            "wag0"
+          ],
+          "kind": "feature",
+          "occurrence_count": 1,
+          "path_pattern": "en.wag_en",
+          "reason": "no_semantic_mapping",
+          "rule": "boolean_enable_field",
+          "source_names": [
+            "WAG_EN"
+          ]
+        }
+      ],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.081081,
+      "unclassified_facts": 34
+    },
+    "wdg": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 36
+      },
+      "capabilities": {
+        "features": 4,
+        "identities": 1,
+        "interrupts": 1,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 6,
+      "capability_ids": [
+        "wdg.feature.halt",
+        "wdg.feature.rst",
+        "wdg.feature.wwdg",
+        "wdg.feature.wwdg_interrupt",
+        "wdg.identity.base_address",
+        "wdg.interrupt.irq"
+      ],
+      "capability_values": 12,
+      "classified_facts": 12,
+      "evidence_entries": 12,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 2,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.25,
+      "unclassified_facts": 36
+    },
+    "xbar": {
+      "audit_reason_counts": {
+        "no_semantic_mapping": 445
+      },
+      "capabilities": {
+        "features": 0,
+        "identities": 1,
+        "interrupts": 6,
+        "limits": 0,
+        "options": 0,
+        "parameters": 0
+      },
+      "capability_definitions": 7,
+      "capability_ids": [
+        "xbar.identity.base_address",
+        "xbar.interrupt.int0",
+        "xbar.interrupt.int1",
+        "xbar.interrupt.int2",
+        "xbar.interrupt.int3",
+        "xbar.interrupt.int4",
+        "xbar.interrupt.int5"
+      ],
+      "capability_values": 7,
+      "classified_facts": 7,
+      "evidence_entries": 7,
+      "identity_only": false,
+      "identity_only_review": "not_identity_only",
+      "identity_only_surface": "not_applicable",
+      "instances": 1,
+      "parameter_domain_conflicts": 0,
+      "parameter_domain_value_conflicts": [],
+      "semantic_candidate_conflicts": 0,
+      "semantic_candidate_fact_counts": {},
+      "semantic_candidate_facts": 0,
+      "semantic_candidate_group_counts": {},
+      "semantic_candidate_groups": [],
+      "semantic_candidate_value_conflicts": [],
+      "semantic_fact_ratio": 0.015487,
+      "unclassified_facts": 445
+    }
+  },
+  "required_capabilities": [],
+  "schema": "et-capability-quality/v1",
+  "source": {
+    "file": "ET6801.svd",
+    "generator_version": 8,
+    "sha256": "175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C"
+  },
+  "status": "pass",
+  "summary": {
+    "capability_definitions": 471,
+    "capability_values": 1552,
+    "classified_facts": 2472,
+    "errors": 0,
+    "evidence_entries": 2587,
+    "instances": 121,
+    "parameter_domain_conflicts": 1,
+    "profiles": 48,
+    "semantic_candidate_conflicts": 0,
+    "semantic_candidate_facts": 306,
+    "semantic_candidate_groups": 46,
+    "semantic_fact_ratio": 0.07898,
+    "unclassified_facts": 28827,
+    "warnings": 13
+  }
+}

@@ -1,0 +1,32 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: syscnt_ctrl
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  syscnt_ctrl0:
+    svd_name: SYSCNT_CTRL
+capabilities:
+  features:
+    counter:
+    - syscnt_ctrl0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      syscnt_ctrl0: '0x4040E000'
+evidence:
+  syscnt_ctrl.feature.counter:
+  - instance: syscnt_ctrl0
+    kind: field
+    path: SYSCNT_CTRL.CNTCR.EN
+    rule: boolean_enable_field
+  syscnt_ctrl.identity.base_address:
+  - instance: syscnt_ctrl0
+    kind: peripheral
+    path: SYSCNT_CTRL.baseAddress
+    rule: direct

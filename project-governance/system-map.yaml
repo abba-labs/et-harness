@@ -1,0 +1,45 @@
+schema: et.project-system-map.v1
+project: Et_Automated_Testing_Platform
+constitution: AGENTS.md
+rule_catalog: report/design/rule_owner_catalog.yaml
+runtime_context: project-governance/runtime/current_task_context.json
+lanes: [pc, firmware, docs, tooling, companion, fpga, sil, hil]
+
+modules:
+  - id: ip-package
+    profile: project-governance/modules/ip-package.yaml
+    aliases: [ip, feature, case, driver, service, wrap, capability]
+
+  - id: pc-platform
+    profile: project-governance/modules/pc-platform.yaml
+    aliases: [pc, core, backend, client, scheduling, result]
+
+  - id: firmware-platform
+    profile: project-governance/modules/firmware-platform.yaml
+    aliases: [firmware, protocol, framework, resource, irq]
+
+  - id: operator-pipeline
+    profile: project-governance/modules/operator-pipeline.yaml
+    aliases: [operator, pipeline, run-config, report, artifact]
+
+  - id: companion-platform
+    profile: project-governance/modules/companion-platform.yaml
+    aliases: [companion, fpga, instrument]
+
+  - id: governance
+    profile: project-governance/modules/governance.yaml
+    aliases: [governance, rule, checker, documentation]
+
+dependencies:
+  - from: ip-package
+    to: pc-platform
+    relation: uses-public-pc-runtime
+  - from: ip-package
+    to: firmware-platform
+    relation: uses-common-firmware-protocol
+  - from: operator-pipeline
+    to: pc-platform
+    relation: invokes-test-runtime
+  - from: companion-platform
+    to: pc-platform
+    relation: exposed-through-common-interfaces

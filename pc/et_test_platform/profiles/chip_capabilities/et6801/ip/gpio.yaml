@@ -1,0 +1,290 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: gpio
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  gpioa:
+    svd_name: GPIOA
+  gpiob:
+    svd_name: GPIOB
+  gpioc:
+    svd_name: GPIOC
+  gpiod:
+    svd_name: GPIOD
+  gpioe:
+    svd_name: GPIOE
+  gpiof:
+    svd_name: GPIOF
+  gpiog:
+    svd_name: GPIOG
+  gpioh:
+    svd_name: GPIOH
+  gpioi:
+    svd_name: GPIOI
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    combined:
+      gpioa:
+        svd_name: GPIOA_COMBINT
+        irqn: 65
+      gpiob:
+        svd_name: GPIOB_COMBINT
+        irqn: 66
+      gpioc:
+        svd_name: GPIOC_COMBINT
+        irqn: 67
+      gpiod:
+        svd_name: GPIOD_COMBINT
+        irqn: 68
+      gpioe:
+        svd_name: GPIOE_COMBINT
+        irqn: 69
+      gpiof:
+        svd_name: GPIOF_COMBINT
+        irqn: 70
+      gpiog:
+        svd_name: GPIOG_COMBINT
+        irqn: 71
+      gpioh:
+        svd_name: GPIOH_COMBINT
+        irqn: 72
+      gpioi:
+        svd_name: GPIOI_COMBINT
+        irqn: 73
+    line_0:
+      gpioe:
+        svd_name: GPIOE_0
+        irqn: 79
+    line_1:
+      gpioe:
+        svd_name: GPIOE_1
+        irqn: 80
+    line_10:
+      gpioe:
+        svd_name: GPIOE_10
+        irqn: 89
+    line_11:
+      gpioe:
+        svd_name: GPIOE_11
+        irqn: 90
+    line_12:
+      gpioe:
+        svd_name: GPIOE_12
+        irqn: 91
+    line_13:
+      gpioe:
+        svd_name: GPIOE_13
+        irqn: 92
+    line_14:
+      gpioe:
+        svd_name: GPIOE_14
+        irqn: 93
+    line_15:
+      gpioe:
+        svd_name: GPIOE_15
+        irqn: 94
+    line_2:
+      gpioe:
+        svd_name: GPIOE_2
+        irqn: 81
+    line_3:
+      gpioe:
+        svd_name: GPIOE_3
+        irqn: 82
+    line_4:
+      gpioe:
+        svd_name: GPIOE_4
+        irqn: 83
+    line_5:
+      gpioe:
+        svd_name: GPIOE_5
+        irqn: 84
+    line_6:
+      gpioe:
+        svd_name: GPIOE_6
+        irqn: 85
+    line_7:
+      gpioe:
+        svd_name: GPIOE_7
+        irqn: 86
+    line_8:
+      gpioe:
+        svd_name: GPIOE_8
+        irqn: 87
+    line_9:
+      gpioe:
+        svd_name: GPIOE_9
+        irqn: 88
+  identities:
+    base_address:
+      gpioa: '0x40210000'
+      gpiob: '0x40211000'
+      gpioc: '0x40212000'
+      gpiod: '0x40213000'
+      gpioe: '0x40214000'
+      gpiof: '0x40215000'
+      gpiog: '0x40216000'
+      gpioh: '0x40217000'
+      gpioi: '0x40218000'
+evidence:
+  gpio.identity.base_address:
+  - instance: gpioa
+    kind: peripheral
+    path: GPIOA.baseAddress
+    rule: direct
+  - instance: gpiob
+    kind: peripheral
+    path: GPIOB.baseAddress
+    rule: direct
+  - instance: gpioc
+    kind: peripheral
+    path: GPIOC.baseAddress
+    rule: direct
+  - instance: gpiod
+    kind: peripheral
+    path: GPIOD.baseAddress
+    rule: direct
+  - instance: gpioe
+    kind: peripheral
+    path: GPIOE.baseAddress
+    rule: direct
+  - instance: gpiof
+    kind: peripheral
+    path: GPIOF.baseAddress
+    rule: direct
+  - instance: gpiog
+    kind: peripheral
+    path: GPIOG.baseAddress
+    rule: direct
+  - instance: gpioh
+    kind: peripheral
+    path: GPIOH.baseAddress
+    rule: direct
+  - instance: gpioi
+    kind: peripheral
+    path: GPIOI.baseAddress
+    rule: direct
+  gpio.interrupt.combined:
+  - instance: gpioa
+    kind: interrupt
+    path: GPIOA.interrupt.GPIOA_COMBINT
+    rule: direct
+  - instance: gpiob
+    kind: interrupt
+    path: GPIOB.interrupt.GPIOB_COMBINT
+    rule: direct
+  - instance: gpioc
+    kind: interrupt
+    path: GPIOC.interrupt.GPIOC_COMBINT
+    rule: direct
+  - instance: gpiod
+    kind: interrupt
+    path: GPIOD.interrupt.GPIOD_COMBINT
+    rule: direct
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_COMBINT
+    rule: direct
+  - instance: gpiof
+    kind: interrupt
+    path: GPIOF.interrupt.GPIOF_COMBINT
+    rule: direct
+  - instance: gpiog
+    kind: interrupt
+    path: GPIOG.interrupt.GPIOG_COMBINT
+    rule: direct
+  - instance: gpioh
+    kind: interrupt
+    path: GPIOH.interrupt.GPIOH_COMBINT
+    rule: direct
+  - instance: gpioi
+    kind: interrupt
+    path: GPIOI.interrupt.GPIOI_COMBINT
+    rule: direct
+  gpio.interrupt.line_0:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_0
+    rule: direct
+  gpio.interrupt.line_1:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_1
+    rule: direct
+  gpio.interrupt.line_10:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_10
+    rule: direct
+  gpio.interrupt.line_11:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_11
+    rule: direct
+  gpio.interrupt.line_12:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_12
+    rule: direct
+  gpio.interrupt.line_13:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_13
+    rule: direct
+  gpio.interrupt.line_14:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_14
+    rule: direct
+  gpio.interrupt.line_15:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_15
+    rule: direct
+  gpio.interrupt.line_2:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_2
+    rule: direct
+  gpio.interrupt.line_3:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_3
+    rule: direct
+  gpio.interrupt.line_4:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_4
+    rule: direct
+  gpio.interrupt.line_5:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_5
+    rule: direct
+  gpio.interrupt.line_6:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_6
+    rule: direct
+  gpio.interrupt.line_7:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_7
+    rule: direct
+  gpio.interrupt.line_8:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_8
+    rule: direct
+  gpio.interrupt.line_9:
+  - instance: gpioe
+    kind: interrupt
+    path: GPIOE.interrupt.GPIOE_9
+    rule: direct

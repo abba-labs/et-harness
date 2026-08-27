@@ -1,0 +1,6 @@
+schema: et-test-capability-requirements/v1
+suite: dma_p0
+required_capabilities:
+  - dma.interrupt.transfer_done
+  - dma.option.transfer_type_and_flow_control
+  - dma.parameter.max_block_size

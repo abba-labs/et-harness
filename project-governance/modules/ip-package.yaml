@@ -1,0 +1,262 @@
+schema: et.module-profile.v1
+id: ip-package
+summary: 公共IP语义、Formal Case、PC Driver、Firmware Service/Wrap和芯片能力适配。
+parameters:
+  required: [ip]
+  optional: [chip]
+architecture_chain:
+  - PC Case -> Resolver/Capability/Bench -> IP Driver -> Codec -> TargetClient
+  - Firmware Service -> Own Wrap -> Own Chip Driver
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 仓库宪法与公共IP边界
+      required: true
+  rules:
+    - public_ip_semantics
+    - public_chip_neutrality
+    - contract_document_sync
+  protected_scopes:
+    - pc/et_test_platform/core/**
+    - pc/et_test_platform/communication/**
+    - pc/et_test_platform/clients/**
+    - firmware/framework/**
+
+changes:
+  analysis:
+    required_parameters: [chip]
+    read:
+      - path: project-governance/ip-analysis-sources.yaml
+        reason: IP分析资料根路径；只负责定位，不定义Evidence用途
+        required: true
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 已有公共IP分析与契约；首次接入时允许尚不存在
+        required: false
+      - path: test_case_doc/{ip}/{chip_upper}_{ip}.md
+        reason: 目标芯片硬件、驱动和寄存器适配事实；首次接入时允许尚不存在
+        required: false
+    rules:
+      - ip_analysis_workflow
+      - public_ip_machine_contract
+      - canonical_result_evidence
+    write_scopes:
+      - test_case_doc/{ip}/**
+    validation:
+      - python tools/quality/check_public_ip_contracts.py
+      - python tools/quality/validate_case_plans.py test_case_doc/{ip}/{ip}.md
+      - python tools/quality/validate_chip_ip_docs.py
+
+  test-result:
+    required_parameters: [chip]
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 稳定Case ID、Feature和当前注册Case集合
+        required: true
+      - path: test_case_doc/{ip}/{chip_upper}_{ip}.md
+        reason: 目标芯片当前测试状态和非PASS记录
+        required: true
+      - path: report/design/rules/R110_contract_document_sync.md
+        reason: HIL结果回写、时间戳和状态表唯一规则
+        required: true
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: Source身份、Evidence和状态事实边界
+        required: true
+    rules:
+      - contract_document_sync
+      - canonical_result_evidence
+    write_scopes:
+      - test_case_doc/{ip}/{chip_upper}_{ip}.md
+    validation:
+      - python tools/quality/validate_chip_ip_docs.py --require-test-status test_case_doc/{ip}/{chip_upper}_{ip}.md
+
+  case:
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共Feature、Case和报告语义的唯一契约
+        required: true
+      - path: pc/et_test_platform/test_cases/{ip}
+        reason: 目标IP Formal Case包
+        required: false
+      - path: report/design/rules/R210_pc_case_responsibility.md
+        reason: Case职责、注释、断言和清理规则
+        required: true
+      - path: report/design/rules/R120_public_ip_machine_contract.md
+        reason: ET_CASE_SPEC、PLAN和REPORT机器契约
+        required: true
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: Result、Observation和Evidence契约
+        required: true
+    rules:
+      - pc_case_responsibility
+      - public_ip_machine_contract
+      - public_ip_implementation_sync
+      - canonical_result_evidence
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/test_cases/{ip}/**
+      - test_case_doc/{ip}/{ip}.md
+    validation:
+      - python tools/quality/validate_case_docs.py test_case_doc/{ip}/{ip}.md
+      - python tools/quality/check_case_spec_implementation.py
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/test_cases/{ip}
+      - python tools/quality/check_case_orchestration_rules.py --root . pc/et_test_platform/test_cases/{ip}
+      - python -m pytest --collect-only -q pc/et_test_platform/test_cases/{ip}
+
+  driver:
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共Feature和Driver语义的唯一契约
+        required: true
+      - path: pc/et_test_platform/drivers/{ip}
+        reason: 目标IP稳定PC Driver、Codec和数据模型
+        required: false
+      - path: report/design/rules/R200_pc_layer_responsibilities.md
+        reason: PC分层和Driver职责
+        required: true
+      - path: report/design/rules/R400_et_frame_v1.md
+        reason: 公共Wire事务边界
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - et_frame_v1
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/drivers/{ip}/**
+      - pc/et_test_platform/framework_validation/unit/drivers/{ip}/**
+      - test_case_doc/{ip}/{ip}.md
+    validation:
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/drivers/{ip}
+
+  service:
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共命令与Service语义的唯一契约
+        required: true
+      - path: firmware/services/include/et_{ip}_service.h
+        reason: 目标IP Service公共接口
+        required: false
+      - path: firmware/services/src/et_{ip}_service.c
+        reason: 目标IP命令解析与Own Wrap执行
+        required: false
+      - path: report/design/rules/R300_firmware_service.md
+        reason: Firmware Service职责边界
+        required: true
+      - path: report/design/rules/R330_firmware_c_style.md
+        reason: Service函数Doxygen、Flow/Why注释和语义常量质量规则
+        required: true
+    rules:
+      - firmware_service_responsibility
+      - firmware_c_style
+      - et_frame_v1
+    write_scopes:
+      - firmware/services/include/et_{ip}_service.h
+      - firmware/services/src/et_{ip}_service.c
+      - test_case_doc/{ip}/{ip}.md
+    validation:
+      - python tools/quality/check_firmware_c_quality.py --strict-magic firmware/services/include/et_{ip}_service.h firmware/services/src/et_{ip}_service.c
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  wrap:
+    required_parameters: [chip]
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共Feature与Wrap语义的唯一契约
+        required: true
+      - path: firmware/wrap/include/et_{ip}_wrap.h
+        reason: 目标IP公共Wrap接口
+        required: false
+      - path: firmware/wrap/src/et_{ip}_wrap.c
+        reason: 目标IP到Own Chip Driver的封装
+        required: false
+      - path: report/design/rules/R310_firmware_wrap.md
+        reason: Wrap接口和Chip Config规则
+        required: true
+      - path: report/design/rules/R330_firmware_c_style.md
+        reason: Wrap函数Doxygen、Flow/Why注释和语义常量质量规则
+        required: true
+    rules:
+      - firmware_wrap_responsibility
+      - firmware_c_style
+    write_scopes:
+      - firmware/wrap/include/et_{ip}_wrap.h
+      - firmware/wrap/src/et_{ip}_wrap.c
+      - firmware/chips/{chip}/config/et_chip_wrap_config.h
+      - test_case_doc/{ip}/{ip}.md
+    validation:
+      - python tools/quality/check_firmware_c_quality.py --strict-magic firmware/wrap/include/et_{ip}_wrap.h firmware/wrap/src/et_{ip}_wrap.c
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  capability:
+    required_parameters: [chip]
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共Feature和Capability语义的唯一契约
+        required: true
+      - path: report/design/rules/R410_capability_v2.md
+        reason: Capability生成、语义和查询契约
+        required: true
+      - path: test_case_doc/{ip}/{chip_upper}_{ip}.md
+        reason: 目标芯片IP适配事实
+        required: false
+      - path: pc/et_test_platform/profiles/chip_capabilities/{chip}/ip/{ip}.yaml
+        reason: 目标芯片机器能力事实
+        required: false
+    rules:
+      - capability_v2
+      - chip_adaptation_boundary
+    write_scopes:
+      - test_case_doc/{ip}/{chip_upper}_{ip}.md
+      - pc/et_test_platform/profiles/chip_capabilities/{chip}/ip/{ip}.yaml
+      - pc/et_test_platform/profiles/chip_execution_mappings/{chip}/*{ip}*
+      - pc/et_test_platform/framework_validation/unit/profiles/*{ip}*
+    validation:
+      - python tools/quality/validate_chip_ip_docs.py
+      - python tools/quality/check_ip_change_rules.py --all-chip-neutral
+
+  chip-driver:
+    required_parameters: [chip]
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 公共Feature与Wrap所需稳定语义
+        required: true
+      - path: test_case_doc/{ip}/{chip_upper}_{ip}.md
+        reason: 目标芯片Driver、寄存器和硬件适配事实
+        required: false
+      - path: firmware/chips/{chip}/sdk
+        reason: 目标芯片本地SDK Driver
+        required: true
+      - path: report/design/rules/R310_firmware_wrap.md
+        reason: Driver优先与隔离Test Driver Extension规则
+        required: true
+    rules:
+      - public_ip_semantics
+      - chip_adaptation_boundary
+      - firmware_wrap_responsibility
+    write_scopes:
+      - firmware/chips/{chip}/sdk/**/Inc/*{ip}*
+      - firmware/chips/{chip}/sdk/**/Src/*{ip}*
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/**/*{ip}*
+    validation:
+      - python tools/quality/check_firmware_architecture_rules.py .
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/firmware_contract
+
+  report:
+    read:
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: 状态中立观测与报告展示边界
+        required: true
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 目标IP ET_CASE_REPORT模板
+        required: true
+    rules:
+      - canonical_result_evidence
+      - public_ip_machine_contract
+    write_scopes:
+      - test_case_doc/{ip}/{ip}.md
+      - pc/et_test_platform/test_cases/{ip}/**
+    validation:
+      - python tools/quality/validate_case_docs.py test_case_doc/{ip}/{ip}.md
+      - python tools/quality/check_case_spec_implementation.py

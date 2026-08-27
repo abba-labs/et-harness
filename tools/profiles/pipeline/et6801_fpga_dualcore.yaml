@@ -1,0 +1,26 @@
+schema: et-pipeline-profile/v1
+name: et6801_fpga_dualcore
+target_kind: fpga
+
+# 双核流程只替换Profile和部署清单；公共Runner与双核脚本保持不变。
+steps:
+  build.firmware:
+    script: tools/firmware/deploy_dualcore_firmware.ps1
+    hardware_action: false
+    arguments:
+      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_fpga_itcm.json}
+      - {option: -Action, value: Build}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+
+  deploy.firmware:
+    script: tools/firmware/deploy_dualcore_firmware.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_fpga_itcm.json}
+      - {option: -Action, value: Deploy}
+      - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
+      - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
+      - {option: -SerialPort, from: dut.control.port}
+      - {option: -Repeat, value: 2}
+      - {flag: -ConfirmHardware}

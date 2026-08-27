@@ -1,0 +1,42 @@
+schema: et-pipeline-profile/v1
+name: et6801_silicon
+target_kind: silicon
+
+constraints:
+  mutually_exclusive:
+    - [deploy.firmware, execute.start_target]
+
+steps:
+  build.firmware:
+    script: tools/firmware/build_et6801_test_firmware.ps1
+    hardware_action: false
+    arguments:
+      - {option: -Target, value: SILICON}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+
+  deploy.firmware:
+    script: tools/firmware/flash_and_run_et6801_firmware.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Project, value: firmware/build/et6801/ET6801_Automated_Test.uvprojx, kind: file, base: repository}
+      - {option: -Target, value: ET6801_SILICON_FLASH}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+      - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
+      - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
+      - {flag: -ConfirmPFlashProgram}
+      - {flag: -ConfirmRunControl}
+
+  execute.start_target:
+    script: tools/firmware/flash_and_run_et6801_firmware.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Project, value: firmware/build/et6801/ET6801_Automated_Test.uvprojx, kind: file, base: repository}
+      - {option: -Target, value: ET6801_SILICON_FLASH}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+      - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
+      - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
+      - {flag: -SkipFlash}
+      - {flag: -ConfirmRunControl}

@@ -1,0 +1,25 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: adcreg
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  adcreg0:
+    svd_name: ADCREG
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      adcreg0: '0x50001000'
+evidence:
+  adcreg.identity.base_address:
+  - instance: adcreg0
+    kind: peripheral
+    path: ADCREG.baseAddress
+    rule: direct

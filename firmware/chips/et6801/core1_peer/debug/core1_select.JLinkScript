@@ -1,0 +1,13 @@
+__constant U32 ET_CORE1_AHB_AP_INDEX = 2;
+
+/* Select Core1 through AP2 without reading or writing target registers. */
+void ConfigTargetSettings(void)
+{
+    JLINK_SYS_Report("ET6801 Core1 selected through AHB-AP[2]");
+    JLINK_CORESIGHT_AddAP(0, CORESIGHT_APB_AP);
+    JLINK_CORESIGHT_AddAP(1, CORESIGHT_AHB_AP);
+    JLINK_CORESIGHT_AddAP(2, CORESIGHT_AHB_AP);
+    JLINK_CORESIGHT_AddAP(3, CORESIGHT_APB_AP);
+    JLINK_CORESIGHT_IndexAHBAPToUse = ET_CORE1_AHB_AP_INDEX;
+    JLINK_CPU = CORTEX_M7;
+}

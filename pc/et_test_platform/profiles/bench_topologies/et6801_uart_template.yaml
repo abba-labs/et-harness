@@ -1,0 +1,44 @@
+bench: et6801_uart_template
+lane: fpga
+
+targets:
+  dut:
+    chip: et6801
+    firmware_build_id: ${ET_DUT_FIRMWARE_BUILD_ID}
+    debugger:
+      # Chip/board debug facts; executable and probe identity come from run_config.
+      driver: jlink
+      device: Cortex-M7
+      interface: JTAG
+      speed_khz: 1000
+      command_timeout_s: 10.0
+    transport:
+      kind: serial
+      port: ${ET_DUT_SERIAL_PORT}
+      baud: ${ET_DUT_SERIAL_BAUD}
+      bytesize: 8
+      parity: N
+      stopbits: 1
+      dtr: false
+      rts: false
+      request_timeout_s: 1.0
+    ip_pairs:
+      uart:
+        # Logical roles; the current bench maps them to UART0/UART1/UART2.
+        control_instance: 0
+        dut_instance: 1
+        peer_instance: 2
+    dma_peripheral_pair:
+      # Physical cross-connect for this bench:
+      # J25.3 UART1_RX <- J30.5 UART2_TX
+      # J25.5 UART1_TX -> J30.3 UART2_RX
+      provider: uart_loopback
+      controller_instance: 0
+      dma_port_instance: 1
+      peer_port_instance: 2
+      source_interface: 0
+      destination_interface: 1
+      baud: 115200
+      data_bits: 8
+      parity: 0
+      stop_bits: 1

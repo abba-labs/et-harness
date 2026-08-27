@@ -1,0 +1,25 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: syscnt_ro
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  syscnt_ro0:
+    svd_name: SYSCNT_RO
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      syscnt_ro0: '0x4040D000'
+evidence:
+  syscnt_ro.identity.base_address:
+  - instance: syscnt_ro0
+    kind: peripheral
+    path: SYSCNT_RO.baseAddress
+    rule: direct

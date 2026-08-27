@@ -1,0 +1,200 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: qep
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  qep0:
+    svd_name: QEP0
+  qep1:
+    svd_name: QEP1
+  qep2:
+    svd_name: QEP2
+  qep3:
+    svd_name: QEP3
+  qep4:
+    svd_name: QEP4
+  qep5:
+    svd_name: QEP5
+capabilities:
+  features:
+    cfg2_cap:
+    - qep0
+    - qep1
+    - qep2
+    - qep3
+    - qep4
+    - qep5
+    cfg2_pccu_cmp:
+    - qep0
+    - qep1
+    - qep2
+    - qep3
+    - qep4
+    - qep5
+    cfg2_wdg:
+    - qep0
+    - qep1
+    - qep2
+    - qep3
+    - qep4
+    - qep5
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      qep0:
+        svd_name: QEP0
+        irqn: 135
+      qep1:
+        svd_name: QEP1
+        irqn: 136
+      qep2:
+        svd_name: QEP2
+        irqn: 137
+      qep3:
+        svd_name: QEP3
+        irqn: 138
+      qep4:
+        svd_name: QEP4
+        irqn: 139
+      qep5:
+        svd_name: QEP5
+        irqn: 140
+  identities:
+    base_address:
+      qep0: '0x4010F000'
+      qep1: '0x40110000'
+      qep2: '0x40111000'
+      qep3: '0x40112000'
+      qep4: '0x40113000'
+      qep5: '0x40114000'
+evidence:
+  qep.feature.cfg2_cap:
+  - instance: qep0
+    kind: field
+    path: QEP0.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  - instance: qep1
+    kind: field
+    path: QEP1.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  - instance: qep2
+    kind: field
+    path: QEP2.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  - instance: qep3
+    kind: field
+    path: QEP3.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  - instance: qep4
+    kind: field
+    path: QEP4.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  - instance: qep5
+    kind: field
+    path: QEP5.CTRL2.CFG2CAP_EN
+    rule: boolean_enable_field
+  qep.feature.cfg2_pccu_cmp:
+  - instance: qep0
+    kind: field
+    path: QEP0.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  - instance: qep1
+    kind: field
+    path: QEP1.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  - instance: qep2
+    kind: field
+    path: QEP2.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  - instance: qep3
+    kind: field
+    path: QEP3.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  - instance: qep4
+    kind: field
+    path: QEP4.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  - instance: qep5
+    kind: field
+    path: QEP5.CTRL2.CFG2PCCU_CMP_EN
+    rule: boolean_enable_field
+  qep.feature.cfg2_wdg:
+  - instance: qep0
+    kind: field
+    path: QEP0.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  - instance: qep1
+    kind: field
+    path: QEP1.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  - instance: qep2
+    kind: field
+    path: QEP2.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  - instance: qep3
+    kind: field
+    path: QEP3.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  - instance: qep4
+    kind: field
+    path: QEP4.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  - instance: qep5
+    kind: field
+    path: QEP5.CTRL1.CFG2WDG_EN
+    rule: boolean_enable_field
+  qep.identity.base_address:
+  - instance: qep0
+    kind: peripheral
+    path: QEP0.baseAddress
+    rule: direct
+  - instance: qep1
+    kind: peripheral
+    path: QEP1.baseAddress
+    rule: direct
+  - instance: qep2
+    kind: peripheral
+    path: QEP2.baseAddress
+    rule: direct
+  - instance: qep3
+    kind: peripheral
+    path: QEP3.baseAddress
+    rule: direct
+  - instance: qep4
+    kind: peripheral
+    path: QEP4.baseAddress
+    rule: direct
+  - instance: qep5
+    kind: peripheral
+    path: QEP5.baseAddress
+    rule: direct
+  qep.interrupt.irq:
+  - instance: qep0
+    kind: interrupt
+    path: QEP0.interrupt.QEP0
+    rule: direct
+  - instance: qep1
+    kind: interrupt
+    path: QEP1.interrupt.QEP1
+    rule: direct
+  - instance: qep2
+    kind: interrupt
+    path: QEP2.interrupt.QEP2
+    rule: direct
+  - instance: qep3
+    kind: interrupt
+    path: QEP3.interrupt.QEP3
+    rule: direct
+  - instance: qep4
+    kind: interrupt
+    path: QEP4.interrupt.QEP4
+    rule: direct
+  - instance: qep5
+    kind: interrupt
+    path: QEP5.interrupt.QEP5
+    rule: direct

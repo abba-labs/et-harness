@@ -1,0 +1,273 @@
+schema_version: 1
+chip: et6801
+device: ET6801
+template_root: manifest
+template_project: keil/templates/base.uvprojx
+template_options: keil/templates/base.uvoptx
+output_project: firmware/build/et6801/ET6801_Automated_Test.uvprojx
+jlink_settings: firmware/chips/et6801/keil/JLinkSettings.ini
+
+targets:
+  - name: ET6801_FPGA_ITCM
+    template_target: ET6801_FPGA_ITCM
+    define: ET_TARGET_FPGA
+    project_includes:
+      - firmware/boards/et6801_fpga
+    project_groups:
+      Board:
+        - firmware/boards/et6801_fpga/et_board_config.h
+    output_name: et6801_test_fpga
+    output_directory: .\Objects\FPGA_ITCM\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/linker/link_itcm.sct
+    defines:
+      - ET6801
+      - CPU0_CODE
+      - ITCM_CODE
+      - FPGA_VERSION
+      - ET_TARGET_FPGA
+      - ET_AUTO_TEST_FRAMEWORK
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+  - name: ET6801_SILICON_FLASH
+    template_target: ET6801_SILICON_FLASH
+    define: ET_TARGET_SILICON
+    project_includes:
+      - firmware/boards/et6801_silicon
+    project_groups:
+      Board:
+        - firmware/boards/et6801_silicon/et_board_config.h
+    output_name: et6801_test_silicon
+    output_directory: .\Objects\SILICON_FLASH\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/linker/link_pflash.sct
+    flash_driver: 'UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0ET6801 -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM))'
+    debug_driver: jlink
+    jlink_flash_loader_args: '-FN1 -FF0ET6801.FLM -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM)'
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IRAM2(0x20400000,0x40000) IROM(0x08000000,0x80000) IROM2(0x00000000,0x20000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 0
+      update_flash_before_debugging: 1
+    defines:
+      - ET6801
+      - CPU0_CODE
+      - FLASH_CODE
+      - FPGA_VERSION
+      - ET_TARGET_SILICON
+      - ET_AUTO_TEST_FRAMEWORK
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+  - name: ET6801_FPGA_MANUAL_FLASH
+    template_target: ET6801_SILICON_FLASH
+    define: ET_TARGET_FPGA
+    project_includes:
+      - firmware/boards/et6801_fpga
+      - firmware/manual_tests/et6801/include
+    project_groups:
+      Board:
+        - firmware/boards/et6801_fpga/et_board_config.h
+      Manual_Diagnostics:
+        - firmware/manual_tests/et6801/include/et_manual_test.h
+        - firmware/manual_tests/et6801/include/et_manual_test_config.h
+        - firmware/manual_tests/et6801/include/et_manual_test_internal.h
+        - firmware/manual_tests/et6801/src/et_manual_test.c
+        - firmware/manual_tests/et6801/src/et_manual_uart_test.c
+        - firmware/manual_tests/et6801/src/et_manual_crc_test.c
+        - firmware/manual_tests/et6801/src/et_manual_aes_test.c
+        - firmware/manual_tests/et6801/src/et_manual_cordic_test.c
+        - firmware/manual_tests/et6801/src/et_manual_crg_test.c
+        - firmware/manual_tests/et6801/src/et_manual_fmac_test.c
+        - firmware/manual_tests/et6801/src/et_manual_stimer_test.c
+        - firmware/manual_tests/et6801/src/et_manual_wdg_test.c
+    output_name: et6801_manual_uart_crc_fpga_flash
+    output_directory: .\Objects\FPGA_MANUAL_FLASH\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/linker/link_pflash.sct
+    flash_driver: 'UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0ET6801 -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM))'
+    debug_driver: jlink
+    jlink_flash_loader_args: '-FN1 -FF0ET6801.FLM -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM)'
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IRAM2(0x20400000,0x40000) IROM(0x08000000,0x80000) IROM2(0x00000000,0x20000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 0
+      update_flash_before_debugging: 1
+    defines:
+      - ET6801
+      - CPU0_CODE
+      - FLASH_CODE
+      - FPGA_VERSION
+      - ET_TARGET_FPGA
+      - ET_MANUAL_TEST_ENABLE
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+  - name: ET6801_FPGA_CORE1_SMOKE_ITCM
+    template_target: ET6801_FPGA_ITCM
+    define: ET_TARGET_FPGA
+    project_includes:
+      - firmware/boards/et6801_fpga
+      - firmware/manual_tests/et6801/include
+      - firmware/chips/et6801/core1_peer/include
+    project_groups:
+      Board:
+        - firmware/boards/et6801_fpga/et_board_config.h
+      Manual_Diagnostics:
+        - firmware/manual_tests/et6801/include/et_manual_test.h
+        - firmware/manual_tests/et6801/include/et_manual_test_config.h
+        - firmware/manual_tests/et6801/include/et_manual_test_internal.h
+        - firmware/manual_tests/et6801/src/et_manual_test.c
+        - firmware/manual_tests/et6801/src/et_manual_dualcore_test.c
+    output_name: et6801_core1_launcher_itcm
+    output_directory: .\Objects\FPGA_CORE1_SMOKE_ITCM\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/core1_peer/linker/link_core0_launcher_itcm.sct
+    debug_driver: jlink
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IROM(0x00000000,0x40000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 1
+      update_flash_before_debugging: 0
+    defines:
+      - ET6801
+      - CPU0_CODE
+      - ITCM_CODE
+      - FPGA_VERSION
+      - ET_TARGET_FPGA
+      - ET_MANUAL_TEST_ENABLE
+      - ET_MANUAL_CORE1_SMOKE_ONLY
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+  - name: ET6801_SILICON_CORE1_LAUNCHER_FLASH
+    template_target: ET6801_SILICON_FLASH
+    define: ET_TARGET_SILICON
+    project_includes:
+      - firmware/boards/et6801_silicon
+      - firmware/manual_tests/et6801/include
+      - firmware/chips/et6801/core1_peer/include
+    project_groups:
+      Board:
+        - firmware/boards/et6801_silicon/et_board_config.h
+      Manual_Diagnostics:
+        - firmware/manual_tests/et6801/include/et_manual_test.h
+        - firmware/manual_tests/et6801/include/et_manual_test_config.h
+        - firmware/manual_tests/et6801/include/et_manual_test_internal.h
+        - firmware/manual_tests/et6801/src/et_manual_test.c
+        - firmware/manual_tests/et6801/src/et_manual_dualcore_test.c
+    output_name: et6801_core1_launcher_flash
+    output_directory: .\Objects\SILICON_CORE1_LAUNCHER_FLASH\
+    scatter_root: project
+    scatter_file: firmware/chips/et6801/linker/link_pflash.sct
+    flash_driver: 'UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0ET6801 -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM))'
+    debug_driver: jlink
+    jlink_flash_loader_args: '-FN1 -FF0ET6801.FLM -FS08000000 -FL080000 -FP0($$Device:ET6801$Flash\ET6801.FLM)'
+    keil_device_profile:
+      vendor: ETMCU
+      pack_id: ETMCU.ET6801_DFP.0.1.0
+      pack_url: https://www.etmcu.com/application/15.html/
+      cpu: 'IRAM(0x20000000,0x20000) IRAM2(0x20400000,0x40000) IROM(0x08000000,0x80000) IROM2(0x00000000,0x20000) CPUTYPE("Cortex-M7") FPU3(SFPU) CLOCK(12000000) ELITTLE'
+      register_file: '$$Device:ET6801$Device\Include\et6801.h'
+      sfd_file: ''
+      custom_svd: 0
+      invalid_flash: 0
+      update_flash_before_debugging: 1
+    defines:
+      - ET6801
+      - CPU0_CODE
+      - FLASH_CODE
+      - FPGA_VERSION
+      - ET_TARGET_SILICON
+      - ET_MANUAL_TEST_ENABLE
+      - ET_MANUAL_CORE1_SMOKE_ONLY
+      - ET_ENABLE_TEST_DRIVER_EXTENSIONS
+
+project_groups:
+  Application:
+    - firmware/application/src/main.c
+    - firmware/application/src/et_control_uart.c
+    - firmware/application/src/et_service_manifest.c
+  Framework:
+    - firmware/framework/src/et_frame.c
+    - firmware/framework/src/et_irq_manager.c
+    - firmware/framework/src/et_message.c
+    - firmware/framework/src/et_protocol.c
+    - firmware/framework/src/et_ring_buffer.c
+    - firmware/framework/src/et_runtime.c
+    - firmware/framework/src/et_service_router.c
+  Services:
+    - firmware/services/src/et_services.c
+    - firmware/services/src/et_framework_service.c
+    - firmware/services/src/et_resource_service.c
+    - firmware/services/src/et_crg_service.c
+    - firmware/services/src/et_cpu_service.c
+    - firmware/services/src/et_sysctrl_service.c
+    - firmware/services/src/et_uart_service.c
+    - firmware/services/src/et_dma_service.c
+    - firmware/services/src/et_crc_service.c
+    - firmware/services/src/et_aes_service.c
+    - firmware/services/src/et_fmac_service.c
+    - firmware/services/src/et_cordic_service.c
+    - firmware/services/src/et_wdg_service.c
+    - firmware/services/src/et_stimer_service.c
+    - firmware/services/src/et_spinlock_service.c
+  Wrap:
+    - firmware/wrap/src/et_resource_wrap.c
+    - firmware/wrap/src/et_system_wrap.c
+    - firmware/wrap/src/et_cortex_wrap.c
+    - firmware/wrap/src/et_crg_wrap.c
+    - firmware/wrap/src/et_cpu_wrap.c
+    - firmware/wrap/src/et_sysctrl_wrap.c
+    - firmware/wrap/src/et_irq_wrap.c
+    - firmware/wrap/src/et_gpio_wrap.c
+    - firmware/wrap/src/et_uart_wrap.c
+    - firmware/wrap/src/et_dma_wrap.c
+    - firmware/wrap/src/et_crc_wrap.c
+    - firmware/wrap/src/et_aes_wrap.c
+    - firmware/wrap/src/et_fmac_wrap.c
+    - firmware/wrap/src/et_cordic_wrap.c
+    - firmware/wrap/src/et_wdg_wrap.c
+    - firmware/wrap/src/et_stimer_wrap.c
+    - firmware/wrap/src/et_spinlock_wrap.c
+  Chip_Startup:
+    - firmware/chips/et6801/sdk/CMSIS/Device/Source/ARM/startup_et6801.s
+  Chip_System:
+    - firmware/chips/et6801/sdk/CMSIS/Device/Source/system_et6x.c
+  Chip_Drivers:
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_ahbdma.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_aes.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_cortex.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_crg.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_cpu.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_dualcore.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_crc.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_fmac.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_cordic.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_wdg.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_stimer.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_spinlock.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_xbar.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_gpio.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_interrupt.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_sysctrl.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_uart.c
+
+project_includes:
+  - firmware/application/include
+  - firmware/boards/include
+  - firmware/framework/include
+  - firmware/services/include
+  - firmware/wrap/include
+  - firmware/chips/et6801/config
+  - firmware/chips/et6801/sdk/CMSIS/Core/Include
+  - firmware/chips/et6801/sdk/CMSIS/Device/Include
+  - firmware/chips/et6801/sdk/ET6x_Driver/Inc

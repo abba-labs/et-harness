@@ -1,0 +1,395 @@
+schema: et.rule-owner-catalog.v1
+status: active
+
+owners:
+  - id: agent_rule_governance
+    number: R001
+    rule_id: ET-RULE-GOVERNANCE
+    lifecycle: active
+    source: report/design/rules/R001_agent_rule_governance.md
+    heading: "## 4. 诊断命名空间规则"
+    diagnostics: [ETGOV101-ETGOV123]
+    checkers: [tools/quality/validate_rule_governance.py]
+
+  - id: task_context_navigation
+    number: R002
+    rule_id: ET-RULE-TASK-CONTEXT
+    lifecycle: active
+    source: report/design/rules/R002_task_context_navigation.md
+    heading: "## 2. 强制执行链路"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+  - id: weekly_report_authoring
+    number: R003
+    rule_id: ET-RULE-WEEKLY-REPORT
+    lifecycle: active
+    source: report/design/rules/R003_weekly_report_authoring.md
+    heading: "## 2. 事实来源与统计口径"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+  - id: pc_layer_responsibilities
+    number: R200
+    rule_id: ET-RULE-PC-LAYERS
+    lifecycle: active
+    source: report/design/rules/R200_pc_layer_responsibilities.md
+    heading: "## 3. 固定依赖方向"
+    diagnostics: [ETPC006, ETPC202, ETPC205-ETPC214]
+    checkers: [tools/quality/check_pc_code_rules.py]
+
+  - id: pc_case_responsibility
+    number: R210
+    rule_id: ET-RULE-PC-CASE
+    lifecycle: active
+    source: report/design/rules/R210_pc_case_responsibility.md
+    heading: "## 5. Case函数允许和禁止的内容"
+    diagnostics:
+      - ETPC104-ETPC106
+      - ETPC301
+      - ETORCH101-ETORCH205
+      - ETORCH207-ETORCH214
+    checkers:
+      - tools/quality/check_pc_code_rules.py
+      - tools/quality/check_case_orchestration_rules.py
+
+  - id: python_style_documentation
+    number: R220
+    rule_id: ET-RULE-PYTHON-QUALITY
+    lifecycle: active
+    source: report/design/rules/R220_python_style_quality.md
+    heading: "## 6. 当前项目自定义机器门禁"
+    diagnostics:
+      - ETPC000-ETPC001
+      - ETPC401
+      - ETPC403
+      - ETPC410-ETPC414
+      - ETDOC101-ETDOC205
+    checkers:
+      - tools/quality/check_pc_code_rules.py
+      - tools/quality/check_pc_documentation_rules.py
+
+  - id: public_ip_machine_contract
+    number: R120
+    rule_id: ET-RULE-IP-MACHINE-CONTRACT
+    lifecycle: active
+    source: report/design/rules/R120_public_ip_machine_contract.md
+    heading: "# R120 Public IP Machine Contract"
+    diagnostics: [ETCASE001-ETCASE616, ETPLAN101-ETPLAN304]
+    exclusive_markers:
+      - "schema: et.case.v1"
+      - "schema: et.case-plan.v1"
+      - "schema: et.case-report-note.v1"
+    checkers:
+      - tools/quality/validate_case_docs.py
+      - tools/quality/validate_case_plans.py
+      - tools/quality/validate_case_method_contract.py
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_case_resource_level_contract.py
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_case_method_human_review_contract.py
+
+  - id: public_ip_implementation_sync
+    number: R210
+    rule_id: ET-RULE-IP-IMPLEMENTATION-SYNC
+    lifecycle: active
+    source: report/design/rules/R210_pc_case_responsibility.md
+    heading: "## 8. 断言与Evidence"
+    diagnostics: [ETSPEC201-ETSPEC206]
+    checkers: [tools/quality/check_case_spec_implementation.py]
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_case_spec_implementation_checker.py
+
+  - id: canonical_result_evidence
+    number: R130
+    rule_id: ET-RULE-CANONICAL-RESULT-EVIDENCE
+    lifecycle: active
+    source: report/design/rules/R130_canonical_result_evidence.md
+    heading: "# R130 Canonical Result / Observation / Evidence Contract"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
+      - pc/et_test_platform/framework_validation/unit/core/test_result_integrity_gate.py
+      - pc/et_test_platform/framework_validation/unit/results/test_case_report.py
+
+  - id: ip_analysis_workflow
+    number: R140
+    rule_id: ET-RULE-IP-ANALYSIS
+    lifecycle: active
+    source: report/design/rules/R140_ip_analysis_workflow.md
+    heading: "## 4. 固定分析顺序"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+  - id: et_frame_v1
+    number: R400
+    rule_id: ET-RULE-ET-FRAME-V1
+    lifecycle: active
+    source: report/design/rules/R400_et_frame_v1.md
+    heading: "# R400 ET-Frame v1 公共通信协议"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/communication/test_protocol.py
+      - pc/et_test_platform/framework_validation/unit/communication/test_c_protocol_vectors.py
+      - pc/et_test_platform/framework_validation/unit/clients/test_target_client.py
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_common_reliability_native.py
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_firmware_config_contract.py
+
+  - id: capability_v2
+    number: R410
+    rule_id: ET-RULE-CAPABILITY-V2
+    lifecycle: active
+    source: report/design/rules/R410_capability_v2.md
+    heading: "# R410 Capability v2 契约"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/profiles/test_capability_v2_contract.py
+      - pc/et_test_platform/framework_validation/unit/profiles/test_capability_profile.py
+      - pc/et_test_platform/framework_validation/unit/profiles/test_svd_capability_generator.py
+
+  - id: interrupt_subsystem
+    number: R320
+    rule_id: ET-RULE-INTERRUPT-SUBSYSTEM
+    lifecycle: active
+    source: report/design/rules/R320_interrupt_subsystem.md
+    heading: "# R320 Firmware中断规则"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_irq_manager_reliability_native.py
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_irq_capture_fault_contract.py
+      - pc/et_test_platform/framework_validation/unit/firmware_contract/test_dma_irq_fault_native.py
+
+  - id: operator_pipeline
+    number: R500
+    rule_id: ET-RULE-OPERATOR-PIPELINE
+    lifecycle: active
+    source: report/design/rules/R500_operator_pipeline.md
+    heading: "# R500 Operator Pipeline / Run Config / Artifact 契约"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+
+  - id: public_ip_semantics
+    number: R100
+    rule_id: ET-RULE-PUBLIC-IP-SEMANTICS
+    lifecycle: active
+    source: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
+    heading: "## 3. 稳定语义规则"
+    diagnostics: [ETIPDOC101-ETIPDOC112]
+    checkers: [tools/quality/check_public_ip_contracts.py]
+
+  - id: public_chip_neutrality
+    number: R100
+    rule_id: ET-RULE-CHIP-NEUTRALITY
+    lifecycle: active
+    source: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
+    heading: "## 4. 公共代码芯片中立规则"
+    diagnostics: [ETCHIP101-ETCHIP104]
+    checkers: [tools/quality/check_ip_change_rules.py]
+
+  - id: contract_document_sync
+    number: R110
+    rule_id: ET-RULE-CONTRACT-SYNC
+    lifecycle: active
+    source: report/design/rules/R110_contract_document_sync.md
+    heading: "## 4. Formal Case双向绑定"
+    diagnostics: [ETSYNC101-ETSYNC208]
+    checkers:
+      - tools/quality/check_ip_change_rules.py
+      - tools/quality/validate_chip_ip_docs.py
+
+  - id: chip_adaptation_boundary
+    number: R100
+    rule_id: ET-RULE-CHIP-ADAPTATION
+    lifecycle: active
+    source: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
+    heading: "## 5. 芯片适配规则"
+    diagnostics: [ETCHIPDOC101-ETCHIPDOC304, ETFW301-ETFW310]
+    checkers:
+      - tools/quality/validate_chip_ip_docs.py
+      - tools/quality/check_firmware_architecture_rules.py
+
+  - id: firmware_service_responsibility
+    number: R300
+    rule_id: ET-RULE-FIRMWARE-SERVICE
+    lifecycle: active
+    source: report/design/rules/R300_firmware_service.md
+    heading: "## 3. 一Service一IP"
+    diagnostics: [ETFW101-ETFW103]
+    checkers: [tools/quality/check_firmware_architecture_rules.py]
+
+  - id: firmware_wrap_responsibility
+    number: R310
+    rule_id: ET-RULE-FIRMWARE-WRAP
+    lifecycle: active
+    source: report/design/rules/R310_firmware_wrap.md
+    heading: "## 3. 模块粒度"
+    diagnostics: [ETFW201]
+    checkers: [tools/quality/check_firmware_architecture_rules.py]
+
+  - id: firmware_c_style
+    number: R330
+    rule_id: ET-RULE-FIRMWARE-C-STYLE
+    lifecycle: active
+    source: report/design/rules/R330_firmware_c_style.md
+    heading: "# R330 Firmware C源码质量与可读性规则"
+    diagnostics: [ETFMT101-ETFMT106, ETFMT201-ETFMT211]
+    checkers:
+      - tools/quality/check_firmware_c_format.py
+      - tools/quality/check_firmware_c_quality.py
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_format.py
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_firmware_c_quality.py
+
+  - id: firmware_manual_diagnostics
+    number: R340
+    rule_id: ET-RULE-FIRMWARE-MANUAL-DIAGNOSTICS
+    lifecycle: active
+    source: report/design/rules/R340_firmware_manual_diagnostics.md
+    heading: "## 5. 极简Case规则"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+  - id: companion_platform_responsibility
+    number: R600
+    rule_id: ET-RULE-COMPANION-PLATFORM
+    lifecycle: active
+    source: report/design/rules/R600_companion_platform.md
+    heading: "## 2. 固定职责链"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
+documents:
+  - path: report/design/rules/R001_agent_rule_governance.md
+    number: R001
+    role: contract
+    lifecycle: active
+    owners: [agent_rule_governance]
+
+  - path: report/design/rules/R002_task_context_navigation.md
+    number: R002
+    role: policy
+    lifecycle: active
+    owners: [task_context_navigation]
+
+  - path: report/design/rules/R003_weekly_report_authoring.md
+    number: R003
+    role: policy
+    lifecycle: active
+    owners: [weekly_report_authoring]
+
+  - path: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
+    number: R100
+    role: contract
+    lifecycle: active
+    owners: [public_ip_semantics, public_chip_neutrality, chip_adaptation_boundary]
+
+  - path: report/design/rules/R110_contract_document_sync.md
+    number: R110
+    role: policy
+    lifecycle: active
+    owners: [contract_document_sync]
+
+  - path: report/design/rules/R120_public_ip_machine_contract.md
+    number: R120
+    role: contract
+    lifecycle: active
+    owners: [public_ip_machine_contract]
+
+  - path: report/design/rules/R130_canonical_result_evidence.md
+    number: R130
+    role: contract
+    lifecycle: active
+    owners: [canonical_result_evidence]
+
+  - path: report/design/rules/R140_ip_analysis_workflow.md
+    number: R140
+    role: policy
+    lifecycle: active
+    owners: [ip_analysis_workflow]
+
+  - path: report/design/rules/R200_pc_layer_responsibilities.md
+    number: R200
+    role: contract
+    lifecycle: active
+    owners: [pc_layer_responsibilities]
+
+  - path: report/design/rules/R210_pc_case_responsibility.md
+    number: R210
+    role: contract
+    lifecycle: active
+    owners: [pc_case_responsibility, public_ip_implementation_sync]
+
+  - path: report/design/rules/R220_python_style_quality.md
+    number: R220
+    role: policy
+    lifecycle: active
+    owners: [python_style_documentation]
+
+  - path: report/design/rules/R300_firmware_service.md
+    number: R300
+    role: contract
+    lifecycle: active
+    owners: [firmware_service_responsibility]
+
+  - path: report/design/rules/R310_firmware_wrap.md
+    number: R310
+    role: contract
+    lifecycle: active
+    owners: [firmware_wrap_responsibility]
+
+  - path: report/design/rules/R320_interrupt_subsystem.md
+    number: R320
+    role: contract
+    lifecycle: active
+    owners: [interrupt_subsystem]
+
+  - path: report/design/rules/R330_firmware_c_style.md
+    number: R330
+    role: policy
+    lifecycle: active
+    owners: [firmware_c_style]
+
+  - path: report/design/rules/R340_firmware_manual_diagnostics.md
+    number: R340
+    role: policy
+    lifecycle: active
+    owners: [firmware_manual_diagnostics]
+
+  - path: report/design/rules/R400_et_frame_v1.md
+    number: R400
+    role: contract
+    lifecycle: active
+    owners: [et_frame_v1]
+
+  - path: report/design/rules/R410_capability_v2.md
+    number: R410
+    role: contract
+    lifecycle: active
+    owners: [capability_v2]
+
+  - path: report/design/rules/R500_operator_pipeline.md
+    number: R500
+    role: contract
+    lifecycle: active
+    owners: [operator_pipeline]
+
+  - path: report/design/rules/R600_companion_platform.md
+    number: R600
+    role: contract
+    lifecycle: active
+    owners: [companion_platform_responsibility]

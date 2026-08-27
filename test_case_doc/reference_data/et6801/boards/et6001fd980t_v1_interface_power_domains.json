@@ -1,0 +1,2124 @@
+{
+  "schema_version": "1.0.0",
+  "document_type": "fpga_interface_power_domain_analysis",
+  "generated_at": "2026-07-23 15:41 CST",
+  "scope": {
+    "platform": "ET MCU automated testing platform",
+    "dut_fpga_board": "ET6001FD980T_V1",
+    "dut_logic_image": "ET6801 FPGA prototype",
+    "observer": "XC7Z045",
+    "observer_connectors": [
+      "J58",
+      "J59"
+    ],
+    "interfaces": [
+      "UART0",
+      "UART1",
+      "UART2",
+      "UART3",
+      "IIC0",
+      "IIC1",
+      "LIN0",
+      "LIN1",
+      "SPI0",
+      "SPI1",
+      "SPI2",
+      "SPI3",
+      "QSPI0",
+      "EPR_SPI",
+      "CANFD"
+    ]
+  },
+  "sources": {
+    "schematic_pdf": {
+      "root_key": "svn_library_root",
+      "relative_path": "Software/ET6001/02 FPGA验证/硬件/01 SCH/ET6001FD980T_V1.pdf",
+      "sha256": "453245044BD92D7723F82469882F8DAD57D6D47DD4138C6461743DC06BDD6CBF",
+      "page_count": 28,
+      "note": "Vector PDF; title blocks retain sheet labels such as '3 of 31'. Page numbers in evidence are PDF page numbers."
+    },
+    "schematic_design_source": {
+      "root_key": "svn_library_root",
+      "relative_path": "Software/ET6001/02 FPGA验证/硬件/01 SCH/ET6001FD980T_V1.0.DSN",
+      "used_for_connectivity_proof": false,
+      "reason": "The OrCAD design source is available but no exported netlist/ERC package was present in the analyzed directory."
+    },
+    "interface_mapping_json": {
+      "root_key": "project_root",
+      "relative_path": "test_case_doc/reference_data/et6801/boards/et6801_v0_core_board_interfaces.json",
+      "sha256": "f0f8a9f9b7cbb01f6a85b2967783a8bc33d7e6b6955c69879c759232dc4d4c71"
+    },
+    "interface_mapping_workbook": {
+      "root_key": "chip_source_root",
+      "relative_path": "fpga/ET6801_RTLr1800_FPGAv102_DBG_20260603/release_files/ET6801-V0核心板接口文档.xlsx",
+      "sha256": "5020f22b48fa1f00792cb18a9819923848af5637de21012ae2ee101e9ae29238",
+      "size_bytes": 1336888,
+      "modified_utc": "2026-07-21T09:02:08.502Z",
+      "snapshot_note": "Parsed from a byte-for-byte local snapshot because the source workbook was open in Excel."
+    },
+    "vendor_documents": [
+      {
+        "vendor": "STMicroelectronics",
+        "title": "STM32F417IG product page and STM32F415xx/STM32F417xx datasheet",
+        "urls": [
+          "https://www.st.com/en/microcontrollers-microprocessors/stm32f417ig.html",
+          "https://www.st.com/resource/en/datasheet/stm32f417ig.pdf"
+        ],
+        "facts_used": [
+          "3 I2C controllers",
+          "3 SPI controllers",
+          "USART LIN support",
+          "2 classic CAN 2.0B controllers",
+          "no CAN FD controller",
+          "PC10 USART3_TX and PC11 USART3_RX alternate functions",
+          "no native Quad-SPI listed for STM32F417"
+        ],
+        "checked_at": "2026-07-23"
+      },
+      {
+        "vendor": "NXP",
+        "title": "TJA1042 High-speed CAN transceiver with Standby mode, Rev. 11",
+        "url": "https://www.nxp.com/docs/en/data-sheet/TJA1042.pdf",
+        "facts_used": [
+          "CAN FD fast-phase timing specified up to 5 Mbit/s",
+          "TJA1042T SO8 pin/function identification"
+        ],
+        "checked_at": "2026-07-23"
+      }
+    ]
+  },
+  "evidence_quality": {
+    "overall_confidence": "high for voltage-domain and connector-path conclusions",
+    "limitations": [
+      "Connectivity was verified from the vector schematic PDF and the parsed interface workbook, not from an exported OrCAD netlist.",
+      "No ERC/DRC/DFM report was found; assembly-option resistors, jumpers and NC parts must be checked against the fitted board before release qualification.",
+      "The JSON distinguishes the raw XC7VX980T net voltage from the voltage at a dedicated external connector; workbook rows may mention both in one row."
+    ]
+  },
+  "fundamental_rules": [
+    {
+      "rule": "Never directly connect XC7Z045 J58/J59 to a raw 1.8 V net.",
+      "rationale": "3.3 V drive can violate a 1.8 V input's absolute maximum, and 1.8 V logic-high is not guaranteed at a 3.3 V LVCMOS input."
+    },
+    {
+      "rule": "A board connector carrying a protocol name does not determine its electrical standard.",
+      "rationale": "UART has separate 1.8 V raw, 3.3 V TTL and RS-232 stages; CAN has 1.8 V controller logic, 5 V transceiver logic and differential CANH/CANL."
+    },
+    {
+      "rule": "Use protocol-specific physical-layer devices for LIN, CAN/CAN FD and RS-232.",
+      "rationale": "A generic CMOS level shifter does not replace the bus transceiver."
+    }
+  ],
+  "board_power_domains": {
+    "VCC1V8": {
+      "nominal_voltage_v": 1.8,
+      "uses": [
+        "XC7VX980T banks carrying ET6801 peripheral signals",
+        "J34",
+        "EPR_SPI and U51",
+        "STM32 U60"
+      ]
+    },
+    "VCC3V3": {
+      "nominal_voltage_v": 3.3,
+      "uses": [
+        "dedicated UART TTL headers after U54/U58",
+        "MAX3232 logic supply",
+        "selected debug and peripheral-side connectors"
+      ]
+    },
+    "VCC5V0": {
+      "nominal_voltage_v": 5,
+      "uses": [
+        "CAN transceiver logic/supply path"
+      ]
+    },
+    "RS232": {
+      "type": "bipolar physical-layer voltage",
+      "direct_gpio_compatible": false
+    },
+    "CAN_BUS": {
+      "type": "differential physical-layer voltage",
+      "signals": [
+        "CANH",
+        "CANL"
+      ],
+      "direct_gpio_compatible": false
+    }
+  },
+  "connector_findings": {
+    "J17_J18": {
+      "external_domain": "VCC3V3",
+      "path": "XC7VX980T 1.8 V banks -> U35..U46 TXS0108E -> J17/J18 3.3 V side",
+      "direct_to_xc7z045_j58_j59": true,
+      "note": "This conclusion applies to the level-shifted J17/J18 reserve-I/O path, not to J34."
+    },
+    "J34": {
+      "external_domain": "VCC1V8",
+      "path": "XC7VX980T Bank16 FP_ST_IO1..32 -> J34 odd pins; U60 STM32 1.8 V signals -> J34 even pins",
+      "onboard_level_translation": false,
+      "direct_to_xc7z045_j58_j59": false,
+      "power_pins": [
+        "J34.1 VCC1V8",
+        "J34.2 VCC1V8"
+      ],
+      "ground_pins": [
+        "J34.99 GND",
+        "J34.100 GND"
+      ],
+      "note": "Odd and even pins are separate nets. They are not internally shorted by the connector."
+    },
+    "DEBUG_JTAG": {
+      "raw_fpga_domain": "VCC1V8",
+      "raw_path": "XC7VX980T Bank35 V7_DBG_TDI/TMS/TCK/TDO/RST signals",
+      "level_shifters": [
+        "U64",
+        "U67"
+      ],
+      "level_shifter_part": "TXS0108EPW",
+      "external_domain": "VCC3V3",
+      "external_connectors": [
+        "U65",
+        "U68"
+      ],
+      "direct_3v3_debug_probe_compatible": true,
+      "note": "The FPGA-side debug nets are 1.8 V, but the dedicated external debug headers are on the 3.3 V side of U64/U67. This does not authorize connecting J58/J59 to the raw V7_DBG_*_1V8 nets.",
+      "schematic_evidence": {
+        "pdf_page": 16,
+        "sheet_label": "16 of 31",
+        "confidence": "high"
+      }
+    }
+  },
+  "onboard_test_resource_inventory": [
+    {
+      "ref": "U60",
+      "part": "STM32F417VGT6TR",
+      "io_domain": "VCC1V8",
+      "exposed_interfaces": {
+        "J34_even_pins": [
+          "I2C1",
+          "I2C2",
+          "I2C3",
+          "SPI1",
+          "SPI2",
+          "SPI3",
+          "USART3 alternate functions through PC10/PC11",
+          "timers and GPIO"
+        ],
+        "J35": "additional STM32 GPIO, including software chip-select candidates",
+        "J33": "USART2 service header translated by U59 from 1.8 V to 3.3 V",
+        "U62": "STM32 JTAG header through U61; schematic voltage labels around U61/U62 must be checked on the fitted board before connecting a probe"
+      },
+      "silicon_capabilities": {
+        "i2c": 3,
+        "spi": 3,
+        "usart_uart_with_lin": true,
+        "classic_can_2_0b": 2,
+        "can_fd_controller": false,
+        "native_quad_spi": false
+      },
+      "role": "Primary on-board 1.8 V digital protocol co-tester for J34 signals",
+      "firmware_status": "No matching STM32F417 co-tester firmware was found in the targeted ET6001 FPGA hardware/source directories; new firmware is required.",
+      "source_notes": [
+        "Schematic PDF page 15 shows U60 VDD on VCC1V8 and its protocol signals on J34/J35.",
+        "ST product documentation lists up to 3 I2C, 3 SPI, USART LIN support, two CAN 2.0B controllers, no CAN FD, and no native Quad-SPI for STM32F417."
+      ]
+    },
+    {
+      "refs": [
+        "U48",
+        "U47",
+        "J22"
+      ],
+      "parts": [
+        "TCA9406",
+        "INA233"
+      ],
+      "function": "3.3 V I2C power-monitor test path",
+      "voltage_path": "VCC1V8 IIC1_* -> U48 -> VCC3V3 -> U47/J22",
+      "usable_with_current_et6801_iic0_iic1_mapping": false,
+      "reason": "The current ET6801 IIC0/IIC1 routes are FP_ST_IO signals on J34, not the dedicated IIC1_* nets feeding U48."
+    },
+    {
+      "refs": [
+        "U49",
+        "J19"
+      ],
+      "part": "AT24CS01",
+      "function": "1.8 V I2C EEPROM",
+      "voltage_domain": "VCC1V8",
+      "usable_with_current_et6801_iic0_iic1_mapping": false,
+      "reason": "U49 is on the separate IIC2_* net, not the current J34 FP_ST_IO mapping."
+    },
+    {
+      "refs": [
+        "U50",
+        "U52",
+        "J24"
+      ],
+      "parts": [
+        "TXS0108E",
+        "LM71"
+      ],
+      "function": "temperature-sensor SPI path",
+      "voltage_path": "VCC1V8 TS_SPI_* -> U50 -> VCC3V3 -> U52/J24",
+      "usable_with_current_et6801_spi0_spi3_mapping": false,
+      "reason": "The current ET6801 SPI0..3 routes are FP_ST_IO signals on J34, not the dedicated TS_SPI_* nets."
+    },
+    {
+      "refs": [
+        "U51",
+        "J23"
+      ],
+      "part": "AT25M01_SSHM_B",
+      "function": "EPR_SPI 1.8 V serial EEPROM",
+      "voltage_domain": "VCC1V8",
+      "usable_with_current_et6801_mapping": true,
+      "connection": "Install the J23 shunts between the raw EPR_SPI_*_1V8 odd pins and the EEPROM-side even pins."
+    },
+    {
+      "refs": [
+        "U26"
+      ],
+      "part": "MT25QU01GBBB8ESF-0SIT",
+      "function": "XC7VX980T configuration Quad-SPI flash",
+      "voltage_domain": "VCC1V8",
+      "usable_with_current_et6801_qspi0_mapping": false,
+      "reason": "U26 is connected to SPI_FLASH_DQ0..3/CLK/SB in Bank14, while ET6801 QSPI0 is mapped to FP_ST_IO1..7 on J34. The current bitfile does not expose an internal bridge between them."
+    },
+    {
+      "refs": [
+        "U19",
+        "U20",
+        "J9",
+        "J10"
+      ],
+      "part": "TJA1042T_SO8",
+      "function": "CAN4/CAN5 physical-layer channels",
+      "mapped_et6801_instances": [
+        "CANFD0",
+        "CANFD2"
+      ],
+      "usable_with_current_et6801_mapping": true,
+      "note": "NXP specifies TJA1042 timing for CAN FD fast phase up to 5 Mbit/s; the fitted suffix, controller timing and board population still define the qualified limit."
+    }
+  ],
+  "board_only_test_strategy": {
+    "design_constraint": "Do not add a universal 1.8 V to 3.3 V adapter board. Reuse on-board 1.8 V resources and only use short signal wires/shunts between existing headers.",
+    "classifications": {
+      "strong_functional_coverage": [
+        "IIC0",
+        "IIC1",
+        "SPI0",
+        "SPI1",
+        "SPI2",
+        "SPI3",
+        "EPR_SPI",
+        "CANFD"
+      ],
+      "partial_digital_coverage": [
+        "LIN0",
+        "LIN1",
+        "QSPI0"
+      ],
+      "uncovered_without_new_hardware": [
+        "LIN physical-layer behavior",
+        "full-rate QSPI flash/emulation",
+        "independent CAN FD golden-node and malformed-frame injection"
+      ]
+    },
+    "interfaces": [
+      {
+        "name": "IIC0",
+        "status": "supported_by_onboard_stm32",
+        "dut_pins": {
+          "scl": "J34.83",
+          "sda": "J34.77"
+        },
+        "stm32_peer": {
+          "peripheral": "I2C1",
+          "scl": "J34.12 ST_IIC1_SCL",
+          "sda": "J34.14 ST_IIC1_SDA"
+        },
+        "wiring": [
+          "J34.83 -> J34.12",
+          "J34.77 -> J34.14"
+        ],
+        "coverage": [
+          "master/slave transmit and receive",
+          "address ACK/NACK",
+          "repeated START",
+          "clock stretching where supported by the selected role",
+          "interrupt/DMA/error handling"
+        ],
+        "conditions": [
+          "Configure both sides for 1.8 V open-drain operation.",
+          "Use the visible STM32-side I2C pull-ups only after confirming fitted resistor population and idle-high level."
+        ]
+      },
+      {
+        "name": "IIC1",
+        "status": "supported_by_onboard_stm32",
+        "dut_pins": {
+          "scl": "J34.95",
+          "sda": "J34.89"
+        },
+        "stm32_peer": {
+          "peripheral": "I2C1",
+          "scl": "J34.12 ST_IIC1_SCL",
+          "sda": "J34.14 ST_IIC1_SDA"
+        },
+        "wiring": [
+          "J34.95 -> J34.12",
+          "J34.89 -> J34.14"
+        ],
+        "coverage": "Same functional coverage as IIC0; reuse the same STM32 I2C1 firmware because tests are serial."
+      },
+      {
+        "name": "LIN0",
+        "status": "digital_controller_coverage_only",
+        "dut_pins": {
+          "tx": "J34.85",
+          "rx": "J34.79"
+        },
+        "stm32_peer": {
+          "peripheral": "USART3 in LIN mode",
+          "tx": "J34.48 ST_SPI3_SCK / PC10 / USART3_TX",
+          "rx": "J34.42 ST_SPI3_MISO / PC11 / USART3_RX"
+        },
+        "wiring": [
+          "J34.85 -> J34.42",
+          "J34.79 <- J34.48"
+        ],
+        "covered": [
+          "break/sync/identifier/data/checksum digital framing",
+          "baud-rate and interrupt/DMA behavior"
+        ],
+        "not_covered": [
+          "LIN dominant/recessive physical voltage",
+          "transceiver wakeup/sleep",
+          "bus short/fault behavior"
+        ]
+      },
+      {
+        "name": "LIN1",
+        "status": "digital_controller_coverage_only",
+        "dut_pins": {
+          "tx": "J34.19",
+          "rx": "J34.25"
+        },
+        "stm32_peer": {
+          "peripheral": "USART3 in LIN mode",
+          "tx": "J34.48 ST_SPI3_SCK / PC10 / USART3_TX",
+          "rx": "J34.42 ST_SPI3_MISO / PC11 / USART3_RX"
+        },
+        "wiring": [
+          "J34.19 -> J34.42",
+          "J34.25 <- J34.48"
+        ],
+        "coverage": "Same digital-only LIN coverage as LIN0; reuse the same STM32 firmware because tests are serial."
+      },
+      {
+        "name": "SPI0..SPI3",
+        "status": "supported_by_onboard_stm32",
+        "stm32_peer": {
+          "preferred_peripheral": "SPI3",
+          "sck": "J34.48 ST_SPI3_SCK",
+          "miso": "J34.42 ST_SPI3_MISO",
+          "mosi": "J34.44 ST_SPI3_MOSI",
+          "chip_select": "Use an exposed U60 GPIO on J35 as software NSS/CS; exact pin is selected in the STM32 board profile."
+        },
+        "dut_instances": [
+          {
+            "name": "SPI0",
+            "clk": "J34.35",
+            "cs": "J34.29",
+            "mosi": "J34.47",
+            "miso": "J34.41"
+          },
+          {
+            "name": "SPI1",
+            "clk": "J34.59",
+            "cs": "J34.53",
+            "mosi": "J34.71",
+            "miso": "J34.65"
+          },
+          {
+            "name": "SPI2",
+            "clk": "J34.61",
+            "cs": "J34.55",
+            "mosi": "J34.73",
+            "miso": "J34.67"
+          },
+          {
+            "name": "SPI3",
+            "clk": "J34.37",
+            "cs": "J34.31",
+            "mosi": "J34.49",
+            "miso": "J34.43"
+          }
+        ],
+        "wiring_rule": "Connect DUT CLK to STM32 SCK. If DUT is master, DUT MOSI connects to STM32 MISO and DUT MISO connects to STM32 MOSI; reverse the logical roles when STM32 is master. Connect DUT CS to the selected STM32 GPIO.",
+        "coverage": [
+          "master/slave modes",
+          "CPOL/CPHA",
+          "word length and bit order",
+          "interrupt/DMA",
+          "overrun/underrun and chip-select behavior"
+        ],
+        "limit": "Qualify the maximum clock separately; STM32 peer and flying-wire topology are functional references, not signal-integrity proof."
+      },
+      {
+        "name": "QSPI0",
+        "status": "partial_only",
+        "available_method": "Use six STM32 GPIOs on J34/J35 to emulate a very slow QSPI peer or passively sample the transaction.",
+        "limitations": [
+          "STM32F417 has no native Quad-SPI peripheral.",
+          "The on-board U26 Quad-SPI flash is connected to separate XC7VX980T configuration nets, not ET6801 QSPI0.",
+          "GPIO firmware cannot guarantee flash-slave response timing at normal QSPI clock rates."
+        ],
+        "conclusion": "Only basic low-clock protocol and pin-function smoke tests are practical with current board resources; full-rate QSPI remains unsupported."
+      },
+      {
+        "name": "EPR_SPI",
+        "status": "supported_by_onboard_eeprom",
+        "peer": "U51 AT25M01_SSHM_B at VCC1V8",
+        "connection": "Install J23 shunts 3-4, 5-6, 7-8, 9-10 and 11-12 as required by the test.",
+        "coverage": [
+          "clock/chip-select/data direction",
+          "read/write/status commands",
+          "busy polling and error handling"
+        ],
+        "caution": "Preserve or restore EEPROM contents if the test writes data; use a bounded sacrificial address range."
+      },
+      {
+        "name": "CANFD",
+        "status": "supported_by_dual_onboard_channels",
+        "nodes": [
+          {
+            "et6801_instance": "CANFD0",
+            "board_channel": "CAN4",
+            "connector": "J9"
+          },
+          {
+            "et6801_instance": "CANFD2",
+            "board_channel": "CAN5",
+            "connector": "J10"
+          }
+        ],
+        "wiring": [
+          "J9.2 CANH_4 -> J10.2 CANH_5",
+          "J9.3 CANL_4 -> J10.3 CANL_5",
+          "Ground is already common on the same board; include it in an external cable if connector topology requires."
+        ],
+        "termination": "The schematic shows split 60 ohm plus 60 ohm termination networks on CAN4 and CAN5; confirm the resistors are populated before testing.",
+        "coverage": [
+          "two-node arbitration and ACK",
+          "classic CAN and CAN FD frames",
+          "nominal/data-phase bitrate",
+          "interrupt/DMA/error counters",
+          "controller plus level shifter plus transceiver plus CANH/CANL path"
+        ],
+        "limitations": [
+          "Both protocol controllers are ET6801 instances, so this is not an independent golden implementation.",
+          "STM32F417 contains classic CAN 2.0B only and cannot serve as a CAN FD peer.",
+          "Malformed-frame and precision fault injection need a separate capable node or dedicated fixture."
+        ]
+      }
+    ]
+  },
+  "interfaces": [
+    {
+      "name": "UART0",
+      "category": "UART",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 7,
+          "fpga_net": "FP_RXD0_1V8",
+          "et6801_signal": "UART0_RX_BK1",
+          "connector": "J27.3",
+          "xc7vx980t_pin": "AV23",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO13",
+          "mode_number": 10,
+          "pad_mode": "GPIO13.10",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 8,
+          "fpga_net": "FP_TXD0_1V8",
+          "et6801_signal": "UART0_TX_BK1",
+          "connector": "J27.5",
+          "xc7vx980t_pin": "AV24",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO12",
+          "mode_number": 10,
+          "pad_mode": "GPIO12.10",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_fpga_domain": "VCC1V8",
+        "raw_fpga_voltage_v": 1.8,
+        "raw_nets": [
+          "FP_RXD0_1V8",
+          "FP_TXD0_1V8"
+        ],
+        "level_shifter": {
+          "ref": "U54",
+          "part": "TXS0108EPW",
+          "vcca": "VCC1V8",
+          "vccb": "VCC3V3"
+        },
+        "ttl_connector": {
+          "ref": "J27",
+          "domain": "VCC3V3",
+          "voltage_v": 3.3,
+          "note": "The workbook route row names the raw 1.8 V FPGA net, but the connector pin is on the 3.3 V side of the level shifter."
+        },
+        "rs232_path": {
+          "transceiver_ref": "U55",
+          "part": "MAX3232CDW",
+          "connector_ref": "J28",
+          "electrical_standard": "RS-232"
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": true,
+        "direct_endpoint": "J27 TTL header only",
+        "conditions": [
+          "Connect signal ground.",
+          "Use the 3.3 V TTL header, not the RS-232 DB9 connector.",
+          "Configure one side as transmitter and the other as receiver before enabling outputs; avoid bus contention through two auto-direction level shifters.",
+          "Begin at a low baud rate and raise it after checking error counters."
+        ],
+        "rs232_option": "To use the DB9 path, add an RS-232 transceiver on the XC7Z045 side; J58/J59 GPIO must never connect directly to RS-232 voltage levels."
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 4,
+          "sheet_label": "4 of 31",
+          "refs": [
+            "U21-6"
+          ],
+          "observation": "FP_RXD0..3_1V8 and FP_TXD0..3_1V8 are in XC7VX980T Bank14 powered by VCC1V8.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 14,
+          "sheet_label": "14 of 31",
+          "refs": [
+            "U54",
+            "J27",
+            "U55",
+            "J28"
+          ],
+          "observation": "The dedicated UART path translates 1.8 V logic to 3.3 V TTL and optionally converts it to RS-232.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "UART1",
+      "category": "UART",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 9,
+          "fpga_net": "FP_RXD1_1V8",
+          "et6801_signal": "UART1_RX_BK1",
+          "connector": "J25.3",
+          "xc7vx980t_pin": "AW24",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO45",
+          "mode_number": 7,
+          "pad_mode": "GPIO45.7",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 10,
+          "fpga_net": "FP_TXD1_1V8",
+          "et6801_signal": "UART1_TX_BK1",
+          "connector": "J25.5",
+          "xc7vx980t_pin": "AY24",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO44",
+          "mode_number": 7,
+          "pad_mode": "GPIO44.7",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_fpga_domain": "VCC1V8",
+        "raw_fpga_voltage_v": 1.8,
+        "raw_nets": [
+          "FP_RXD1_1V8",
+          "FP_TXD1_1V8"
+        ],
+        "level_shifter": {
+          "ref": "U54",
+          "part": "TXS0108EPW",
+          "vcca": "VCC1V8",
+          "vccb": "VCC3V3"
+        },
+        "ttl_connector": {
+          "ref": "J25",
+          "domain": "VCC3V3",
+          "voltage_v": 3.3,
+          "note": "The workbook route row names the raw 1.8 V FPGA net, but the connector pin is on the 3.3 V side of the level shifter."
+        },
+        "rs232_path": {
+          "transceiver_ref": "U53",
+          "part": "MAX3232CDW",
+          "connector_ref": "J26",
+          "electrical_standard": "RS-232"
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": true,
+        "direct_endpoint": "J25 TTL header only",
+        "conditions": [
+          "Connect signal ground.",
+          "Use the 3.3 V TTL header, not the RS-232 DB9 connector.",
+          "Configure one side as transmitter and the other as receiver before enabling outputs; avoid bus contention through two auto-direction level shifters.",
+          "Begin at a low baud rate and raise it after checking error counters."
+        ],
+        "rs232_option": "To use the DB9 path, add an RS-232 transceiver on the XC7Z045 side; J58/J59 GPIO must never connect directly to RS-232 voltage levels."
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 4,
+          "sheet_label": "4 of 31",
+          "refs": [
+            "U21-6"
+          ],
+          "observation": "FP_RXD0..3_1V8 and FP_TXD0..3_1V8 are in XC7VX980T Bank14 powered by VCC1V8.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 14,
+          "sheet_label": "14 of 31",
+          "refs": [
+            "U54",
+            "J25",
+            "U53",
+            "J26"
+          ],
+          "observation": "The dedicated UART path translates 1.8 V logic to 3.3 V TTL and optionally converts it to RS-232.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "UART2",
+      "category": "UART",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 11,
+          "fpga_net": "FP_RXD2_1V8",
+          "et6801_signal": "UART2_RX_BK1",
+          "connector": "J30.3",
+          "xc7vx980t_pin": "BA24",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO9",
+          "mode_number": 6,
+          "pad_mode": "GPIO9.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 12,
+          "fpga_net": "FP_TXD2_1V8",
+          "et6801_signal": "UART2_TX_BK1",
+          "connector": "J30.5",
+          "xc7vx980t_pin": "BC22",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO8",
+          "mode_number": 6,
+          "pad_mode": "GPIO8.6",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_fpga_domain": "VCC1V8",
+        "raw_fpga_voltage_v": 1.8,
+        "raw_nets": [
+          "FP_RXD2_1V8",
+          "FP_TXD2_1V8"
+        ],
+        "level_shifter": {
+          "ref": "U58",
+          "part": "TXS0108EPW",
+          "vcca": "VCC1V8",
+          "vccb": "VCC3V3"
+        },
+        "ttl_connector": {
+          "ref": "J30",
+          "domain": "VCC3V3",
+          "voltage_v": 3.3,
+          "note": "The workbook route row names the raw 1.8 V FPGA net, but the connector pin is on the 3.3 V side of the level shifter."
+        },
+        "rs232_path": {
+          "transceiver_ref": "U57",
+          "part": "MAX3232CDW",
+          "connector_ref": "J32",
+          "electrical_standard": "RS-232"
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": true,
+        "direct_endpoint": "J30 TTL header only",
+        "conditions": [
+          "Connect signal ground.",
+          "Use the 3.3 V TTL header, not the RS-232 DB9 connector.",
+          "Configure one side as transmitter and the other as receiver before enabling outputs; avoid bus contention through two auto-direction level shifters.",
+          "Begin at a low baud rate and raise it after checking error counters."
+        ],
+        "rs232_option": "To use the DB9 path, add an RS-232 transceiver on the XC7Z045 side; J58/J59 GPIO must never connect directly to RS-232 voltage levels."
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 4,
+          "sheet_label": "4 of 31",
+          "refs": [
+            "U21-6"
+          ],
+          "observation": "FP_RXD0..3_1V8 and FP_TXD0..3_1V8 are in XC7VX980T Bank14 powered by VCC1V8.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 14,
+          "sheet_label": "14 of 31",
+          "refs": [
+            "U58",
+            "J30",
+            "U57",
+            "J32"
+          ],
+          "observation": "The dedicated UART path translates 1.8 V logic to 3.3 V TTL and optionally converts it to RS-232.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "UART3",
+      "category": "UART",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 13,
+          "fpga_net": "FP_RXD3_1V8",
+          "et6801_signal": "UART3_RX_BK2",
+          "connector": "J29.3",
+          "xc7vx980t_pin": "BD22",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO11",
+          "mode_number": 6,
+          "pad_mode": "GPIO11.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 14,
+          "fpga_net": "FP_TXD3_1V8",
+          "et6801_signal": "UART3_TX_BK2",
+          "connector": "J29.5",
+          "xc7vx980t_pin": "BA23",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO10",
+          "mode_number": 6,
+          "pad_mode": "GPIO10.6",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_fpga_domain": "VCC1V8",
+        "raw_fpga_voltage_v": 1.8,
+        "raw_nets": [
+          "FP_RXD3_1V8",
+          "FP_TXD3_1V8"
+        ],
+        "level_shifter": {
+          "ref": "U58",
+          "part": "TXS0108EPW",
+          "vcca": "VCC1V8",
+          "vccb": "VCC3V3"
+        },
+        "ttl_connector": {
+          "ref": "J29",
+          "domain": "VCC3V3",
+          "voltage_v": 3.3,
+          "note": "The workbook route row names the raw 1.8 V FPGA net, but the connector pin is on the 3.3 V side of the level shifter."
+        },
+        "rs232_path": {
+          "transceiver_ref": "U56",
+          "part": "MAX3232CDW",
+          "connector_ref": "J31",
+          "electrical_standard": "RS-232"
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": true,
+        "direct_endpoint": "J29 TTL header only",
+        "conditions": [
+          "Connect signal ground.",
+          "Use the 3.3 V TTL header, not the RS-232 DB9 connector.",
+          "Configure one side as transmitter and the other as receiver before enabling outputs; avoid bus contention through two auto-direction level shifters.",
+          "Begin at a low baud rate and raise it after checking error counters."
+        ],
+        "rs232_option": "To use the DB9 path, add an RS-232 transceiver on the XC7Z045 side; J58/J59 GPIO must never connect directly to RS-232 voltage levels."
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 4,
+          "sheet_label": "4 of 31",
+          "refs": [
+            "U21-6"
+          ],
+          "observation": "FP_RXD0..3_1V8 and FP_TXD0..3_1V8 are in XC7VX980T Bank14 powered by VCC1V8.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 14,
+          "sheet_label": "14 of 31",
+          "refs": [
+            "U58",
+            "J29",
+            "U56",
+            "J31"
+          ],
+          "observation": "The dedicated UART path translates 1.8 V logic to 3.3 V TTL and optionally converts it to RS-232.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "IIC0",
+      "category": "I2C",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 15,
+          "fpga_net": "FP_ST_IO27",
+          "et6801_signal": "I2C0_SCL_BK4",
+          "connector": "J34.83",
+          "xc7vx980t_pin": "AH35   (AP36)",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO43",
+          "mode_number": 6,
+          "pad_mode": "GPIO43.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 16,
+          "fpga_net": "FP_ST_IO25",
+          "et6801_signal": "I2C0_SDA_BK4",
+          "connector": "J34.77",
+          "xc7vx980t_pin": "AG36（AR37）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO42",
+          "mode_number": 6,
+          "pad_mode": "GPIO42.6",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "SCL and SDA are open-drain bidirectional signals. The mapped FP_ST_IO path has no on-board pull-up or voltage translator shown between the XC7VX980T and J34."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "open-drain I2C level translator",
+          "recommended_topology": "PCA9306/TCA9406/TCA9517-class 1.8 V to 3.3 V translator with pull-ups on both voltage domains",
+          "mandatory_features": [
+            "1.8 V pull-ups on the DUT side",
+            "3.3 V pull-ups on the XC7Z045 side",
+            "common ground",
+            "idle-high verification before traffic"
+          ],
+          "not_recommended": "Do not use a direction-controlled push-pull buffer as a generic I2C replacement."
+        },
+        "supported_test_modes": [
+          "XC7Z045 master to DUT slave",
+          "DUT master to XC7Z045 slave",
+          "passive protocol capture after level translation"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "IIC1",
+      "category": "I2C",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 17,
+          "fpga_net": "FP_ST_IO31_MRCC",
+          "et6801_signal": "I2C1_SCL_BK3",
+          "connector": "J34.95",
+          "xc7vx980t_pin": "AJ40（AR36）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO41",
+          "mode_number": 6,
+          "pad_mode": "GPIO41.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 18,
+          "fpga_net": "FP_ST_IO29_SRCC",
+          "et6801_signal": "I2C1_SDA_BK3",
+          "connector": "J34.89",
+          "xc7vx980t_pin": "AJ39（AW37）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO40",
+          "mode_number": 6,
+          "pad_mode": "GPIO40.6",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "SCL and SDA are open-drain bidirectional signals. The mapped FP_ST_IO path has no on-board pull-up or voltage translator shown between the XC7VX980T and J34."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "open-drain I2C level translator",
+          "recommended_topology": "PCA9306/TCA9406/TCA9517-class 1.8 V to 3.3 V translator with pull-ups on both voltage domains",
+          "mandatory_features": [
+            "1.8 V pull-ups on the DUT side",
+            "3.3 V pull-ups on the XC7Z045 side",
+            "common ground",
+            "idle-high verification before traffic"
+          ],
+          "not_recommended": "Do not use a direction-controlled push-pull buffer as a generic I2C replacement."
+        },
+        "supported_test_modes": [
+          "XC7Z045 master to DUT slave",
+          "DUT master to XC7Z045 slave",
+          "passive protocol capture after level translation"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "LIN0",
+      "category": "LIN",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 19,
+          "fpga_net": "FP_ST_IO28",
+          "et6801_signal": "LIN0_TX_BK1",
+          "connector": "J34.85",
+          "xc7vx980t_pin": "AF34(AT36)",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO6",
+          "mode_number": 7,
+          "pad_mode": "GPIO6.7",
+          "notes": "用MCU GPIO 模拟Lin 或外接Lin接口"
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 20,
+          "fpga_net": "FP_ST_IO26",
+          "et6801_signal": "LIN0_RX_BK1",
+          "connector": "J34.79",
+          "xc7vx980t_pin": "AG35(AW36)",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO7",
+          "mode_number": 7,
+          "pad_mode": "GPIO7.7",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "The mapped J34 signals are 1.8 V logic-level TX/RX only; no LIN physical-layer transceiver is present on this mapped path."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "digital_only": "Use a 1.8 V to 3.3 V translator when validating only the controller/UART-like digital behavior.",
+          "physical_bus": "Use a LIN transceiver on the DUT side and a second LIN transceiver/module on the XC7Z045 side when validating dominant/recessive bus behavior, break/sync, wakeup, checksum and bus faults."
+        },
+        "supported_test_modes": [
+          "digital TX/RX functional test through level translation",
+          "physical LIN bus test through two LIN transceivers"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "LIN1",
+      "category": "LIN",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 21,
+          "fpga_net": "FP_ST_IO6",
+          "et6801_signal": "LIN1_TX_BK4",
+          "connector": "J34.19",
+          "xc7vx980t_pin": "AE34（AV35）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO105",
+          "mode_number": 5,
+          "pad_mode": "GPIO105.5",
+          "notes": "用MCU GPIO 模拟Lin 或外接Lin接口"
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 22,
+          "fpga_net": "FP_ST_IO8",
+          "et6801_signal": "LIN1_RX_BK3",
+          "connector": "J34.25",
+          "xc7vx980t_pin": "AF35（AW35）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO106",
+          "mode_number": 5,
+          "pad_mode": "GPIO106.5",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "The mapped J34 signals are 1.8 V logic-level TX/RX only; no LIN physical-layer transceiver is present on this mapped path."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "digital_only": "Use a 1.8 V to 3.3 V translator when validating only the controller/UART-like digital behavior.",
+          "physical_bus": "Use a LIN transceiver on the DUT side and a second LIN transceiver/module on the XC7Z045 side when validating dominant/recessive bus behavior, break/sync, wakeup, checksum and bus faults."
+        },
+        "supported_test_modes": [
+          "digital TX/RX functional test through level translation",
+          "physical LIN bus test through two LIN transceivers"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "SPI0",
+      "category": "SPI",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 23,
+          "fpga_net": "FP_ST_IO11",
+          "et6801_signal": "SPI0_CLK_BK4",
+          "connector": "J34.35",
+          "xc7vx980t_pin": "AE37（临时：BC25）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO60",
+          "mode_number": 15,
+          "pad_mode": "GPIO60.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 24,
+          "fpga_net": "FP_ST_IO9",
+          "et6801_signal": "SPI0_CS_n_BK4",
+          "connector": "J34.29",
+          "xc7vx980t_pin": "AD36（BA25）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO61",
+          "mode_number": 15,
+          "pad_mode": "GPIO61.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 25,
+          "fpga_net": "FP_ST_IO15",
+          "et6801_signal": "SPI0_MOSI_BK5",
+          "connector": "J34.47",
+          "xc7vx980t_pin": "AF38（AW25）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO16",
+          "mode_number": 1,
+          "pad_mode": "GPIO16.1",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 26,
+          "fpga_net": "FP_ST_IO13",
+          "et6801_signal": "SPI0_MISO_BK4",
+          "connector": "J34.41",
+          "xc7vx980t_pin": "AE38（AV25）",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO55",
+          "mode_number": 1,
+          "pad_mode": "GPIO55.1",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "CLK, CS, MOSI and MISO are exposed as raw 1.8 V FP_ST_IO signals. Direction depends on whether DUT is master or slave."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "direction-controlled dual-supply logic translator",
+          "recommended_topology": "74AXC/74AVC-family translator with VCCA=1.8 V, VCCB=3.3 V, explicit DIR/OE control",
+          "channels": "Provide separate direction groups for DUT-to-observer and observer-to-DUT signals.",
+          "caution": "A generic auto-direction TXS/TXB module may work at low speed but is not the preferred proof path for high-speed push-pull SPI."
+        },
+        "supported_test_modes": [
+          "DUT master with XC7Z045 slave/model",
+          "XC7Z045 master with DUT slave",
+          "passive timing/protocol capture"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "SPI1",
+      "category": "SPI",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 27,
+          "fpga_net": "FP_ST_IO19",
+          "et6801_signal": "SPI1_CLK_BK4",
+          "connector": "J34.59",
+          "xc7vx980t_pin": "AG42",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO65",
+          "mode_number": 15,
+          "pad_mode": "GPIO65.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 28,
+          "fpga_net": "FP_ST_IO17",
+          "et6801_signal": "SPI1_CS_n_BK4",
+          "connector": "J34.53",
+          "xc7vx980t_pin": "AE42",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO66",
+          "mode_number": 15,
+          "pad_mode": "GPIO66.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 29,
+          "fpga_net": "FP_ST_IO23",
+          "et6801_signal": "SPI1_MOSI_BK3",
+          "connector": "J34.71",
+          "xc7vx980t_pin": "AJ37",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO63",
+          "mode_number": 15,
+          "pad_mode": "GPIO63.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 30,
+          "fpga_net": "FP_ST_IO21",
+          "et6801_signal": "SPI1_MISO_BK3",
+          "connector": "J34.65",
+          "xc7vx980t_pin": "AH38",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO64",
+          "mode_number": 15,
+          "pad_mode": "GPIO64.15",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "CLK, CS, MOSI and MISO are exposed as raw 1.8 V FP_ST_IO signals. Direction depends on whether DUT is master or slave."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "direction-controlled dual-supply logic translator",
+          "recommended_topology": "74AXC/74AVC-family translator with VCCA=1.8 V, VCCB=3.3 V, explicit DIR/OE control",
+          "channels": "Provide separate direction groups for DUT-to-observer and observer-to-DUT signals.",
+          "caution": "A generic auto-direction TXS/TXB module may work at low speed but is not the preferred proof path for high-speed push-pull SPI."
+        },
+        "supported_test_modes": [
+          "DUT master with XC7Z045 slave/model",
+          "XC7Z045 master with DUT slave",
+          "passive timing/protocol capture"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "SPI2",
+      "category": "SPI",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 31,
+          "fpga_net": "FP_ST_IO20",
+          "et6801_signal": "SPI2_CLK_BK3",
+          "connector": "J34.61",
+          "xc7vx980t_pin": "AH42",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO71",
+          "mode_number": 15,
+          "pad_mode": "GPIO71.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 32,
+          "fpga_net": "FP_ST_IO18",
+          "et6801_signal": "SPI2_CS_n_BK4",
+          "connector": "J34.55",
+          "xc7vx980t_pin": "AG38",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO97",
+          "mode_number": 6,
+          "pad_mode": "GPIO97.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 33,
+          "fpga_net": "FP_ST_IO24",
+          "et6801_signal": "SPI2_MOSI_BK4",
+          "connector": "J34.73",
+          "xc7vx980t_pin": "AF36",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO96",
+          "mode_number": 6,
+          "pad_mode": "GPIO96.6",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 34,
+          "fpga_net": "FP_ST_IO22",
+          "et6801_signal": "SPI2_MISO_BK3",
+          "connector": "J34.67",
+          "xc7vx980t_pin": "AH37",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO70",
+          "mode_number": 15,
+          "pad_mode": "GPIO70.15",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "CLK, CS, MOSI and MISO are exposed as raw 1.8 V FP_ST_IO signals. Direction depends on whether DUT is master or slave."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "direction-controlled dual-supply logic translator",
+          "recommended_topology": "74AXC/74AVC-family translator with VCCA=1.8 V, VCCB=3.3 V, explicit DIR/OE control",
+          "channels": "Provide separate direction groups for DUT-to-observer and observer-to-DUT signals.",
+          "caution": "A generic auto-direction TXS/TXB module may work at low speed but is not the preferred proof path for high-speed push-pull SPI."
+        },
+        "supported_test_modes": [
+          "DUT master with XC7Z045 slave/model",
+          "XC7Z045 master with DUT slave",
+          "passive timing/protocol capture"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "SPI3",
+      "category": "SPI",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 35,
+          "fpga_net": "FP_ST_IO12",
+          "et6801_signal": "SPI3_CLK_BK1",
+          "connector": "J34.37",
+          "xc7vx980t_pin": "AG37",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO32",
+          "mode_number": 15,
+          "pad_mode": "GPIO32.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 36,
+          "fpga_net": "FP_ST_IO10",
+          "et6801_signal": "SPI3_CS_n_BK1",
+          "connector": "J34.31",
+          "xc7vx980t_pin": "AE36",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO33",
+          "mode_number": 15,
+          "pad_mode": "GPIO33.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 37,
+          "fpga_net": "FP_ST_IO16",
+          "et6801_signal": "SPI3_MOSI_BK1",
+          "connector": "J34.49",
+          "xc7vx980t_pin": "AE41",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO30",
+          "mode_number": 15,
+          "pad_mode": "GPIO30.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 38,
+          "fpga_net": "FP_ST_IO14",
+          "et6801_signal": "SPI3_MISO_BK1",
+          "connector": "J34.43",
+          "xc7vx980t_pin": "AE39",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO31",
+          "mode_number": 15,
+          "pad_mode": "GPIO31.15",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "CLK, CS, MOSI and MISO are exposed as raw 1.8 V FP_ST_IO signals. Direction depends on whether DUT is master or slave."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "direction-controlled dual-supply logic translator",
+          "recommended_topology": "74AXC/74AVC-family translator with VCCA=1.8 V, VCCB=3.3 V, explicit DIR/OE control",
+          "channels": "Provide separate direction groups for DUT-to-observer and observer-to-DUT signals.",
+          "caution": "A generic auto-direction TXS/TXB module may work at low speed but is not the preferred proof path for high-speed push-pull SPI."
+        },
+        "supported_test_modes": [
+          "DUT master with XC7Z045 slave/model",
+          "XC7Z045 master with DUT slave",
+          "passive timing/protocol capture"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "QSPI0",
+      "category": "QSPI",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 39,
+          "fpga_net": "FP_ST_IO1_SRCC",
+          "et6801_signal": "QSPI_CLK_BK3",
+          "connector": "J34.5",
+          "xc7vx980t_pin": "AH39",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO78",
+          "mode_number": 15,
+          "pad_mode": "GPIO78.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 40,
+          "fpga_net": "FP_ST_IO2_SRCC",
+          "et6801_signal": "QSPI_IO0_BK3",
+          "connector": "J34.7",
+          "xc7vx980t_pin": "AG40",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO74",
+          "mode_number": 15,
+          "pad_mode": "GPIO74.15",
+          "notes": "QSPI0无reset#"
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 41,
+          "fpga_net": "FP_ST_IO3_MRCC",
+          "et6801_signal": "QSPI_IO2_BK3",
+          "connector": "J34.11",
+          "xc7vx980t_pin": "AF40",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO76",
+          "mode_number": 15,
+          "pad_mode": "GPIO76.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 42,
+          "fpga_net": "FP_ST_IO4_MRCC",
+          "et6801_signal": "QSPI_CS_n_BK3",
+          "connector": "J34.13",
+          "xc7vx980t_pin": "AF39",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO79",
+          "mode_number": 15,
+          "pad_mode": "GPIO79.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 43,
+          "fpga_net": "FP_ST_IO5",
+          "et6801_signal": "QSPI_IO1_BK3",
+          "connector": "J34.17",
+          "xc7vx980t_pin": "AD34",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO75",
+          "mode_number": 15,
+          "pad_mode": "GPIO75.15",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 44,
+          "fpga_net": "FP_ST_IO7",
+          "et6801_signal": "QSPI_IO3_BK3",
+          "connector": "J34.23",
+          "xc7vx980t_pin": "AD35",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO77",
+          "mode_number": 15,
+          "pad_mode": "GPIO77.15",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J34 odd-numbered FPGA-side pins",
+        "onboard_level_translation_on_mapped_path": false,
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J34 FPGA-side signals are 1.8 V, while J58/J59 are 3.3 V. A 3.3 V output can over-voltage a 1.8 V input, and a 1.8 V high is not guaranteed to satisfy a 3.3 V LVCMOS input threshold."
+        },
+        "endpoint_domain": "VCC1V8",
+        "endpoint_voltage_v": 1.8,
+        "protocol_notes": "CLK and CS are role-dependent; IO0..IO3 are bidirectional and normally change direction between command/address and read-data phases."
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": {
+          "type": "phase-aware direction-controlled dual-supply translator",
+          "recommended_topology": "One fixed-direction translator group for CLK/CS plus one four-bit 1.8 V to 3.3 V translator whose DIR/OE is driven by XC7Z045 PL according to the QSPI phase",
+          "preferred_for_high_speed": "If the target rate is high, use a native 1.8 V FPGA/CPLD I/O bank or a purpose-designed adapter; do not treat a hobby auto-direction board as timing evidence."
+        },
+        "supported_test_modes": [
+          "passive capture with all channels translated DUT-to-XC7Z045",
+          "XC7Z045 flash-slave emulation with phase-aware DQ direction"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 15,
+          "sheet_label": "15 of 31",
+          "refs": [
+            "U21-8",
+            "J34",
+            "U60"
+          ],
+          "observation": "XC7VX980T Bank16 VCCO is VCC1V8; FP_ST_IO1..32 terminate on J34 odd pins. J34 power pins and STM32 U60 VDD are also VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "EPR_SPI",
+      "category": "SPI-like EPR test port",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 45,
+          "fpga_net": "EPR_SPI_SCK_1V8",
+          "et6801_signal": "iptest_efc_bist_sclk_in",
+          "connector": "J23.7",
+          "xc7vx980t_pin": "AY17",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO61",
+          "mode_number": 8,
+          "pad_mode": "GPIO61.8",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 46,
+          "fpga_net": "EPR_SPI_CSB_1V8",
+          "et6801_signal": "iptest_efc_bist_cs_n",
+          "connector": "J23.3",
+          "xc7vx980t_pin": "AW15",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO62",
+          "mode_number": 8,
+          "pad_mode": "GPIO62.8",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 47,
+          "fpga_net": "EPR_SPI_SI_1V8",
+          "et6801_signal": "iptest_efc_bist_rxd",
+          "connector": "J23.9",
+          "xc7vx980t_pin": "BA15",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO64",
+          "mode_number": 8,
+          "pad_mode": "GPIO64.8",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 48,
+          "fpga_net": "EPR_SPI_SO_1V8",
+          "et6801_signal": "iptest_efc_bist_txd",
+          "connector": "J23.5",
+          "xc7vx980t_pin": "AW17",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO63",
+          "mode_number": 8,
+          "pad_mode": "GPIO63.8",
+          "notes": null
+        }
+      ],
+      "electrical_path": {
+        "raw_domain": "VCC1V8",
+        "raw_voltage_v": 1.8,
+        "mapped_connector": "J23 odd pins 3/5/7/9 (and HOLDB on 11)",
+        "onboard_target": {
+          "ref": "U51",
+          "part": "AT25M01_SSHM_B",
+          "voltage_domain": "VCC1V8",
+          "connection": "J23 pairs raw *_1V8 nets on odd pins with the EEPROM-side nets on even pins; installed shunts connect the FPGA to U51."
+        },
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "J23 raw EPR_SPI pins are 1.8 V."
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": "Use a 1.8 V to 3.3 V direction-controlled SPI translator.",
+        "isolation_rule": "Remove the relevant J23 shunts before XC7Z045 emulates the EEPROM/slave or drives a line; otherwise U51 can contend with the tester. Keep shunts only for passive observation of the real EEPROM transaction.",
+        "supported_test_modes": [
+          "passive EEPROM transaction capture",
+          "isolated XC7Z045 slave/model",
+          "direct EPR test-port stimulus/response through level translation"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 8,
+          "sheet_label": "8 of 31",
+          "refs": [
+            "U21-15"
+          ],
+          "observation": "EPR_SPI_SCK/SO/SI/CSB/HOLDB are in XC7VX980T Bank31 powered by VCC1V8.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 14,
+          "sheet_label": "14 of 31",
+          "refs": [
+            "J23",
+            "U51"
+          ],
+          "observation": "J23 provides paired 1.8 V FPGA-side and EEPROM-side signals; U51 is powered from VCC1V8.",
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "name": "CANFD",
+      "category": "CAN/CAN FD",
+      "routes": [
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 49,
+          "fpga_net": "FP_CAN4_RXD_1V8",
+          "et6801_signal": "CANFD0_RX_BK7",
+          "connector": "J9",
+          "xc7vx980t_pin": "AM33",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO58",
+          "mode_number": 11,
+          "pad_mode": "GPIO58.11",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 50,
+          "fpga_net": "CAN4_FP_TXD_1V8",
+          "et6801_signal": "CANFD0_TX_BK7",
+          "connector": "J9",
+          "xc7vx980t_pin": "AL33",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO59",
+          "mode_number": 11,
+          "pad_mode": "GPIO59.11",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 51,
+          "fpga_net": "FP_CAN5_RXD_1V8",
+          "et6801_signal": "CANFD2_RX_BK5",
+          "connector": "J10",
+          "xc7vx980t_pin": "AJ32",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO21",
+          "mode_number": 9,
+          "pad_mode": "GPIO21.9",
+          "notes": null
+        },
+        {
+          "source_sheet": "管脚对照表",
+          "source_row": 52,
+          "fpga_net": "CAN5_FP_TXD_1V8",
+          "et6801_signal": "CANFD2_TX_BK5",
+          "connector": "J10",
+          "xc7vx980t_pin": "AH32",
+          "raw_io_voltage": "1.8V",
+          "et6801_pad": "GPIO73",
+          "mode_number": 9,
+          "pad_mode": "GPIO73.9",
+          "notes": null
+        }
+      ],
+      "instances": [
+        {
+          "et6801_instance": "CANFD0",
+          "board_channel": "CAN4",
+          "connector": "J9",
+          "level_shifter": "U16",
+          "transceiver": "U19",
+          "physical_signals": [
+            "CANH_4",
+            "CANL_4"
+          ]
+        },
+        {
+          "et6801_instance": "CANFD2",
+          "board_channel": "CAN5",
+          "connector": "J10",
+          "level_shifter": "U16/U17",
+          "transceiver": "U20",
+          "physical_signals": [
+            "CANH_5",
+            "CANL_5"
+          ]
+        }
+      ],
+      "electrical_path": {
+        "controller_side": {
+          "domain": "VCC1V8",
+          "voltage_v": 1.8,
+          "bank_refs": [
+            "U21-7 Bank15",
+            "U21-19 Bank35"
+          ]
+        },
+        "logic_level_translation": {
+          "parts": [
+            "U16",
+            "U17"
+          ],
+          "part": "TXS0108EPW",
+          "vcca": "VCC1V8",
+          "vccb_selected_path": "VCC5V0"
+        },
+        "transceiver_side": {
+          "logic_domain": "VCC5V0",
+          "parts": [
+            "U19",
+            "U20"
+          ],
+          "part": "TJA1042T_SO8"
+        },
+        "external_connector_domain": "Differential CAN physical bus plus 5 V and GND; not CMOS GPIO",
+        "xc7z045_j58_j59_direct_connection": {
+          "allowed": false,
+          "reason": "CANH/CANL are a differential physical bus. J58/J59 CMOS pins must not connect directly to J9/J10 CANH/CANL."
+        }
+      },
+      "xc7z045_testability": {
+        "usable": true,
+        "direct": false,
+        "required_adapter": "Add a CAN FD-capable transceiver/module on the XC7Z045 side with a 3.3 V-compatible TXD/RXD/VIO interface, then connect CANH/CANL and GND to J9 or J10.",
+        "bus_requirements": [
+          "Common ground",
+          "Correct termination, normally 120 ohm at each physical end of the bus",
+          "Known transceiver standby/enable state",
+          "Confirm the fitted transceiver suffix and maximum supported CAN FD data-phase rate before claiming high-rate CAN FD coverage"
+        ],
+        "supported_test_modes": [
+          "frame transmit/receive and error-counter validation",
+          "arbitration and ACK behavior",
+          "nominal/data-phase bitrate testing",
+          "error injection with a controllable transceiver/fixture"
+        ]
+      },
+      "schematic_evidence": [
+        {
+          "pdf_page": 16,
+          "sheet_label": "16 of 31",
+          "refs": [
+            "U21-7",
+            "U21-19"
+          ],
+          "observation": "CAN4/CAN5 TXD, RXD and STB controller-side nets are in 1.8 V XC7VX980T banks.",
+          "confidence": "high"
+        },
+        {
+          "pdf_page": 3,
+          "sheet_label": "3 of 31",
+          "refs": [
+            "U16",
+            "U17",
+            "U19",
+            "U20",
+            "J9",
+            "J10"
+          ],
+          "observation": "The board translates CAN4/CAN5 logic from 1.8 V to the 5 V transceiver side and exposes CANH/CANL at J9/J10.",
+          "confidence": "high"
+        }
+      ]
+    }
+  ],
+  "recommended_adapter_architecture": {
+    "name": "ET 1.8 V DUT to XC7Z045 3.3 V observer adapter",
+    "purpose": "Allow the XC7Z045 to generate, receive and capture ET6801 peripheral signals without changing the DUT bitfile I/O voltage.",
+    "blocks": [
+      {
+        "block": "digital push-pull translator bank",
+        "domains": [
+          "1.8 V",
+          "3.3 V"
+        ],
+        "use_for": [
+          "UART raw paths",
+          "SPI0..3",
+          "digital-only LIN",
+          "GPIO"
+        ],
+        "requirements": [
+          "explicit DIR",
+          "OE defaults disabled",
+          "per-group direction"
+        ]
+      },
+      {
+        "block": "I2C translator",
+        "domains": [
+          "1.8 V open-drain",
+          "3.3 V open-drain"
+        ],
+        "use_for": [
+          "IIC0",
+          "IIC1"
+        ],
+        "requirements": [
+          "pull-ups on both sides",
+          "bidirectional open-drain"
+        ]
+      },
+      {
+        "block": "QSPI translator",
+        "domains": [
+          "1.8 V",
+          "3.3 V"
+        ],
+        "use_for": [
+          "QSPI0"
+        ],
+        "requirements": [
+          "separate CLK/CS and DQ direction groups",
+          "PL-controlled DIR/OE",
+          "bandwidth validated at target clock"
+        ]
+      },
+      {
+        "block": "LIN transceiver pair/module",
+        "use_for": [
+          "physical LIN0",
+          "physical LIN1"
+        ]
+      },
+      {
+        "block": "CAN FD transceiver module",
+        "logic_domain": "3.3 V compatible VIO",
+        "use_for": [
+          "CANFD0 via J9",
+          "CANFD2 via J10"
+        ]
+      }
+    ],
+    "safety": [
+      "OE must default low/disabled until both FPGA designs configure directions.",
+      "Do not power one board through an I/O pin when the other board is off.",
+      "Connect ground before signal wires.",
+      "Treat J34 VCC1V8 as a voltage reference unless its current budget is separately verified.",
+      "Add series damping/termination and protocol pull-ups on the adapter instead of loose flying wires for high-speed tests."
+    ]
+  },
+  "decision_summary": [
+    {
+      "interfaces": [
+        "UART0",
+        "UART1",
+        "UART2",
+        "UART3"
+      ],
+      "direct_xc7z045_path": true,
+      "endpoint": "J27/J25/J30/J29 3.3 V TTL headers",
+      "extra_hardware": "none for TTL; RS-232 transceiver required for DB9"
+    },
+    {
+      "interfaces": [
+        "IIC0",
+        "IIC1"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J34 raw 1.8 V",
+      "extra_hardware": "open-drain 1.8 V to 3.3 V I2C translator and pull-ups"
+    },
+    {
+      "interfaces": [
+        "LIN0",
+        "LIN1"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J34 raw 1.8 V TX/RX",
+      "extra_hardware": "logic translator for digital-only tests; LIN transceivers for physical bus tests"
+    },
+    {
+      "interfaces": [
+        "SPI0",
+        "SPI1",
+        "SPI2",
+        "SPI3"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J34 raw 1.8 V",
+      "extra_hardware": "direction-controlled 1.8 V to 3.3 V translator"
+    },
+    {
+      "interfaces": [
+        "QSPI0"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J34 raw 1.8 V",
+      "extra_hardware": "phase-aware direction-controlled translator or native 1.8 V test I/O"
+    },
+    {
+      "interfaces": [
+        "EPR_SPI"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J23 raw 1.8 V",
+      "extra_hardware": "1.8 V to 3.3 V translator; remove shunts when replacing U51"
+    },
+    {
+      "interfaces": [
+        "CANFD"
+      ],
+      "direct_xc7z045_path": false,
+      "endpoint": "J9/J10 CANH/CANL",
+      "extra_hardware": "CAN FD transceiver/module on XC7Z045 side and correct bus termination"
+    }
+  ]
+}

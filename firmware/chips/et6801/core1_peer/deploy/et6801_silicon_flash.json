@@ -1,0 +1,61 @@
+{
+  "schema": "et-dualcore-deploy/v1",
+  "name": "et6801_silicon_flash",
+  "chip": "et6801",
+  "lane": "silicon_flash",
+  "deployment_enabled": false,
+  "blocked_reason": "Silicon Core1 release, second-probe identity, PFLASH1 loader and option-word prerequisites require first-board HIL approval.",
+  "program_method": "keil_flash",
+  "probe": {
+    "device": "Cortex-M7",
+    "interface": "SWD",
+    "speed_khz": 1000,
+    "required_probe_count": 2
+  },
+  "verification": {
+    "baudrate": 115200,
+    "timeout_s": 15,
+    "end_marker": "[MANUAL] suite=ET6801_MANUAL_DIAGNOSTICS end",
+    "required_lines": [
+      "[MANUAL][dualcore_smoke] PASS",
+      "[RESULT] case=dualcore_smoke status=PASS",
+      "[OBSERVE] failure_count=0x00000000"
+    ]
+  },
+  "cores": [
+    {
+      "id": "core0",
+      "role": "launcher",
+      "build_manifest": "firmware/chips/et6801/project.yaml",
+      "project": "firmware/build/et6801/ET6801_Automated_Test.uvprojx",
+      "target": "ET6801_SILICON_CORE1_LAUNCHER_FLASH",
+      "output_axf": "firmware/build/et6801/Objects/SILICON_CORE1_LAUNCHER_FLASH/et6801_core1_launcher_flash.axf",
+      "output_bin": "firmware/build/et6801/et6801_core1_launcher_flash.bin",
+      "load_address": "0x08000000",
+      "code_limit": "0x08080000",
+      "stack_low": "0x20000000",
+      "stack_high": "0x20020000",
+      "jlink_script": "firmware/chips/et6801/core1_peer/debug/core0_select.JLinkScript",
+      "reset_before_load": true,
+      "run_after_load": true,
+      "allow_halt_warning": false
+    },
+    {
+      "id": "core1",
+      "role": "peer",
+      "build_manifest": "firmware/chips/et6801/core1_peer/project.yaml",
+      "project": "firmware/build/et6801/core1_peer/ET6801_Core1_Peer.uvprojx",
+      "target": "ET6801_CORE1_PFLASH1_PEER",
+      "output_axf": "firmware/build/et6801/core1_peer/Objects/CORE1_PFLASH1_PEER/et6801_core1_pflash1_peer.axf",
+      "output_bin": "firmware/build/et6801/core1_peer/et6801_core1_pflash1_peer.bin",
+      "load_address": "0x08080000",
+      "code_limit": "0x08100000",
+      "stack_low": "0x20000000",
+      "stack_high": "0x20020000",
+      "jlink_script": "firmware/chips/et6801/core1_peer/debug/core1_select.JLinkScript",
+      "reset_before_load": false,
+      "run_after_load": false,
+      "allow_halt_warning": false
+    }
+  ]
+}

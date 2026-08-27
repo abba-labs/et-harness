@@ -1,0 +1,32 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: mpu
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  mpu0:
+    svd_name: MPU
+capabilities:
+  features:
+    region:
+    - mpu0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      mpu0: '0xE000ED90'
+evidence:
+  mpu.feature.region:
+  - instance: mpu0
+    kind: field
+    path: MPU.MPU_RASR.ENABLE
+    rule: boolean_enable_field
+  mpu.identity.base_address:
+  - instance: mpu0
+    kind: peripheral
+    path: MPU.baseAddress
+    rule: direct

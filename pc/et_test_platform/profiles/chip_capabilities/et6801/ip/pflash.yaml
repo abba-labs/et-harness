@@ -1,0 +1,202 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: pflash
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  pflash0:
+    svd_name: PFLASH
+capabilities:
+  features:
+    efc_apbs_ecc2_b_buserr:
+    - pflash0
+    efc_apbs_efcnwork_buserr:
+    - pflash0
+    efc_apbs_inc_buserr:
+    - pflash0
+    efc_apbs_pgs_buserr:
+    - pflash0
+    efc_apbs_pwroff_buserr:
+    - pflash0
+    efc_apbs_wpt_buserr:
+    - pflash0
+    efc_axis_ecc2_b_buserr:
+    - pflash0
+    efc_axis_efcnwork_buserr:
+    - pflash0
+    efc_axis_pgs_buserr:
+    - pflash0
+    efc_axis_pwroff_buserr:
+    - pflash0
+    efc_axis_wpt_buserr:
+    - pflash0
+    efc_axis_wr_dummybvld:
+    - pflash0
+    efc_cache:
+    - pflash0
+    efc_ecc_errgen:
+    - pflash0
+    efc_main_ecc:
+    - pflash0
+    efc_nvr_config_ecc:
+    - pflash0
+    efc_nvr_ecc:
+    - pflash0
+    efc_perfnmr:
+    - pflash0
+    efc_rdn0:
+    - pflash0
+    efc_rdn1:
+    - pflash0
+    efc_rdn2:
+    - pflash0
+    efc_rdn3:
+    - pflash0
+    efc_vread0_chk:
+    - pflash0
+    efc_write:
+    - pflash0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    efc1:
+      pflash0:
+        svd_name: EFC1
+        irqn: 95
+  identities:
+    base_address:
+      pflash0: '0x40603000'
+evidence:
+  pflash.feature.efc_apbs_ecc2_b_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_ECC2B_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_apbs_efcnwork_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_EFCNWORK_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_apbs_inc_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_INC_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_apbs_pgs_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_PGS_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_apbs_pwroff_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_PWROFF_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_apbs_wpt_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_APBS_WPT_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_ecc2_b_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_ECC2B_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_efcnwork_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_EFCNWORK_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_pgs_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_PGS_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_pwroff_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_PWROFF_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_wpt_buserr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_WPT_BUSERR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_axis_wr_dummybvld:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_AXIS_WR_DUMMYBVLD_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_cache:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CACHE.EFC_CACHE_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_ecc_errgen:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_ECC.EFC_ECC_ERRGEN_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_main_ecc:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_ECC.EFC_MAIN_ECC_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_nvr_config_ecc:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_ECC.EFC_NVR_CFG_ECC_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_nvr_ecc:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_ECC.EFC_NVR_ECC_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_perfnmr:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_PERFNMR_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_rdn0:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_RDN.EFC_RDN0_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_rdn1:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_RDN.EFC_RDN1_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_rdn2:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_RDN2_3.EFC_RDN2_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_rdn3:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_RDN2_3.EFC_RDN3_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_vread0_chk:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_VREAD0_CHK_EN
+    rule: boolean_enable_field
+  pflash.feature.efc_write:
+  - instance: pflash0
+    kind: field
+    path: PFLASH.EFC_CTRL.EFC_WRITE_EN
+    rule: boolean_enable_field
+  pflash.identity.base_address:
+  - instance: pflash0
+    kind: peripheral
+    path: PFLASH.baseAddress
+    rule: direct
+  pflash.interrupt.efc1:
+  - instance: pflash0
+    kind: interrupt
+    path: PFLASH.interrupt.EFC1
+    rule: direct

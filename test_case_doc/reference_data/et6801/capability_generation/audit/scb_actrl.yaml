@@ -1,0 +1,24 @@
+schema: et-capability-audit/v1
+chip: et6801
+ip: scb_actrl
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+unclassified:
+- instance: scb_actrl0
+  kind: field
+  path: SCB_ACTRL.ACTRL.DISFOLD
+  reason: no_semantic_mapping
+- instance: scb_actrl0
+  kind: field
+  path: SCB_ACTRL.ACTRL.DISITMATBFLUSH
+  reason: no_semantic_mapping
+- instance: scb_actrl0
+  kind: field
+  path: SCB_ACTRL.ACTRL.DISRAMODE
+  reason: no_semantic_mapping
+- instance: scb_actrl0
+  kind: field
+  path: SCB_ACTRL.ACTRL.FPEXCODIS
+  reason: no_semantic_mapping

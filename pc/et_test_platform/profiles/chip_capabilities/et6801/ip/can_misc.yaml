@@ -1,0 +1,73 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: can_misc
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  can_misc0:
+    svd_name: CAN_MISC0
+  can_misc1:
+    svd_name: CAN_MISC1
+  can_misc2:
+    svd_name: CAN_MISC2
+capabilities:
+  features:
+    error_interrupt:
+    - can_misc0
+    - can_misc1
+    - can_misc2
+    warn_interrupt:
+    - can_misc0
+    - can_misc1
+    - can_misc2
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      can_misc0: '0x40518800'
+      can_misc1: '0x40520800'
+      can_misc2: '0x40528800'
+evidence:
+  can_misc.feature.error_interrupt:
+  - instance: can_misc0
+    kind: field
+    path: CAN_MISC0.MTTCAN_INT_EN.ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: can_misc1
+    kind: field
+    path: CAN_MISC1.MTTCAN_INT_EN.ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: can_misc2
+    kind: field
+    path: CAN_MISC2.MTTCAN_INT_EN.ERR_INT_EN
+    rule: boolean_enable_field
+  can_misc.feature.warn_interrupt:
+  - instance: can_misc0
+    kind: field
+    path: CAN_MISC0.MTTCAN_INT_EN.WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: can_misc1
+    kind: field
+    path: CAN_MISC1.MTTCAN_INT_EN.WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: can_misc2
+    kind: field
+    path: CAN_MISC2.MTTCAN_INT_EN.WARN_INT_EN
+    rule: boolean_enable_field
+  can_misc.identity.base_address:
+  - instance: can_misc0
+    kind: peripheral
+    path: CAN_MISC0.baseAddress
+    rule: direct
+  - instance: can_misc1
+    kind: peripheral
+    path: CAN_MISC1.baseAddress
+    rule: direct
+  - instance: can_misc2
+    kind: peripheral
+    path: CAN_MISC2.baseAddress
+    rule: direct

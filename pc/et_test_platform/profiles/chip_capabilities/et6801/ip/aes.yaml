@@ -1,0 +1,301 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: aes
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  aes0:
+    svd_name: AES
+capabilities:
+  features:
+    cpu_register_path:
+    - aes0
+    ctr_counter:
+    - aes0
+    decryption:
+    - aes0
+    dma:
+    - aes0
+    dma_fifo_path:
+    - aes0
+    encryption:
+    - aes0
+    interrupts:
+    - aes0
+    iv:
+    - aes0
+    key:
+    - aes0
+    module_enable:
+    - aes0
+    padding:
+    - aes0
+    status:
+    - aes0
+  limits:
+    block_size_bytes:
+      aes0: 16
+    data_length_bits:
+      aes0: 36
+    data_length_max:
+      aes0: 68719476735
+  options:
+    directions:
+      aes0:
+      - encrypt
+      - decrypt
+    dma_modes:
+      aes0:
+      - fifo
+      - register
+    endian_modes:
+      aes0:
+      - little
+      - big
+    irq_sources:
+      aes0:
+      - output_conflict
+      - key_missing
+      - iv_missing
+      - complete
+      - incomplete_disable
+      - data_in_request
+      - data_out_request
+    key_sizes:
+      aes0:
+      - 128
+      - 256
+    modes:
+      aes0:
+      - ecb
+      - cbc
+      - ctr
+    padding_modes:
+      aes0:
+      - none
+      - zero
+      - pkcs7
+  parameters: {}
+  interrupts:
+    irq:
+      aes0:
+        svd_name: AES
+        irqn: 3
+  identities:
+    base_address:
+      aes0: '0x40205000'
+evidence:
+  aes.feature.cpu_register_path:
+  - instance: aes0
+    kind: field
+    path: AES.DIN0.DIN0
+    rule: aes_register_data_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN1.DIN1
+    rule: aes_register_data_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN2.DIN2
+    rule: aes_register_data_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN3.DIN3
+    rule: aes_register_data_path
+  aes.feature.ctr_counter:
+  - instance: aes0
+    kind: field
+    path: AES.BLOCK_CNT.BLOCK_CNT
+    rule: aes_counter_path
+  aes.feature.decryption:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.DIRECTION
+    rule: aes_direction
+  aes.feature.dma:
+  - instance: aes0
+    kind: field
+    path: AES.DMA.EN
+    rule: aes_dma_gate
+  aes.feature.dma_fifo_path:
+  - instance: aes0
+    kind: field
+    path: AES.DATA.DIN
+    rule: aes_fifo_data_path
+  aes.feature.encryption:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.DIRECTION
+    rule: aes_direction
+  aes.feature.interrupts:
+  - instance: aes0
+    kind: field
+    path: AES.INT_CLR.INT_CLR
+    rule: aes_interrupt_path
+  - instance: aes0
+    kind: field
+    path: AES.INT_EN.INT_EN
+    rule: aes_interrupt_path
+  - instance: aes0
+    kind: field
+    path: AES.INT_FORCE_IND.FORCE_IND
+    rule: aes_interrupt_path
+  - instance: aes0
+    kind: field
+    path: AES.INT_MASK.MASK
+    rule: aes_interrupt_path
+  aes.feature.iv:
+  - instance: aes0
+    kind: field
+    path: AES.WORK_IV0.IV0
+    rule: aes_iv_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_IV1.IV1
+    rule: aes_iv_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_IV2.IV2
+    rule: aes_iv_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_IV3.IV3
+    rule: aes_iv_path
+  aes.feature.key:
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY0.KEY0
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY1.KEY1
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY2.KEY2
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY3.KEY3
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY4.KEY4
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY5.KEY5
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY6.KEY6
+    rule: aes_key_path
+  - instance: aes0
+    kind: field
+    path: AES.WORK_KEY7.KEY7
+    rule: aes_key_path
+  aes.feature.module_enable:
+  - instance: aes0
+    kind: field
+    path: AES.WORK.EN
+    rule: aes_control_path
+  aes.feature.padding:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.PADDING
+    rule: aes_padding
+  aes.feature.status:
+  - instance: aes0
+    kind: field
+    path: AES.RPT_AES_STS.DIN_FLG
+    rule: aes_status_path
+  - instance: aes0
+    kind: field
+    path: AES.RPT_AES_STS.DOUT_FLG
+    rule: aes_status_path
+  - instance: aes0
+    kind: field
+    path: AES.RPT_AES_STS.FINISH
+    rule: aes_status_path
+  aes.identity.base_address:
+  - instance: aes0
+    kind: peripheral
+    path: AES.baseAddress
+    rule: direct
+  aes.interrupt.irq:
+  - instance: aes0
+    kind: interrupt
+    path: AES.interrupt.AES
+    rule: direct
+  aes.limit.block_size_bytes:
+  - instance: aes0
+    kind: field
+    path: AES.DIN0.DIN0
+    rule: four_word_block_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN1.DIN1
+    rule: four_word_block_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN2.DIN2
+    rule: four_word_block_path
+  - instance: aes0
+    kind: field
+    path: AES.DIN3.DIN3
+    rule: four_word_block_path
+  aes.limit.data_length_bits:
+  - instance: aes0
+    kind: field
+    path: AES.DATA_SIZE0.SIZE0
+    rule: concatenated_field_width
+  - instance: aes0
+    kind: field
+    path: AES.DATA_SIZE1.SIZE1
+    rule: concatenated_field_width
+  aes.limit.data_length_max:
+  - instance: aes0
+    kind: field
+    path: AES.DATA_SIZE0.SIZE0
+    rule: concatenated_field_encoding_max
+  - instance: aes0
+    kind: field
+    path: AES.DATA_SIZE1.SIZE1
+    rule: concatenated_field_encoding_max
+  aes.option.directions:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.DIRECTION
+    rule: aes_field_encoding
+  aes.option.dma_modes:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.DMA_MODE
+    rule: aes_field_encoding
+  aes.option.endian_modes:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.ENDIAN_SEL
+    rule: aes_field_encoding
+  aes.option.irq_sources:
+  - instance: aes0
+    kind: field
+    path: AES.INT_EN.INT_EN
+    rule: aes_field_encoding
+  aes.option.key_sizes:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.KEY_SIZE
+    rule: aes_field_encoding
+  aes.option.modes:
+  - instance: aes0
+    kind: field
+    path: AES.WORK_MODE.MODE
+    rule: aes_field_encoding
+  aes.option.padding_modes:
+  - instance: aes0
+    kind: field
+    path: AES.CRTL.PADDING
+    rule: aes_field_encoding
