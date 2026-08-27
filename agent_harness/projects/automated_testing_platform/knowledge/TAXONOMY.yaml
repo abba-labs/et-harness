@@ -1,0 +1,80 @@
+standard: knowledge-library-v0.2
+categories:
+  - id: C010
+    title: Project Identity And Authority
+    status: ACTIVE
+    aliases: [project, authority, constitution, branch, 项目, 权威, 宪法, 分支]
+    summary: 项目标识、仓库宪法、项目分支和权威来源顺序。
+    children:
+      - id: C010.010
+        title: Repository Constitution And Branch
+        status: ACTIVE
+        aliases: [AGENTS, project branch, main, 仓库宪法, 项目分支]
+      - id: C010.020
+        title: Canonical Source Ownership
+        status: ACTIVE
+        aliases: [rule owner, source authority, canonical source, 规则Owner, 权威来源]
+
+  - id: C020
+    title: Task Routing And Scope
+    status: ACTIVE
+    aliases: [task context, route, scope, write scope, 任务上下文, 路由, 范围]
+    summary: Task Context编译、失败关闭、扩围和写入范围知识。
+    children:
+      - id: C020.010
+        title: Task Context Lifecycle
+        status: ACTIVE
+        aliases: [compile, check, fail closed, 编译, 检查, 失败关闭]
+      - id: C020.020
+        title: Read And Write Scope
+        status: ACTIVE
+        aliases: [read scope, write scope, scope check, 读取范围, 写入范围]
+
+  - id: C030
+    title: Architecture And Ownership
+    status: ACTIVE
+    aliases: [architecture, module, owner, system map, 架构, 模块, 所有权]
+    summary: 工程模块总图、模块画像与规则Owner关系。
+    children:
+      - id: C030.010
+        title: Project Module Map
+        status: ACTIVE
+        aliases: [system map, module profile, module map, 工程总图, 模块画像]
+      - id: C030.020
+        title: Governance Projection Boundary
+        status: ACTIVE
+        aliases: [projection, adapter, second rule source, 投影, 适配层, 第二规则源]
+
+  - id: C040
+    title: Validation Evidence And Closure
+    status: ACTIVE
+    aliases: [validation, evidence, ci, closure, 验证, 证据, 闭环]
+    summary: 专项验证、Evidence语义、软件总门禁和CI闭环知识。
+    children:
+      - id: C040.010
+        title: Project Software Validation
+        status: ACTIVE
+        aliases: [validate_pc, diff check, software gate, 软件门禁]
+      - id: C040.020
+        title: Evidence Semantics
+        status: ACTIVE
+        aliases: [PASS, NOT_EXECUTED, backend evidence, 证据语义, 未执行]
+      - id: C040.030
+        title: Exact SHA CI Closure
+        status: ACTIVE
+        aliases: [head sha, github ci, exact commit, 精确SHA, CI闭环]
+
+  - id: C050
+    title: Project Knowledge And History
+    status: ACTIVE
+    aliases: [knowledge, history, plan, review, archive, 知识, 历史, 计划, 评审, 归档]
+    summary: Project-scoped Knowledge与历史材料使用边界。
+    children:
+      - id: C050.010
+        title: Project Scoped Knowledge
+        status: ACTIVE
+        aliases: [project knowledge, scoped knowledge, 项目知识, 作用域]
+      - id: C050.020
+        title: Historical And Intent Material
+        status: ACTIVE
+        aliases: [plans, review, archive, historical, 计划, 评审, 归档, 历史]
