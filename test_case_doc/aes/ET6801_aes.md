@@ -100,21 +100,18 @@ ISR Evidence-> Service latched + event_count
 
 实际 ISR 会确认/清除硬件 pending，因此 IRQ Case 在 ISR 后看到 `RPT_AES_INT_RAW=0` / `RPT_AES_INT_STATUS=0` 是允许的；真实投递由 Service `latched/event_count` 与寄存器来源共同闭环，不能把 Service 值单独伪装成寄存器。
 
-为稳定构造两个仅靠常规流程难以命中的异常源，ET6801 Chip Driver 的 Test Extension 额外提供以下受限激励：
+ET6801 Chip Driver 的 Test Extension保留以下受限激励：
 
 ```text
-AES_testWriteInputBlockPair
-  -> 第一块按 DIN_FLG 正常握手写入
-  -> 不读取第一块结果，直接写入第二块
-  -> 用于构造 OUTPUT_CONFLICT 条件
-
 AES_testWriteInputBlockThenDisable
   -> 第一块按 DIN_FLG 正常握手写入
   -> 输入被硬件接受后立即 Disable
   -> 用于构造 INCOMPLETE_DISABLE 条件
 ```
 
-这两个接口只位于 ET6801 Driver 的 `TEST DRIVER EXTENSION` 区域；公共 Wrap 仅调用稳定 Driver 接口，不直接访问 ET6801 寄存器，公共 Service、PC Driver 和 Case 不依赖这些芯片函数名。
+`AES_testWriteInputBlockPair`仍可作为CPU双输入诊断接口，但CPU路径受`data_valid`反压，不能合法构造`OUTPUT_CONFLICT`，不再作为`AES_P1_009`的正式刺激。当前公共Case改用既有AES FIFO DMA、DMA Channel暂停和DMAMUX Route形成“上一笔输出DMA仍Busy时产生下一笔结果”的自然硬件条件。公共Case只使用芯片中立Driver与Execution Mapping，不依赖ET6801寄存器地址或SDK函数名。
+
+上述Test Extension只位于ET6801 Driver的`TEST DRIVER EXTENSION`区域；公共Wrap仅调用稳定Driver接口，不直接访问ET6801寄存器。
 
 ## 第三章 Data / Mode / DMA 适配事实
 
@@ -272,7 +269,7 @@ PC Golden
 | AES_P1_006 | ADAPTED | DIN_FLG请求消费/清除复核；历史HIL PASS |
 | AES_P1_007 | ADAPTED | DOUT_FLG + RESULT_DOUT；历史HIL PASS |
 | AES_P1_008 | ADAPTED | FINISH 1→0 W1C + RESULT_DOUT独立来源；历史HIL PASS |
-| AES_P1_009 | ADAPTED | 使用双输入块Test Extension构造OUTPUT_CONFLICT；当前FPGA仍未观察到该IRQ，保留FAIL |
+| AES_P1_009 | ADAPTED | 已按权威语义改为FIFO DMA输出Busy冲突刺激；历史CPU双输入FAIL保留，新的DMA Case等待HIL |
 | AES_P1_010 | ADAPTED | KEY_MISSING；历史HIL PASS |
 | AES_P1_011 | ADAPTED | IV_MISSING；历史HIL PASS |
 | AES_P1_012 | ADAPTED | COMPLETE IRQ + RESULT_DOUT；历史HIL PASS |

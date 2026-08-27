@@ -78,7 +78,7 @@
 | AES_F_013 | AES FINISH状态 | 运算完成可形成稳定可读 FINISH 状态 | `AES_P1_008` |
 | AES_F_014 | AES Status W1C清除 | 输入请求、输出请求和完成状态的请求消费/清除语义 | `AES_P1_006`, `AES_P1_007`, `AES_P1_008` |
 | AES_F_015 | AES CPU Polling Block I/O路径 | CPU可通过稳定分组输入/输出路径完成数据搬运 | `AES_P0_002` |
-| AES_F_016 | AES OUTPUT_CONFLICT IRQ中断 | 上次输出未取走时继续输入可形成 OUTPUT_CONFLICT 事件 | `AES_P1_009` |
+| AES_F_016 | AES OUTPUT_CONFLICT IRQ中断 | 上一笔DMA输出仍处于Busy状态时产生下一笔AES结果可形成OUTPUT_CONFLICT事件 | `AES_P1_009` |
 | AES_F_017 | AES KEY_MISSING IRQ中断 | 未装载 Key 时可形成 KEY_MISSING 事件 | `AES_P1_010` |
 | AES_F_018 | AES IV_MISSING IRQ中断 | 需要 IV 的模式未装载 IV 时可形成 IV_MISSING 事件 | `AES_P1_011` |
 | AES_F_019 | AES COMPLETE IRQ中断 | 正常完成可形成 COMPLETE 中断事件 | `AES_P1_012` |
@@ -114,7 +114,7 @@
 | AES_P1_006 | P1 | AES 非DMA输入请求 DIN_REQ 在写块前后的状态变化与清除复核 | AES非DMA输入请求状态测试 | SPEC |
 | AES_P1_007 | P1 | AES 非DMA输出请求 DOUT_REQ、块读取结果与清除复核 | AES非DMA输出请求与块读取测试 | SPEC |
 | AES_P1_008 | P1 | AES 完整 PROCESS 后的 FINISH 置位、输出正确性与 W1C 清除 | AES FINISH状态置位与W1C清除测试 | SPEC |
-| AES_P1_009 | P1 | AES 未读取上一块输出时连续输入触发 OUTPUT_CONFLICT IRQ 并可清除 | AES输出冲突IRQ触发与清除测试 | SPEC |
+| AES_P1_009 | P1 | AES上一笔输出DMA未完成时产生下一块结果，触发OUTPUT_CONFLICT IRQ并验证清除与恢复 | AES输出冲突IRQ触发与恢复测试 | SPEC |
 | AES_P1_010 | P1 | AES 未装载 Key 时触发 KEY_MISSING IRQ 并可精确清除 | AES Key缺失IRQ触发与清除测试 | SPEC |
 | AES_P1_011 | P1 | AES CBC 已装载 Key 但未装载 IV 时触发 IV_MISSING IRQ 并可精确清除 | AES IV缺失IRQ触发与清除测试 | SPEC |
 | AES_P1_012 | P1 | AES 正常单块运算产生 COMPLETE IRQ、得到正确输出并可清除 | AES正常完成IRQ与清除测试 | SPEC |
@@ -609,7 +609,7 @@ gap: []
 ```yaml
 schema: et.case.v1
 case_id: AES_P1_009
-case_name: AES输出冲突IRQ触发与清除测试
+case_name: AES输出冲突IRQ触发与恢复测试
 report_feature: |-
   1. AES OUTPUT_CONFLICT IRQ中断
   2. AES IRQ Delivery投递
@@ -617,24 +617,27 @@ p_level: P1
 feature_refs: [AES_F_016, AES_F_028]
 method:
   inputs:
-  - 冲突刺激：AES-128/ECB/Encrypt，data_length=32，连续写两个block且不读取第一块输出。
+  - 冲突刺激：AES-128/ECB/Encrypt/FIFO DMA，输入DMA搬运2个block，输出DMA只接收1个block并在启动后暂停。
   - IRQ配置：目标Source=OUTPUT_CONFLICT，执行前Clear并Enable/Unmask。
   steps:
-  - AES/IRQ配置：Enable AES、配置ECB/Key并开启OUTPUT_CONFLICT。
+  - AES/IRQ配置：Enable AES、配置FIFO DMA/ECB/Key/32-byte长度并开启OUTPUT_CONFLICT。
   - 基线读取：取得触发前IRQ snapshot/event_count。
-  - 冲突刺激：BLOCK_WRITE_PAIR_DIRECT连续输入两个block。
+  - DMA路由：配置AES输入/输出DMAMUX Route和两条DMA Channel，先启动并暂停输出Channel。
+  - 冲突刺激：开启AES双向DMA Request并启动输入Channel，使第一块输出DMA保持Busy时产生第二块结果。
   - 事件快照：读取IRQ_RAW/IRQ_STATUS/Service latched/event_count。
   - ISR判定：要求latched=OUTPUT_CONFLICT且event_count=baseline+1。
   - 目标清除：执行IRQ_CLEAR(OUTPUT_CONFLICT)。
-  - 清除复核：再次读取IRQ_RAW并确认目标bit=0。
+  - 恢复复核：撤销DMA Route和Channel，复位AES后执行一次CPU PROCESS并与独立Golden比较。
   observations:
   - 冲突IRQ硬件视图：ISR确认后 IRQ_RAW.OUTPUT_CONFLICT 与 IRQ_STATUS.OUTPUT_CONFLICT 期望0。
   - ISR锁存证据：Service latch期望OUTPUT_CONFLICT且event_count=baseline+1。
   - 清除后状态：IRQ_CLEAR后IRQ_RAW.OUTPUT_CONFLICT期望0。
+  - 恢复输出：AES复位后的CPU PROCESS输出必须等于独立Golden。
   pass_criteria:
   - 冲突事件锁存：latched=OUTPUT_CONFLICT且raw/status=0。
   - 事件计数：event_count=baseline+1。
   - IRQ清除：清除后目标RAW bit=0。
+  - 错误恢复：复位后的CPU PROCESS输出精确等于独立Golden。
 timeout: 使用当前AES Driver/Case统一有界deadline，禁止固定sleep替代完成条件
 cleanup: [只恢复本Case实际获得或修改的AES状态, 跨IP资源按owner逆序释放并保留cleanup失败证据]
 resources: {minimum_level: R0, full_coverage_level: R0, board: 按本Case声明资源执行。, bench: 按本Case声明资源执行。}
@@ -1325,11 +1328,12 @@ cases:
     - {source: observation, path: actual_state, label: STATUS.FINISH清除前实际值, format: bit_bool, aggregate: same}
     - {source: observation, path: finish_after_clear, label: STATUS.FINISH清除后实际值, format: bit_bool, aggregate: same}
   AES_P1_009:
-    summary: AES OUTPUT_CONFLICT ISR锁存与清除证据。
+    summary: AES DMA输出冲突ISR锁存、清除与恢复证据。
     fields:
     - {source: measurement, path: expected_state, label: OUTPUT_CONFLICT期望事件, format: text, aggregate: same}
     - {source: observation, path: actual_state, label: ISR.LATCHED.OUTPUT_CONFLICT实际现场, format: text, aggregate: same}
-    - {source: observation, path: cleared_irq_raw, label: IRQ_RAW.OUTPUT_CONFLICT清除后（期望=0）, format: hex32, aggregate: same}
+    - {source: measurement, path: recovery_expected, label: 复位后CPU PROCESS期望输出, format: bytes_hex, aggregate: same}
+    - {source: observation, path: recovery_actual, label: 复位后RESULT_DOUT实际输出, format: bytes_hex, aggregate: same}
   AES_P1_010:
     summary: AES KEY_MISSING ISR锁存证据；清除后三视图保留在执行明细。
     fields:

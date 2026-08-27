@@ -15,6 +15,7 @@ from ...core.cleanup import CleanupAction
 from ...drivers.aes import (
     AesConfig,
     AesDirection,
+    AesDmaTransferMode,
     AesEndian,
     AesFeature,
     AesIrqEvent,
@@ -25,11 +26,21 @@ from ...drivers.aes import (
 )
 from ...drivers.aes.validation import expected_output_length
 from ...drivers.crg import CrgDriver, CrgPeripheral
+from ...drivers.dma import (
+    DmaAddressMode,
+    DmaBurst,
+    DmaConfig,
+    DmaFeature,
+    DmaTransferType,
+    DmaWidth,
+)
+from ...drivers.sysctrl import DmaRequestRoute
 from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
 from ._support import (
     require_aes_config_supported,
     require_aes_data_length_bits,
+    require_aes_dma_supported,
     require_aes_features_supported,
     require_aes_irq_supported,
 )
@@ -921,71 +932,219 @@ def test_aes_p1_008_finish_status_clear(
         assert not after_clear.finish
 
 
-# 测试 Feature：OUTPUT_CONFLICT 错误 IRQ 与恢复。
+# 测试 Feature：DMA 输出未完成时产生新 AES 结果触发 OUTPUT_CONFLICT IRQ，并验证恢复。
 #
 # 测试方法：
-# 1. 清除旧事件，配置 ECB 并开启 OUTPUT_CONFLICT source。
-# 2. 连续写入两个 block 而不读取第一块结果，直接取 IRQ snapshot。
-# 3. 清除目标事件后恢复正常 PROCESS 并验证 Golden。
+# 1. 配置 AES FIFO DMA、两块输入和一块输出 DMA，清除并使能 OUTPUT_CONFLICT source。
+# 2. 先启动并暂停输出 DMA，再启动两块输入 DMA，使第一块结果保持 DMA busy 状态。
+# 3. 等待第二块 AES 结果产生，读取 IRQ snapshot，并清除目标事件。
+# 4. 释放 DMA 路径、复位 AES，再执行一次 CPU PROCESS 与独立 Golden 比较。
 #
 # 通过条件：
 # 1. ISR 清除硬件 raw/status 后，Service latched 精确记录 OUTPUT_CONFLICT。
 # 2. event_count 相比清除前精确增加 1。
-# 3. 清除事件后恢复 PROCESS 精确成功，证明错误状态可恢复。
+# 3. 清除事件并复位后，CPU PROCESS 输出精确等于 Golden，证明错误状态可恢复。
 def test_aes_p1_009_output_conflict_error(
-    aes_support,
+    aes_dma_support,
     et_artifact_dir: Path,
     record_property: Callable[[str, object], None],
     crg_driver,
     resource_driver,
 ) -> None:
 
-    # 准备：建立错误刺激所需的 ECB CPU block 路径。
+    # 准备：选择两条空闲 DMA Channel，并建立两块输入、一块输出的冲突窗口。
     # 隔离：本 Case 配置前复位参与 IP 和 Resource Pool，避免前序 Case 状态污染。
-    crg_driver.reset(CrgPeripheral.AES, instance=aes_support.instance_id)
+    crg_driver.reset(CrgPeripheral.DMA, instance=aes_dma_support.route.controller)
+    crg_driver.reset(
+        CrgPeripheral.AES,
+        instance=aes_dma_support.aes_support.instance_id,
+    )
     resource_driver.reset()
 
-    support = aes_support
+    support = aes_dma_support
     event = AesIrqEvent.OUTPUT_CONFLICT
-    config = AesConfig(AesDirection.ENCRYPT, AesKeySize.AES128, AesMode.ECB, endian=AesEndian.BIG)
-    require_aes_config_supported(support, config)
-    require_aes_features_supported(
-        support, AesFeature.CPU_REGISTER_PATH | AesFeature.TEST_EXTENSIONS
+    dma_config = AesConfig(
+        AesDirection.ENCRYPT,
+        AesKeySize.AES128,
+        AesMode.ECB,
+        endian=AesEndian.LITTLE,
+        dma_transfer_mode=AesDmaTransferMode.FIFO,
     )
-    require_aes_irq_supported(support, event)
+    recovery_config = AesConfig(
+        AesDirection.ENCRYPT,
+        AesKeySize.AES128,
+        AesMode.ECB,
+        endian=AesEndian.BIG,
+    )
+    require_aes_config_supported(support.aes_support, dma_config)
+    require_aes_config_supported(support.aes_support, recovery_config)
+    require_aes_dma_supported(support.aes_support, dma_config.dma_transfer_mode)
+    require_aes_irq_supported(support.aes_support, event)
+
+    dma_capabilities = support.dma.capabilities_get()
+    required_dma = DmaFeature.MEMORY_TO_PERIPHERAL | DmaFeature.PERIPHERAL_TO_MEMORY
+    if dma_capabilities.features & required_dma != required_dma:
+        pytest.skip("skip_by_runtime_feature: AES OUTPUT_CONFLICT needs bidirectional DMA")
+    free_channels = tuple(
+        channel
+        for channel in range(dma_capabilities.channel_count)
+        if support.dma.channel_status(channel).is_free
+    )
+    if len(free_channels) < 2:
+        pytest.skip("skip_by_runtime_resource: AES OUTPUT_CONFLICT needs two free DMA channels")
+    input_channel, output_channel = free_channels[:2]
+    conflict_input = _PAYLOAD16 + bytes(range(16))
+    recovery_expected = aes_golden(_PAYLOAD16, _KEY128, None, recovery_config)
+
+    resource_ready = False
     aes_enabled = False
     irq_enabled = False
+    dma_request_enabled = False
+    controller_enabled = False
+    input_route_configured = False
+    output_route_configured = False
+    input_channel_configured = False
+    output_channel_configured = False
 
     def cleanup_actions() -> tuple[CleanupAction, ...]:
         actions: list[CleanupAction] = []
+        if input_channel_configured:
+            actions.append(("DMA input channel stop", lambda: support.dma.stop(input_channel)))
+            actions.append(
+                ("DMA input channel deconfigure", lambda: support.dma.deconfigure(input_channel))
+            )
+        if output_channel_configured:
+            actions.append(("DMA output channel stop", lambda: support.dma.stop(output_channel)))
+            actions.append(
+                ("DMA output channel deconfigure", lambda: support.dma.deconfigure(output_channel))
+            )
+        if output_route_configured:
+            actions.append(
+                (
+                    "SYSCTRL AES output route release",
+                    lambda: support.sysctrl.release_dma_request(
+                        support.route.controller,
+                        support.route.output_interface,
+                    ),
+                )
+            )
+        if input_route_configured:
+            actions.append(
+                (
+                    "SYSCTRL AES input route release",
+                    lambda: support.sysctrl.release_dma_request(
+                        support.route.controller,
+                        support.route.input_interface,
+                    ),
+                )
+            )
+        if controller_enabled:
+            actions.append(("DMA controller disable", support.dma.controller_disable))
+        if dma_request_enabled:
+            actions.append(
+                (
+                    "AES DMA request disable",
+                    lambda: support.aes_support.aes.dma_request_set(False, False),
+                )
+            )
         if irq_enabled:
-            actions.append(("AES IRQ disable", lambda: support.aes.irq_disable(event)))
-            actions.append(("AES IRQ clear", lambda: support.aes.irq_clear(event)))
+            actions.append(("AES IRQ disable", lambda: support.aes_support.aes.irq_disable(event)))
+            actions.append(("AES IRQ clear", lambda: support.aes_support.aes.irq_clear(event)))
         if aes_enabled:
-            actions.append(("AES module disable", support.aes.disable))
+            actions.append(("AES module disable", support.aes_support.aes.disable))
+        if resource_ready:
+            actions.append(("Resource pool reset", support.aes_support.resource.reset))
         return tuple(actions)
 
     with case_cleanup_scope(cleanup_actions):
-        # 配置：显式启用 AES，清除旧事件并开启目标错误源。
-        support.aes.enable()
+        # 资源：创建两块输入 Buffer 和一块输出 Buffer；输出只允许搬运第一块结果。
+        support.aes_support.resource.reset()
+        resource_ready = True
+        source = support.aes_support.resource.create(len(conflict_input), alignment=4)
+        destination = support.aes_support.resource.create(len(_PAYLOAD16), alignment=4)
+        support.aes_support.resource.write(source, conflict_input)
+        support.aes_support.resource.fill(destination, 0xA5)
+
+        input_config = DmaConfig(
+            channel=input_channel,
+            source_address=source.address,
+            destination_address=support.route.input_fifo_address,
+            transfer_count=len(conflict_input) // 4,
+            transfer_type=DmaTransferType.MEMORY_TO_PERIPHERAL,
+            source_width=DmaWidth.BITS_32,
+            destination_width=DmaWidth.BITS_32,
+            source_address_mode=DmaAddressMode.INCREMENT,
+            destination_address_mode=DmaAddressMode.FIXED,
+            source_burst=DmaBurst.ITEMS_4,
+            destination_burst=DmaBurst.ITEMS_4,
+            destination_interface=support.route.input_interface,
+        )
+        output_config = DmaConfig(
+            channel=output_channel,
+            source_address=support.route.output_fifo_address,
+            destination_address=destination.address,
+            transfer_count=len(_PAYLOAD16) // 4,
+            transfer_type=DmaTransferType.PERIPHERAL_TO_MEMORY,
+            source_width=DmaWidth.BITS_32,
+            destination_width=DmaWidth.BITS_32,
+            source_address_mode=DmaAddressMode.FIXED,
+            destination_address_mode=DmaAddressMode.INCREMENT,
+            source_burst=DmaBurst.ITEMS_4,
+            destination_burst=DmaBurst.ITEMS_4,
+            source_interface=support.route.output_interface,
+        )
+
+        # AES：启用 FIFO DMA，配置两块长度、Key 和 OUTPUT_CONFLICT 中断。
+        support.aes_support.aes.enable()
         aes_enabled = True
-        support.aes.irq_clear(AesIrqEvent.ALL)
-        support.aes.data_length_set(32)
-        support.aes.configure(config)
-        support.aes.key_set(_KEY128, config.key_size)
-        support.aes.irq_enable(event)
+        support.aes_support.aes.irq_clear(AesIrqEvent.ALL)
+        support.aes_support.aes.configure(dma_config)
+        support.aes_support.aes.key_set(_KEY128, dma_config.key_size)
+        support.aes_support.aes.data_length_set(len(conflict_input))
+        support.aes_support.aes.irq_enable(event)
         irq_enabled = True
-        support.aes.irq_unmask(event)
-        baseline = support.aes.irq_snapshot_get()
+        support.aes_support.aes.irq_unmask(event)
+        baseline = support.aes_support.aes.irq_snapshot_get()
         record_property("irq_event_count_before", baseline.event_count)
 
-        # 执行：第二次输入在第一块 DOUT 未读取时制造冲突。
-        support.aes.block_write_pair_direct(_PAYLOAD16, bytes(range(16)))
-        snapshot = support.aes.irq_snapshot_get()
+        # DMA Route：启用 Controller，并连接 AES 输入/输出 Request 到独立 Interface。
+        support.dma.controller_enable()
+        controller_enabled = True
+        support.sysctrl.configure_route(
+            DmaRequestRoute(
+                support.route.controller,
+                support.route.input_interface,
+                support.route.input_request_id,
+            )
+        )
+        input_route_configured = True
+        support.sysctrl.configure_route(
+            DmaRequestRoute(
+                support.route.controller,
+                support.route.output_interface,
+                support.route.output_request_id,
+            )
+        )
+        output_route_configured = True
 
-        # 恢复：先清除目标事件并采集恢复事实，随后一次性发布完整 Snapshot。
-        support.aes.irq_clear(event)
-        cleared = support.aes.irq_snapshot_get()
+        # DMA Channel：输出 Channel 先启动后暂停，制造“上一笔输出 DMA 未完成”的硬件条件。
+        support.dma.configure(output_config)
+        output_channel_configured = True
+        support.dma.configure(input_config)
+        input_channel_configured = True
+        support.dma.start(output_channel)
+        support.dma.suspend(output_channel)
+
+        # 冲突刺激：开启双向 Request 后启动两块输入，等待输入 DMA 完成再读取 IRQ 快照。
+        support.aes_support.aes.dma_request_set(True, True)
+        dma_request_enabled = True
+        support.dma.start(input_channel)
+        input_status = support.dma.wait_channel_free(input_channel)
+        snapshot = support.aes_support.aes.irq_snapshot_get()
+
+        # 清除：先清除目标事件，再保存清除后的 Raw/Status/Service latch。
+        support.aes_support.aes.irq_clear(event)
+        cleared = support.aes_support.aes.irq_snapshot_get()
         record_property("expected_state", "OUTPUT_CONFLICT latched")
         record_property("irq_event_count_after", snapshot.event_count)
         record_property("irq_event_count_delta", snapshot.event_count - baseline.event_count)
@@ -1017,10 +1176,74 @@ def test_aes_p1_009_output_conflict_error(
             source="dut",
             endpoint="IRQ_RAW.OUTPUT_CONFLICT",
         )
+
+        # DMA 回收：关闭 Request，停止并撤销两条 Channel 和 Route，避免恢复运算继承 DMA 状态。
+        support.aes_support.aes.dma_request_set(False, False)
+        dma_request_enabled = False
+        support.dma.stop(input_channel)
+        support.dma.deconfigure(input_channel)
+        input_channel_configured = False
+        support.dma.stop(output_channel)
+        support.dma.deconfigure(output_channel)
+        output_channel_configured = False
+        support.sysctrl.release_dma_request(
+            support.route.controller,
+            support.route.output_interface,
+        )
+        output_route_configured = False
+        support.sysctrl.release_dma_request(
+            support.route.controller,
+            support.route.input_interface,
+        )
+        input_route_configured = False
+        support.dma.controller_disable()
+        controller_enabled = False
+
+        # 恢复：复位 AES 和资源池后走一次 CPU Register路径，证明错误状态不会阻塞后续运算。
+        support.aes_support.aes.disable()
+        aes_enabled = False
+        crg_driver.reset(CrgPeripheral.AES, instance=support.aes_support.instance_id)
+        support.aes_support.resource.reset()
+        recovery_source = support.aes_support.resource.create(len(_PAYLOAD16), alignment=4)
+        recovery_destination = support.aes_support.resource.create(
+            len(recovery_expected),
+            alignment=4,
+        )
+        support.aes_support.resource.write(recovery_source, _PAYLOAD16)
+        support.aes_support.aes.enable()
+        aes_enabled = True
+        support.aes_support.aes.configure(recovery_config)
+        support.aes_support.aes.key_set(_KEY128, recovery_config.key_size)
+        recovery_result = support.aes_support.aes.process(
+            recovery_source.handle,
+            0,
+            recovery_destination.handle,
+            0,
+            len(_PAYLOAD16),
+            destination_capacity=recovery_destination.size,
+        )
+        recovery_actual = support.aes_support.resource.read(
+            recovery_destination,
+            recovery_result.produced_bytes,
+        )
+        record_property("recovery_expected", recovery_expected.hex())
+        record_observation(
+            record_property,
+            key="recovery_actual",
+            value=recovery_actual.hex(),
+            source="dut",
+            endpoint="RESULT_DOUT[0..3]",
+        )
         record_result(
             et_artifact_dir,
             "aes_p1_009",
             event=event.name,
+            dma={
+                "controller": support.route.controller,
+                "input_channel": input_channel,
+                "output_channel": output_channel,
+                "input_completed": input_status.is_free,
+            },
             baseline_event_count=baseline.event_count,
             snapshot={
                 "raw": int(snapshot.raw),
@@ -1033,15 +1256,21 @@ def test_aes_p1_009_output_conflict_error(
                 "status": int(cleared.status),
                 "latched": int(cleared.latched),
             },
-            recovery={"cleared_raw": int(cleared.raw), "recovered": not (cleared.raw & event)},
+            recovery={
+                "expected": recovery_expected,
+                "actual": recovery_actual,
+                "recovered": recovery_actual == recovery_expected,
+            },
         )
 
-        # 断言：目标错误位、事件计数和清除结果必须提供精确证据。
+        # 断言：目标事件、事件计数、清除结果和恢复数据必须同时成立。
+        assert input_status.is_free
         assert snapshot.raw == AesIrqEvent(0)
         assert snapshot.status == AesIrqEvent(0)
         assert snapshot.latched == event
         assert snapshot.event_count == baseline.event_count + 1
         assert not (cleared.raw & event)
+        assert recovery_actual == recovery_expected
 
 
 # 测试 Feature：KEY_MISSING 错误 IRQ。
