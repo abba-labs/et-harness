@@ -1255,8 +1255,8 @@ def test_fmac_p1_009_output_modes(
 #
 # 测试方法：
 # 1. 在SAT16模式下用负稳态输入形成负值输出并读取状态。
-# 2. Clear后保持同一输入，仅加入正Offset重新执行。
-# 3. 比较两次稳态结果，并检查负值状态的置位与清除。
+# 2. 输入正稳态样本撤销实时负值条件，再执行Clear并读取清除后状态。
+# 3. 保持负输入，仅加入正Offset重新执行并比较两次稳态结果。
 #
 # 通过条件：
 # 1. 加Offset后的稳态输出与零Offset结果不同。
@@ -1276,6 +1276,7 @@ def test_fmac_p1_010_output_offset_and_negative_status(
     support.resource.reset()
     require_fmac_features(support, FmacFeature.FIR | FmacFeature.STATUS)
     samples = (-0x2000,) * 12
+    recovery_samples = (0x2000,) * len(samples)
     coefficients = (Q15_MAX,)
     resource_ready = False
 
@@ -1284,6 +1285,7 @@ def test_fmac_p1_010_output_offset_and_negative_status(
         coefficient_resource = _create_q15_resource(support, coefficients)
         history_resource = _create_q15_resource(support, (0,) * len(coefficients))
         source = _create_q15_resource(support, samples)
+        recovery_source = _create_q15_resource(support, recovery_samples)
         destination = support.resource.create(len(samples) * 2, alignment=4)
 
         # 零Offset配置：装载相同系数并建立负输出路径。
@@ -1307,6 +1309,27 @@ def test_fmac_p1_010_output_offset_and_negative_status(
         )
         baseline_outputs = unpack_q15(support.resource.read(destination, len(samples) * 2))
         negative_status = support.fmac.status_get()
+
+        # 状态恢复准备：先停止已完成事务，再重建同一FMAC配置和单抽头数据路径。
+        support.fmac.stop()
+        support.fmac.configure(
+            replace(default_config(), output_mode=FmacOutputMode.SAT16, output_offset=0),
+        )
+        support.fmac.coefficients_load(coefficient_resource.handle, 0, len(coefficients))
+        support.fmac.x1_preload(history_resource.handle, 0, len(coefficients))
+
+        # 状态恢复激励：用正稳态输入撤销实时负值条件，再验证W1C清除Sticky状态。
+        recovery_result = support.fmac.process(
+            FmacFunction.FIR,
+            len(coefficients),
+            0,
+            FmacDataFormat.Q15,
+            recovery_source.handle,
+            0,
+            destination.handle,
+            0,
+            len(recovery_samples),
+        )
         support.fmac.stop()
         support.fmac.clear()
         cleared_status = support.fmac.status_get()
@@ -1352,11 +1375,17 @@ def test_fmac_p1_010_output_offset_and_negative_status(
                 "after_negative": negative_status.negative_after_offset,
                 "after_clear": cleared_status.negative_after_offset,
             },
+            recovery_transfer={
+                "accepted_count": recovery_result.accepted_count,
+                "read_count": recovery_result.read_count,
+            },
         )
 
         # 断言：Offset数值影响与负值状态因果链必须同时成立。
         assert baseline_result.accepted_count == len(samples)
         assert baseline_result.read_count == len(samples)
+        assert recovery_result.accepted_count == len(recovery_samples)
+        assert recovery_result.read_count == len(recovery_samples)
         assert offset_result.accepted_count == len(samples)
         assert offset_result.read_count == len(samples)
         assert baseline_outputs[-1] == 0

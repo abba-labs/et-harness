@@ -892,19 +892,21 @@ method:
     - "范围确认：确认当前offset参数不依赖未闭合的高位/符号扩展解释。"
     - "负值准备：PC按0.5显式建立Known Baseline，重建恒定历史并在完整配置中选择SAT16、Shift NONE和当前offset。"
     - "负值执行：运行产生全部负Expected的稳态短事务并读取输出和负值状态。"
-    - "状态清除：执行公共clear动作清动态状态，再按0.5重新提交完整Known Baseline并确认负值状态回0。"
+    - "状态恢复：停止已完成的负值事务，重建相同FMAC配置和单抽头数据路径，再提交正稳态输入撤销Offset后负值的实时硬件条件，确认恢复事务完整收发。"
+    - "状态清除：实时条件撤销后执行公共clear动作清动态状态，并确认负值状态回0。"
     - "非负执行：重建同一baseline和相同历史，保持同一offset和后处理，运行全部非负Expected事务并读取输出。"
     - "非负状态：读取负值状态并确认未再次置位。"
     - "数值汇总：两类子实例的DATA.OUTPUT_STREAM均逐元素比较独立Offset Expected。"
   observations:
     - "负值子实例输出：读取DATA.OUTPUT_STREAM，期望逐元素等于负值Offset Expected；证明Offset真实参与输出后处理。"
     - "负值触发状态：负值子实例读取STATUS.NEGATIVE_AFTER_OFFSET，期望为1；证明Offset后仍为负的事件被硬件记录。"
-    - "负值清除状态：执行状态清除后读取STATUS.NEGATIVE_AFTER_OFFSET，期望为0；证明sticky状态能够被软件清除。"
+    - "恢复事务数量：正稳态恢复事务的输入接收数和输出读取数均等于请求数；证明清除前实时负值条件已撤销。"
+    - "负值清除状态：实时条件撤销并执行状态清除后读取STATUS.NEGATIVE_AFTER_OFFSET，期望为0；证明sticky状态能够被软件清除。"
     - "非负子实例输出：读取DATA.OUTPUT_STREAM，期望逐元素等于非负Offset Expected；证明同一Offset在非负路径数值关系正确。"
     - "非负子实例状态：非负子实例读取STATUS.NEGATIVE_AFTER_OFFSET，期望为0；证明清除后非负事务不会误置位。"
   pass_criteria:
     - "Offset数值正确性：负值和非负子实例输出均逐元素等于独立Expected。"
-    - "负值状态正确性：负值实例置位，清除后回0，非负实例保持0。"
+    - "负值状态正确性：负值实例置位，正稳态恢复事务完成后清除回0，非负实例保持0。"
     - "后处理模式正确性：全程使用SATURATE_16和Shift NONE。"
 timeout: "每个Offset子实例和状态清除动作使用有界deadline。"
 cleanup: ["STOP停止当前功能", "CLEAR清负值状态"]
@@ -914,7 +916,7 @@ resources:
   board: "无外部接线"
   bench: "无外部仪器"
 backend: [FPGA, Silicon]
-evidence: ["offset参数", "两类Offset Expected", "两类硬件输出", "负值状态前后值"]
+evidence: ["offset参数", "两类Offset Expected", "两类硬件输出", "恢复事务收发数量", "负值状态前后值"]
 failure_observations:
   - key: actual_negative
     label: "实际Offset后负值状态"
