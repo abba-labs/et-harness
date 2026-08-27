@@ -1058,6 +1058,27 @@ def test_bootstrap_recovers_pip_only_when_missing(
     assert calls == [[str(python), "-m", "ensurepip", "--upgrade"]]
 
 
+# 测试 Feature：Bootstrap环境完全归属于当前仓库，不依赖旧工作树或个人路径。
+#
+# 测试方法：读取Bootstrap解析出的仓库根、虚拟环境、依赖输入和安装目标。
+#
+# 通过条件：全部路径位于当前仓库；虚拟环境固定为根目录.venv；依赖安装使用当前项目。
+def test_bootstrap_environment_is_repository_local() -> None:
+
+    assert BOOTSTRAP.REPOSITORY_ROOT == REPOSITORY_ROOT
+    assert BOOTSTRAP.VENV_ROOT == REPOSITORY_ROOT / ".venv"
+    assert BOOTSTRAP._venv_python().is_relative_to(BOOTSTRAP.VENV_ROOT)
+    assert BOOTSTRAP._DEPENDENCY_FILES == (
+        REPOSITORY_ROOT / "pyproject.toml",
+        REPOSITORY_ROOT / "uv.lock",
+    )
+
+    source = (REPOSITORY_ROOT / "tools/runner/bootstrap.py").read_text(encoding="utf-8")
+
+    assert '"-e", ".[test]"' in source
+    assert "Et_Automated_Testing_Platform_Code\\.venv" not in source
+
+
 def test_run_ip_tests_builds_existing_pytest_boundary(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     command = RUN_IP_TESTS._pytest_command(

@@ -12,8 +12,8 @@ rule_ids: [ET-RULE-OPERATOR-PIPELINE]
 ## 1. 定位
 
 本契约是人工和Agent执行环境检查、代码门禁、构建、部署、目标启动、Formal Case和
-报告生成的唯一操作边界。它只管理“一次运行如何被配置、确认、执行和留证”，不管理
-IP/Case选择、Feature参数、芯片寄存器、板级引脚或仪器测量参数。
+报告生成的唯一操作边界。它管理“一次运行如何被配置、选择、确认、执行和留证”，但不定义
+IP/Case业务内容、Feature参数、芯片寄存器、板级引脚或仪器测量参数。
 
 稳定入口只有：
 
@@ -33,7 +33,7 @@ run_test.bat / run_config_gui.bat
 - `run_config.yaml`是唯一生效的本机配置，必须被Git忽略；不得增加同义JSON或第二份配置。
 - GUI和命令行必须读写同一个`run_config.yaml`，GUI只能编辑Schema声明的字段，不复制Pipeline逻辑。
 - 配置只保存本机工具、DUT镜像与连接、配测设备、仪器连接、运行开关和产物策略。
-- IP、P等级和Case选择只属于正式注册表；Case不得读取`run_config.yaml`。
+- IP、P等级和Case定义只属于正式注册表；单次执行范围来自用户指令对应的运行参数或Task Context，Case不得读取`run_config.yaml`。
 - TX/RX、Pin、实例配对和板间拓扑属于Bench Profile；单Case量程、触发和Feature参数属于Case/Driver。
 - 密码、Token、私钥和Credential不得进入配置、快照或Manifest。
 
@@ -69,6 +69,8 @@ run_test.bat / run_config_gui.bat
 ## 5. 安全执行语义
 
 1. Bootstrap只准备`.venv`、依赖和本地配置，然后转交统一Runner。
+   `.venv`必须位于当前仓库根目录，依赖指纹只能读取当前仓库的`pyproject.toml`和`uv.lock`；
+   禁止复用、写入或硬编码其他工作树、旧仓库和个人目录中的Python环境。
 2. `--check-only`只验证配置和当前启用路径所需环境，不创建Run目录、不执行构建或硬件动作。
 3. 非Renode目标只要选择真实测试或`hardware_action`阶段，必须显式设置
    `pipeline.confirm_hardware_actions: true`；该字段不是通用授权，具体硬件操作仍须遵守项目人工门禁。
@@ -81,9 +83,41 @@ run_test.bat / run_config_gui.bat
 9. 低层部署脚本只是Pipeline内部阶段。缺少`ET_ARTIFACT_RUN_DIR`、当前Run前置证据或正确顺序时，
    PFLASH脚本必须在任何擦写动作前失败关闭；`-SkipFlash`仅用于不改写PFLASH的受控运行操作。
 
-### 5.1 HIL前置契约预检
+### 5.1 测试选择与执行级别
 
-任何FPGA、Silicon或真实仪器Formal Case运行前，当前源码必须先通过同一套无硬件预检：
+Runner只能从正式Registry中执行本次明确选中的集合。选择来源是用户指令对应的运行参数或当前Task Context；
+`run_config.yaml`和Pipeline Profile仍不得保存或推断IP/Case集合。
+
+| 执行级别 | 选择范围 | 使用时机 |
+|---|---|---|
+| Case专项 | 用户指定的一个或多个Case | 单点修复、诊断和复测 |
+| IP回归 | 用户指定IP的全部已注册Case | 该IP开发或修复批次完成 |
+| 问题批次回归 | 本轮明确受影响的多个Case/IP | 一组同类Bug收口 |
+| 全量回归 | 全部已注册IP/Case | 用户明确要求、发布、冻结或最终验收 |
+
+固定规则：
+
+- Registry是可执行全集，不是默认执行范围；没有明确全量指令时禁止自动遍历全部IP。
+- 用户指定Case、IP或问题批次时，Runner必须保持该范围；依赖性软件检查可以补充，但不得静默增加无关IP HIL。
+- 公共层变化按R002和Task Context运行公共专项检查及代表性IP回归；是否执行全部IP HIL仍由用户指令决定。
+- 总软件门禁、IP完整HIL和全部IP HIL是三个独立范围，禁止互相替代或绑定触发。
+
+### 5.2 变更类型与部署矩阵
+
+部署只由实际Diff和目标形态决定，禁止因为“准备测试”就机械重烧所有镜像：
+
+| 实际变更 | FPGA目标 | Silicon目标 |
+|---|---|---|
+| 仅PC Case、Driver、报告或工具 | 不编译、不烧录、不重启Firmware | 不编译、不烧录、不重启Firmware |
+| Firmware源码或工程 | 编译Firmware，并完整执行`bitfile -> BootROM -> firmware/PFLASH` | 编译并烧录Firmware；不执行FPGA专属步骤 |
+| Bitfile或BootROM输入 | 从发生变化的阶段开始，并执行其全部下游部署阶段 | 不适用；按目标Profile失败关闭 |
+| 仅规则或IP文档 | 只运行相应软件门禁 | 只运行相应软件门禁 |
+
+当前FPGA环境中，即使Bitfile和BootROM源码未变化，只要Firmware发生变化，正式HIL前仍必须重新执行完整三阶段部署；这是当前部署基线，不得由Agent凭历史板上状态跳过。Pipeline Profile负责表达目标差异，Case、Driver和用户配置不得自行拼接烧录命令。
+
+### 5.3 HIL前置契约预检
+
+形成正式FPGA、Silicon或真实仪器结论前，当前逻辑批次必须先通过同一套无硬件预检：
 
 ```text
 规则与代码门禁
@@ -96,17 +130,19 @@ run_test.bat / run_config_gui.bat
 固定规则：
 
 - 预检只复用现有`tools/validate_pc.py`及其专项Checker/回归，不建立第二套总门禁；
+- 同一源码状态和同一逻辑批次内，预检结果可供多个已选Case/IP复用，禁止为每个Case重复运行总软件门禁；
+- 修复过程中的专项复测先运行Task Context列出的最小专项验证；批次代码完成后统一运行一次总软件门禁，再形成正式HIL结论；
 - 参数、Evidence字段或报告模板发生变化时，必须覆盖受影响的参数分支和真实数据形状，不能只验证无参数理想样本；
 - 预检失败必须在任何烧录、复位、上电或Formal HIL动作前停止；
 - 软件预检PASS只证明软件契约可执行，不能替代真实硬件PASS。
 
-推荐验证顺序固定为：
+推荐验证顺序为：
 
 ```text
 无硬件预检
--> 单IP一个P0冒烟Case并生成报告
--> 单IP完整HIL并生成报告
--> 多IP或完整流水线
+-> 必要时执行本次选中范围的一个P0冒烟Case并生成报告
+-> 执行本次选中Case/IP并生成报告
+-> 用户明确要求时执行多IP或完整流水线
 ```
 
 只有前一级的测试事实、Canonical Result和报告都闭合，才进入下一级；不得先跑完全量HIL再手工修报告。

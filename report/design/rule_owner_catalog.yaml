@@ -33,6 +33,17 @@ owners:
     tests:
       - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
 
+  - id: bug_batch_remediation
+    number: R004
+    rule_id: ET-RULE-BUG-BATCH-REMEDIATION
+    lifecycle: active
+    source: report/design/rules/R004_bug_batch_remediation.md
+    heading: "## 4. 固定修复链路"
+    diagnostics: []
+    checkers: []
+    tests:
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+
   - id: pc_layer_responsibilities
     number: R200
     rule_id: ET-RULE-PC-LAYERS
@@ -291,6 +302,12 @@ documents:
     role: policy
     lifecycle: active
     owners: [weekly_report_authoring]
+
+  - path: report/design/rules/R004_bug_batch_remediation.md
+    number: R004
+    role: policy
+    lifecycle: active
+    owners: [bug_batch_remediation]
 
   - path: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
     number: R100

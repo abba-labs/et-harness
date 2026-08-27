@@ -79,6 +79,18 @@ static et_status_t et_dma_handle_start(
 - ISR只记录最小事件并推进已启动的本IP会话；复杂分析留给PC。
 - 固定小循环必须有公开上限和超时错误。
 
+### 6.1 Formal命令生命周期诊断
+
+当Chip Driver手动诊断已PASS而Formal Case仍失败时，Service只检查自身拥有的命令生命周期：
+
+1. Payload长度、保留位和公共Enum是否正确解码；
+2. `RESET/CONFIGURE/START/STATUS_GET/RESULT_GET/ABORT`前置状态是否与公共契约一致；
+3. Resource Handle、Range、IRQ绑定和Session是否在本命令有效期内；
+4. 传给本IP Wrap的参数是否与请求完全等价；
+5. Wrap状态、硬件快照和错误码是否无损编码回PC。
+
+Service不得为通过Formal Case增加隐藏默认值、自动补测试步骤、跨命令猜测配置或返回伪造PASS。若Service输入和输出均与契约一致，问题必须返回Case/Driver、Wrap或Chip Driver对应责任层定位，不得继续在Service堆叠兼容分支。
+
 ## 7. 错误与响应
 
 - Service返回配置结果、硬件状态、计数和原始事件，不返回“测试通过”。

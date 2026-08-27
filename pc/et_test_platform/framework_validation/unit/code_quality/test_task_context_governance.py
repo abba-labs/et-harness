@@ -118,6 +118,45 @@ def test_weekly_report_task_context_is_focused() -> None:
     ]
 
 
+# 测试Feature：批量Bug修复规则只能提供治理策略，不能授权业务源码修改。
+#
+# 测试方法：单独编译治理路由，再与UART Case路由组合编译并检查Owner及写入范围。
+#
+# 通过条件：单独路由只允许维护修复计划；组合后只增加UART Case既有范围，不放宽其他IP或公共层。
+def test_bug_remediation_route_is_advisory_and_scope_bounded() -> None:
+
+    compiler = _load_compiler()
+
+    governance_context = compiler.build_task_context(
+        task_id="BUG-BATCH-001",
+        intent="规划一组Bug修复",
+        modules=["governance"],
+        changes=["bug-remediation"],
+        lanes=["docs"],
+    )
+    combined_context = compiler.build_task_context(
+        task_id="UART-BUG-BATCH-001",
+        intent="修复UART Formal Case问题批次",
+        modules=["governance", "ip-package"],
+        changes=["bug-remediation", "case"],
+        ip="uart",
+        lanes=["pc"],
+    )
+
+    governance_owners = {entry["owner_id"] for entry in governance_context["rule_owners"]}
+    combined_owners = {entry["owner_id"] for entry in combined_context["rule_owners"]}
+
+    assert "bug_batch_remediation" in governance_owners
+    assert governance_context["write_scope"]["allowed"] == ["report/plans/**"]
+    assert "bug_batch_remediation" in combined_owners
+    assert combined_context["write_scope"]["allowed"] == [
+        "report/plans/**",
+        "pc/et_test_platform/test_cases/uart/**",
+        "test_case_doc/uart/uart.md",
+    ]
+    assert "pc/et_test_platform/test_cases/aes/**" not in combined_context["write_scope"]["allowed"]
+
+
 # 测试Feature：手动固件诊断与PC串口捕获分别进入最小写入范围。
 #
 # 测试方法：分别编译Firmware手动Case和PC捕获工具上下文，检查共同规则Owner及各自路径。

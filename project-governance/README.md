@@ -92,6 +92,7 @@ Service、Wrap和Capability任务会失败关闭。
 | Companion、FPGA、仪器接口与实现 | `companion-platform/interface|companion|fpga|instrument` | 无 |
 | 规则Owner或任务导航 | `governance/rule|navigation` | 无 |
 | 编写或修订项目周报 | `governance/weekly-report` | 无 |
+| 批量修复一组Bug | `governance/bug-remediation`，并同时选择实际修改模块 | 按实际模块提供`--ip/--chip` |
 
 一次任务跨模块时可以重复传入`--module`和`--change`。每个显式选择的模块都必须实际匹配至少一个change；
 零匹配模块会失败关闭，不能借其他模块的合法匹配扩大读取或写入范围。

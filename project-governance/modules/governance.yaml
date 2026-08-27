@@ -48,6 +48,18 @@ changes:
     validation:
       - python tools/quality/validate_rule_governance.py
 
+  bug-remediation:
+    read:
+      - path: report/design/rules/R004_bug_batch_remediation.md
+        reason: 批量Bug修复的范围冻结、分层定位、验证节奏和停止条件
+        required: true
+    rules:
+      - bug_batch_remediation
+    write_scopes:
+      - report/plans/**
+    validation:
+      - python tools/quality/validate_rule_governance.py
+
   rule:
     read:
       - path: report/design/rules

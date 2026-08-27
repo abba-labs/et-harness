@@ -51,6 +51,7 @@ AGENTS.md
 |---|---|
 | 规则、编号、Owner、Checker | R001 |
 | 任务到代码/规则/验证导航 | R002 |
+| 批量Bug修复的范围、定位和验证节奏 | R004 |
 | 公共IP语义、芯片适配 | R100 |
 | 文档与代码同步 | R110 |
 | ET_CASE_SPEC / PLAN / REPORT | R120 |

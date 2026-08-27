@@ -378,6 +378,8 @@ Section 3只使用R120定义的机器块和统一人审行语法；其中面向�
 - 新Feature全部通过准入条件，并具有6.1要求的具体人审描述；
 - 当前Case集合覆盖全部有效稳定测试语义，并完成复用/参数化/合并/拆分判断；
 - 每个Case有明确Oracle、Resource、Evidence、Cleanup和合法P等级；
+- 每个Case已确认硬件存在性、准确触发条件、可构造刺激、可判定Observation和独立Oracle；历史Case覆盖项已分析真实刺激/观测/判据后再映射，任一项为`UNKNOWN`时不得编码Formal Case；
+- 只有Feature和触发语义明确、但当前物理连接、仪器或RTL资源不足时，才允许登记`DEFERRED/SKIP`；手动诊断只用于确认硬件事实，不替代Formal Case；
 - 每个Case的输入、6～8步测试逻辑、最小充分硬件Observation、通过条件和关键报告Evidence已经完整定义，Reviewer无需读实现代码即可复原测试方法与硬件证明链；
 - 每个关键硬件Observation都有明确寄存器/字段或硬件端点名称、Expected和证明含义，且Feature声明强度不超过Observation可证明范围；
 - 测试步骤能够直接指导后续实现，且不依赖抽象标签、隐藏Helper或未声明的实现假设才能解释；

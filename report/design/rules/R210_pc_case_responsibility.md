@@ -176,6 +176,23 @@ Recovery Path    = 超时或断言失败后如何恢复到下一Case可用状态
 中断Case的公共文档按R140写出上述语义，芯片IRQ号、Handler名和寄存器映射仍留在芯片适配文档，
 不得写入公共Case。
 
+### 7.3 手动诊断与Formal Case责任边界
+
+手动测试只证明最短`Chip Driver -> Hardware`路径中的刺激和硬件现象。它不能证明PC编解码、Service状态、Resource Handle、Wrap调用或Formal Case断言正确。
+
+同一Feature出现“手动PASS、Formal FAIL”时，必须按以下顺序定位：
+
+```text
+Case输入与调用顺序
+-> Driver请求编码和响应解码
+-> Service命令前置状态与Session
+-> Resource Handle/Range及IRQ绑定
+-> Wrap参数转换和Chip Driver调用
+-> 硬件Observation返回
+```
+
+每一步只核对与手动PASS路径的输入、动作和Observation是否等价。找到第一个差异后只修对应责任层；禁止同时改Case、Driver、Service和Wrap，禁止弱化Formal断言来迁就手动结果。只有完整Formal链路重新执行并满足R140判据后，才能记录Formal PASS。
+
 ## 8. 断言与Evidence
 
 1. 断言必须直接证明文档声明的Feature，至少覆盖输出和关键终态。
