@@ -1,0 +1,149 @@
+name: ATP Harness Basic Integration
+
+on:
+  push:
+    branches:
+      - test/automated-testing-platform-harness-integration-v0.1
+    paths:
+      - 'agent_harness/projects/automated_testing_platform/**'
+      - '.github/workflows/atp-harness-basic-tests.yml'
+  pull_request:
+    branches:
+      - project/automated-testing-platform
+    paths:
+      - 'agent_harness/projects/automated_testing_platform/**'
+      - '.github/workflows/atp-harness-basic-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atp-harness-basic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  branch-and-public-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify test-branch and public Harness boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "test/automated-testing-platform-harness-integration-v0.1" || \
+            test "$GITHUB_EVENT_NAME" = "pull_request"
+          test -d pc
+          test -d firmware
+          test -d tools
+          test -d project-governance
+          test -d agent_harness/governance_core
+          test -d agent_harness/public_plugins
+          test -f agent_harness/projects/automated_testing_platform/project.yaml
+          test -f MIGRATION_SOURCE.json
+
+          git diff --quiet e9e3affb537113b43d15fbe71b222b213f4410d9 HEAD -- \
+            agent_harness/governance_core \
+            agent_harness/project_contract \
+            agent_harness/public_plugins \
+            agent_harness/model_adapters \
+            agent_harness/global_knowledge \
+            MIGRATION_SOURCE.json
+
+          git diff --check
+
+  plugin-contract-and-routing:
+    needs: branch-and-public-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build public dependencies and run ATP Project Plugin tests
+        shell: bash
+        env:
+          HARNESS_VALIDATION_MODE: clean
+          NPM_REGISTRY: https://registry.npmjs.org
+          NPM_INSTALL_TIMEOUT_SECONDS: '900'
+        run: |
+          set -euo pipefail
+          source agent_harness/validation/lib/common_runtime.sh
+
+          packages=(
+            agent_harness/governance_core
+            agent_harness/project_contract
+            agent_harness/public_plugins/project_manager
+            agent_harness/public_plugins/architecture_navigator
+            agent_harness/public_plugins/rule_manager
+            agent_harness/public_plugins/knowledge_manager
+            agent_harness/public_plugins/gate_manager
+          )
+
+          for package_dir in "${packages[@]}"; do
+            echo "==> $package_dir"
+            npm_install_if_needed "$package_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
+            (
+              cd "$package_dir"
+              npm test
+              npm run build
+            )
+          done
+
+          plugin_dir="agent_harness/projects/automated_testing_platform"
+          echo "==> $plugin_dir"
+          npm_install_if_needed "$plugin_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
+          (
+            cd "$plugin_dir"
+            npm test
+            npm run build
+          )
+
+      - name: Require deterministic Project Plugin outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf agent_harness/projects/automated_testing_platform/dist
+          rm -f agent_harness/projects/automated_testing_platform/package-lock.json
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo "ATP Project Plugin validation mutated the worktree:"
+            echo "$status"
+            git diff -- agent_harness/projects/automated_testing_platform
+            exit 1
+          fi
+
+  atp-software-regression:
+    needs: branch-and-public-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install ATP software test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      - name: Run ATP unified software validation
+        run: python tools/validate_pc.py
+      - name: Require ATP validation to leave the worktree clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo "ATP software validation mutated the worktree:"
+            echo "$status"
+            exit 1
+          fi
