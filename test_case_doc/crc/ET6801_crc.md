@@ -204,26 +204,28 @@ input_count = length_bytes // width_bytes + length_bytes % width_bytes
 - CRC存在FIFO结构；
 - `FIFO_TRHD`支持阈值配置，ET6801当前SDK限制为0~8；
 - `FIFO_OVF`提供Overflow状态；
-- 历史测试证明Threshold对处理节拍有影响，并存在可触发Overflow的紧凑写入行为。
+- ET6801 RTL权威语义为`dma_req = (fifo_cnt <= cfg_crc_fifo_trhd)`，因此`FIFO_TRHD`控制DMA Request水位，不控制CRC Result更新节拍；
+- `FIFO_OVF`在当前FPGA实现中已由人工确认存在硬件问题。
 
 但必须区分：
 
 ```text
-FIFO Threshold行为已动态证明
-FIFO Overflow/Recovery已动态设计并实现
+FIFO Threshold寄存器可配置
+FIFO Overflow/Recovery Case已实现
 ≠
+FIFO Threshold DMA Request边界已动态证明
 FIFO Physical Depth已被精确动态测得
 ```
 
-因此 `CRC_F_012 FIFO Physical Depth` 当前状态保持：
+因此 `CRC_F_012 FIFO Physical Depth` 与 `CRC_F_013 FIFO Threshold` 当前状态分别保持：
 
 ```text
 Hardware: SUPPORTED
 Platform: PARTIAL_ADAPTATION
-Gap: dynamic_fifo_depth_proof_gap
+Gap: dynamic_fifo_depth_proof_gap / crc_fifo_request_observer_gap
 ```
 
-`CRC_P1_011` 和 `CRC_P1_012` 不再被用作“精确FIFO深度”证明。
+当前平台没有独立暴露`fifo_cnt`或`dma_req`，`SYSC.DMA_REQ_REP_RPT`只表示DMA请求脉冲重复告警，不能替代Request当前电平或FIFO占用计数。因此`CRC_P1_011`撤销错误的Result节拍实现并保持PLAN；`CRC_P1_012`保留当前FPGA RTL FAIL。两者均不用于证明精确FIFO深度。
 
 ### 1.8 CHECK 与错误路径
 
@@ -370,29 +372,30 @@ PC Formal Case
 
 ### 2.2 当前剩余设计 Gap
 
-当前保留一个Feature覆盖Gap，以及两个由当前FPGA HIL直接证明的硬件行为Gap：
+当前保留两个Feature覆盖Gap，以及一个由当前FPGA HIL直接证明的硬件行为Gap：
 
 | Gap | 当前事实 | 解除条件 |
 |---|---|---|
 | `dynamic_fifo_depth_proof_gap` | SVD/SDK/历史行为证明FIFO与Threshold/Overflow存在，但没有精确动态测得物理Depth | 形成不会被处理吞吐混淆的安全刺激 + 独立Depth Oracle，再单独评审新/扩展Case |
-| `crc_fifo_threshold_behavior_gap` | `CRC_P1_011`已复用ET6801历史测试的Threshold=5、五次紧凑32-bit写入语义；当前FPGA在第四次写入后RESULT已经变化，第五次后不再变化，与历史“第五次达到阈值后处理”预期不一致。J-Link诊断期间直接读回`FIFO_TRHD=5`，说明配置已经到达硬件。 | RTL/bit所有者确认FIFO阈值对处理节拍的真实定义；如硬件语义修复则重跑P1_011，如权威语义变更则先更新公共契约并经人工审核。 |
+| `crc_fifo_request_observer_gap` | RTL已确认`FIFO_TRHD`是`fifo_cnt <= threshold`的DMA Request水位；旧`CRC_P1_011`用第4/5次CPU写入后的RESULT变化判断Threshold，测试语义错误。当前SVD/Driver没有暴露`fifo_cnt`或`dma_req`，`SYSC.DMA_REQ_REP_RPT`也只表示请求脉冲重复告警。 | 提供同一目标侧原子窗口内可采样的`fifo_cnt/dma_req` Observer，或提供经设计批准的等价硬件状态；随后按DMA水位矩阵实现并执行`CRC_P1_011`。 |
 | `crc_fifo_overflow_behavior_gap` | `CRC_P1_012`测试链路有效；2026-08-24又以Threshold=1、连续64次CPU直接写入`IR`复测，`FIFO_OVF`仍为0，重新配置后的CRC恢复结果为`0x140B8DD8`。经项目同事人工确认，当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题。 | 修复RTL/bit中的`FIFO_OVF`功能后重跑`CRC_P1_012`；修复前保持严格FAIL，不得删除Overflow断言或改为SKIP。 |
 
-该 Gap 不阻塞 Threshold、Overflow、CRC计算、IRQ、DMA、Performance等已独立定义Feature。
+这些Gap不阻塞CRC计算、IRQ、DMA和Performance等已独立定义Feature；Threshold和Overflow自身保持未闭合状态。
 
 ### 2.3 HIL 状态边界
 
-2026-08-22已经在当前ET6801 FPGA环境执行CRC Formal Case。精确状态是：
+2026-08-22已经在ET6801 FPGA环境执行当时的CRC Formal Case。该记录属于历史Evidence；后续复盘已确认`CRC_P1_011`的Oracle错误，不能继续视为当前Formal FAIL。精确状态是：
 
 ```text
-CRC SOURCE / DESIGN / EVIDENCE CLOSURE: 按源码与Contract审核
-Working-tree FPGA HIL: 24 logical Cases / 45 executions / 43 PASS / 2 FAIL
-FAIL Cases: CRC_P1_011, CRC_P1_012
+CRC SOURCE / DESIGN / EVIDENCE CLOSURE: 按当时源码与Contract审核
+Historical Working-tree FPGA HIL: 24 logical Cases / 45 executions / 43 PASS / 2 FAIL
+Historical FAIL Cases: CRC_P1_011（Oracle错误，已撤销实现）, CRC_P1_012（确认FPGA硬件问题）
+Current CRC_P1_011: PLANNED / NOT_EXECUTED / crc_fifo_request_observer_gap
 Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
 Historical HIL / historical test assets: 仅作历史Evidence，不覆盖当前SHA
 ```
 
-本次运行来自dirty工作树，只能作为Working-tree FPGA HIL；不得写成Exact-SHA PASS。两个FAIL均保留严格Oracle，不影响其余43个Execution的独立结果。
+本次运行来自dirty工作树，只能作为Working-tree FPGA HIL；不得写成Exact-SHA PASS。`CRC_P1_011`旧Oracle已撤销，`CRC_P1_012`保留严格FAIL，不影响其余43个Execution的独立结果。
 
 ---
 
@@ -427,7 +430,7 @@ Examples/CRC/CRC_calculate/**
 | remainder Byte | CODE_ONLY / RETAINED | `CRC_P1_007` |
 | LENGTH / ALR | RETAINED并补显式readback | `CRC_P1_007`, `CRC_P1_008` |
 | CHECK match/mismatch | RETAINED并拆分当前寄存器与ISR证据 | `CRC_P1_009`, `CRC_P1_010` |
-| FIFO Threshold | RETAINED原子Burst节拍 | `CRC_P1_011` |
+| FIFO Threshold | SUPERSEDED：旧原子Burst Result节拍语义错误；改为DMA Request水位PLAN | `CRC_P1_011`（PLAN） |
 | FIFO Overflow | RETAINED + Recovery | `CRC_P1_012` |
 | FIFO Physical Depth | PARTIAL；不再由Threshold/Overflow冒充 | `dynamic_fifo_depth_proof_gap` |
 | IRQ Force | RETAINED并参数化三Source | `CRC_P1_013` |
@@ -519,7 +522,7 @@ Capability只表达硬件/机器事实，不保存Case PASS状态。
 | CRC_F_010 | SUPPORTED | LENGTH保存输入事务数 | ADAPTED | `CRC_P1_007` |
 | CRC_F_011 | SUPPORTED | CTRL.CRC_ALR_EN | ADAPTED | `CRC_P1_008` |
 | CRC_F_012 | SUPPORTED | FIFO存在；精确物理Depth当前只有静态/间接证据 | PARTIAL_ADAPTATION | 无；`dynamic_fifo_depth_proof_gap` |
-| CRC_F_013 | SUPPORTED | FIFO_TRHD 0~8 | ADAPTED | `CRC_P1_011` |
+| CRC_F_013 | SUPPORTED | FIFO_TRHD 0~8；RTL语义为`fifo_cnt<=threshold`时DMA Request有效 | PARTIAL_ADAPTATION | `CRC_P1_011`（PLAN）；`crc_fifo_request_observer_gap` |
 | CRC_F_014 | SUPPORTED | FIFO_OVF可读取并通过Module重新进入恢复 | ADAPTED | `CRC_P1_012` |
 | CRC_F_015 | SUPPORTED | RES按CRC8/16/32自然宽度有效 | ADAPTED | `CRC_P0_002` |
 | CRC_F_016 | SUPPORTED | CHECK match无CMF错误 | ADAPTED | `CRC_P1_009` |
@@ -537,7 +540,7 @@ Capability只表达硬件/机器事实，不保存Case PASS状态。
 | CRC_F_028 | SUPPORTED | DMA target-local Start-to-IRQ计时 | ADAPTED | `CRC_P3_003` |
 | CRC_F_029 | SUPPORTED | CRC实例、模式、IRQ、FIFO Threshold与同步计算上限由Capability/Runtime身份声明 | ADAPTED | `CRC_P0_001` |
 
-> `PARTIAL_ADAPTATION` 只用于 `CRC_F_012` 的动态物理深度证明缺口；它不否定 FIFO Threshold / Overflow 两个独立 Feature。
+> `PARTIAL_ADAPTATION` 用于 `CRC_F_012` 的动态物理深度证明缺口和 `CRC_F_013` 的DMA Request水位Observer缺口；它不否定硬件寄存器存在，但禁止把未证明语义写成Formal PASS。
 
 ## 第六章 Chip -> Public Case Adaptation
 
@@ -556,7 +559,7 @@ Capability只表达硬件/机器事实，不保存Case PASS状态。
 | CRC_P1_008 | ADAPTED | ALR两轮不重写Length已实现；当前SHA HIL未执行 |
 | CRC_P1_009 | ADAPTED | CHECK Match用Result + CMF Raw/Status最小证明；当前SHA HIL未执行 |
 | CRC_P1_010 | ADAPTED | CHECK mismatch Result/ISR/count来源分离；当前SHA HIL未执行 |
-| CRC_P1_011 | ADAPTED | Threshold节拍执行链完整；**不闭合CRC_F_012物理Depth**；当前FPGA HIL为FAIL，第四次写入后RESULT已变化，与历史第五次达到阈值后处理的语义不一致。 |
+| CRC_P1_011 | IMPLEMENTATION_GAP | 旧Result节拍Case已撤销；当前等待独立`fifo_cnt/dma_req` Observer后实现DMA Request水位边界测试。 |
 | CRC_P1_012 | ADAPTED | Overflow + Recovery执行链完整；**不闭合CRC_F_012物理Depth**；当前FPGA HIL为FAIL，七次原子写入后Overflow仍为0，但恢复CRC正确。 |
 | CRC_P1_013 | ADAPTED | Enable Delivery + Disable后re-Force反证已实现；当前SHA HIL未执行 |
 | CRC_P1_014 | ADAPTED | Mask状态Force后Raw精确Clear已实现；当前SHA HIL未执行 |
@@ -571,30 +574,35 @@ Capability只表达硬件/机器事实，不保存Case PASS状态。
 ### 6.1 当前结论
 
 ```text
-Public Feature: 28
+Public Feature: 29
 - ADAPTED: 27
-- PARTIAL_ADAPTATION: 1 (CRC_F_012)
+- PARTIAL_ADAPTATION: 2 (CRC_F_012, CRC_F_013)
 
 Formal Case: 24
-- ADAPTED: 24
+- ADAPTED: 23
+- PLANNED: 1 (CRC_P1_011)
 
-Working-tree FPGA HIL:
+Historical Working-tree FPGA HIL（旧Case语义，仅保留取证记录）:
 - 24 logical Cases / 45 executions
 - 43 PASS / 2 FAIL
-- FAIL: CRC_P1_011, CRC_P1_012
+- 旧FAIL: CRC_P1_011, CRC_P1_012
+
+Current Formal Set:
+- CRC_P1_011: PLANNED / NOT_EXECUTED
+- CRC_P1_012: HIL_FAIL / CONFIRMED_FPGA_FUNCTION_ISSUE
 
 Current-SHA Silicon HIL:
 - NOT_EXECUTED / NOT_VERIFIED
 ```
 
-`ADAPTED` 不等于 `PASS`。当前运行的Source Revision为`edfd188173e93b3a580ba1d30587795c2ca1749c`且`source_dirty=true`，因此只能证明本工作树行为。完整证据位于`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`，对应报告为`artifacts/reports/20260822_104835_661796_ET6801_CRC测试报告.xlsx`。
+`ADAPTED` 不等于 `PASS`。2026-08-22运行的Source Revision为`edfd188173e93b3a580ba1d30587795c2ca1749c`且`source_dirty=true`，因此只能证明当时工作树行为。该次`CRC_P1_011`采用已被推翻的Result节拍Oracle，不再代表当前Formal Case；原始证据仍保留在`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`，对应报告为`artifacts/reports/20260822_104835_661796_ET6801_CRC测试报告.xlsx`。
 
 ### 6.2 2026-08-22 FIFO行为诊断
 
 1. `CRC_P1_011`记录：Threshold=5，写入前RESULT=`0xBD3A64DC`，第四次写入后RESULT=`0xAD37D056`，第五次后仍为`0xAD37D056`，Overflow=0。
 2. `CRC_P1_012`记录：Threshold=1，七次目标端原子写入后Overflow仍为0；Disable/Re-enable后的恢复CRC实际值与PC Golden均为`0x140B8DD8`，剩余输入计数为0。
 3. J-Link只读诊断在P1_011配置保持期间读回`FIFO_TRHD=5`，排除了PC、Service、Wrap或Chip Driver没有写入Threshold的解释。
-4. 结论：两个Case测试链路与恢复路径有效，失败集中在当前FPGA CRC FIFO阈值/溢出硬件行为；不得为了通过率弱化断言。
+4. 后续复盘结论：`CRC_P1_011`的测试链路执行正常，但把Threshold错误解释成Result更新门限，该FAIL不再用于判断硬件；`CRC_P1_012`仍是当前FPGA CRC FIFO Overflow硬件问题，不得为了通过率弱化断言。
 
 ### 6.3 当前未通过测试记录
 
@@ -602,10 +610,10 @@ Current-SHA Silicon HIL:
 
 | Case | 测试环境 | 实际硬件现象 | 已排除的软件链路问题 | 当前判定 | 闭环条件 |
 |---|---|---|---|---|---|
-| `CRC_P1_011` | ET6801 FPGA，FIFO Threshold=5，五次目标端紧凑32-bit写入 | 写入前`RESULT=0xBD3A64DC`；第四次写入后已变为`0xAD37D056`，第五次后保持不变，与历史“第五次达到阈值后处理”预期不一致 | J-Link在Case活动期间直接读回`FIFO_TRHD=5`，证明配置已经到达硬件 | `FPGA_FIFO_THRESHOLD_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认Threshold对处理节拍的权威语义；修复硬件或经人工审核更新契约后重跑 |
+| `CRC_P1_011` | ET6801 FPGA，FIFO Threshold=5，五次目标端紧凑32-bit写入 | 写入前`RESULT=0xBD3A64DC`；第四次写入后已变为`0xAD37D056`，第五次后保持不变 | J-Link在Case活动期间直接读回`FIFO_TRHD=5`，仅证明配置到达硬件；不能证明DMA Request水位 | `INVALID_ORACLE / SUPERSEDED` | 提供独立`fifo_cnt/dma_req` Observer后按DMA水位PLAN重新实现；不得继续使用Result节拍判断 |
 | `CRC_P1_012` | ET6801 FPGA，FIFO Threshold=1，七次目标端原子写入并执行恢复路径 | 七次写入后`FIFO_OVF=0`；Disable/Re-enable后恢复CRC为`0x140B8DD8`，与PC Golden一致 | 原子刺激、Overflow读取和恢复路径均已执行，恢复结果证明模块后续可正常工作 | `FPGA_FIFO_OVERFLOW_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认可触发Overflow的真实FIFO路径和安全刺激；取得权威结果后重跑 |
 
-两个Case保持严格FAIL，但不用于宣称已经动态测得FIFO物理深度。证据位于`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`；本次运行来自dirty工作树。
+`CRC_P1_011`旧结果只保留为错误Oracle的复盘证据；`CRC_P1_012`保持严格FAIL。二者均不用于宣称已经动态测得FIFO物理深度。证据位于`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`；本次运行来自dirty工作树。
 
 ### 6.4 CRC_P1_012人工确认与64次CPU直写复测
 

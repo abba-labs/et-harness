@@ -12,7 +12,7 @@
 - 新芯片优先映射既有 Feature；参数、范围、实例和 IRQ 差异进入 Capability / Chip Adaptation。
 - 公共 Case 只使用芯片中立的稳定硬件 endpoint；具体芯片地址、IRQn 和 SDK 类型只进入 Chip Adaptation，不进入公共 Contract/Case。
 - Expected / Golden 来自独立 PC Reference、固定向量或规范状态，不允许 Firmware 复用同一算法自证 PASS。
-- 当前 CRC Formal Set 为 24 个 SPEC；`CRC_F_012 FIFO Physical Depth` 仍存在精确动态证明 Gap，不由 Threshold/Overflow Case 冒充闭合。
+- 当前 CRC Formal Set 为 23 个 SPEC、1 个 PLAN；`CRC_F_012 FIFO Physical Depth` 与 `CRC_F_013 FIFO Threshold` 均不得由错误的 Result 节拍断言冒充闭合。
 
 ## 1. Feature Catalog
 
@@ -30,7 +30,7 @@
 | CRC_F_010 | CRC LENGTH配置/读回 | Byte 长度按当前 Kernel 宽度转换为硬件输入事务计数并可准确读回 | `CRC_P1_007` |
 | CRC_F_011 | CRC Auto Length Reload模式 | ALR 开启后只配置一次 Length 即可连续两轮处理同长度不同 Payload | `CRC_P1_008` |
 | CRC_F_012 | CRC FIFO Depth深度 | CRC 存在固定硬件 FIFO 队列容量；当前只有静态/间接证据，精确动态深度证明未闭合 | 无 Formal Case（`dynamic_fifo_depth_proof_gap`） |
-| CRC_F_013 | CRC FIFO Threshold阈值 | Threshold 未达到前 Result 不提前更新，达到阈值后处理推进 | `CRC_P1_011` |
+| CRC_F_013 | CRC FIFO Threshold阈值 | `fifo_cnt <= FIFO_TRHD` 时产生 DMA Request，超过水位后撤销 Request | `CRC_P1_011`（PLAN） |
 | CRC_F_014 | CRC FIFO Overflow状态 | 紧凑写入可形成 Overflow，重新进入 Module 后正常计算可恢复 | `CRC_P1_012` |
 | CRC_F_015 | CRC8/16/32 Result Width | 硬件 Result 在 CRC8/16/32 模式下分别保持 8/16/32-bit 有效宽度 | `CRC_P0_002` |
 | CRC_F_016 | CRC CHECK匹配 | CHECK 与计算结果一致时 CRC Result 正确且 CHECK_ERROR Raw/Status 不置位 | `CRC_P1_009` |
@@ -65,7 +65,7 @@
 | CRC_P1_008 | P1 | Auto Length Reload连续两轮同长度输入正确 | CRC自动长度重载测试 | SPEC |
 | CRC_P1_009 | P1 | CHECK匹配时结果正确且CHECK_ERROR不置位 | CRC结果校验匹配测试 | SPEC |
 | CRC_P1_010 | P1 | CHECK mismatch形成CHECK_ERROR并真实到达CPU | CRC校验错误中断测试 | SPEC |
-| CRC_P1_011 | P1 | FIFO Threshold控制输入处理节拍 | CRC FIFO阈值处理节拍测试 | SPEC |
+| CRC_P1_011 | P1 | FIFO Threshold控制DMA Request水位边界 | CRC FIFO DMA请求水位测试 | PLAN |
 | CRC_P1_012 | P1 | FIFO Overflow可检测且重新配置后恢复计算 | CRC FIFO溢出与恢复测试 | SPEC |
 | CRC_P1_013 | P1 | IRQ Source Enable/Disable、Force与真实Delivery | CRC中断强制、投递与关闭测试 | SPEC |
 | CRC_P1_014 | P1 | IRQ Pending可精确Clear且不制造新Delivery | CRC中断清除测试 | SPEC |
@@ -79,7 +79,7 @@
 
 ## 3. Machine-readable Case Contract
 
-> 以下 24 个 `ET_CASE_SPEC` 均对应 Registry 中唯一真实 `test_*`。`method` 是人工审核和代码实现共同基线；Reviewer 只阅读本节即可复原输入、配置、刺激、硬件观测、Expected 和 PASS 逻辑。
+> 以下 23 个 `ET_CASE_SPEC` 均对应 Registry 中唯一真实 `test_*`；`CRC_P1_011` 保持为 `ET_CASE_PLAN`，等待独立 `dma_req/fifo_cnt` Observer。`method` 是人工审核和代码实现共同基线；Reviewer 只阅读本节即可复原输入、配置、刺激、硬件观测、Expected 和 PASS 逻辑。
 
 <!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
@@ -629,47 +629,51 @@ gap: []
 ```
 <!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_SPEC_BEGIN -->
+<!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
-schema: et.case.v1
+schema: et.case-plan.v1
+implementation_status: PLANNED
 case_id: CRC_P1_011
-case_name: CRC FIFO阈值处理节拍测试
+case_name: CRC FIFO DMA请求水位测试
 report_feature: |-
-  1. CRC FIFO Threshold阈值
+  1. CRC FIFO Threshold DMA请求水位
 p_level: P1
 feature_refs: [CRC_F_013]
 method:
   inputs:
-    - 阈值配置：CRC32固定配置，FIFO Threshold=5。
-    - 原子刺激：目标端连续写入5个0x12345678，checkpoint设为第4次写入后。
+    - 阈值矩阵：至少选择两个合法FIFO_TRHD值并覆盖水位边界两侧。
+    - DMA刺激：使用Capability映射的CRC输入DMA Request和IR端点，不绑定ET6801地址或Request ID。
   steps:
-    - CRC配置：Enable并配置CRC32与Threshold=5，不设置Length，保留原始FIFO节拍。
-    - 初始观测：在任何输入写入前读取RESULT.CRC作为result_before。
-    - 前四次刺激：目标端原子Burst连续写入前4个32-bit值。
-    - 阈值前观测：第4次写入后读取RESULT.CRC，期望保持result_before。
-    - 第五次刺激：继续第5次32-bit写入并读取新的RESULT.CRC与FIFO.OVERFLOW。
-    - 节拍判定：要求第5次后Result发生变化且Overflow=False；本Case不宣称精确FIFO物理深度。
+    - 能力确认：确认目标芯片公开FIFO_TRHD范围、CRC DMA输入路由和独立dma_req或fifo_cnt Observer。
+    - 测试准备：复位CRC、DMA与Resource Pool，准备固定Payload和独立CRC Golden。
+    - 低水位配置：配置第一组FIFO_TRHD并启动受控DMA输入。
+    - 低水位观测：在边界两侧采集fifo_cnt与dma_req，记录Request置位和撤销位置。
+    - 高水位配置：复位后仅修改FIFO_TRHD，使用相同Payload和DMA配置重复刺激。
+    - 高水位观测：再次采集边界两侧fifo_cnt与dma_req，确认边界随Threshold移动。
+    - 结果校验：等待DMA完成并比较RESULT.CRC与独立Golden，排除Request水位测试破坏数据路径。
+    - 证据汇总：保存Threshold、fifo_cnt、dma_req、DMA完成状态和CRC结果的结构化证据。
   observations:
-    - 阈值前Result：RESULT.CRC在写入前和第4次后期望相同；证明未达到Threshold前不提前推进处理。
-    - 阈值后Result：第5次后RESULT.CRC期望发生变化；证明达到Threshold后处理推进。
-    - Overflow状态：FIFO.OVERFLOW期望=False；证明本节拍刺激未进入溢出路径。
+    - 水位边界：独立Observer返回同一时刻的fifo_cnt与dma_req。
+    - DMA闭环：DMA通道完成且输入长度完整消费。
+    - CRC结果：RESULT.CRC与独立PC Golden一致。
   pass_criteria:
-    - 阈值前状态：result_after_write_4=result_before。
-    - 阈值触发：result_after_write_5!=result_after_write_4。
-    - 溢出边界：FIFO.OVERFLOW=False；该Case仅闭合Threshold，不闭合CRC_F_012物理深度。
-timeout: 使用目标侧有界Burst命令与平台请求deadline
-cleanup: [Disable CRC, 恢复本Case拥有的CRC状态]
-resources: {minimum_level: R0, full_coverage_level: R0, board: 无额外要求, bench: 无额外要求}
+    - 请求置位：每组Threshold下fifo_cnt<=FIFO_TRHD时dma_req=1。
+    - 请求撤销：每组Threshold下fifo_cnt>FIFO_TRHD时dma_req=0。
+    - 边界可迁移：修改FIFO_TRHD后Request翻转边界按配置同步移动。
+    - 数据正确：DMA完成且最终CRC结果等于独立Golden。
+timeout: 统一有界deadline，Observer必须在同一目标侧原子窗口采样
+cleanup: [复位CRC与DMA, 复位Resource Pool]
+resources: {minimum_level: R0, full_coverage_level: R0, board: 需暴露CRC fifo_cnt或dma_req独立Observer, bench: 无额外要求}
 backend: [FPGA, Silicon]
-evidence: [Canonical Measurement/Observation + bound structured Artifact]
+evidence: [计划Canonical Evidence + fifo_cnt/dma_req边界轨迹]
 failure_observations:
-  - {key: fifo_threshold, label: FIFO阈值, source: dut_config, role: config, format: decimal}
-  - {key: result_before, label: 写入前硬件CRC结果, source: dut, role: actual, format: hex32}
-  - {key: result_after_write_4, label: 第4次写入后RESULT.CRC, source: dut, role: actual, format: hex32}
-  - {key: result_after_write_5, label: 第5次写入后RESULT.CRC, source: dut, role: actual, format: hex32}
-gap: []
+  - {key: fifo_threshold, label: FIFO_TRHD配置值, source: dut_config, role: config, format: decimal}
+  - {key: fifo_count, label: FIFO实际占用数, source: dut, role: actual, format: decimal}
+  - {key: dma_request, label: CRC DMA Request实际电平, source: dut, role: actual, format: bool}
+  - {key: actual_crc, label: RESULT.CRC实际值, source: dut, role: actual, format: hex32}
+gap: [case_implementation_gap, crc_fifo_request_observer_gap]
 ```
-<!-- ET_CASE_SPEC_END -->
+<!-- ET_CASE_PLAN_END -->
 
 <!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
@@ -1118,12 +1122,13 @@ gap: []
 
 | Chip | Feature适配状态 | Case适配状态 | 主要Gap | 详细分析 |
 |---|---:|---:|---|---|
-| ET6801 | ADAPTED=28; PARTIAL_ADAPTATION=1 | ADAPTED=24 | `CRC_F_012 dynamic_fifo_depth_proof_gap`; 当前精确SHA HIL未执行 | `ET6801_crc.md` |
+| ET6801 | ADAPTED=27; PARTIAL_ADAPTATION=2 | ADAPTED=23; IMPLEMENTATION_GAP=1 | `CRC_F_012 dynamic_fifo_depth_proof_gap`; `CRC_F_013 crc_fifo_request_observer_gap`; 当前精确SHA HIL未执行 | `ET6801_crc.md` |
 
 ## 5. Common Gap / Evolution
 
-- `CRC_F_012 FIFO Physical Depth`：硬件与静态资料支持FIFO存在及阈值上限，但当前Formal Case只证明Threshold节拍和Overflow/Recovery，**没有精确动态测得物理深度**。在取得独立安全刺激与明确Depth Oracle前保持 `dynamic_fifo_depth_proof_gap`，不得由 `CRC_P1_011/P1_012` 冒充闭合。
-- 当前规划但尚未成为公共 Formal Case 的 Case：无。
+- `CRC_F_012 FIFO Physical Depth`：硬件与静态资料支持FIFO存在及阈值上限，但当前没有精确动态测得物理深度。在取得独立安全刺激与明确Depth Oracle前保持 `dynamic_fifo_depth_proof_gap`，不得由 `CRC_P1_011/P1_012` 冒充闭合。
+- `CRC_F_013 FIFO Threshold`：权威RTL语义是DMA Request水位，不是CRC Result更新门限。当前平台没有独立暴露`fifo_cnt/dma_req`，因此`CRC_P1_011`保持PLAN和`crc_fifo_request_observer_gap`，不得恢复第4/5次Result变化的错误断言。
+- 当前规划但尚未成为公共 Formal Case 的 Case：`CRC_P1_011`，等待`crc_fifo_request_observer_gap`闭合。
 - 新芯片出现时先映射本文件已有 Feature/Case；不得复制芯片专用公共测试代码。
 - 当前无真机环境时，只能闭合 Source / Design / Canonical Evidence / Report 软件链；当前精确SHA FPGA/Silicon HIL 必须保持 `NOT_EXECUTED / NOT_VERIFIED`。
 
@@ -1216,13 +1221,6 @@ cases:
       - {source: observation, path: actual_crc, label: 硬件CRC结果, format: hex32, aggregate: same}
       - {source: measurement, path: event_count_delta, label: IRQ事件增量, format: decimal, aggregate: same}
       - {source: observation, path: isr_latched_event, label: 校验错误中断锁存, format: hex32, aggregate: same}
-  CRC_P1_011:
-    summary: "Threshold=5时第4次写入前后Result保持，第5次后处理推进且未溢出。"
-    fields:
-      - {source: measurement, path: fifo_threshold, label: FIFO阈值, format: decimal, aggregate: same}
-      - {source: observation, path: result_before, label: 写入前硬件CRC结果, format: hex32, aggregate: same}
-      - {source: observation, path: result_after_write_4, label: 第4次写入后硬件CRC结果, format: hex32, aggregate: same}
-      - {source: observation, path: result_after_write_5, label: 第5次写入后硬件CRC结果, format: hex32, aggregate: same}
   CRC_P1_012:
     summary: "FIFO Overflow由False转True且重新使能后的正常CRC计算恢复正确。"
     fields:

@@ -18,7 +18,6 @@ CRC_CASE_REGISTRY = (
     "crc_p1_008",
     "crc_p1_009",
     "crc_p1_010",
-    "crc_p1_011",
     "crc_p1_012",
     "crc_p1_013",
     "crc_p1_014",
