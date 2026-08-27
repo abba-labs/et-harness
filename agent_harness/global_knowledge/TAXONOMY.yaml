@@ -1,0 +1,24 @@
+standard: knowledge-library-v0.2
+categories:
+  - id: C010
+    title: 技术知识
+    aliases: [knowledge, technical, 技术]
+    summary: 离开单一项目后仍可复用的技术事实与机制。
+    children:
+      - id: C010.010
+        title: 芯片
+        aliases: [chip, silicon, mcu, soc]
+      - id: C010.020
+        title: 工具
+        aliases: [tool, tooling]
+  - id: C020
+    title: 工程经验
+    aliases: [experience, practice, 经验]
+    summary: 可跨项目复用的工程实践与问题解决经验。
+    children:
+      - id: C020.010
+        title: 调试
+        aliases: [debug, troubleshooting]
+      - id: C020.020
+        title: 验证
+        aliases: [verify, validation, testing]

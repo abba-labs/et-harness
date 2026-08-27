@@ -1,0 +1,31 @@
+{
+  "name": "@agent-harness/framework-efficiency-observer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "可拔插轻量 Framework Efficiency Observer：旁路采集、批量持久化与离线框架效率分析",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

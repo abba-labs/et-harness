@@ -1,0 +1,43 @@
+{
+  "name": "@agent-harness/context-builder",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "公共 Context Manager / Builder：任务上下文生命周期、当前有效引用解析与最小充分 Context Frame",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md", "CONTEXT_LIFECYCLE_INTERFACE.md", "CONTEXT_RULES.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/project-manager": "0.1.0",
+    "@agent-harness/architecture-navigator": "0.1.0",
+    "@agent-harness/rule-manager": "0.1.0",
+    "@agent-harness/knowledge-manager": ">=0.2.0 <0.3.0",
+    "@agent-harness/evidence-state-manager": "0.1.0",
+    "@agent-harness/gate-manager": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/project-manager": "file:../project_manager",
+    "@agent-harness/architecture-navigator": "file:../architecture_navigator",
+    "@agent-harness/rule-manager": "file:../rule_manager",
+    "@agent-harness/knowledge-manager": "file:../knowledge_manager",
+    "@agent-harness/evidence-state-manager": "file:../evidence_state_manager",
+    "@agent-harness/gate-manager": "file:../gate_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+plugins:
+  - name: evidence-state-manager
+    package: '@agent-harness/evidence-state-manager'
+    inject:
+      - governanceCatalog
+      - projectManager

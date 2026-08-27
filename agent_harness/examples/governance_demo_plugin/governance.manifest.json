@@ -1,0 +1,18 @@
+{
+  "manifestVersion": "0.1",
+  "pluginId": "example.rule-provider",
+  "pluginVersion": "0.1.0",
+  "displayName": "示例规则 Provider",
+  "scope": {
+    "kind": "global"
+  },
+  "trust": "reviewed",
+  "permissions": [
+    "project.read"
+  ],
+  "provides": [
+    {
+      "capability": "rule.resolve"
+    }
+  ]
+}

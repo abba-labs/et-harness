@@ -1,0 +1,47 @@
+{
+  "name": "@agent-harness/auto-governance-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Host-independent automatic governance engine for project resolution, Context routing, Gate review and completion guards",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/project-contract": "0.1.0",
+    "@agent-harness/project-manager": "0.1.0",
+    "@agent-harness/architecture-navigator": "0.1.0",
+    "@agent-harness/rule-manager": "0.1.0",
+    "@agent-harness/knowledge-manager": "0.2.0",
+    "@agent-harness/gate-manager": "0.1.0",
+    "@agent-harness/evidence-state-manager": "0.1.0",
+    "@agent-harness/context-builder": "0.2.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/project-contract": "file:../../project_contract",
+    "@agent-harness/project-manager": "file:../project_manager",
+    "@agent-harness/architecture-navigator": "file:../architecture_navigator",
+    "@agent-harness/rule-manager": "file:../rule_manager",
+    "@agent-harness/knowledge-manager": "file:../knowledge_manager",
+    "@agent-harness/gate-manager": "file:../gate_manager",
+    "@agent-harness/evidence-state-manager": "file:../evidence_state_manager",
+    "@agent-harness/context-builder": "file:../context_builder",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

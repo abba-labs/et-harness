@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.local/schemas/governance-manifest-v0.1.schema.json",
+  "title": "智能体治理插件清单 v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "pluginId",
+    "pluginVersion",
+    "displayName",
+    "scope",
+    "trust",
+    "permissions",
+    "provides"
+  ],
+  "properties": {
+    "manifestVersion": { "const": "0.1" },
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "pluginVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(?:\\.\\d+)?(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "displayName": { "type": "string", "minLength": 1 },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["global", "domain", "project"] },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["domain", "project"] } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["id"] }
+        }
+      ]
+    },
+    "trust": {
+      "enum": ["builtin", "trusted", "reviewed", "untrusted"]
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      }
+    },
+    "provides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capabilityDeclaration" }
+    }
+  },
+  "$defs": {
+    "capabilityDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability"],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+        },
+        "contract": { "$ref": "#/$defs/capabilityContract" }
+      }
+    },
+    "capabilityContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "summary", "criticality"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(?:\\.\\d+)?(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "criticality": { "enum": ["core", "important", "optional"] },
+        "inputSchema": { "type": "string", "minLength": 1 },
+        "outputSchema": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

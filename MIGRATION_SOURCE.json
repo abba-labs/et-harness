@@ -1,0 +1,49 @@
+{
+  "schema": "et-harness-migration-provenance-v0.1",
+  "created_at": "2026-08-27",
+  "source": {
+    "repository": "abba-labs/et-tool",
+    "branch": "main",
+    "repository_head": "496243ef2bdf56a5db7f81b2014970d3f8af34f9",
+    "last_fully_validated_harness_code_baseline": "f37b1080ca65388fc0e32f7fa75567b512c86752",
+    "source_repository_modified_or_deleted_by_migration": false
+  },
+  "transfer": {
+    "method": "sha256-verified-content-snapshot-via-github-actions-artifact",
+    "export_branch": "migration/et-harness-export",
+    "export_commit": "1f180ecfa93c59b3db6fec0b9f54c51080b5b1c4",
+    "export_workflow_run_id": 33045770474,
+    "artifact_id": 9635571961,
+    "artifact_zip_sha256": "1e47d5d6ab7a8388a51ed3aec62caa112523815a8f641855d0bc5fad4fde4986",
+    "snapshot_tar_sha256": "aa99acc35df6b1abf6fa8382bc7db315e126757dc4ecbc2ac944d17cf4a91a9b"
+  },
+  "target": {
+    "repository": "abba-labs/et-harness",
+    "raw_import_branch": "migration/raw-from-et-tool-main-20260827",
+    "raw_import_commit": "f221ccfddb0d031041f64b3c97bcf744d1182faa",
+    "harness_only_candidate_branch": "migration/harness-only-main-v0.1",
+    "project_specific_staging_branch": "project/et-tool",
+    "initial_separation_commit": "e317336bfddcfb3e1039aee0db5186470e2fd2b8"
+  },
+  "imported_scope": [
+    "agent_harness/**",
+    ".gitignore"
+  ],
+  "main_exclusions": [
+    "agent_harness/projects/et_tool/**",
+    "agent_harness/pilots/external_chat_agent/**",
+    "agent_harness/pilots/real_provider/**",
+    "ET-TOOL-dependent validation scripts",
+    "ET-TOOL product source, doc and html trees"
+  ],
+  "history": {
+    "commit_by_commit_history_preserved_in_target": false,
+    "reason": "The connected GitHub migration path could not reuse Git objects across repositories; the initial transfer therefore preserves a cryptographically verified current snapshot and explicit provenance rather than filtered commit history.",
+    "authoritative_pre_migration_history": "abba-labs/et-tool"
+  },
+  "notes": [
+    "The old et-tool repository remains available as the rollback source during migration.",
+    "project/et-tool currently preserves project-specific Harness material as a staging branch; importing the full ET-TOOL product tree is a separate project-branch migration.",
+    "Project branches consume public Harness updates by merging main; they must not be merged wholesale back into main."
+  ]
+}

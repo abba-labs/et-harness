@@ -1,0 +1,43 @@
+{
+  "name": "@agent-harness/agent-governance-closure-adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mandatory Turn Closure adapters from Unified Reflection into all fixed public governance closure modules",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/agent-governance-kernel": "0.1.0",
+    "@agent-harness/context-builder": ">=0.2.0 <0.3.0",
+    "@agent-harness/knowledge-manager": ">=0.2.0 <0.3.0",
+    "@agent-harness/experience-memory-manager": ">=0.2.0 <0.3.0",
+    "@agent-harness/evidence-state-manager": "0.1.0",
+    "@agent-harness/gate-manager": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/agent-governance-kernel": "file:../agent_governance_kernel",
+    "@agent-harness/context-builder": "file:../context_builder",
+    "@agent-harness/knowledge-manager": "file:../knowledge_manager",
+    "@agent-harness/experience-memory-manager": "file:../experience_memory_manager",
+    "@agent-harness/evidence-state-manager": "file:../evidence_state_manager",
+    "@agent-harness/gate-manager": "file:../gate_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

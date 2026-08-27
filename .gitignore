@@ -1,0 +1,10 @@
+# Dependency directories
+node_modules/
+
+# Local build/test caches
+.vite/
+coverage/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db

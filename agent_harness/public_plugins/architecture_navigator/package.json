@@ -1,0 +1,35 @@
+{
+  "name": "@agent-harness/architecture-navigator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "公共 Architecture Navigator：校验 architecture-v0.1 并提供缓存化最短寻址",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md", "PROJECT_INTERFACE.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/project-contract": "0.1.0",
+    "@agent-harness/project-manager": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/project-contract": "file:../../project_contract",
+    "@agent-harness/project-manager": "file:../project_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

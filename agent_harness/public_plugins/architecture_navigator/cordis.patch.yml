@@ -1,0 +1,6 @@
+plugins:
+  - name: architecture-navigator
+    package: '@agent-harness/architecture-navigator'
+    inject:
+      - governanceCatalog
+      - projectManager

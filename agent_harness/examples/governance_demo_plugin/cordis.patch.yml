@@ -1,0 +1,5 @@
+- insert:
+    - id: agent-harness-governance-demo-plugin
+      name: '@agent-harness/governance-demo-plugin'
+      inject:
+        - governanceCatalog

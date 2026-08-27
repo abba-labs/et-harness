@@ -1,0 +1,5 @@
+plugins:
+  - name: framework-efficiency-observer
+    package: '@agent-harness/framework-efficiency-observer'
+    inject:
+      - governanceCatalog

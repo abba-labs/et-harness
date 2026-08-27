@@ -1,0 +1,5 @@
+- insert:
+    - id: agent-harness-project-manager
+      name: '@agent-harness/project-manager'
+      inject:
+        - governanceCatalog
