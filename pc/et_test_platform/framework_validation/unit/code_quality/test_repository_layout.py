@@ -23,6 +23,7 @@ def test_formal_code_root_has_only_stable_categories() -> None:
         "report",
         "artifacts",
         "project-governance",
+        "agent_harness",
     }
 
     for old_root in ("firmware", "platform", "tests", "configs", "scripts"):

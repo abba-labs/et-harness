@@ -11,6 +11,7 @@ test_case_doc/     # 各IP公共契约与芯片适配事实
 report/            # 人读规则、分析、Review和验证报告
 artifacts/         # runs原始证据和reports时间戳Excel报告
 project-governance/# Agent任务导航与临时Task Context
+agent_harness/     # ET Harness公共治理Runtime与项目插件入口
 ```
 
 Agent从[AGENTS.md](AGENTS.md)进入，按Task Context读取目标模块和Rxxx规则。人读文档索引位于
