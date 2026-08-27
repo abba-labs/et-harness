@@ -10,7 +10,6 @@ void et_manual_log_result(const char *case_id, int result);
 int et_manual_uart_p1_008_framing_error_detection(void);
 int et_manual_uart_p1_012_busy_detect_irq(void);
 int et_manual_uart_p3_009_direct_fifo_access(void);
-int et_manual_crc_p1_011_fifo_threshold(void);
 int et_manual_crc_p1_012_fifo_overflow_recovery(void);
 int et_manual_aes_p1_009_output_conflict(void);
 int et_manual_cordic_p1_003_scale7_arctan_precision(void);

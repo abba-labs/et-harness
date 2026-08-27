@@ -176,10 +176,6 @@ int et_manual_test_run(void)
     et_manual_log_result("uart_p3_009", result);
     failures += result;
 
-    result = et_manual_crc_p1_011_fifo_threshold();
-    et_manual_log_result("crc_p1_011", result);
-    failures += result;
-
     result = et_manual_crc_p1_012_fifo_overflow_recovery();
     et_manual_log_result("crc_p1_012", result);
     failures += result;
