@@ -1,0 +1,9 @@
+- insert:
+  - id: agent-harness-governance-runtime
+    name: '@agent-harness/governance-runtime'
+    inject:
+      - governanceCatalog
+      - agentGovernanceKernel
+      - agentGovernanceClosureAdapters
+      - autoGovernanceEngine
+      - knowledgeManager

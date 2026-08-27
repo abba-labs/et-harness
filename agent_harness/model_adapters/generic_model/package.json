@@ -1,0 +1,24 @@
+{
+  "name": "@agent-harness/generic-model-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-neutral model adapter for governed work and GovernanceSemanticExecutor reflection",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-runtime": "0.1.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-runtime": "file:../../public_plugins/governance_runtime",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

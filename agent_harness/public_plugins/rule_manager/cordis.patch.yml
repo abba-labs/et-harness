@@ -1,0 +1,6 @@
+plugins:
+  - name: rule-manager
+    package: '@agent-harness/rule-manager'
+    inject:
+      - governanceCatalog
+      - projectManager

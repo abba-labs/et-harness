@@ -1,0 +1,41 @@
+{
+  "name": "@agent-harness/agent-governance-kernel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mandatory public Agent lifecycle kernel and Turn Journal foundation",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@agent-harness/project-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent Harness 通用 Project Contract：项目描述、资源接口标准、查询与候选结果契约",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "standards", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

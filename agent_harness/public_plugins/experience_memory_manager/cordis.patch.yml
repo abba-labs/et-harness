@@ -1,0 +1,9 @@
+plugins:
+  - name: experience-memory-manager
+    package: '@agent-harness/experience-memory-manager'
+    inject:
+      - governanceCatalog
+      - projectManager
+      - knowledgeManager
+      - knowledgeValidationPolicy
+      - evidenceStateManager

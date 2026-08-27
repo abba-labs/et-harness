@@ -1,0 +1,24 @@
+{
+  "name": "@agent-harness/json-process-model-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-neutral one-shot JSON stdin/stdout model bridge client",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/generic-model-adapter": "0.1.0"
+  },
+  "devDependencies": {
+    "@agent-harness/generic-model-adapter": "file:../generic_model",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

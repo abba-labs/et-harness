@@ -1,0 +1,39 @@
+{
+  "name": "@agent-harness/governance-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Host/model-independent governance runtime controller for Turn lifecycle, Context, semantic reflection and mandatory closure",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/agent-governance-kernel": "0.1.0",
+    "@agent-harness/agent-governance-closure-adapters": "0.1.0",
+    "@agent-harness/auto-governance-engine": "0.1.0",
+    "@agent-harness/knowledge-manager": "0.2.0",
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/agent-governance-kernel": "file:../agent_governance_kernel",
+    "@agent-harness/agent-governance-closure-adapters": "file:../agent_governance_closure_adapters",
+    "@agent-harness/auto-governance-engine": "file:../auto_governance_engine",
+    "@agent-harness/knowledge-manager": "file:../knowledge_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

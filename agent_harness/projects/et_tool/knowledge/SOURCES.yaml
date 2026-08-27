@@ -1,0 +1,74 @@
+standard: knowledge-source-registry-v0.1
+sources:
+  - sourceId: SRC000001
+    kind: DOCUMENT
+    title: Product Admission Chain Analysis
+    location: doc/current_design_analysis/19_PROFILE_GUI_RELEASE_PRODUCT_ADMISSION_CHAIN.md
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Current-state reverse engineering of Profile, GUI and Release admission.
+  - sourceId: SRC000002
+    kind: SPEC
+    title: ET6002 Capability Profile
+    location: source/profiles/chips/et6002/capabilities.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Canonical ET6002 capability and route state.
+  - sourceId: SRC000003
+    kind: SPEC
+    title: ET3101 Capability Profile
+    location: source/profiles/chips/et3101/capabilities.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Canonical ET3101 capability and route state.
+  - sourceId: SRC000004
+    kind: SPEC
+    title: ET6003 Capability Profile
+    location: source/profiles/chips/et6003/capabilities.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Canonical ET6003 capability and route state.
+  - sourceId: SRC000005
+    kind: DOCUMENT
+    title: ET-TOOL Implementation Map
+    location: agent_harness/projects/et_tool/architecture/050_shared_system_map.md
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Source-calibrated Architecture implementation layering and resource map.
+  - sourceId: SRC000006
+    kind: DOCUMENT
+    title: Resource And Shutdown Lifecycle Analysis
+    location: doc/current_design_analysis/08_RESOURCE_AND_SHUTDOWN_LIFECYCLE.md
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Current-state lifecycle and ownership reverse engineering.
+  - sourceId: SRC000007
+    kind: DOCUMENT
+    title: Progress And Timing Model Analysis
+    location: doc/current_design_analysis/09_PROGRESS_AND_TIMING_MODEL.md
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Current-state progress data path and timing reverse engineering.
+  - sourceId: SRC000008
+    kind: DOCUMENT
+    title: ET-TOOL GUI Visual Prototype
+    location: html/et_tool_ui_design_prototype_v3_et_red_white_polished.html
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Current GUI visual and rendering reference.
+  - sourceId: SRC000009
+    kind: DOCUMENT
+    title: ET-TOOL Release Framework README
+    location: source/release/README.md
+    status: ACTIVE
+    registeredAt: 2026-08-24T05:42:00.000Z
+    revision: ad9b9242a8c3667128fae0a837d503002f780b78
+    note: Canonical release framework, build, packaging and environment documentation.

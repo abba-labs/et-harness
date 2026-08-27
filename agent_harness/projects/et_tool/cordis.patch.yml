@@ -1,0 +1,15 @@
+- insert:
+    - id: agent-harness-project-et-tool
+      name: '@agent-harness/project-et-tool'
+      inject:
+        - projectManager
+    - id: agent-harness-project-et-tool-code-review-adapter
+      name: '@agent-harness/project-et-tool/review-adapter'
+      inject:
+        - governanceCatalog
+        - projectManager
+        - architectureNavigator
+        - ruleManager
+        - knowledgeManager
+        - gateManager
+        - evidenceStateManager

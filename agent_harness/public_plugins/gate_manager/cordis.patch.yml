@@ -1,0 +1,7 @@
+plugins:
+  - name: gate-manager
+    package: '@agent-harness/gate-manager'
+    inject:
+      - governanceCatalog
+      - projectManager
+      - evidenceStateManager

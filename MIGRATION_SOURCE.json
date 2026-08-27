@@ -1,0 +1,7 @@
+{
+  "source_repository": "abba-labs/et-tool",
+  "source_ref": "migration/et-harness-export",
+  "source_sha": "1f180ecfa93c59b3db6fec0b9f54c51080b5b1c4",
+  "scope": ["agent_harness/**", ".github/workflows/agent-harness-*.yml", ".github/workflows/knowledge-governance-*.yml", ".gitignore"],
+  "note": "Raw migration snapshot. Project-specific content must be separated before et-harness/main becomes canonical."
+}

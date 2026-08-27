@@ -1,0 +1,13 @@
+plugins:
+  - name: auto-governance-orchestrator
+    package: '@agent-harness/auto-governance-orchestrator'
+    inject:
+      - governanceCatalog
+      - projectManager
+      - architectureNavigator
+      - ruleManager
+      - knowledgeManager
+      - gateManager
+      - evidenceStateManager
+      - contextBuilder
+      - contextManager

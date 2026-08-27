@@ -1,0 +1,6 @@
+plugins:
+  - name: knowledge-manager
+    package: '@agent-harness/knowledge-manager'
+    inject:
+      - governanceCatalog
+      - projectManager

@@ -1,0 +1,70 @@
+{
+  "name": "@agent-harness/project-et-tool",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "ET-TOOL Project Plugin：标准项目资源入口 + 可选受治理 Code Review Adapter",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./review-adapter": {
+      "types": "./dist/review-adapter.d.ts",
+      "import": "./dist/review-adapter.js"
+    },
+    "./review-contracts": {
+      "types": "./dist/review-contracts.d.ts",
+      "import": "./dist/review-contracts.js"
+    }
+  },
+  "files": [
+    "dist",
+    "project.yaml",
+    "architecture",
+    "rules",
+    "knowledge",
+    "gates",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/project-manager": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@agent-harness/governance-core": "0.1.0",
+    "@agent-harness/architecture-navigator": "0.1.0",
+    "@agent-harness/rule-manager": "0.1.0",
+    "@agent-harness/knowledge-manager": "0.2.0",
+    "@agent-harness/gate-manager": "0.1.0",
+    "@agent-harness/evidence-state-manager": "0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@agent-harness/governance-core": { "optional": true },
+    "@agent-harness/architecture-navigator": { "optional": true },
+    "@agent-harness/rule-manager": { "optional": true },
+    "@agent-harness/knowledge-manager": { "optional": true },
+    "@agent-harness/gate-manager": { "optional": true },
+    "@agent-harness/evidence-state-manager": { "optional": true }
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@agent-harness/project-contract": "file:../../project_contract",
+    "@agent-harness/project-manager": "file:../../public_plugins/project_manager",
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

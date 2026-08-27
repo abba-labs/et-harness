@@ -1,0 +1,5 @@
+plugins:
+  - name: agent-governance-kernel
+    package: '@agent-harness/agent-governance-kernel'
+    inject:
+      - governanceCatalog

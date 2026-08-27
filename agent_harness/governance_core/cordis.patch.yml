@@ -1,0 +1,3 @@
+- insert:
+    - id: agent-governance-core
+      name: '@agent-harness/governance-core'

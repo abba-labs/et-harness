@@ -1,0 +1,12 @@
+plugins:
+  - name: context-builder
+    package: '@agent-harness/context-builder'
+    inject:
+      - governanceCatalog
+      - projectManager
+      - architectureNavigator
+      - ruleManager
+      - knowledgeManager
+      - knowledgeValidationPolicy
+      - evidenceStateManager
+      - gateManager

@@ -1,0 +1,53 @@
+standard: gate-v0.1
+file_id: G010
+title: Change Scope Review
+nodes:
+  - id: G010.010
+    title: Intended And Actual Change Scope
+    children:
+      - id: G010.010.010
+        title: Task Intent Must Match Actual Diff
+        gate:
+          level: MUST
+          when: 任何 ET-TOOL 代码、配置或产品资源修改完成后且进入编译构建之前
+          steps:
+            - id: intended-scope
+              tool: change.analyze
+              args:
+                focus: task_intent_expected_scope
+            - id: actual-diff
+              tool: code.review
+              args:
+                focus: actual_changed_files_modules_features
+          pass:
+            mode: all_steps_pass
+          refs: [A010, A050, R600.700.010]
+      - id: G010.010.020
+        title: Unexpected Changes Must Be Absent Or Explained
+        gate:
+          level: MUST
+          when: 实际 diff 包含任务目标之外的文件、芯片、route、feature 或层级时
+          steps:
+            - id: unexpected-change
+              tool: code.review
+              args:
+                focus: unrelated_or_unexpected_changes
+          pass:
+            mode: all_steps_pass
+          refs: [R600.700.010, R800.600.010]
+  - id: G010.020
+    title: Shared Change Declaration
+    children:
+      - id: G010.020.010
+        title: Shared Layer Change Must Declare Affected Scope
+        gate:
+          level: MUST
+          when: 修改 shared domain、application、workflow、backend、protocol、transport、probe、platform 或公共 GUI/CLI 基础设施时
+          steps:
+            - id: shared-impact
+              tool: change.analyze
+              args:
+                focus: shared_dependency_affected_chip_route_feature
+          pass:
+            mode: all_steps_pass
+          refs: [A050, R600.700.010, R800.600.010]

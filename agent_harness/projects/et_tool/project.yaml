@@ -1,0 +1,52 @@
+contract_version: "0.1"
+
+project:
+  id: et-tool
+  name: ET-TOOL
+  type: software-hardware-tool
+  aliases:
+    - ettool
+    - et tool
+  description: ET-TOOL 自动化测试与芯片验证工具项目
+
+root:
+  markers:
+    - source/CMakeLists.txt
+    - source/apps
+
+resources:
+  architecture:
+    path: agent_harness/projects/et_tool/architecture/
+    standard: architecture-v0.1
+  rules:
+    path: agent_harness/projects/et_tool/rules/
+    standard: rule-v0.1
+  knowledge:
+    path: agent_harness/projects/et_tool/knowledge/
+    standard: knowledge-v0.1
+  gates:
+    path: agent_harness/projects/et_tool/gates/
+    standard: gate-v0.1
+
+adapters:
+  change_analysis:
+    provider: project.et-tool.code-review-adapter.change.analyze
+    capability: change.analyze
+  code_review:
+    provider: project.et-tool.code-review-adapter.code.review
+    capability: code.review
+  architecture_review:
+    provider: project.et-tool.code-review-adapter.architecture.review
+    capability: architecture.review
+  rule_review:
+    provider: project.et-tool.code-review-adapter.rule.review
+    capability: rule.review
+  lifecycle_review:
+    provider: project.et-tool.code-review-adapter.lifecycle.review
+    capability: lifecycle.review
+  contract_review:
+    provider: project.et-tool.code-review-adapter.contract.review
+    capability: contract.review
+  validation_plan:
+    provider: project.et-tool.code-review-adapter.validation.plan
+    capability: validation.plan

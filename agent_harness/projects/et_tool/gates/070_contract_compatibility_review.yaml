@@ -1,0 +1,36 @@
+standard: gate-v0.1
+file_id: G070
+title: Contract And Compatibility Review
+nodes:
+  - id: G070.010
+    title: Public And Typed Contracts
+    children:
+      - id: G070.010.010
+        title: Interface Changes Must Preserve Required Callers And Semantics
+        gate:
+          level: MUST
+          when: 修改 CLI 参数、typed Request/Result、Backend interface、HardwareExecutor、public header 或跨层调用契约时
+          steps:
+            - id: contract-compatibility
+              tool: contract.review
+              args:
+                focus: callers_arguments_result_semantics_backward_compatibility
+          pass:
+            mode: all_steps_pass
+          refs: [R200, R300, R500]
+  - id: G070.020
+    title: Product Metadata And Structured Schemas
+    children:
+      - id: G070.020.010
+        title: Profile Route Capability And Structured Data Contracts Must Stay Consistent
+        gate:
+          level: MUST
+          when: 修改 Profile capability/route、Result schema、Progress event、release visibility metadata 或 GUI/CLI structured payload 时
+          steps:
+            - id: schema-compatibility
+              tool: contract.review
+              args:
+                focus: profile_route_capability_progress_result_release_schema_consistency
+          pass:
+            mode: all_steps_pass
+          refs: [A060, K001.002, K001.016, R700]

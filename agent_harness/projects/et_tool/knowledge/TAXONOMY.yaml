@@ -1,0 +1,208 @@
+standard: knowledge-library-v0.2
+categories:
+  - id: C010
+    title: Chip And Product Facts
+    status: ACTIVE
+    aliases: [chip, product, capability, profile, 芯片, 产品, 能力, 配置]
+    summary: ET-TOOL 各芯片及产品能力、Profile、硬件特性的项目事实。
+    children:
+      - id: C010.010
+        title: ET3101
+        status: ACTIVE
+        aliases: [et3101]
+      - id: C010.020
+        title: ET6002
+        status: ACTIVE
+        aliases: [et6002]
+      - id: C010.030
+        title: ET6003
+        status: ACTIVE
+        aliases: [et6003]
+      - id: C010.040
+        title: Product Capability And Profile
+        status: ACTIVE
+        aliases: [capability state, profile state, supported, deferred, unsupported, 产品能力, 支持状态]
+
+  - id: C020
+    title: Route Protocol And Probe
+    status: ACTIVE
+    aliases: [route, protocol, transport, probe, 路线, 协议, 传输, 调试器]
+    summary: UART、CAN、CANFD、CMSIS-DAP、J-Link 与 BootROM 数据链相关机制和事实。
+    children:
+      - id: C020.010
+        title: UART And BootROM
+        status: ACTIVE
+        aliases: [uart, serial, bootrom, 串口]
+      - id: C020.020
+        title: Classic CAN
+        status: ACTIVE
+        aliases: [can, classic can]
+      - id: C020.030
+        title: CANFD And FDCAN
+        status: ACTIVE
+        aliases: [canfd, fdcan, can fd]
+      - id: C020.040
+        title: CMSIS-DAP And SWD
+        status: ACTIVE
+        aliases: [cmsis-dap, dap, swd]
+      - id: C020.050
+        title: J-Link And SWD
+        status: ACTIVE
+        aliases: [jlink, j-link, swd]
+      - id: C020.060
+        title: Protocol Codec And Transport Mechanics
+        status: ACTIVE
+        aliases: [codec, frame, checksum, ack, nack, transport mechanics, 协议机制]
+
+  - id: C030
+    title: Tool Runtime And Environment
+    status: ACTIVE
+    aliases: [tool, runtime, environment, driver, 工具, 运行时, 环境, 驱动]
+    summary: Host 环境、Vendor Runtime、驱动、外部工具及版本兼容性知识。
+    children:
+      - id: C030.010
+        title: Host OS And Runtime
+        status: ACTIVE
+        aliases: [windows, host os, runtime]
+      - id: C030.020
+        title: Vendor Drivers And DLLs
+        status: ACTIVE
+        aliases: [vendor driver, dll, zlg, jlink dll, hid]
+      - id: C030.030
+        title: External Tools And Versions
+        status: ACTIVE
+        aliases: [tool version, external tool, version]
+      - id: C030.040
+        title: Dependency And Compatibility
+        status: ACTIVE
+        aliases: [dependency, compatibility, dependency version, 兼容性, 依赖]
+
+  - id: C040
+    title: Runtime Lifecycle And Progress
+    status: ACTIVE
+    aliases: [lifecycle, progress, timeout, cleanup, session, 生命周期, 进度, 超时, 清理, 会话]
+    summary: 进程、线程、Session、资源生命周期、进度和时间模型等运行时知识。
+    children:
+      - id: C040.010
+        title: Process Thread And Timer
+        status: ACTIVE
+        aliases: [qprocess, qthread, qtimer, process, thread, timer]
+      - id: C040.020
+        title: Session Connection And Cleanup
+        status: ACTIVE
+        aliases: [session, connection, disconnect, cleanup, resource cleanup, 连接, 断开, 资源清理]
+      - id: C040.030
+        title: Progress And Timing Model
+        status: ACTIVE
+        aliases: [progress, progress sidecar, jsonl, heartbeat, elapsed, 进度条, 实时进度]
+      - id: C040.040
+        title: Timeout Cancellation And Recovery
+        status: ACTIVE
+        aliases: [timeout, cancel, terminate, kill, recovery, 超时, 取消, 恢复]
+
+  - id: C050
+    title: GUI And Visual Design
+    status: ACTIVE
+    aliases: [gui, ui, visual, design, rendering, 界面, 视觉, 设计, 渲染]
+    summary: ET-TOOL 桌面 GUI 的视觉基线、交互结构和运行时呈现知识。
+    children:
+      - id: C050.010
+        title: Visual Baseline And Design Tokens
+        status: ACTIVE
+        aliases: [red white, et red, design token, visual baseline, 红白, 品牌红, 视觉基线]
+      - id: C050.020
+        title: Layout And Workspace Interaction
+        status: ACTIVE
+        aliases: [layout, workspace, connection page, function page, 布局, 工作台, 连接页, 功能页]
+      - id: C050.030
+        title: Semantic Controls And Status Rendering
+        status: ACTIVE
+        aliases: [semantic color, control state, status rendering, 语义配色, 控件状态]
+      - id: C050.040
+        title: GUI CLI Bridge Runtime
+        status: ACTIVE
+        aliases: [qprocess, cli bridge, gui cli, et-cli]
+
+  - id: C060
+    title: Build Release And Delivery
+    status: ACTIVE
+    aliases: [build, release, package, delivery, 构建, 发布, 打包, 交付]
+    summary: ET-TOOL 正式构建框架、Release、产物和交付相关知识。
+    children:
+      - id: C060.010
+        title: Build Framework
+        status: ACTIVE
+        aliases: [cmake, ninja, release script, release_gui, dev build, 构建框架]
+      - id: C060.020
+        title: Release And Packaging
+        status: ACTIVE
+        aliases: [release, package, packaging, 发布, 打包]
+      - id: C060.030
+        title: Artifact Version And Visibility
+        status: ACTIVE
+        aliases: [artifact, version, visibility, customer surface, 产物, 版本, 可见性]
+
+  - id: C070
+    title: Test Validation And Evidence
+    status: ACTIVE
+    aliases: [test, validation, automation, evidence, regression, 测试, 验证, 自动化, 证据, 回归]
+    summary: 单元、集成、真实硬件验证、自动化、Evidence 与回归知识。
+    children:
+      - id: C070.010
+        title: Unit And No Hardware Validation
+        status: ACTIVE
+        aliases: [unit test, mock, fake runtime, no hardware, 单元测试, 无硬件]
+      - id: C070.020
+        title: Integration And Product Automation
+        status: ACTIVE
+        aliases: [integration test, automation, et-cli automation, 集成测试, 产品自动化]
+      - id: C070.030
+        title: Hardware Validation
+        status: ACTIVE
+        aliases: [hardware test, hardware pass, real hardware, 硬件验证]
+      - id: C070.040
+        title: Evidence And Regression
+        status: ACTIVE
+        aliases: [evidence, provenance, regression, impact scope, 证据, 回归, 影响范围]
+
+  - id: C080
+    title: Design Decisions And Rationale
+    status: ACTIVE
+    aliases: [decision, rationale, design choice, tradeoff, 决策, 设计原因, 取舍]
+    summary: 经确认的设计决策、原因、边界和历史取舍；不重复 Rule 本身。
+    children:
+      - id: C080.010
+        title: Architecture Rationale
+        status: ACTIVE
+        aliases: [architecture decision, layering, dependency direction, 架构原因, 分层]
+      - id: C080.020
+        title: Product And Route Decisions
+        status: ACTIVE
+        aliases: [product decision, route decision, capability decision, 产品决策, 路线决策]
+      - id: C080.030
+        title: Tradeoffs And Historical Decisions
+        status: ACTIVE
+        aliases: [tradeoff, historical decision, migration decision, 历史决策, 迁移决策]
+
+  - id: C090
+    title: Troubleshooting And Known Issues
+    status: ACTIVE
+    aliases: [troubleshooting, known issue, debug, workaround, 排查, 已知问题, 调试, 规避]
+    summary: 已复现、可追溯的故障模式、排查结论与已验证处理经验。
+    children:
+      - id: C090.010
+        title: Connection And Runtime Failures
+        status: ACTIVE
+        aliases: [connection failure, runtime failure, timeout issue, 连接失败, 运行时故障]
+      - id: C090.020
+        title: Build And Release Failures
+        status: ACTIVE
+        aliases: [build failure, release failure, cmake issue, 构建失败, 发布失败]
+      - id: C090.030
+        title: Driver And Hardware Failures
+        status: ACTIVE
+        aliases: [driver failure, hardware issue, jlink issue, can driver, 驱动故障, 硬件故障]
+      - id: C090.040
+        title: Verified Workarounds And Resolved Issues
+        status: ACTIVE
+        aliases: [workaround, resolved issue, fix history, 已验证规避, 已解决问题]

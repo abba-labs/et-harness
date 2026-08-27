@@ -1,0 +1,36 @@
+standard: gate-v0.1
+file_id: G060
+title: Regression And Impact Review
+nodes:
+  - id: G060.010
+    title: Regression Blast Radius
+    children:
+      - id: G060.010.010
+        title: Change Must Declare Potential Regression Scope
+        gate:
+          level: MUST
+          when: 修改 chip-local feature、route-local implementation 或任何 shared layer 后
+          steps:
+            - id: regression-impact
+              tool: change.analyze
+              args:
+                focus: direct_and_transitive_affected_chip_route_feature
+          pass:
+            mode: all_steps_pass
+          refs: [A050, R600.700.010, R800.600.010]
+  - id: G060.020
+    title: Post Gate Validation Requirements
+    children:
+      - id: G060.020.010
+        title: Gate Must Produce Required Validation Scope Without Executing It
+        gate:
+          level: MUST
+          when: 当前 Change 通过代码审查后准备进入编译、自动化测试或硬件验证阶段时
+          steps:
+            - id: validation-plan
+              tool: validation.plan
+              args:
+                focus: required_build_test_hardware_scope_from_regression_risk
+          pass:
+            mode: all_steps_pass
+          refs: [A060, R800.600.010]

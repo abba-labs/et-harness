@@ -1,0 +1,11 @@
+plugins:
+  - name: agent-governance-closure-adapters
+    package: '@agent-harness/agent-governance-closure-adapters'
+    inject:
+      - governanceCatalog
+      - agentGovernanceKernel
+      - contextManager
+      - knowledgeManager
+      - experienceMemoryManager
+      - evidenceStateManager
+      - gateManager

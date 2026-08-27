@@ -1,0 +1,13 @@
+- insert:
+  - id: agent-harness-auto-governance-engine
+    name: '@agent-harness/auto-governance-engine'
+    inject:
+      - governanceCatalog
+      - projectManager
+      - architectureNavigator
+      - ruleManager
+      - knowledgeManager
+      - gateManager
+      - evidenceStateManager
+      - contextBuilder
+      - contextManager

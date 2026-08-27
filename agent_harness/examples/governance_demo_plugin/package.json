@@ -1,0 +1,33 @@
+{
+  "name": "@agent-harness/governance-demo-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 1 治理准入与 Provider 生命周期示例插件",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "governance.manifest.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
+    "@deepseek-ai/cordis": "^4.0.0-rc.7"
+  },
+  "devDependencies": {
+    "@agent-harness/governance-core": "file:../../governance_core",
+    "@deepseek-ai/cordis": "^4.0.0-rc.7",
+    "typescript": "^6.0.3"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

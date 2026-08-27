@@ -1,0 +1,99 @@
+version: "0.1"
+plugins:
+  - id: public.agent-governance-kernel
+    package: "@agent-harness/agent-governance-kernel"
+    service: agentGovernanceKernel
+    capabilities: [governance.lifecycle, governance.turn-journal, governance.turn-reflection, governance.turn-closure]
+    depends_on: [governance-core]
+
+  - id: public.project-manager
+    package: "@agent-harness/project-manager"
+    service: projectManager
+    capabilities: [governance.project]
+    depends_on: [governance-core]
+
+  - id: public.architecture-navigator
+    package: "@agent-harness/architecture-navigator"
+    service: architectureNavigator
+    capabilities: [architecture.navigate]
+    depends_on: [public.project-manager]
+
+  - id: public.rule-manager
+    package: "@agent-harness/rule-manager"
+    service: ruleManager
+    capabilities: [rule.navigate]
+    depends_on: [public.project-manager]
+
+  - id: public.evidence-state-manager
+    package: "@agent-harness/evidence-state-manager"
+    service: evidenceStateManager
+    capabilities: [evidence.record, evidence.read, state.read, state.update]
+    depends_on: [public.project-manager]
+
+  - id: public.knowledge-manager
+    package: "@agent-harness/knowledge-manager"
+    service: knowledgeManager
+    capabilities: [knowledge.navigate, knowledge.library]
+    depends_on: [public.project-manager, public.evidence-state-manager]
+
+  - id: public.gate-manager
+    package: "@agent-harness/gate-manager"
+    service: gateManager
+    capabilities: [gate.navigate]
+    depends_on: [public.project-manager, public.evidence-state-manager]
+
+  - id: public.context-builder
+    package: "@agent-harness/context-builder"
+    service: contextBuilder
+    capabilities: [context.build, context.manage]
+    depends_on:
+      - public.project-manager
+      - public.architecture-navigator
+      - public.rule-manager
+      - public.knowledge-manager
+      - public.evidence-state-manager
+      - public.gate-manager
+
+  - id: public.experience-memory-manager
+    package: "@agent-harness/experience-memory-manager"
+    service: experienceMemoryManager
+    capabilities: [experience.manage, memory.context]
+    depends_on:
+      - public.project-manager
+      - public.knowledge-manager
+      - public.evidence-state-manager
+
+  - id: public.agent-governance-closure-adapters
+    package: "@agent-harness/agent-governance-closure-adapters"
+    service: agentGovernanceClosureAdapters
+    capabilities: []
+    depends_on:
+      - public.agent-governance-kernel
+      - public.context-builder
+      - public.knowledge-manager
+      - public.experience-memory-manager
+      - public.evidence-state-manager
+      - public.gate-manager
+
+  - id: public.auto-governance-engine
+    package: "@agent-harness/auto-governance-engine"
+    service: autoGovernanceEngine
+    capabilities: [governance.auto-engine]
+    depends_on:
+      - public.project-manager
+      - public.architecture-navigator
+      - public.rule-manager
+      - public.knowledge-manager
+      - public.evidence-state-manager
+      - public.gate-manager
+      - public.context-builder
+
+  - id: public.governance-runtime
+    package: "@agent-harness/governance-runtime"
+    service: governanceRuntime
+    capabilities: [governance.runtime]
+    depends_on:
+      - public.agent-governance-kernel
+      - public.agent-governance-closure-adapters
+      - public.auto-governance-engine
+      - public.knowledge-manager

@@ -1,0 +1,27 @@
+{
+  "name": "@agent-harness/openai-compatible-model-wrapper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-neutral OpenAI-compatible HTTP process wrapper for Generic Model Adapter",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "agent-harness-openai-compatible-model": "./dist/cli.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@agent-harness/generic-model-adapter": "0.1.0"
+  },
+  "devDependencies": {
+    "@agent-harness/generic-model-adapter": "file:../generic_model",
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}
