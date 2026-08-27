@@ -636,7 +636,7 @@ implementation_status: PLANNED
 case_id: CRC_P1_011
 case_name: CRC FIFO DMA请求水位测试
 report_feature: |-
-  1. CRC FIFO Threshold DMA请求水位
+  1. CRC FIFO Threshold阈值
 p_level: P1
 feature_refs: [CRC_F_013]
 method:
