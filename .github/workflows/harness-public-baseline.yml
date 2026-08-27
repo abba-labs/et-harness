@@ -1,0 +1,152 @@
+name: Harness Public Baseline
+
+on:
+  push:
+    branches:
+      - main
+      - migration/harness-only-main-v0.1
+    paths:
+      - 'agent_harness/**'
+      - 'MIGRATION_BOUNDARY.md'
+      - '.github/workflows/harness-public-baseline.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'agent_harness/**'
+      - 'MIGRATION_BOUNDARY.md'
+      - '.github/workflows/harness-public-baseline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Harness-only main boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f agent_harness/projects/README.md
+          test ! -d agent_harness/projects/et_tool
+          test ! -d agent_harness/pilots/external_chat_agent
+          test ! -d agent_harness/pilots/real_provider
+          test ! -d source
+          test ! -d doc
+          test ! -d html
+          ! grep -RIl --exclude='*.md' --exclude-dir=dist \
+            -E '@agent-harness/project-et-tool|projects/et_tool' \
+            agent_harness/governance_core \
+            agent_harness/project_contract \
+            agent_harness/public_plugins \
+            agent_harness/model_adapters \
+            agent_harness/pilots/generic_model
+          git diff --check
+
+  package-build-and-test:
+    needs: repository-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - core
+          - routing
+          - governance
+          - model
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and test public packages
+        shell: bash
+        env:
+          NPM_REGISTRY: https://registry.npmjs.org
+          NPM_INSTALL_TIMEOUT_SECONDS: '900'
+        run: |
+          set -euo pipefail
+          source agent_harness/validation/lib/common_runtime.sh
+
+          case "${{ matrix.group }}" in
+            core)
+              packages=(
+                agent_harness/governance_core
+                agent_harness/project_contract
+                agent_harness/examples/governance_demo_plugin
+              )
+              ;;
+            routing)
+              packages=(
+                agent_harness/public_plugins/project_manager
+                agent_harness/public_plugins/architecture_navigator
+                agent_harness/public_plugins/rule_manager
+                agent_harness/public_plugins/knowledge_manager
+                agent_harness/public_plugins/gate_manager
+                agent_harness/public_plugins/evidence_state_manager
+                agent_harness/public_plugins/context_builder
+              )
+              ;;
+            governance)
+              packages=(
+                agent_harness/public_plugins/framework_efficiency_observer
+                agent_harness/public_plugins/experience_memory_manager
+                agent_harness/public_plugins/auto_governance_engine
+                agent_harness/public_plugins/auto_governance_orchestrator
+                agent_harness/public_plugins/agent_governance_kernel
+                agent_harness/public_plugins/agent_governance_closure_adapters
+                agent_harness/public_plugins/governance_runtime
+              )
+              ;;
+            model)
+              packages=(
+                agent_harness/model_adapters/generic_model
+                agent_harness/model_adapters/json_process_client
+                agent_harness/model_adapters/openai_compatible_wrapper
+                agent_harness/pilots/generic_model
+              )
+              ;;
+          esac
+
+          for package_dir in "${packages[@]}"; do
+            echo "==> $package_dir"
+            npm_install_if_needed "$package_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
+            (cd "$package_dir" && npm test && npm run build)
+          done
+
+  public-integration:
+    needs: repository-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run public synthetic-project integration gates
+        shell: bash
+        env:
+          HARNESS_VALIDATION_MODE: incremental
+          NPM_INSTALL_TIMEOUT_SECONDS: '900'
+        run: |
+          set -euo pipefail
+          scripts=(
+            agent_harness/validation/phase3_public_plugins_v0_1_integration.sh
+            agent_harness/validation/phase3_public_layer_v0_2_current_policy_integration.sh
+            agent_harness/validation/phase4_public_auto_governance_orchestrator_v0_1_integration.sh
+            agent_harness/validation/phase4a_public_agent_governance_kernel_step5_v0_1.sh
+            agent_harness/validation/phase4a_public_governance_runtime_v0_1.sh
+            agent_harness/validation/phase4a_public_governance_runtime_level2_model_v0_1.sh
+            agent_harness/validation/phase4a_openai_compatible_model_wrapper_v0_1.sh
+          )
+
+          for script in "${scripts[@]}"; do
+            echo "==> $script"
+            chmod +x "$script"
+            bash "$script"
+          done
