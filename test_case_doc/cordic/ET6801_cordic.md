@@ -71,7 +71,7 @@ ET6801 direct SVD / target-chip integration evidence
 | TP19 | Interrupt work mode | CORDIC_F_025/F042 | CORDIC_P1_008 | MAPPED | 固定delay改为Source级Event+Deadline。 |
 | TP20 | Polling mode | CORDIC_F_024/F028 | CORDIC_P1_007 | MAPPED | 无限while改为bounded polling。 |
 | TP21 | Zero-overhead | CORDIC_F_026/F044 | CORDIC_P1_009/P3_003 | SPLIT | 功能与抗IRQ原子性分层。 |
-| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | CHIP_UNSUPPORTED | 设计人员确认ET6801 CORDIC不支持DMA工作模式；保留公共Feature和Case，不在ET6801上执行。 |
+| TP22 | DMA mode | CORDIC_F_027 | CORDIC_P2_001 | NOT_APPLICABLE | 设计人员确认ET6801 CORDIC不支持DMA工作模式；保留公共Feature和Case，不在ET6801上执行。 |
 | TP23 | IRQ enable | CORDIC_F_037 | CORDIC_P1_017 | MAPPED | 按Source参数化。 |
 | TP24 | IRQ mask | CORDIC_F_038/F041 | CORDIC_P1_018 | MAPPED | Raw/Status分层。 |
 | TP25 | IRQ clear | CORDIC_F_040/F041 | CORDIC_P1_019 | MAPPED | 双Source位隔离。 |
@@ -320,7 +320,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_F_024 | SUPPORTED | CTRL0.WORK_MODE=01 Polling与COMPLETE终态Case已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_025 | SUPPORTED | CTRL0.WORK_MODE=00 Interrupt与自然Complete投递Case已适配。 | ADAPTED | CORDIC_P1_008 |
 | CORDIC_F_026 | SUPPORTED | CTRL0.WORK_MODE=10基础原子事务已适配；受控IRQ干扰强度仍由P3_003单独保留。 | ADAPTED | CORDIC_P1_009, CORDIC_P3_003 |
-| CORDIC_F_027 | UNSUPPORTED | 设计人员确认ET6801 CORDIC不支持DMA工作模式；SVD中的CTRL0.WORK_MODE=11及历史Request39/40不能覆盖该硬件事实。 | CHIP_UNSUPPORTED | CORDIC_P2_001 |
+| CORDIC_F_027 | UNSUPPORTED | 设计人员确认ET6801 CORDIC不支持DMA工作模式；SVD中的CTRL0.WORK_MODE=11及历史Request39/40不能覆盖该硬件事实。 | NOT_APPLICABLE | CORDIC_P2_001 |
 | CORDIC_F_028 | SUPPORTED | STATUS_RPT.RRDY_FLG_RPT的Polling观测与W1C复核已适配。 | ADAPTED | CORDIC_P1_007 |
 | CORDIC_F_029 | SUPPORTED | STATUS_RPT.WR_NARGS_OVF_RPT，W1C；Execution Mapping冻结current FPGATest/HIL已证明的四次未消费提交刺激。该Case不声称测得最小容量。 | ADAPTED | CORDIC_P1_011 |
 | CORDIC_F_030 | SUPPORTED | STATUS_RPT.WR_ARG2_ERROR_RPT自然刺激与W1C已适配；ET6801 FPGA实测表明清报告位后仍需由CRG复位CORDIC0才能清内部错误事务。 | ADAPTED | CORDIC_P1_016 |
@@ -367,7 +367,7 @@ current FPGATest能证明大量“当前验证假设”，但下列内容没有�
 | CORDIC_P1_018 | ADAPTED | 三类Source的Mask、Raw、Status分层Case已实现。 |
 | CORDIC_P1_019 | ADAPTED | 三类Source的目标Clear与非目标保持Case已实现。 |
 | CORDIC_P1_020 | ADAPTED | 九类函数顺序执行、结果消费和终态清理Case已实现。 |
-| CORDIC_P2_001 | CHIP_UNSUPPORTED | 公共Case代码保留；设计人员确认ET6801 CORDIC不支持DMA工作模式，因此ET6801不执行该Case。 |
+| CORDIC_P2_001 | NOT_APPLICABLE | 公共Case代码保留；设计人员确认ET6801 CORDIC不支持DMA工作模式，因此ET6801不执行该Case。 |
 | CORDIC_P3_001 | ADAPTED | 仅实现九类Float32代表合法节点的固定重复稳定性；不宣称覆盖定点Codec、边界、完整合法域或统一accuracy budget。 |
 | CORDIC_P3_002 | ADAPTED | CORDIC timed Service通过目标侧DWT返回周期结果，Case只验证数学结果正确前提下的周期样本。 |
 | CORDIC_P3_003 | ADAPTED | Case通过公共Zero-Overhead与IRQ控制接口执行受控Pending隔离；更强的异步ISR干扰仍由独立Gap保留。 |
@@ -396,11 +396,11 @@ PC Driver / Firmware Service / Common Wrap: EXISTING / HIL_NOT_VERIFIED
 Machine Capability semantic mapping: SVD SEMANTICS COMPLETE / NUMERIC EXECUTION MAPPING ADDED
 Legacy full Working-tree FPGA HIL: EXECUTED / 53 executions / 52 PASS / 1 SKIP / 0 FAIL
 Historical semantic migration HIL before hardware confirmation: EXECUTED / 20 executions / 19 PASS / 1 FAIL / 0 SKIP
-Current logical classification after hardware confirmation: 7 PASS / 0 FAIL / 1 CHIP_UNSUPPORTED
-Contract classification after hardware confirmation: ADAPTED=23 / CHIP_UNSUPPORTED=1
+Current logical classification after hardware confirmation: 7 PASS / 0 FAIL / 1 SKIP
+Contract classification after hardware confirmation: ADAPTED=23 / NOT_APPLICABLE=1
 Semantic mapping Cases current-code HIL PASS: CORDIC_P0_002, CORDIC_P1_001, CORDIC_P1_002, CORDIC_P1_004, CORDIC_P1_011, CORDIC_P1_013, CORDIC_P1_015
 2026-08-28 targeted HIL PASS: CORDIC_P1_003 / ARCTAN Scale 0..7 within approved 1e-3 budget
-2026-08-28 historical targeted HIL result: CORDIC_P2_001 / DMA input and output channels did not complete within 15 s；设计确认后归类为CHIP_UNSUPPORTED
+2026-08-28 historical targeted HIL result: CORDIC_P2_001 / DMA input and output channels did not complete within 15 s；设计确认后归类为NOT_APPLICABLE
 Legacy full HIL Evidence: artifacts/runs/20260821_170400_cordic_full_hil/tests/cordic/session.json
 Current targeted HIL Evidence: artifacts/runs/20260822_070101_086512_cordic_formal_cases/tests/cordic/session.json
 Deterministic failure repeat: artifacts/runs/20260822_070244_378_cordic_p1_003_repeat/tests/cordic/session.json
@@ -452,13 +452,13 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 24 | 8 | 7 | 1 | 0 | 16 | 20 |
+| FPGA | 24 | 8 | 7 | 0 | 1 | 16 | 20 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CORDIC_P2_001` | FPGA | SKIP / CHIP_UNSUPPORTED | `CORDIC_F_027` / DMA工作模式 | 历史实测中输入、输出DMA Channel在15秒内未完成 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | `artifacts/runs/20260828_0823_cordic_p2_001/` |
+| `CORDIC_P2_001` | FPGA | SKIP | `CORDIC_F_027` / DMA工作模式 | 历史实测中输入、输出DMA Channel在15秒内未完成 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式，Case适配状态为NOT_APPLICABLE；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | `artifacts/runs/20260828_0823_cordic_p2_001/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核
@@ -467,4 +467,4 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 ### 2026-08-28 15:12 CST 设计确认后的最终修正
 
-设计人员确认ET6801 CORDIC硬件不支持DMA工作模式。此前`CORDIC_P2_001`的DMA Channel超时现象保留为历史测试事实，但不再解释为ET6801 CORDIC DMA Feature故障。当前最终分类为`SKIP / CHIP_UNSUPPORTED`：公共Feature、公共Case及代码保留，ET6801不执行该Case；只有后续芯片明确声明支持CORDIC DMA时，才配置对应Execution Mapping并运行该Case。
+设计人员确认ET6801 CORDIC硬件不支持DMA工作模式。此前`CORDIC_P2_001`的DMA Channel超时现象保留为历史测试事实，但不再解释为ET6801 CORDIC DMA Feature故障。当前最终分类为`SKIP`，芯片Case适配状态为`NOT_APPLICABLE`：公共Feature、公共Case及代码保留，ET6801不执行该Case；只有后续芯片明确声明支持CORDIC DMA时，才配置对应Execution Mapping并运行该Case。

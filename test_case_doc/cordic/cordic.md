@@ -1613,9 +1613,9 @@ gap:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=46 | ADAPTED=24 | 原语义Gap已迁移到ET6801只读Execution Mapping；P1_003已采用人工批准的1e-3误差预算，P2_001已补齐DMA Mapping，两项均等待当前代码定向HIL | `ET6801_cordic.md` |
+| ET6801 | ADAPTED=45; NOT_APPLICABLE=1 | ADAPTED=23; NOT_APPLICABLE=1 | P1_003已采用人工批准的1e-3误差预算；设计人员确认ET6801不支持CORDIC DMA，因此F027/P2_001对该芯片不适用 | `ET6801_cordic.md` |
 
-`SUPPORTED`或历史测试代码存在不等于当前平台已经实现，也不等于当前SHA HIL PASS。当前已完成P0_002、P0_003、P0_004、P1_001～P1_009、P1_011～P1_013、P1_015～P1_020、P2_001和P3_001～P3_003的Source/Design闭合；P2_001在当前DMA映射缺失时按内部集成缺口失败关闭。P1_003 current-code HIL已发现Scale=7误差超出历史统一预算，必须保留FAIL与原始证据，不能通过扩大公共容差或改为SKIP宣称通过。
+`SUPPORTED`或历史测试代码存在不等于当前平台已经实现，也不等于当前SHA HIL PASS。当前已完成P0_002、P0_003、P0_004、P1_001～P1_009、P1_011～P1_013、P1_015～P1_020、P2_001和P3_001～P3_003的Source/Design闭合；目标芯片明确不支持DMA工作模式时，F027/P2_001必须在芯片适配文档中声明为`UNSUPPORTED / NOT_APPLICABLE`。P1_003的精度预算必须由目标芯片证据冻结，不能通过任意扩大公共容差宣称通过。
 
 ## 5. Common Gap / Evolution
 
@@ -1637,7 +1637,7 @@ gap:
 | `cordic_zero_overhead_atomicity_gap` | CLOSED | CORDIC Test Extension保存/恢复调用者PRIMASK，Wrap只调用该Driver入口；P3_003已完成受控Pending隔离。 |
 | `cordic_current_pm_helper_bug` | OPEN | 目标Chip SDK的整数PM零开销Helper修复错误输入端点/参数模型，或公共Wrap明确不调用该Helper并由受测路径证明。 |
 | `cordic_request_capacity_mapping_gap` | OPEN | 明确多函数连续请求可安全提交/消费的容量和顺序协议，不把历史“parallel”测试代码当规格。 |
-| `cordic_dma_execution_mapping_gap` | PARTIAL / HIL_FAIL | 当前Chip必须提供CORDIC DMA Request ID、方向、端点和DMA Controller/Interface映射；禁止沿用未审核的旧Revision ID。ET6801已完成Mapping并执行真实HIL，但DMA Channel未完成，具体失败只记录在芯片适配文档。 |
+| `cordic_dma_execution_mapping_gap` | OPEN | 仅对硬件明确支持CORDIC DMA的目标芯片提供Request ID、方向、端点和DMA Controller/Interface映射；禁止沿用未审核的旧Revision ID。不支持该模式的芯片在适配文档中标记为`NOT_APPLICABLE`。 |
 | `cordic_dma_driver_mode_gap` | CLOSED | CORDIC稳定Config/WorkMode接口已支持DMA选择，Case只通过Driver/Service/Wrap调用，不直接写Raw控制位。 |
 | `cordic_reset_execution_mapping_gap` | CLOSED | CRG专属Driver/Service/Wrap已提供CORDIC复位映射，P0_004由PC Case跨IP编排复位后重新配置。 |
 | `cordic_timing_observer_mapping_gap` | CLOSED | CORDIC Test Extension在目标侧DWT边界内返回周期结果，P3_002只消费稳定Cycle Count。 |
