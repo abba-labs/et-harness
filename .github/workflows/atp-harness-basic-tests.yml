@@ -64,6 +64,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Build public dependencies and run ATP Project Plugin tests
         shell: bash
         env:
@@ -73,6 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           source agent_harness/validation/lib/common_runtime.sh
+          python -m pip install --disable-pip-version-check PyYAML
 
           packages=(
             agent_harness/governance_core
@@ -83,6 +87,8 @@ jobs:
             agent_harness/public_plugins/knowledge_manager
             agent_harness/public_plugins/evidence_state_manager
             agent_harness/public_plugins/gate_manager
+            agent_harness/public_plugins/context_builder
+            agent_harness/public_plugins/auto_governance_engine
           )
 
           for package_dir in "${packages[@]}"; do
@@ -101,6 +107,8 @@ jobs:
           (
             cd "$plugin_dir"
             npm test
+            ATP_CONTEXT_CONTRIBUTOR_INTEGRATION=1 npx vitest run \
+              tests/context-contributor-compiler.integration.test.ts
             npm run build
           )
 
@@ -123,6 +131,8 @@ jobs:
             agent_harness/public_plugins/knowledge_manager
             agent_harness/public_plugins/evidence_state_manager
             agent_harness/public_plugins/gate_manager
+            agent_harness/public_plugins/context_builder
+            agent_harness/public_plugins/auto_governance_engine
             agent_harness/projects/automated_testing_platform
           )
 
