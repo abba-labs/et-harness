@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Manifest,
 
-    [ValidateSet('Build', 'Deploy', 'DryRun')]
+    [ValidateSet('Build', 'BuildPeer', 'Deploy', 'DryRun')]
     [string]$Action = 'DryRun',
 
     [string]$Keil = '',
@@ -485,15 +485,20 @@ $artifactDirectory = New-EtArtifactStageDirectory `
     -RunRoot $runRoot `
     -StageName "dualcore_$($profile.name)_$($Action.ToLowerInvariant())"
 
-if ($Action -eq 'Build') {
+if ($Action -in @('Build', 'BuildPeer')) {
     if ((-not (Test-Path -LiteralPath $Keil -PathType Leaf)) -or
         (Get-Process UV4 -ErrorAction SilentlyContinue)) {
         throw 'A valid, closed Keil UV4 installation is required for dual-core build.'
     }
 
     $buildResults = @()
+    $coresToBuild = if ($Action -eq 'BuildPeer') {
+        @($profile.cores | Where-Object id -eq 'core1')
+    } else {
+        @($profile.cores)
+    }
 
-    foreach ($core in $profile.cores) {
+    foreach ($core in $coresToBuild) {
         $buildResults += Invoke-CoreBuild -Core $core -ArtifactDirectory $artifactDirectory
     }
 

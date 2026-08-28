@@ -66,12 +66,12 @@ def test_tools_root_only_contains_the_stable_gate_and_directory_rules() -> None:
     assert root_files == {"README.md", "validate_pc.py"}
 
 
-# 测试 Feature：ET6801 FPGA与Silicon双核Profile复用同一部署脚本。
+# 测试 Feature：ET6801 FPGA正式双核Profile使用专用编排，Silicon仍保持失败关闭。
 #
-# 测试方法：读取两个Pipeline Profile，比较构建和部署阶段的脚本及清单参数。
+# 测试方法：读取两个Pipeline Profile，检查FPGA正式链路和Silicon诊断链路的脚本边界。
 #
-# 通过条件：公共脚本完全相同，两个目标只替换芯片部署清单。
-def test_et6801_dualcore_profiles_share_one_deployment_script() -> None:
+# 通过条件：FPGA绑定正式Core0+Peer编排；Silicon继续使用清单驱动脚本且不被误放开。
+def test_et6801_dualcore_profiles_use_reviewed_target_workflows() -> None:
 
     profile_root = REPOSITORY_ROOT / "tools/profiles/pipeline"
     fpga = yaml.safe_load((profile_root / "et6801_fpga_dualcore.yaml").read_text(encoding="utf-8"))
@@ -80,14 +80,36 @@ def test_et6801_dualcore_profiles_share_one_deployment_script() -> None:
     )
 
     for step in ("build.firmware", "deploy.firmware"):
-        assert fpga["steps"][step]["script"] == "tools/firmware/deploy_dualcore_firmware.ps1"
-        assert silicon["steps"][step]["script"] == fpga["steps"][step]["script"]
+        assert fpga["steps"][step]["script"] == "tools/firmware/run_et6801_formal_dualcore.ps1"
+        assert silicon["steps"][step]["script"] == "tools/firmware/deploy_dualcore_firmware.ps1"
 
-    fpga_manifest = fpga["steps"]["deploy.firmware"]["arguments"][0]["value"]
     silicon_manifest = silicon["steps"]["deploy.firmware"]["arguments"][0]["value"]
 
-    assert fpga_manifest.endswith("et6801_fpga_itcm.json")
+    assert fpga["steps"]["deploy.firmware"]["requires"] == [
+        "deploy.bitfile",
+        "deploy.bootrom",
+    ]
     assert silicon_manifest.endswith("et6801_silicon_flash.json")
+
+
+# 测试 Feature：ET6801正式双核编排保持Core0正式固件和Core1 Peer职责分离。
+#
+# 测试方法：读取ET6801专用编排脚本，检查构建、PFLASH部署、Peer构建和Mailbox验证入口。
+#
+# 通过条件：Core0沿用正式脚本，Core1只构建Peer，部署后必须验证Core1 Mailbox。
+def test_et6801_formal_dualcore_orchestration_keeps_core_roles_explicit() -> None:
+
+    script = (REPOSITORY_ROOT / "tools/firmware/run_et6801_formal_dualcore.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "build_et6801_test_firmware.ps1" in script
+    assert "flash_and_run_et6801_firmware.ps1" in script
+    assert "-Action BuildPeer" in script
+    assert "core1_hold" in script
+    assert "core1_load_verify" in script
+    assert "core1_release" in script
+    assert "core1_mailbox_verify" in script
 
 
 # 测试 Feature：ET6801双核清单完整表达两个Core并对Silicon真实部署失败关闭。

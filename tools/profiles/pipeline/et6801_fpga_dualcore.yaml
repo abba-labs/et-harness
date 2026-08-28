@@ -2,25 +2,67 @@ schema: et-pipeline-profile/v1
 name: et6801_fpga_dualcore
 target_kind: fpga
 
-# 双核流程只替换Profile和部署清单；公共Runner与双核脚本保持不变。
+# 正式双核流程复用标准FPGA阶段；只由ET6801专用脚本编排Core0正式固件和Core1 Peer。
 steps:
-  build.firmware:
-    script: tools/firmware/deploy_dualcore_firmware.ps1
+  build.bootrom:
+    script: tools/fpga/et6801/build_bootrom.ps1
     hardware_action: false
     arguments:
-      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_fpga_itcm.json}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+      - {option: -Project, from: dut.sources.bootrom_project, kind: file}
+      - {option: -Target, value: ROM}
+
+  build.firmware:
+    script: tools/firmware/run_et6801_formal_dualcore.ps1
+    hardware_action: false
+    arguments:
       - {option: -Action, value: Build}
       - {option: -Keil, from: environment.tools.keil.executable, kind: file}
       - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
 
-  deploy.firmware:
-    script: tools/firmware/deploy_dualcore_firmware.ps1
+  deploy.bitfile:
+    script: tools/fpga/et6801/program_xc7vx980t.ps1
     hardware_action: true
     arguments:
-      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_fpga_itcm.json}
+      - {option: -ToolRoot, from: environment.tools.vivado.root, kind: directory}
+      - {option: -BitFile, from: dut.images.bitfile.path, kind: file}
+      - {flag: -ConfirmProgram}
+
+  deploy.bootrom:
+    script: tools/fpga/et6801/load_bootrom_keil_debug.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+      - {option: -Project, from: dut.sources.bootrom_project, kind: file}
+      - {option: -Target, value: ROM}
+      - {flag: -SkipBuild}
+      - {flag: -ConfirmRamLoad}
+
+  deploy.firmware:
+    requires: [deploy.bitfile, deploy.bootrom]
+    script: tools/firmware/run_et6801_formal_dualcore.ps1
+    hardware_action: true
+    arguments:
       - {option: -Action, value: Deploy}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
       - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
       - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
-      - {option: -SerialPort, from: dut.control.port}
-      - {option: -Repeat, value: 2}
-      - {flag: -ConfirmHardware}
+      - {flag: -ConfirmPFlashProgram}
+      - {flag: -ConfirmRunControl}
+      - {flag: -ConfirmPeerDeploy}
+
+  execute.start_target:
+    script: tools/firmware/flash_and_run_et6801_firmware.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Project, value: firmware/build/et6801/ET6801_Automated_Test.uvprojx, kind: file, base: repository}
+      - {option: -Target, value: ET6801_SILICON_FLASH}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+      - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
+      - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
+      - {flag: -SkipFlash}
+      - {flag: -ConfirmRunControl}
