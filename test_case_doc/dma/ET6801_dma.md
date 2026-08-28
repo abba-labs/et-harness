@@ -359,3 +359,27 @@ Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
 - ET6801 Feature/options/limits/实例/IRQ/Chip Driver/Execution Mapping变化必须同步本文件。
 - 适配状态变化必须同步公共`dma.md` Chip Adaptation Summary。
 - 本文件不保存`ET_CASE_SPEC`/`ET_CASE_PLAN`机器块，避免形成第二份公共Case真值。
+
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
+
+状态更新时间：`2026-08-28 21:22 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-08-28 17:12 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/dma/` |
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 28 | 28 | 28 | 0 | 0 | 0 | 88 |
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| — | FPGA | NONE | — | — | — | — | — |
+<!-- ET_CHIP_TEST_STATUS_END -->
