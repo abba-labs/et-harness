@@ -341,9 +341,9 @@ Case Platform汇总：`ADAPTED=27; IMPLEMENTATION_GAP=8; MAPPING_GAP=2; NEEDS_VE
 - P1_010/P1_015若实现配置读回，必须经公共Driver/Service稳定接口取得，不允许PC Case直接读取上述寄存器。
 - F023 TCM映射需要单独Execution Mapping；本章的普通Channel寄存器映射不构成TCM PASS。
 
-## 第八章 当前精确SHA验证状态
+## 第八章 历史文档生成时验证状态
 
-本轮允许在当前环境绕过无法执行的Task Context本地编译和真机门禁，但不得伪造执行结果：
+以下内容只记录本文初次生成时的验证边界，不代表当前测试状态；当前结论只读取文末唯一`ET_CHIP_TEST_STATUS`区域：
 
 ```text
 SOURCE / DESIGN REVIEW: CLOSED
