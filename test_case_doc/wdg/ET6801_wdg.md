@@ -302,7 +302,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 
 | Gap ID | Type | Current fact | Release condition |
 |---|---|---|---|
-| wdg_case_implementation_gap | CLOSED / FPGA_HIL_PARTIAL | 14个Case均已闭合；2026-08-28修复WDG测试驱动的CRG写保护事务后，P1_004手动与Formal HIL均PASS；当前结论为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED。 | 闭合P2_001硬件问题，重跑P0_004/P1_003，并执行Silicon HIL。 |
+| wdg_case_implementation_gap | CLOSED / FPGA_HIL_PARTIAL | 14个Case均已闭合并执行；P1_004的CRG写保护事务修复后PASS，当前全量结论为11 PASS / 3 FAIL / 0 SKIP。 | 闭合P0_004、P1_003的系统复位链路和P2_001分频硬件问题，并执行Silicon HIL。 |
 | wdg_runtime_capability_service_gap | CLOSED | Static Capability发布生成器事实，Runtime Service已实现。 | 保持Static/Runtime重叠事实一致。 |
 | wdg_semantic_capability_mapping_gap | MAPPING | limits/options/parameters为空，Runtime-only语义无机器映射。 | 通过通用Capability规则/执行映射发布，不手工伪造Static镜像。 |
 | wdg_config_readback_gap | CLOSED | 隔离Test Driver Extension已提供配置readback。 | 保持P1_005以硬件readback为判据。 |
@@ -468,7 +468,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 ### 2026-08-26 12:15 CST 状态分类复核
 
-历史Full HIL表保持原始Runner事实，不回改4个历史SKIP。按当前统一规则，只有外部物理接线、仪器或不可替代Bench拓扑缺失才允许SKIP；因此当前有效分类修正为：
+历史Full HIL表保持原始Runner事实，不回改4个历史SKIP。按统一规则，只有外部物理接线、仪器或不可替代Bench拓扑缺失才允许SKIP；因此2026-08-26当时复核分类修正为：
 
 | Case ID | 当前分类 | 复核结论 |
 |---|---|---|
