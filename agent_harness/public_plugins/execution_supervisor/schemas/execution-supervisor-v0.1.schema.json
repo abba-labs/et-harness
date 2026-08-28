@@ -1,0 +1,482 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.dev/schemas/execution-supervisor-v0.1.schema.json",
+  "title": "ET Harness Public Execution Supervisor Contracts v0.1",
+  "description": "Host-, provider- and project-neutral wire contracts for supervised Agent execution.",
+  "oneOf": [
+    { "$ref": "#/$defs/TaskSupervisionContract" },
+    { "$ref": "#/$defs/ExecutionEvent" },
+    { "$ref": "#/$defs/ExecutionEventBatch" },
+    { "$ref": "#/$defs/ExecutionReceipt" },
+    { "$ref": "#/$defs/ObligationLedger" },
+    { "$ref": "#/$defs/SupervisionViolation" },
+    { "$ref": "#/$defs/CompletionDecision" }
+  ],
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ReferenceArray": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    },
+    "Identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimeId", "taskId", "turnId", "agentId", "projectId"],
+      "properties": {
+        "runtimeId": { "$ref": "#/$defs/Identifier" },
+        "taskId": { "$ref": "#/$defs/Identifier" },
+        "turnId": { "$ref": "#/$defs/Identifier" },
+        "agentId": { "$ref": "#/$defs/Identifier" },
+        "projectId": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "ResourceDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "action", "locator"],
+      "properties": {
+        "kind": {
+          "enum": ["FILE", "DOCUMENT", "URL", "DATABASE", "REPOSITORY", "HARDWARE", "OTHER"]
+        },
+        "action": {
+          "enum": ["SEARCH", "READ", "CREATE", "UPDATE", "DELETE", "EXECUTE"]
+        },
+        "locator": { "type": "string", "minLength": 1 },
+        "stableId": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "contentHash": { "$ref": "#/$defs/Sha256" },
+        "mediaType": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ArtifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "action"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "action": { "enum": ["CREATED", "UPDATED", "DELETED", "UNCHANGED"] },
+        "contentHash": { "$ref": "#/$defs/Sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ValidationDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validatorId", "outcome", "evidenceRefs"],
+      "properties": {
+        "validatorId": { "$ref": "#/$defs/Identifier" },
+        "commandHash": { "$ref": "#/$defs/Sha256" },
+        "outcome": { "enum": ["PASS", "FAIL", "BLOCKED", "NOT_EXECUTED"] },
+        "evidenceRefs": { "$ref": "#/$defs/ReferenceArray" }
+      }
+    },
+    "ClaimDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimId", "claimHash", "assertedState", "evidenceRefs"],
+      "properties": {
+        "claimId": { "$ref": "#/$defs/Identifier" },
+        "claimHash": { "$ref": "#/$defs/Sha256" },
+        "assertedState": {
+          "enum": ["PASS", "FAIL", "VERIFIED", "UNKNOWN", "CONFLICT", "NOT_EXECUTED", "NOT_VERIFIED"]
+        },
+        "evidenceRefs": { "$ref": "#/$defs/ReferenceArray" }
+      }
+    },
+    "ExecutionEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "contractVersion",
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "identity",
+        "kind",
+        "source",
+        "correlation",
+        "payload",
+        "integrity"
+      ],
+      "properties": {
+        "schema": { "const": "agent-harness.execution-event.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "eventId": { "$ref": "#/$defs/Identifier" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "occurredAt": { "$ref": "#/$defs/Timestamp" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "kind": {
+          "enum": [
+            "TASK_HANDOFF",
+            "TOOL_CALL",
+            "TOOL_RESULT",
+            "RESOURCE_SEARCH",
+            "RESOURCE_READ",
+            "RESOURCE_TOUCH",
+            "ARTIFACT_CHANGE",
+            "VALIDATION_RESULT",
+            "CLAIM_ASSERTED",
+            "ASSISTANT_OUTPUT",
+            "REFLECTION_RESULT",
+            "KNOWLEDGE_DECISION",
+            "CONTEXT_UPDATE",
+            "CLOSURE_RESULT",
+            "TASK_STATE",
+            "HEARTBEAT"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hostAdapterId"],
+          "properties": {
+            "hostAdapterId": { "$ref": "#/$defs/Identifier" },
+            "hostSessionId": { "$ref": "#/$defs/Identifier" },
+            "providerId": { "$ref": "#/$defs/Identifier" },
+            "transportId": { "$ref": "#/$defs/Identifier" }
+          }
+        },
+        "correlation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["idempotencyKey"],
+          "properties": {
+            "requestId": { "$ref": "#/$defs/Identifier" },
+            "callId": { "$ref": "#/$defs/Identifier" },
+            "parentEventId": { "$ref": "#/$defs/Identifier" },
+            "idempotencyKey": { "$ref": "#/$defs/Identifier" }
+          }
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "outcome", "refs"],
+          "properties": {
+            "summary": { "type": "string", "minLength": 1, "maxLength": 2048 },
+            "outcome": {
+              "enum": ["SUCCEEDED", "FAILED", "BLOCKED", "FOUND", "NO_MATCH", "UNAVAILABLE", "NOT_EXECUTED", "NOT_VERIFIED", "INFORMATIONAL"]
+            },
+            "refs": {
+              "allOf": [
+                { "$ref": "#/$defs/ReferenceArray" },
+                { "maxItems": 32 }
+              ]
+            },
+            "resource": { "$ref": "#/$defs/ResourceDescriptor" },
+            "artifact": { "$ref": "#/$defs/ArtifactDescriptor" },
+            "validation": { "$ref": "#/$defs/ValidationDescriptor" },
+            "claim": { "$ref": "#/$defs/ClaimDescriptor" },
+            "attributes": { "type": "object", "maxProperties": 64 }
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contractHash", "eventHash"],
+          "properties": {
+            "contractHash": { "$ref": "#/$defs/Sha256" },
+            "previousEventHash": { "$ref": "#/$defs/Sha256" },
+            "eventHash": { "$ref": "#/$defs/Sha256" }
+          }
+        }
+      }
+    },
+    "ObligationEvaluator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "eventKinds"],
+          "properties": {
+            "kind": { "const": "EVENT_MATCH" },
+            "eventKinds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/ExecutionEvent/properties/kind" }
+            },
+            "minimumCount": { "type": "integer", "minimum": 1 },
+            "requiredOutcomes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ExecutionEvent/properties/payload/properties/outcome" }
+            },
+            "requiredRefs": { "$ref": "#/$defs/ReferenceArray" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "requiredResourceRefs", "acceptedOutcomes"],
+          "properties": {
+            "kind": { "const": "RESOURCE_DISPOSITION" },
+            "requiredResourceRefs": { "$ref": "#/$defs/ReferenceArray" },
+            "acceptedOutcomes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["FOUND", "NO_MATCH", "UNAVAILABLE"] }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "requiredPaths", "acceptedActions"],
+          "properties": {
+            "kind": { "const": "ARTIFACT_STATE" },
+            "requiredPaths": { "$ref": "#/$defs/ReferenceArray" },
+            "acceptedActions": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["CREATED", "UPDATED", "UNCHANGED"] }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "validatorIds", "requiredOutcome"],
+          "properties": {
+            "kind": { "const": "VALIDATION_EVIDENCE" },
+            "validatorIds": { "$ref": "#/$defs/ReferenceArray" },
+            "requiredOutcome": { "const": "PASS" },
+            "trustedProducerIds": { "$ref": "#/$defs/ReferenceArray" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "requiredState"],
+          "properties": {
+            "kind": { "const": "LIFECYCLE_STATE" },
+            "requiredState": {
+              "enum": ["REFLECTION_COMPLETE", "KNOWLEDGE_DECISION_COMPLETE", "CONTEXT_RECONCILED", "TURN_CLOSED", "TASK_COMPLETE"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "capability", "evaluatorId", "parameters"],
+          "properties": {
+            "kind": { "const": "PROJECT_EVALUATOR" },
+            "capability": { "const": "supervision.obligation.evaluate" },
+            "evaluatorId": { "$ref": "#/$defs/Identifier" },
+            "parameters": { "type": "object", "maxProperties": 64 }
+          }
+        }
+      ]
+    },
+    "ObligationDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligationId", "kind", "level", "title", "rationale", "risk", "evaluator", "provenanceRefs", "dependsOn"],
+      "properties": {
+        "obligationId": { "$ref": "#/$defs/Identifier" },
+        "kind": {
+          "enum": ["RESOURCE_ACCESS", "SOURCE_DISPOSITION", "ARTIFACT", "SCOPE", "VALIDATION", "CLAIM_EVIDENCE", "REFLECTION", "KNOWLEDGE_CLASSIFICATION", "CONTEXT_RECONCILIATION", "CLOSURE", "TASK_COMPLETION", "CUSTOM"]
+        },
+        "level": { "enum": ["MUST", "SHOULD"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "risk": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "evaluator": { "$ref": "#/$defs/ObligationEvaluator" },
+        "provenanceRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "dependsOn": { "$ref": "#/$defs/ReferenceArray" }
+      }
+    },
+    "TaskSupervisionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "contractVersion", "contractId", "mode", "identity", "rawTask", "rawTaskHash", "contextHash", "routeHash", "scope", "obligations", "claimPolicies", "completionPolicy", "provenanceRefs", "createdAt"],
+      "properties": {
+        "schema": { "const": "agent-harness.task-supervision-contract.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "contractId": { "$ref": "#/$defs/Identifier" },
+        "mode": { "enum": ["AUDIT", "ENFORCE"] },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "rawTask": { "type": "string", "minLength": 1 },
+        "rawTaskHash": { "$ref": "#/$defs/Sha256" },
+        "contextHash": { "$ref": "#/$defs/Sha256" },
+        "routeHash": { "$ref": "#/$defs/Sha256" },
+        "taskContextHash": { "$ref": "#/$defs/Sha256" },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["readAllowed", "writeAllowed", "writeProtected", "externalSourceAllowed"],
+          "properties": {
+            "readAllowed": { "$ref": "#/$defs/ReferenceArray" },
+            "writeAllowed": { "$ref": "#/$defs/ReferenceArray" },
+            "writeProtected": { "$ref": "#/$defs/ReferenceArray" },
+            "externalSourceAllowed": { "$ref": "#/$defs/ReferenceArray" }
+          }
+        },
+        "obligations": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/ObligationDefinition" }
+        },
+        "claimPolicies": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claimPattern", "allowedStates", "evidenceRequiredFor", "trustedEvidenceProducerIds"],
+            "properties": {
+              "claimPattern": { "type": "string", "minLength": 1 },
+              "allowedStates": { "type": "array", "items": { "$ref": "#/$defs/ClaimDescriptor/properties/assertedState" } },
+              "evidenceRequiredFor": { "type": "array", "items": { "$ref": "#/$defs/ClaimDescriptor/properties/assertedState" } },
+              "trustedEvidenceProducerIds": { "$ref": "#/$defs/ReferenceArray" }
+            }
+          }
+        },
+        "completionPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requireAllMustObligations", "blockOnOpenErrorOrFatalViolation", "reflectionRequired", "knowledgeDecisionRequired", "contextReconciliationRequired", "closureRequired"],
+          "properties": {
+            "requireAllMustObligations": { "const": true },
+            "blockOnOpenErrorOrFatalViolation": { "const": true },
+            "reflectionRequired": { "type": "boolean" },
+            "knowledgeDecisionRequired": { "type": "boolean" },
+            "contextReconciliationRequired": { "type": "boolean" },
+            "closureRequired": { "type": "boolean" }
+          }
+        },
+        "provenanceRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "createdAt": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "SupervisionViolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "violationId", "identity", "kind", "severity", "detectedAt", "eventRefs", "obligationIds", "details", "blocking"],
+      "properties": {
+        "schema": { "const": "agent-harness.supervision-violation.v0.1" },
+        "violationId": { "$ref": "#/$defs/Identifier" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "kind": {
+          "enum": ["IDENTITY_MISMATCH", "CONTRACT_HASH_MISMATCH", "EVENT_SEQUENCE_GAP", "EVENT_TAMPERING", "OUT_OF_SCOPE_ACCESS", "PROTECTED_WRITE", "UNDECLARED_OUTPUT", "UNSUPPORTED_PASS_CLAIM", "MISSING_REQUIRED_RESOURCE", "MISSING_EVIDENCE", "MISSING_REFLECTION", "MISSING_KNOWLEDGE_DECISION", "MISSING_CONTEXT_RECONCILIATION", "MISSING_CLOSURE", "HOST_ADAPTER_PROTOCOL_ERROR"]
+        },
+        "severity": { "enum": ["WARNING", "ERROR", "FATAL"] },
+        "detectedAt": { "$ref": "#/$defs/Timestamp" },
+        "eventRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "obligationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "details": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "blocking": { "type": "boolean" }
+      }
+    },
+    "ObligationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligationId", "status", "eventRefs", "evidenceRefs"],
+      "properties": {
+        "obligationId": { "$ref": "#/$defs/Identifier" },
+        "status": { "enum": ["PENDING", "SATISFIED", "BLOCKED", "VIOLATED", "NOT_APPLICABLE"] },
+        "firstEvaluatedAt": { "$ref": "#/$defs/Timestamp" },
+        "lastEvaluatedAt": { "$ref": "#/$defs/Timestamp" },
+        "satisfiedAt": { "$ref": "#/$defs/Timestamp" },
+        "eventRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "evidenceRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "reason": { "type": "string", "maxLength": 2048 }
+      }
+    },
+    "ObligationLedger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "contractVersion", "contractId", "contractHash", "identity", "ledgerVersion", "lastAcceptedSequence", "obligations", "violations", "updatedAt"],
+      "properties": {
+        "schema": { "const": "agent-harness.obligation-ledger.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "contractId": { "$ref": "#/$defs/Identifier" },
+        "contractHash": { "$ref": "#/$defs/Sha256" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "ledgerVersion": { "type": "integer", "minimum": 0 },
+        "lastAcceptedSequence": { "type": "integer", "minimum": 0 },
+        "lastEventHash": { "$ref": "#/$defs/Sha256" },
+        "obligations": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/ObligationState" } },
+        "violations": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/SupervisionViolation" } },
+        "updatedAt": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "ExecutionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "contractVersion", "receiptId", "identity", "eventId", "sequence", "eventHash", "disposition", "ledgerVersionBefore", "ledgerVersionAfter", "changedObligationIds", "violationIds", "receivedAt"],
+      "properties": {
+        "schema": { "const": "agent-harness.execution-receipt.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "receiptId": { "$ref": "#/$defs/Identifier" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "eventId": { "$ref": "#/$defs/Identifier" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "eventHash": { "$ref": "#/$defs/Sha256" },
+        "disposition": { "enum": ["ACCEPTED", "DUPLICATE", "REJECTED"] },
+        "ledgerVersionBefore": { "type": "integer", "minimum": 0 },
+        "ledgerVersionAfter": { "type": "integer", "minimum": 0 },
+        "changedObligationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "violationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "receivedAt": { "$ref": "#/$defs/Timestamp" },
+        "reason": { "type": "string", "maxLength": 2048 }
+      }
+    },
+    "CompletionDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "contractVersion", "decisionId", "identity", "contractId", "contractHash", "ledgerVersion", "status", "decidedAt", "satisfiedMustObligationIds", "outstandingMustObligationIds", "blockingViolationIds", "reflectionComplete", "knowledgeDecisionComplete", "contextReconciliationComplete", "closureComplete", "evidenceRefs", "reason"],
+      "properties": {
+        "schema": { "const": "agent-harness.completion-decision.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "decisionId": { "$ref": "#/$defs/Identifier" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "contractId": { "$ref": "#/$defs/Identifier" },
+        "contractHash": { "$ref": "#/$defs/Sha256" },
+        "ledgerVersion": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["COMPLETE", "INCOMPLETE", "BLOCKED"] },
+        "decidedAt": { "$ref": "#/$defs/Timestamp" },
+        "satisfiedMustObligationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "outstandingMustObligationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "blockingViolationIds": { "$ref": "#/$defs/ReferenceArray" },
+        "reflectionComplete": { "type": "boolean" },
+        "knowledgeDecisionComplete": { "type": "boolean" },
+        "contextReconciliationComplete": { "type": "boolean" },
+        "closureComplete": { "type": "boolean" },
+        "evidenceRefs": { "$ref": "#/$defs/ReferenceArray" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      }
+    },
+    "ExecutionEventBatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "contractVersion", "batchId", "identity", "contractHash", "firstSequence", "lastSequence", "events", "createdAt"],
+      "properties": {
+        "schema": { "const": "agent-harness.execution-event-batch.v0.1" },
+        "contractVersion": { "const": "0.1" },
+        "batchId": { "$ref": "#/$defs/Identifier" },
+        "identity": { "$ref": "#/$defs/Identity" },
+        "contractHash": { "$ref": "#/$defs/Sha256" },
+        "firstSequence": { "type": "integer", "minimum": 1 },
+        "lastSequence": { "type": "integer", "minimum": 1 },
+        "events": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/ExecutionEvent" } },
+        "createdAt": { "$ref": "#/$defs/Timestamp" }
+      }
+    }
+  }
+}
