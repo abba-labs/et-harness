@@ -364,8 +364,8 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 ### 7.3 2026-08-22 Debug Halt行为诊断
 
-1. PAUSE轮：真实J-Link Halt窗口为0.473677 s，`COUNT.LIVE`由597,494推进到12,915,982，delta=12,318,488。
-2. RUN_FREE轮：真实J-Link Halt窗口为0.442484 s，`COUNT.LIVE`由609,341推进到12,092,769，delta=11,483,428。
+1. PAUSE轮：2026-08-28真实J-Link Halt窗口为0.489401 s，`COUNT.LIVE`由624,548推进到13,417,154，delta=12,792,606。
+2. RUN_FREE轮：2026-08-28真实J-Link Halt窗口为0.443597 s，`COUNT.LIVE`由595,472推进到12,125,255，delta=11,529,783。
 3. Driver/Wrap映射复核：PAUSE与RUN_FREE分别按SVD语义配置`STM_CPUHALT_MODE_R=0/1`，Case没有直接操作寄存器，也没有以软件延时冒充Debugger Halt。
 4. 结论：当前FPGA中两种策略的Counter速率基本一致，问题位于CPU Halt到STIMER的RTL/bit行为路径；Case保持严格FAIL，不通过放宽10%冻结阈值规避。
 
@@ -388,26 +388,26 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 ### 7.5 当前未通过测试记录
 
-时间：2026-08-24 20:42 CST
+时间：2026-08-28 08:21 CST
 
 | Case | 测试环境 | 实际硬件现象 | 已排除的软件链路问题 | 当前判定 | 闭环条件 |
 |---|---|---|---|---|---|
-| `STIMER_P2_003` | ET6801 FPGA、真实J-Link Halt/Resume、PAUSE与RUN_FREE两轮对照 | PAUSE轮Halt 0.473677 s期间Counter增加12,318,488；RUN_FREE轮Halt 0.442484 s期间增加11,483,428，两轮均以相近速率运行 | Driver/Wrap已按SVD分别配置`STM_CPUHALT_MODE_R=0/1`；Case使用真实Debugger Halt，不是软件延时模拟 | `FPGA_RTL_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认CPU Halt信号是否接入STIMER以及PAUSE语义；修复或说明后重跑，并在Silicon独立验证 |
+| `STIMER_P2_003` | ET6801 FPGA、真实J-Link Halt/Resume、PAUSE与RUN_FREE两轮同类窗口对照 | PAUSE轮Halt 0.489401 s期间Counter增加12,792,606；RUN_FREE轮Halt 0.443597 s期间增加11,529,783，PAUSE增量反而约为RUN_FREE的1.11倍 | Driver/Wrap已按SVD分别配置`STM_CPUHALT_MODE_R=0/1`；Case使用真实Debugger Halt，并按批准方案比较相对增量而非要求PAUSE绝对为0 | `FPGA_RTL_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认CPU Halt信号是否接入STIMER以及PAUSE语义；修复或说明后重跑，并在Silicon独立验证 |
 
-证据位于`artifacts/runs/20260822_140851_627657_stimer_formal_cases/tests/stimer`。Case保持冻结阈值和严格FAIL，不通过放宽断言掩盖PAUSE未生效。
+最新证据位于`artifacts/runs/20260828_0835_stimer_p2_003/`。Case保持冻结的相对增量阈值和严格FAIL，不通过放宽断言掩盖PAUSE未生效。
 
 2026-08-24独立固件复测在J-Link持续连接状态下分别执行PAUSE和RUN_FREE两次真实Debugger Halt；PAUSE轮Counter增量=`0x70E87DFC`，RUN_FREE轮增量=`0x27D5C292`，两轮均明显推进。该结果再次证明PAUSE没有冻结Counter，不属于串口通信、BootROM或PFLASH加载问题；精确速率仍以Formal HIL时间线为权威。证据：`artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log`。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-26 12:15 CST`
+状态更新时间：`2026-08-28 08:21 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-22 14:08 CST` | `edfd188173e93b3a580ba1d30587795c2ca1749c` | `true` | `artifacts/runs/20260822_140851_627657_stimer_formal_cases/tests/stimer/` |
+| FPGA | `2026-08-28 08:21 CST` | `7b2afbc61f238ee3310482e46d351a53a5dcd183` | `true` | `artifacts/runs/20260828_0835_stimer_p2_003/` |
 
 ### 当前结果汇总
 
@@ -420,7 +420,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
 | `STIMER_P1_001` | FPGA | NOT_EXECUTED | `STIMER_F_002` / 预分频比例 | 本次定向HIL未执行重构后的内部速率比Case | 原外部reference依赖已删除，新Case尚未完成Formal HIL | 运行三轮divider矩阵并按COUNT.LIVE中位速率比判定 | `pc/et_test_platform/test_cases/stimer/test_stimer_p1.py` |
-| `STIMER_P2_003` | FPGA | FAIL | Debugger Halt模式 | PAUSE与RUN_FREE两轮真实Halt期间Counter均继续推进；独立固件复测得到相同方向的结果 | 当前FPGA的CPU Halt信号到STIMER路径或Pause语义未闭合 | RTL/bit确认该信号路径后重测，并在Silicon独立验证 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
+| `STIMER_P2_003` | FPGA | FAIL | Debugger Halt模式 | PAUSE窗口0.489401 s、delta=12,792,606；RUN_FREE窗口0.443597 s、delta=11,529,783；PAUSE未抑制Counter | 当前FPGA的CPU Halt信号到STIMER路径或Pause语义未闭合 | RTL/bit确认该信号路径后重测，并在Silicon独立验证 | `artifacts/runs/20260828_0835_stimer_p2_003/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST SKIP分类复核
