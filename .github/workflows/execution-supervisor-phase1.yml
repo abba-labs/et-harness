@@ -1,0 +1,83 @@
+name: Execution Supervisor Phase 1
+
+on:
+  push:
+    branches:
+      - feat/public-execution-supervisor-phase1-contract-builder-v0.1
+    paths:
+      - 'agent_harness/public_plugins/execution_supervisor/**'
+      - 'agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md'
+      - '.github/workflows/execution-supervisor-phase1.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'agent_harness/public_plugins/execution_supervisor/**'
+      - 'agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md'
+      - '.github/workflows/execution-supervisor-phase1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: execution-supervisor-phase1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase1-contract-builder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify public and efficiency boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md
+          test -f agent_harness/public_plugins/execution_supervisor/src/contract-builder.ts
+          ! grep -R -E 'etimer|ET6801|automated-testing-platform' \
+            agent_harness/public_plugins/execution_supervisor/src
+          ! grep -R -E '\bfetch\s*\(|openai|anthropic|deepseek|claude' \
+            agent_harness/public_plugins/execution_supervisor/src
+          git diff --check
+
+      - name: Install isolated public package
+        shell: bash
+        working-directory: agent_harness/public_plugins/execution_supervisor
+        run: npm install --no-package-lock --ignore-scripts
+
+      - name: Run Phase 0 and Phase 1 tests
+        shell: bash
+        working-directory: agent_harness/public_plugins/execution_supervisor
+        run: npm test
+
+      - name: Build strict TypeScript declarations
+        shell: bash
+        working-directory: agent_harness/public_plugins/execution_supervisor
+        run: npm run build
+
+      - name: Require source-only clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf agent_harness/public_plugins/execution_supervisor/dist
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo "Phase 1 validation left unexpected worktree changes:"
+            echo "$status"
+            git diff
+            exit 1
+          fi
+
+      - name: Emit Phase 1 acceptance marker
+        shell: bash
+        run: echo 'PUBLIC_EXECUTION_SUPERVISOR_PHASE1_V0_1=PASS'
