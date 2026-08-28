@@ -400,7 +400,7 @@ enum
      ET_CORDIC_WRAP_CAP_WIDTH_16 | ET_CORDIC_WRAP_CAP_WIDTH_32 |                           \
      ET_CORDIC_WRAP_CAP_NORMALIZED_RANGE | ET_CORDIC_WRAP_CAP_DIRECT_ANGLE_RANGE |         \
      ET_CORDIC_WRAP_CAP_POLLING | ET_CORDIC_WRAP_CAP_INTERRUPT |                           \
-     ET_CORDIC_WRAP_CAP_ZERO_OVERHEAD | ET_CORDIC_WRAP_CAP_DMA |                           \
+     ET_CORDIC_WRAP_CAP_ZERO_OVERHEAD |                                                     \
      ET_CORDIC_WRAP_CAP_STATUS | ET_CORDIC_WRAP_CAP_INTERRUPTS)
 
 /* All nine public SDK CORDIC function enumerators are supported. */
@@ -409,7 +409,10 @@ enum
 enum
 {
     ET6801_CORDIC_LOGICAL_0 = 0u,
-    /* SVD CTRL0.WORK_MODE encoding 3 selects DMA; the SDK enum omits it. */
+    /*
+     * SVD CTRL0.WORK_MODE保留DMA编码，但ET6801数字设计不实现DMA数据通路。
+     * 保留编码仅用于兼容公共映射表，不得对外声明ET_CORDIC_WRAP_CAP_DMA。
+     */
     ET6801_CORDIC_DRIVER_WORK_MODE_DMA = 3u
 };
 

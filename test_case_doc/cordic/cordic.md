@@ -1820,7 +1820,7 @@ cases:
   CORDIC_P3_002:
     summary: "CORDIC结果正确前提下记录目标侧单次执行周期和计时事务Raw结果。"
     fields:
-      - {source: measurement, path: expected_primary_raw, label: 性能节点独立Golden, format: hex32, aggregate: same}
+      - {source: measurement, path: expected_primary_raw, label: 性能节点独立Golden, format: hex32, aggregate: distinct}
       - {source: observation, path: target_cycles, label: 目标侧执行周期 TIMING.CYCLE_COUNT, format: decimal, aggregate: distinct}
       - {source: observation, path: timed_primary_raw, label: 计时事务RESULT.PRIMARY, format: hex32, aggregate: same}
   CORDIC_P3_003:
