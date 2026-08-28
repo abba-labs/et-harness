@@ -69,6 +69,11 @@ jobs:
     needs: branch-and-public-boundary
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HARNESS_VALIDATION_MODE: clean
+      NPM_REGISTRY: https://registry.npmjs.org
+      NPM_INSTALL_TIMEOUT_SECONDS: '900'
+      ATP_PLUGIN_DIR: agent_harness/projects/automated_testing_platform
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,17 +84,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Build public dependencies and run ATP Project Plugin tests
+
+      - name: Install Python compiler dependency
         shell: bash
-        env:
-          HARNESS_VALIDATION_MODE: clean
-          NPM_REGISTRY: https://registry.npmjs.org
-          NPM_INSTALL_TIMEOUT_SECONDS: '900'
+        run: python -m pip install --disable-pip-version-check PyYAML
+
+      - name: Build and test public dependencies
+        shell: bash
         run: |
           set -euo pipefail
           source agent_harness/validation/lib/common_runtime.sh
-          python -m pip install --disable-pip-version-check PyYAML
-
           packages=(
             agent_harness/governance_core
             agent_harness/project_contract
@@ -102,7 +106,6 @@ jobs:
             agent_harness/public_plugins/context_builder
             agent_harness/public_plugins/auto_governance_engine
           )
-
           for package_dir in "${packages[@]}"; do
             echo "==> $package_dir"
             npm_install_if_needed "$package_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
@@ -113,20 +116,36 @@ jobs:
             )
           done
 
-          plugin_dir="agent_harness/projects/automated_testing_platform"
-          echo "==> $plugin_dir"
-          npm_install_if_needed "$plugin_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
-          (
-            cd "$plugin_dir"
-            npm test
-            npm run build
-          )
+      - name: Install ATP Project Plugin dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          source agent_harness/validation/lib/common_runtime.sh
+          npm_install_if_needed "$ATP_PLUGIN_DIR" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
 
+      - name: Run ATP Project Plugin unit and routing tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ATP_PLUGIN_DIR"
+          npm test
+
+      - name: Build ATP Project Plugin source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$ATP_PLUGIN_DIR"
+          npm run build
+
+      - name: Run real ATP Task Context compiler bridge in a clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
           compiler_root="$RUNNER_TEMP/atp-context-compiler-worktree"
           git worktree add --detach "$compiler_root" HEAD
           trap 'git worktree remove --force "$compiler_root" >/dev/null 2>&1 || true' EXIT
           (
-            cd "$plugin_dir"
+            cd "$ATP_PLUGIN_DIR"
             AUTOMATED_TESTING_PLATFORM_PROJECT_ROOT="$compiler_root" \
               ATP_CONTEXT_CONTRIBUTOR_INTEGRATION=1 \
               npx vitest run tests/context-contributor-compiler.integration.test.ts
@@ -134,9 +153,13 @@ jobs:
           git worktree remove --force "$compiler_root"
           trap - EXIT
 
-          if ! git diff --quiet -- "$plugin_dir"; then
+      - name: Assert tests did not mutate tracked ATP Project Plugin resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- "$ATP_PLUGIN_DIR"; then
             echo "ATP Project Plugin tests changed tracked plugin resources:"
-            git diff -- "$plugin_dir"
+            git diff -- "$ATP_PLUGIN_DIR"
             exit 1
           fi
 
@@ -157,14 +180,12 @@ jobs:
             agent_harness/public_plugins/auto_governance_engine
             agent_harness/projects/automated_testing_platform
           )
-
           for package_dir in "${package_dirs[@]}"; do
             git clean -fdx -- "$package_dir/dist" "$package_dir/package-lock.json"
             while IFS= read -r -d '' tracked_path; do
               git restore --source=HEAD --worktree -- "$tracked_path"
             done < <(git ls-files -z -- "$package_dir/dist" "$package_dir/package-lock.json")
           done
-
           git diff --check
           status="$(git status --porcelain --untracked-files=all)"
           if [[ -n "$status" ]]; then
