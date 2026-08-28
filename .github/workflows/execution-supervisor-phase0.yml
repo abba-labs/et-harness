@@ -28,7 +28,6 @@ jobs:
     timeout-minutes: 20
     env:
       PACKAGE_DIR: agent_harness/public_plugins/execution_supervisor
-      BASELINE_FILE: ${{ runner.temp }}/execution-supervisor-phase0-baseline.json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,15 +88,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          baseline_file="$RUNNER_TEMP/execution-supervisor-phase0-baseline.json"
           cd "$PACKAGE_DIR"
-          npm run benchmark -- --output "$BASELINE_FILE"
-          test -s "$BASELINE_FILE"
+          npm run benchmark -- --output "$baseline_file"
+          test -s "$baseline_file"
 
       - name: Validate generated baseline contract
         shell: bash
         run: |
           set -euo pipefail
-          node --input-type=module - "$BASELINE_FILE" <<'NODE'
+          baseline_file="$RUNNER_TEMP/execution-supervisor-phase0-baseline.json"
+          node --input-type=module - "$baseline_file" <<'NODE'
           import { readFileSync } from 'node:fs'
           import { validatePerformanceBaselineReport } from './agent_harness/public_plugins/execution_supervisor/dist/index.js'
           const file = process.argv[2]
