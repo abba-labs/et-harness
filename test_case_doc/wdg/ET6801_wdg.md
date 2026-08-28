@@ -15,7 +15,7 @@
 | Current SDK | et6x_wdg.h/.c；CRG相关动作由et6x_crg.c提供。 |
 | Machine Capability | pc/et_test_platform/profiles/chip_capabilities/et6801/ip/wdg.yaml。 |
 | Current-target validation input | ET6801 wdg_fpga_test.c + test_wdg.c；只作为设计/缺陷证据。 |
-| Current-SHA HIL | NOT_EXECUTED / NOT_VERIFIED。 |
+| Current-SHA FPGA HIL | `596c1a73b91f6af577b1b274d49c34f8d9fb823a`；14个逻辑Case，11 PASS / 3 FAIL / 0 SKIP。 |
 
 事实冲突按以下顺序裁决：
 
@@ -347,10 +347,10 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 |---|---|---|
 | WDG_P0_002 | ADAPTED | 当前FPGA HIL PASS。 |
 | WDG_P0_003 | ADAPTED | 当前FPGA HIL PASS。 |
-| WDG_P0_004 | NEEDS_VERIFICATION | SVD声明RESET_OUTPUT；已移除FPGA Capability屏蔽，待Formal HIL重跑。当前状态为NOT_EXECUTED，不得继续记为SKIP。 |
+| WDG_P0_004 | ADAPTED | Formal Case已执行；当前FPGA未观测到WDG超时形成系统复位，严格记录为HIL FAIL。 |
 | WDG_P1_001 | ADAPTED | Source级IRQ Service latch/event_count与自然超时Formal Case已实现。 |
 | WDG_P1_002 | ADAPTED | 当前FPGA HIL PASS；Early/Inside/Late均由COUNTER.CURRENT定位并验证自然IRQ。 |
-| WDG_P1_003 | NEEDS_VERIFICATION | SVD声明RESET_OUTPUT；已移除FPGA Capability屏蔽，待Formal HIL重跑。当前状态为NOT_EXECUTED，不得继续记为SKIP。 |
+| WDG_P1_003 | ADAPTED | Formal Case已执行；第一轮IRQ有效，但第二轮Reset Output未形成系统复位，严格记录为HIL FAIL。 |
 | WDG_P1_004 | ADAPTED | 当前FPGA手动与Formal HIL PASS；模块复位后WDG禁用且Counter恢复默认值，随后可重新配置和计数。 |
 | WDG_P1_005 | ADAPTED | LOCK/UNLOCK与完整配置readback已实现。 |
 | WDG_P1_006 | ADAPTED | Force API与Source级IRQ Service已实现。 |
@@ -360,9 +360,9 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 | WDG_P2_002 | ADAPTED | 当前FPGA HIL PASS；CPU NMI和WDG IRQ形成双证据，CPU首次交付后自动全屏蔽。 |
 | WDG_P3_001 | ADAPTED | 当前Run Config已提供可编程J-Link映射；真实Halt专项HIL为PASS，暂停使能与失能两轮Counter变化可明确区分。 |
 
-## 第七章 Current Review Conclusion
+## 第七章 Review Conclusion
 
-### 7.1 本轮重构结论
+### 7.1 重构结论
 
 1. 中断链被拆成Raw、有效Status、真实ISR Delivery和持久Record四层；Force不再冒充自然IRQ。
 2. 同轮IRQ+Reset不要求普通ISR先执行；current-target源码明确存在Reset抢在ISR前的风险，重连后的interrupt/reset双record更可靠。
@@ -371,19 +371,21 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 5. Window验证由固定delay升级为按实际COUNTER.CURRENT定位early/inside/late，并保留自然IRQ与完整reset两级证据。
 6. 真实系统reset、module reset、Debugger Halt、NMI route和Clock source均按Owner分层；WDG Service不跨IP接管CRG/CPU/Debugger。
 7. P2_001通过CRG Owner的测试读回扩展避开历史getter的错误源，并使用独立PC时间比例作为速率Oracle；正式SDK getter的历史问题仍独立记录，不污染WDG公共Case。2026-08-22增强HIL证明寄存器配置生效但Counter速率未体现分频，该结果按真实FAIL保留。
-8. 当前保留17个硬件Feature，14个Case均已实现；2026-08-28修复P1_004的CRG写保护事务并完成HIL后，当前结论为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED。P2_001保留真实FAIL，P0_004/P1_003等待Formal HIL。原F001/P0_001停止使用且ID不复用。
+8. 当前保留17个硬件Feature，14个Case均已实现；P1_004的CRG写保护事务已修复并通过。最新全量HIL为11 PASS / 3 FAIL / 0 SKIP：P0_004、P1_003未观测到系统复位，P2_001分频速率不符合预期。原F001/P0_001停止使用且ID不复用。
 
-### 7.2 当前状态
+### 7.2 2026-08-22 历史状态快照
+
+以下内容只保留2026-08-22当次评审和dirty工作树证据，不代表当前测试状态；当前结论只读取文末唯一`ET_CHIP_TEST_STATUS`区域。
 
 ```text
 WDG Public Features: 17 active (WDG_F_001 retired, ID not reused)
-WDG ET_CASE_SPEC: 14 / IMPLEMENTED / CURRENT=11 PASS + 1 FAIL + 0 SKIP + 2 NOT_EXECUTED
+WDG ET_CASE_SPEC: 14 / IMPLEMENTED / HISTORICAL=11 PASS + 1 FAIL + 0 SKIP + 2 NOT_EXECUTED
 Remaining ET_CASE_PLAN: 0
 Formal Case Registry / test_wdg_p*.py: IMPLEMENTED
 PC Driver / Firmware Service / Common Wrap: IMPLEMENTED
 Machine Capability semantic mapping: PARTIAL
 Repository-native scoped document gate: PENDING AT DOCUMENT-WRITE TIME
-Current classification: 14 logical Cases / 11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED
+Historical classification: 14 logical Cases / 11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED
 FAIL Cases: WDG_P1_004, WDG_P2_001
 NOT_EXECUTED Cases: WDG_P0_004, WDG_P1_003 / capability correction requires a fresh Formal HIL run
 FAIL Reasons: P1_004 module reset leaves WDG enabled and counting; P2_001 divider readback is correct but Counter rate does not follow the SVD-defined /1 versus /2 relationship
