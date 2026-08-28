@@ -1,0 +1,148 @@
+name: Execution Supervisor Phase 0 Contracts
+
+on:
+  push:
+    branches:
+      - feat/execution-supervisor-phase0-contracts-v0.1
+    paths:
+      - 'agent_harness/public_plugins/execution_supervisor/**'
+      - '.github/workflows/execution-supervisor-phase0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'agent_harness/public_plugins/execution_supervisor/**'
+      - '.github/workflows/execution-supervisor-phase0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: execution-supervisor-phase0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts-and-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PACKAGE_DIR: agent_harness/public_plugins/execution_supervisor
+      BASELINE_FILE: ${{ runner.temp }}/execution-supervisor-phase0-baseline.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enforce Phase 0 public boundary
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$(git merge-base HEAD origin/main)"
+          fi
+          test -n "$base_sha"
+          mapfile -t changed < <(git diff --name-only "$base_sha" HEAD)
+          printf 'Changed paths:\n%s\n' "${changed[*]:-<none>}"
+          for path in "${changed[@]}"; do
+            case "$path" in
+              agent_harness/public_plugins/execution_supervisor/*|.github/workflows/execution-supervisor-phase0.yml)
+                ;;
+              *)
+                echo "Phase 0 changed an existing public package or unrelated path: $path"
+                exit 1
+                ;;
+            esac
+          done
+          git diff --check "$base_sha" HEAD
+
+      - name: Install focused package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Run contract and negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          npm test
+
+      - name: Build contract package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          npm run build
+
+      - name: Capture current performance baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          npm run benchmark -- --output "$BASELINE_FILE"
+          test -s "$BASELINE_FILE"
+
+      - name: Validate generated baseline contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - "$BASELINE_FILE" <<'NODE'
+          import { readFileSync } from 'node:fs'
+          import { validatePerformanceBaselineReport } from './agent_harness/public_plugins/execution_supervisor/dist/index.js'
+          const file = process.argv[2]
+          const payload = JSON.parse(readFileSync(file, 'utf8'))
+          const result = validatePerformanceBaselineReport(payload)
+          if (!result.valid) {
+            console.error(JSON.stringify(result.issues, null, 2))
+            process.exit(1)
+          }
+          console.log('EXECUTION_SUPERVISOR_PHASE0_BASELINE_CONTRACT=PASS')
+          NODE
+
+      - name: Require no project business terms in public contract source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          root = Path('agent_harness/public_plugins/execution_supervisor/src')
+          text = '\n'.join(path.read_text(encoding='utf-8') for path in sorted(root.glob('*.ts')))
+          forbidden = ('ATP', 'ET6801', 'eTimer', 'MCU')
+          found = [term for term in forbidden if term in text]
+          if found:
+              raise SystemExit(f'Project/domain terms leaked into public contracts: {found}')
+          print('EXECUTION_SUPERVISOR_PHASE0_GENERIC_CONTRACTS=PASS')
+          PY
+
+      - name: Require a clean tracked worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clean -fdx -- "$PACKAGE_DIR/dist" "$PACKAGE_DIR/package-lock.json"
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            echo "Phase 0 validation left unexpected worktree changes:"
+            echo "$status"
+            git diff
+            exit 1
+          fi
+
+      - name: Upload Phase 0 performance baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-supervisor-phase0-baseline
+          path: ${{ runner.temp }}/execution-supervisor-phase0-baseline.json
+          if-no-files-found: error
+          retention-days: 30
