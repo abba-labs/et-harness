@@ -58,7 +58,8 @@ describe('ATP Context Contributor compiler integration', () => {
     )).toBe(true)
     expect(compiled.rule_owners.map(item => item.owner_id)).toEqual(
       expect.arrayContaining([
-        'public_ip_semantics_and_chip_adaptation',
+        'public_ip_semantics',
+        'public_chip_neutrality',
         'contract_document_sync',
         'public_ip_machine_contract',
         'canonical_result_evidence',
