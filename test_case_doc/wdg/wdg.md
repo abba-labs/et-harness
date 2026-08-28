@@ -1141,7 +1141,7 @@ cases:
 
 | Chip | Feature适配状态 | Case适配状态 | 主要Gap | 详细分析 |
 |---|---:|---:|---|---|
-| ET6801 | ADAPTED=12; MAPPING_GAP=2; NEEDS_VERIFICATION=3 | ADAPTED=11; MAPPING_GAP=1; NEEDS_VERIFICATION=2 | 2026-08-28修复模块复位驱动并完成HIL后为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED；P2_001保持映射Gap，P0_004/P1_003待重跑 | `ET6801_wdg.md` |
+| ET6801 | ADAPTED=12; MAPPING_GAP=2; NEEDS_VERIFICATION=3 | ADAPTED=13; MAPPING_GAP=1 | 14个Formal Case均已执行；当前FPGA为11 PASS / 3 FAIL / 0 SKIP。P0_004、P1_003的Reset Output未形成系统复位，P2_001的Counter速率未体现Divider效果 | `ET6801_wdg.md` |
 
 ## 5. Common Gap / Evolution
 
