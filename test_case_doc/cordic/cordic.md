@@ -1637,7 +1637,7 @@ gap:
 | `cordic_zero_overhead_atomicity_gap` | CLOSED | CORDIC Test Extension保存/恢复调用者PRIMASK，Wrap只调用该Driver入口；P3_003已完成受控Pending隔离。 |
 | `cordic_current_pm_helper_bug` | OPEN | 目标Chip SDK的整数PM零开销Helper修复错误输入端点/参数模型，或公共Wrap明确不调用该Helper并由受测路径证明。 |
 | `cordic_request_capacity_mapping_gap` | OPEN | 明确多函数连续请求可安全提交/消费的容量和顺序协议，不把历史“parallel”测试代码当规格。 |
-| `cordic_dma_execution_mapping_gap` | OPEN | 当前Chip资料给出CORDIC DMA Request ID、方向、端点和DMA Channel映射；禁止沿用旧Revision ID。当前映射缺失只影响运行期可执行性，不影响Case实现状态。 |
+| `cordic_dma_execution_mapping_gap` | PARTIAL / HIL_FAIL | 当前Chip必须提供CORDIC DMA Request ID、方向、端点和DMA Controller/Interface映射；禁止沿用未审核的旧Revision ID。ET6801已完成Mapping并执行真实HIL，但DMA Channel未完成，具体失败只记录在芯片适配文档。 |
 | `cordic_dma_driver_mode_gap` | CLOSED | CORDIC稳定Config/WorkMode接口已支持DMA选择，Case只通过Driver/Service/Wrap调用，不直接写Raw控制位。 |
 | `cordic_reset_execution_mapping_gap` | CLOSED | CRG专属Driver/Service/Wrap已提供CORDIC复位映射，P0_004由PC Case跨IP编排复位后重新配置。 |
 | `cordic_timing_observer_mapping_gap` | CLOSED | CORDIC Test Extension在目标侧DWT边界内返回周期结果，P3_002只消费稳定Cycle Count。 |

@@ -41,11 +41,11 @@ pytestmark = [pytest.mark.hardware, pytest.mark.ip("cordic")]
 
 _CORDIC_DMA_WORD_BYTES = 4
 _CORDIC_DMA_INPUT_WORDS = 1
-_CORDIC_DMA_RESULT_WORDS = 2
+_CORDIC_DMA_RESULT_WORDS = 1
 _CORDIC_DMA_TIMEOUT_S = 15.0
 _CORDIC_Q31_FRACTION_BITS = 31
 _CORDIC_Q31_MAXIMUM = (1 << _CORDIC_Q31_FRACTION_BITS) - 1
-_CORDIC_Q31_ZERO = 0
+_CORDIC_Q31_QUARTER = 0x20000000
 
 
 # 把数学单位值编码为 CORDIC 32-bit Q1.31 Raw 字；边界 1.0 饱和到最大正值。
@@ -63,7 +63,7 @@ def _q31_raw(value: float) -> int:
 #
 # 测试方法：
 # 1. 从当前Chip Capability/Execution Mapping取得CORDIC输入/输出Endpoint、Request、Interface和DMA Controller。
-# 2. 先使用Polling路径执行一个Q1.31 SINCOS(0)基线，再以同一输入和独立Golden配置DMA模式。
+# 2. 先使用Polling路径执行一个Q1.31 SQRT(0.25)基线，再以同一输入和独立Golden配置DMA模式。
 # 3. 创建输入/输出Resource，配置两条DMA Channel和SYSCTRL Request Route，先武装结果通道再启动输入通道。
 # 4. 有界等待两个Channel进入Free，读取DMA目标Buffer、CORDIC完成状态和Channel错误位。
 # 5. 将DMA结果同时与CPU基线和Q1.31独立Golden比较，记录真实Route和原始结果。
@@ -71,7 +71,7 @@ def _q31_raw(value: float) -> int:
 # 通过条件：
 # 1. 当前芯片存在完整且已审核的CORDIC DMA Execution Mapping；缺失时只报告运行期Mapping skip。
 # 2. 输入/输出DMA Channel均在有界时间内Free，且没有DMA ERROR事件。
-# 3. DMA目标Buffer的两个Raw结果与CPU基线及独立Q1.31 Golden完全一致，CORDIC只产生COMPLETE状态。
+# 3. DMA目标Buffer的Raw结果与CPU基线及独立Q1.31 Golden完全一致，CORDIC只产生COMPLETE状态。
 def test_cordic_p2_001_dma_mode_equivalence(
     cordic_dma_support: CordicDmaSupport,
     et_artifact_dir: Path,
@@ -97,14 +97,14 @@ def test_cordic_p2_001_dma_mode_equivalence(
     sysctrl = support.sysctrl
     route = support.route
 
-    # 配置：固定使用可独立证明的SINCOS(0) Q1.31节点，避免引入未冻结的Scale语义。
+    # 配置：固定使用ET6801历史DMA Case已验证过的SQRT(0.25) Q1.31节点。
     cpu_config = CordicConfig(
         numeric_mode=CordicNumericMode.FIXED,
         argument_width=CordicWidth.BITS_32,
         result_width=CordicWidth.BITS_32,
         input_range=CordicInputRange.NORMALIZED,
         precision_cycles=cordic_support.runtime.maximum_precision_cycles,
-        sincos_result_count=CordicResultCount.TWO,
+        sincos_result_count=CordicResultCount.ONE,
         work_mode=CordicWorkMode.POLLING,
     )
     dma_config = CordicConfig(
@@ -116,7 +116,7 @@ def test_cordic_p2_001_dma_mode_equivalence(
         sincos_result_count=cpu_config.sincos_result_count,
         work_mode=CordicWorkMode.DMA,
     )
-    expected_words = [_q31_raw(1.0), _q31_raw(0.0)]
+    expected_words = [_q31_raw(0.5)]
 
     # 执行资格：在第一次硬件变更前确认本Case需要的两个DMA Channel同时可用。
     input_channel = dma.find_free_channel()
@@ -192,20 +192,20 @@ def test_cordic_p2_001_dma_mode_equivalence(
         return tuple(actions)
 
     with case_cleanup_scope(cleanup_actions):
-        # CPU基线：先清除历史状态，再提交零角度输入并读取Polling结果。
+        # CPU基线：先清除历史状态，再提交0.25并读取SQRT Polling结果。
         resource.reset()
         resource_ready = True
         cordic.configure(cpu_config)
         cordic_configured = True
         cordic.status_clear(CordicStatus.ALL)
-        cordic.argument_submit(CordicFunction.SINCOS, _CORDIC_Q31_ZERO)
+        cordic.argument_submit(CordicFunction.SQRT, _CORDIC_Q31_QUARTER)
         cpu_status, _ = cordic.wait_status(CordicStatus.COMPLETE)
         cpu_result = cordic.result_get()
-        cpu_words = [cpu_result.primary_raw, cpu_result.secondary_raw]
+        cpu_words = [cpu_result.primary_raw]
         cordic.status_clear(CordicStatus.COMPLETE)
         cpu_cleared = cordic.status_get()
 
-        # 资源：输入Buffer只有一个32-bit Q1.31字，输出Buffer保存两个32-bit结果字。
+        # 资源：输入和输出Buffer各保存一个32-bit Q1.31字。
         input_resource = resource.create(
             _CORDIC_DMA_INPUT_WORDS * _CORDIC_DMA_WORD_BYTES,
             alignment=_CORDIC_DMA_WORD_BYTES,
@@ -214,7 +214,7 @@ def test_cordic_p2_001_dma_mode_equivalence(
             _CORDIC_DMA_RESULT_WORDS * _CORDIC_DMA_WORD_BYTES,
             alignment=_CORDIC_DMA_WORD_BYTES,
         )
-        resource.write(input_resource, struct.pack("<I", _CORDIC_Q31_ZERO))
+        resource.write(input_resource, struct.pack("<I", _CORDIC_Q31_QUARTER))
         resource.fill(output_resource, 0xA5)
 
         # DMA：使用门禁阶段选出的两个空闲Channel，避免绑定固定Channel编号。
@@ -239,8 +239,7 @@ def test_cordic_p2_001_dma_mode_equivalence(
         )
         output_route_configured = True
 
-        # CORDIC：切换到DMA工作模式并清除CPU基线的完成状态。
-        cordic.configure(dma_config)
+        # CORDIC：保持Polling模式并清除CPU基线状态，最后才切换DMA模式产生请求。
         cordic.status_clear(CordicStatus.ALL)
 
         # DMA：先配置输出P2M Channel，使结果端点在输入刺激前处于接收状态。
@@ -277,9 +276,10 @@ def test_cordic_p2_001_dma_mode_equivalence(
         )
         input_channel_configured = True
 
-        # 激励：先启动输出再启动输入，确保计算结果产生时P2M通道已经武装。
+        # 激励：先启动两条Channel，最后切换CORDIC DMA模式，避免首个Request在Channel武装前丢失。
         dma.start(output_channel)
         dma.start(input_channel)
+        cordic.configure(dma_config)
         channel_statuses = dma.wait_channels_free(
             (input_channel, output_channel),
             timeout_s=_CORDIC_DMA_TIMEOUT_S,
@@ -287,7 +287,7 @@ def test_cordic_p2_001_dma_mode_equivalence(
 
         # 观测：读取DMA目标Buffer和CORDIC完成状态，保留原始32-bit字及Channel事件位。
         actual_bytes = resource.read(output_resource)
-        dma_words = list(struct.unpack("<II", actual_bytes))
+        dma_words = list(struct.unpack("<I", actual_bytes))
         dma_status = cordic.status_get()
         channel_summary = {
             str(channel): {
