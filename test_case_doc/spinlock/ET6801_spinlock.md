@@ -2,7 +2,7 @@
 
 > 本文件只记录 ET6801 SPINLOCK 的硬件、寄存器、Driver、历史测试和公共契约适配事实。
 > 公共 Feature、Case、Oracle 和稳定接口以同目录 `spinlock.md` 为唯一权威来源。
-> 当前已实现11个SPINLOCK Formal Case和ET6801双Core Peer映射，但尚无本次P2/P3当前SHA硬件运行证据；源码、编译和历史日志均不能升级为当前PASS。
+> 当前已实现11个SPINLOCK Formal Case和ET6801双Core Peer映射。2026-08-28正式FPGA双核流程在提交`ba1304b`上完成15个参数化执行，结果15 PASS、0 FAIL、0 SKIP。
 
 # 第一章 IP分析与Source Coverage
 
@@ -12,7 +12,7 @@
 Target chip  = ET6801
 Target IP    = SPINLOCK
 Source SHA   = 5fffa0312a9a7317a933f2205a5efa85205de12e
-Hardware run = NOT_EXECUTED
+Hardware run = FPGA PASS, 2026-08-28 20:20 CST
 
 ET6801 SVD / current generated header
   > ET6801 current SDK Driver
@@ -35,7 +35,7 @@ ET6801 SVD / current generated header
 | ET6801 test log | `<et6801-verification>/DFP/Test/TestLog/spinlock_testcase.log` | FOUND | Target Historical Log；有Core0/Core1 Case编号输出，但对应Case源码未找到，不能精确映射。 |
 | ET6003/ET3101 source | `D:/lihuan/vibe_code/code/SDK/git/{6003,3101}` | FOUND | Family Reference Only；确认双Core交接、临界区和共享资源测试思想。 |
 | current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/spinlock.yaml` | FOUND | 已表达实例、Base、模式、Resource/Process数量及Batch、Global、Clear Key能力；Resource数量证据来自`SL_LOCK_INFO_ARRAY`寄存器数组。 |
-| current platform code | `firmware/{wrap,services}`、`pc/et_test_platform/{drivers,test_cases}` | FOUND | 已实现SDK测试扩展、公共Wrap/Service、PC Driver和11个Formal Case；尚未形成P2/P3当前SHA硬件结论。 |
+| current platform code | `firmware/{wrap,services}`、`pc/et_test_platform/{drivers,test_cases}` | FOUND | 已实现SDK测试扩展、公共Wrap/Service、PC Driver和11个Formal Case；正式FPGA双核流程已形成当前提交硬件结论。 |
 
 ET6801 G盘登记资料与本地SDK镜像中的目标SVD、Driver和FPGA测试源码已定向核对；关键文件内容一致。没有对整个SDK或文档库做无目标全量扫描。
 
@@ -64,11 +64,11 @@ Batch Release按当前Master释放其全部Resource；Global Release忽略Master
 | Global Release | VERIFIED | `CFG_SL_GLOBAL_LOCK_CLR` | 正确Key忽略Master清除全部64个Resource，只用于初始化。 |
 | Clear Key保护 | VERIFIED | 两个Key字段描述 | 只有目标Key执行Clear；错误Key不应产生清除。 |
 | Try有界返回 | DRIVER_VERIFIED | current Driver | Try循环上限1000，竞争时返回Timeout；这是Driver策略，不是硬件超时器。 |
-| 双Core阻塞交接 | CODE_ONLY | ET6801 FPGA source | 一步模式示例由Core0持锁后启动Core1，延时释放后Core1获取；无结构化断言。 |
+| 双Core阻塞交接 | HIL_VERIFIED | 当前正式FPGA双核运行 | Core0/Peer交接、WAITING/HOLDING和Owner读回均由Formal Case验证。 |
 | 两步双Core交接 | CODE_ONLY | ET6801 FPGA source | 两步模式源码存在但入口被注释，不能视为执行证据。 |
-| 临界区互斥压力 | RETAINED_WITH_STRONGER_ORACLE | ET6003/ET3101 source | 当前P3 Formal Case使用共享计数与违规计数形成严格Oracle；仍待ET6801 HIL。 |
+| 临界区互斥压力 | HIL_VERIFIED | 当前正式FPGA双核运行 | P3 Formal Case使用共享计数与违规计数形成严格Oracle并已通过。 |
 | IRQ/DMA | NOT_APPLICABLE | ET6801 SVD/Driver | 当前SPINLOCK无IRQ和DMA寄存器或API。 |
-| 自动化平台实现 | IMPLEMENTED_NOT_VERIFIED | current tree定向检索 | Capability、SDK测试扩展、Wrap、Service、PC Driver和11个Formal Case已闭合；P2/P3硬件状态仍为NOT_EXECUTED。 |
+| 自动化平台实现 | FPGA_VERIFIED | current tree与当前HIL证据 | Capability、SDK测试扩展、Wrap、Service、PC Driver和11个Formal Case已闭合；FPGA参数化执行15 PASS。 |
 
 # 第二章 Driver分析
 
@@ -225,8 +225,8 @@ ET6003/ET3101资料复现了以下稳定测试思想：一步/两步双Core交�
 1. 已完成Capability语义、SDK测试扩展、芯片中立Wrap/Service/PC Driver和11个Formal Case；
 2. 已实现带WAITING/HOLDING/ACK/Abort语义的Core1 Peer Job及AXI SRAM1共享计数映射；
 3. 已完成Core0 FPGA/Silicon与Core1 ITCM/PFLASH双目标编译；
-4. 下一步经人工硬件门部署双核映像，先验证Peer Master映射，再执行P2/P3 HIL；
-5. FPGA与Silicon结果分别记录，禁止互相继承PASS。
+4. 已通过正式Pipeline部署Core0 PFLASH固件和Core1 ITCM Peer，并验证Peer Mailbox；
+5. 已完成FPGA P0~P3 HIL；Silicon结果仍须独立验证，禁止继承FPGA PASS。
 
 ### 6.2 当前覆盖结论
 
@@ -240,7 +240,7 @@ Public Feature: 14
 Formal Case: 11
 - PLAN: 0
 - SPEC: 11
-- FPGA PASS/FAIL/SKIP: 0/0/0
+- FPGA PASS/FAIL/SKIP: 11/0/0（15个参数化执行全部PASS）
 - Silicon PASS/FAIL/SKIP: 0/0/0
 
 External wiring required: 0
@@ -250,7 +250,7 @@ On-chip peer required: P2_001..P3_001
 ### 6.3 剩余风险
 
 - 历史`test_case0..20`的对应源码缺失，尚不能证明公共11个Case已完全覆盖所有历史原子Feature；找回源码后必须重新做Source Item Trace。
-- ET6801 Core0/Core1到SPINLOCK硬件Master ID的代码映射已完成，但P2/P3首次HIL必须先验证两个Master ID不同且Owner读回一致。
-- AXI SRAM1共享区使用volatile和DMB/DSB，首次P3 HIL仍需用共享计数理论值验证该可见性策略。
+- ET6801 Core0/Core1到SPINLOCK硬件Master ID的映射已由P2 Formal Case验证；Silicon仍需独立取证。
+- AXI SRAM1共享区的volatile和DMB/DSB策略已由FPGA P3共享计数验证；Silicon Cache/总线行为仍需独立取证。
 - SVD明确Owner语义，但Owner信息读取本身可能对空闲Resource产生Acquire副作用；实现测试Driver时必须避免把“观测”误做成“刺激”。
-- 当前新增实现尚未执行硬件测试，本文件不能用`SUPPORTED`或软件门禁替代FPGA或Silicon PASS。
+- 当前FPGA证据：`artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/session.json`；Silicon尚无PASS证据。
