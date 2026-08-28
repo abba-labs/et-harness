@@ -32,6 +32,8 @@ jobs:
           fetch-depth: 0
       - name: Verify test-branch and public Harness boundary
         shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = "test/automated-testing-platform-harness-integration-v0.1" || \
@@ -45,7 +47,15 @@ jobs:
           test -f agent_harness/projects/automated_testing_platform/project.yaml
           test -f MIGRATION_SOURCE.json
 
-          git diff --quiet e9e3affb537113b43d15fbe71b222b213f4410d9 HEAD -- \
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            public_base="$PR_BASE_SHA"
+          else
+            public_base="$(git merge-base HEAD origin/project/automated-testing-platform)"
+          fi
+          test -n "$public_base"
+          echo "Checking project-only boundary from $public_base to $GITHUB_SHA"
+
+          git diff --quiet "$public_base" HEAD -- \
             agent_harness/governance_core \
             agent_harness/project_contract \
             agent_harness/public_plugins \
