@@ -1,0 +1,49 @@
+contract_version: "0.1"
+
+project:
+  id: et-automated-testing-platform
+  name: ET Automated Testing Platform
+  type: governed-existing-project
+  aliases:
+    - automated-testing-platform
+    - automated_testing_platform
+    - ET Automated Testing Platform
+    - ATP
+    - 自动化测试平台
+  description: Existing project exposed to ET Harness through a minimal data-only Project Plugin.
+
+root:
+  markers:
+    - AGENTS.md
+    - pyproject.toml
+    - project-governance/system-map.yaml
+    - report/design/rule_owner_catalog.yaml
+    - agent_harness/projects/automated_testing_platform/project.yaml
+
+resources:
+  architecture:
+    path: agent_harness/projects/automated_testing_platform/architecture/
+    standard: architecture-v0.1
+  rules:
+    path: agent_harness/projects/automated_testing_platform/rules/
+    standard: rule-v0.1
+  knowledge:
+    path: agent_harness/projects/automated_testing_platform/knowledge/
+    standard: knowledge-v0.1
+  gates:
+    path: agent_harness/projects/automated_testing_platform/gates/
+    standard: gate-v0.1
+
+adapters: {}
+
+metadata:
+  adapter_kind: data-only-project-plugin
+  constitution: AGENTS.md
+  system_map: project-governance/system-map.yaml
+  rule_catalog: report/design/rule_owner_catalog.yaml
+  task_context_compiler: tools/governance/compile_task_context.py
+  harness_repository: abba-labs/et-harness
+  long_lived_project_branch: project/automated-testing-platform
+  test_baseline_revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+  imported_project_revision: 25f96e9bfd82562a6ae0b99d5ec6330ea4089d2a
+  legacy_wrap_source_branch: integration/harness-project-plugin-adapter-v0.1

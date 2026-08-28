@@ -1,0 +1,11 @@
+version: 1
+patches:
+  - id: agent-harness-project-automated-testing-platform
+    lifecycle: ready
+    entry: ./dist/src/index.js
+    description: Automated Testing Platform data-only Project Plugin
+    dependencies:
+      - '@agent-harness/project-manager'
+    permissions:
+      - id: project.assets.read
+        description: Read ATP Project Contract resources and project references
