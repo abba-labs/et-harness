@@ -15,8 +15,15 @@ new_helper = '''    count = text.count(old)
         and old.startswith("  readonly route: AutoGovernanceRouteSnapshot")
         and count in {1, 2}
     )
-    if count != 1 and not repeated_contract_route:
-        raise SystemExit(f"{relative}: expected one replacement, found {count}")
+    repeated_service_route = (
+        relative.endswith("auto_governance_engine/src/service.ts")
+        and old.startswith("      route: runtime.route")
+        and count in {1, 2}
+    )
+    if count != 1 and not repeated_contract_route and not repeated_service_route:
+        raise SystemExit(
+            f"{relative}: expected one replacement, found {count}; marker={old[:120]!r}"
+        )
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 '''
 if text.count(old_helper) != 1:
