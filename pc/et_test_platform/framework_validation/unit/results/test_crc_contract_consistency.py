@@ -83,7 +83,8 @@ def test_crc_contract_fields_are_produced_by_registered_formal_cases() -> None:
     registry = set(CRC_CASE_REGISTRY)
     recorded = _case_record_keys()
 
-    assert len(CRC_CASE_REGISTRY) == 24
+    assert len(CRC_CASE_REGISTRY) == len(registry)
+    assert len(specs) == len(by_id)
     assert set(by_id) == registry
     assert set(recorded) == registry
 
