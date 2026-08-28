@@ -435,4 +435,4 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 | `STIMER_P2_003` | FAIL | Debugger绑定已闭合，PAUSE和RUN_FREE下Counter均继续推进。 |
 | `STIMER_P3_001` | SKIP | 长时稳定性需要独立参考时钟、事件输出观测和稳定供电Bench接线。 |
 
-历史Full HIL的5个SKIP保留为原始Runner事实；当前有效分类为1个NOT_EXECUTED、3个物理Bench SKIP和1个FAIL。
+历史Full HIL的5个SKIP保留为原始Runner事实；2026-08-26当时复核分类为1个NOT_EXECUTED、3个物理Bench SKIP和1个FAIL。后续全量执行结果以本文件唯一“当前芯片测试状态”区域为准。
