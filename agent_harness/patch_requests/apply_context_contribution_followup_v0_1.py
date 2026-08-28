@@ -7,8 +7,30 @@ def replace_once(path_value: str, old: str, new: str) -> None:
     text = path.read_text(encoding="utf-8")
     count = text.count(old)
     if count != 1:
-        raise SystemExit(f"{path_value}: expected one replacement, found {count}")
+        raise SystemExit(
+            f"{path_value}: expected one replacement, found {count}; marker={old[:100]!r}"
+        )
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+def replace_between(
+    path_value: str,
+    start_marker: str,
+    end_marker: str,
+    replacement: str,
+) -> None:
+    path = Path(path_value)
+    text = path.read_text(encoding="utf-8")
+    start_count = text.count(start_marker)
+    end_count = text.count(end_marker)
+    if start_count != 1 or end_count < 1:
+        raise SystemExit(
+            f"{path_value}: range marker mismatch start={start_count} end={end_count}; "
+            f"start_marker={start_marker!r} end_marker={end_marker!r}"
+        )
+    start = text.index(start_marker)
+    end = text.index(end_marker, start)
+    path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
 
 
 manager = "agent_harness/public_plugins/context_builder/src/context-management-service.ts"
@@ -40,27 +62,10 @@ replace_once(
 )
 
 service = "agent_harness/public_plugins/auto_governance_engine/src/service.ts"
-replace_once(
+replace_between(
     service,
-    """    if (phase === 'analysis' || runtime.contextContributions.length === 0) {
-      runtime.contextContributions = resolveDeclaredProjectContextContributions({
-        project,
-        request: {
-          schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
-          projectId: runtime.projectId,
-          taskId: runtime.taskId,
-          rawTask: runtime.goal,
-          phase,
-          workspacePath: project.projectRoot,
-          initialRoute: route,
-        },
-        providers: this.runtimeContext.governanceCatalog.listProviders(
-          PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
-        ),
-        serviceLookup: serviceName => this.dynamicContext().get(serviceName),
-      })
-    }
-""",
+    "    if (phase === 'analysis' || runtime.contextContributions.length === 0) {",
+    "    const contributionReferences = mergeContributionReferences(runtime.contextContributions)",
     """    const hasDeclaredContextContributor = Object.values(project.adapters).some(
       adapter => adapter.capability === PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
     )
@@ -84,14 +89,10 @@ replace_once(
       : []
 """,
 )
-replace_once(
+replace_between(
     service,
-    """    this.runtimeContext.contextManager.replaceInlineItems(
-      runtime.projectId,
-      runtime.taskId,
-      mergeContributionInlineItems(runtime.contextContributions),
-    )
-""",
+    "    this.runtimeContext.contextManager.replaceInlineItems(",
+    "    if (replaceWorkingSet) {",
     """    const existingInlineItems =
       this.runtimeContext.contextManager.getTask(runtime.projectId, runtime.taskId).session.inlineItems ?? []
     const contributionInlineItems = mergeContributionInlineItems(runtime.contextContributions)
@@ -115,7 +116,7 @@ replace_once(
   return uniqueStrings(values.map((value, index) => singleLine(`readScope[${index}]`, value, 1_000)))
 }
 """,
-    """const READ_SCOPE_URI_RE = /^(?:source|project|knowledge|evidence|runtime|provider):\/\/\S+$/
+    r"""const READ_SCOPE_URI_RE = /^(?:source|project|knowledge|evidence|runtime|provider):\/\/\S+$/
 
 const safeReadScopeEntry = (label: string, value: unknown): string => {
   const normalized = singleLine(label, value, 1_000).replaceAll('\\', '/')
