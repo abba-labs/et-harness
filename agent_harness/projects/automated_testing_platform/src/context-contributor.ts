@@ -182,15 +182,30 @@ const resolveChipId = (
   for (const chipId of chipIds) {
     for (const alias of chipAliases(chipId)) {
       const escaped = escapeRegExp(alias)
-      const before = new RegExp(
-        `(?:^|[^a-z0-9])${escaped}\\s*(?:芯片|chip|soc)(?=$|[^a-z0-9])`,
+      const chineseBefore = new RegExp(
+        `(?:^|[^a-z0-9])${escaped}\\s*芯片`,
         'i',
       )
-      const after = new RegExp(
-        `(?:芯片|chip|soc)\\s*${escaped}(?=$|[^a-z0-9])`,
+      const englishBefore = new RegExp(
+        `(?:^|[^a-z0-9])${escaped}\\s*(?:chip|soc)(?=$|[^a-z0-9])`,
         'i',
       )
-      if (before.test(lower) || after.test(lower)) return chipId
+      const chineseAfter = new RegExp(
+        `芯片\\s*${escaped}(?=$|[^a-z0-9])`,
+        'i',
+      )
+      const englishAfter = new RegExp(
+        `(?:chip|soc)\\s*${escaped}(?=$|[^a-z0-9])`,
+        'i',
+      )
+      if (
+        chineseBefore.test(lower)
+        || englishBefore.test(lower)
+        || chineseAfter.test(lower)
+        || englishAfter.test(lower)
+      ) {
+        return chipId
+      }
     }
   }
   return undefined
