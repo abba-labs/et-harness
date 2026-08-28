@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  candidateRelatedResourceIds,
   compactReviewFileSummary,
   isBuildOrTestInvocation,
   isMutationInvocation,
@@ -28,6 +29,15 @@ describe('host-independent Auto Governance action classification', () => {
     expect(isProductBuildInvocation('bash', { command: 'devenv ET-TOOL.sln /Build Release' })).toBe(true)
     expect(isProductBuildInvocation('bash', { command: 'nmake /f Makefile' })).toBe(true)
     expect(isBuildOrTestInvocation('search', { query: 'build system' })).toBe(false)
+  })
+
+  it('expands only explicit cross-resource relations for missing route classes', () => {
+    const candidates = [
+      { id: 'A010', metadata: { relations: ['R010', 'K001', 'G010', 'not-an-id'] } },
+      { id: 'R010.020', metadata: { refs: ['K001.003', 'G010.010.010', 'A010'] } },
+    ] as any
+    expect(candidateRelatedResourceIds(candidates, 'K')).toEqual(['K001', 'K001.003'])
+    expect(candidateRelatedResourceIds(candidates, 'G')).toEqual(['G010', 'G010.010.010'])
   })
 
   it('keeps review handle summaries inside the Context Lint budget', () => {

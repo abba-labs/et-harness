@@ -67,6 +67,33 @@ const unique = (values: readonly string[]): string[] =>
 const candidateIds = (candidates: readonly ProjectCandidateResult[]): string[] =>
   unique(candidates.map(candidate => candidate.id))
 
+export const candidateRelatedResourceIds = (
+  candidates: readonly ProjectCandidateResult[],
+  prefix: 'A' | 'R' | 'K' | 'G',
+): string[] => {
+  const pattern = new RegExp(`^${prefix}\\d{3}(?:\\.\\d{3})*$`)
+  return unique(candidates.flatMap(candidate => {
+    const metadata = recordOf(candidate.metadata)
+    return [metadata?.refs, metadata?.relations].flatMap(value =>
+      Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string')
+        : [],
+    )
+  })).filter(id => pattern.test(id))
+}
+
+const mergeCandidateResults = (
+  direct: readonly ProjectCandidateResult[],
+  related: readonly ProjectCandidateResult[],
+  limit: number,
+): ProjectCandidateResult[] => {
+  const merged = new Map<string, ProjectCandidateResult>()
+  for (const candidate of [...direct, ...related]) {
+    if (!merged.has(candidate.id)) merged.set(candidate.id, candidate)
+  }
+  return [...merged.values()].slice(0, Math.max(1, limit))
+}
+
 const normalizedPath = (value: string): string => {
   const full = resolve(value)
   return process.platform === 'win32' ? full.toLowerCase() : full
@@ -512,8 +539,17 @@ export class AutoGovernanceEngineService extends Service {
     const request = { projectId: runtime.projectId, query, scope: { taskId: runtime.taskId }, limit: 8 }
     const architecture = this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, limit: 6 })
     const rules = this.runtimeContext.ruleManager.searchRules({ ...request, limit: 10 })
-    const knowledge = this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 })
-    const gates = this.runtimeContext.gateManager.searchGates({ ...request, limit: phase === 'implementation' ? 24 : 8 })
+    const directKnowledge = this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 })
+    const directGates = this.runtimeContext.gateManager.searchGates({ ...request, limit: phase === 'implementation' ? 24 : 8 })
+    const relationSources = [...architecture, ...rules]
+    const relatedKnowledge = candidateRelatedResourceIds(relationSources, 'K').flatMap(id =>
+      this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, query: id, limit: 1 }),
+    )
+    const relatedGates = candidateRelatedResourceIds(relationSources, 'G').flatMap(id =>
+      this.runtimeContext.gateManager.searchGates({ ...request, query: id, limit: 1 }),
+    )
+    const knowledge = mergeCandidateResults(directKnowledge, relatedKnowledge, 8)
+    const gates = mergeCandidateResults(directGates, relatedGates, phase === 'implementation' ? 24 : 8)
     const route: AutoGovernanceRouteSnapshot = {
       architectureIds: candidateIds(architecture),
       ruleIds: candidateIds(rules),
