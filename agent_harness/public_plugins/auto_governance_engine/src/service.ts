@@ -8,7 +8,7 @@ import '@agent-harness/knowledge-manager'
 import '@agent-harness/gate-manager'
 import '@agent-harness/evidence-state-manager'
 import '@agent-harness/context-builder'
-import type { ProjectCandidateResult, ProjectContext } from '@agent-harness/project-contract'
+import type { ProjectContext } from '@agent-harness/project-contract'
 import type { ContextPriority, ContextReference } from '@agent-harness/context-builder'
 import type {
   AutoGovernanceActionCheck,
@@ -22,6 +22,10 @@ import type {
   AutoGovernanceTaskStatus,
   AutoGovernanceToolObservation,
 } from './contracts.js'
+import {
+  resolveGovernanceRouteGraph,
+  type GovernanceRouteResourceKind,
+} from './route-resolver.js'
 
 const MAX_QUERY_CHARS = 4000
 const MAX_REVIEW_PACKETS = 32
@@ -63,9 +67,6 @@ const recordOf = (value: unknown): Record<string, any> | undefined =>
 
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
-
-const candidateIds = (candidates: readonly ProjectCandidateResult[]): string[] =>
-  unique(candidates.map(candidate => candidate.id))
 
 const normalizedPath = (value: string): string => {
   const full = resolve(value)
@@ -510,15 +511,44 @@ export class AutoGovernanceEngineService extends Service {
   ): AutoGovernanceRouteSnapshot {
     const query = queryText.replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY_CHARS)
     const request = { projectId: runtime.projectId, query, scope: { taskId: runtime.taskId }, limit: 8 }
-    const architecture = this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, limit: 6 })
-    const rules = this.runtimeContext.ruleManager.searchRules({ ...request, limit: 10 })
-    const knowledge = this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 })
-    const gates = this.runtimeContext.gateManager.searchGates({ ...request, limit: phase === 'implementation' ? 24 : 8 })
+    const seeds = {
+      architecture: this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, limit: 6 }),
+      rule: this.runtimeContext.ruleManager.searchRules({ ...request, limit: 10 }),
+      knowledge: this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 }),
+      gate: this.runtimeContext.gateManager.searchGates({
+        ...request,
+        limit: phase === 'implementation' ? 24 : 8,
+      }),
+    }
+    const exactLookup = (kind: GovernanceRouteResourceKind, id: string) => {
+      if (kind === 'architecture') {
+        return this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, query: id, limit: 1 })[0]
+      }
+      if (kind === 'rule') {
+        return this.runtimeContext.ruleManager.searchRules({ ...request, query: id, limit: 1 })[0]
+      }
+      if (kind === 'knowledge') {
+        return this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, query: id, limit: 1 })[0]
+      }
+      return this.runtimeContext.gateManager.searchGates({ ...request, query: id, limit: 1 })[0]
+    }
+    const resolution = resolveGovernanceRouteGraph({
+      projectId: runtime.projectId,
+      seeds,
+      maxDepth: 2,
+      limits: {
+        architecture: 12,
+        rule: 24,
+        knowledge: 20,
+        gate: phase === 'implementation' ? 32 : 16,
+      },
+      exactLookup,
+    })
     const route: AutoGovernanceRouteSnapshot = {
-      architectureIds: candidateIds(architecture),
-      ruleIds: candidateIds(rules),
-      knowledgeIds: candidateIds(knowledge),
-      gateIds: candidateIds(gates),
+      architectureIds: resolution.candidates.architecture.map(candidate => candidate.id),
+      ruleIds: resolution.candidates.rule.map(candidate => candidate.id),
+      knowledgeIds: resolution.candidates.knowledge.map(candidate => candidate.id),
+      gateIds: resolution.candidates.gate.map(candidate => candidate.id),
     }
     const refs: ContextReference[] = [
       ...route.architectureIds.map(id => ({ kind: 'architecture' as const, id, priority: 'high' as const })),
