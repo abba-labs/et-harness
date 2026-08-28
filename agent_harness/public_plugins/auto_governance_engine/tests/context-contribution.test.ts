@@ -238,6 +238,46 @@ describe('optional project context contribution contract', () => {
     }
   })
 
+  it('rejects unsafe project read scopes while allowing stable source URIs', () => {
+    expect(() => resolveDeclaredProjectContextContributions({
+      project: adapterProject(),
+      request,
+      providers: [provider],
+      serviceLookup: () => ({
+        contributeContext: () => ({
+          applicable: true,
+          contribution: {
+            schema: PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
+            projectId: PROJECT_ID,
+            taskId: 'TASK-1',
+            contributionId: 'unsafe-read',
+            provenance: 'provider://synthetic.context-provider/TASK-1',
+            readScope: ['C:/other-project/secrets/**'],
+          },
+        }),
+      }),
+    })).toThrow(/absolute Windows path/)
+
+    expect(() => resolveDeclaredProjectContextContributions({
+      project: adapterProject(),
+      request,
+      providers: [provider],
+      serviceLookup: () => ({
+        contributeContext: () => ({
+          applicable: true,
+          contribution: {
+            schema: PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
+            projectId: PROJECT_ID,
+            taskId: 'TASK-1',
+            contributionId: 'unsafe-read-parent',
+            provenance: 'provider://synthetic.context-provider/TASK-1',
+            readScope: ['../other-project/**'],
+          },
+        }),
+      }),
+    })).toThrow(/safe project-relative path/)
+  })
+
   it('rejects cross-project providers and asynchronous providers', () => {
     const foreign = {
       ...provider,

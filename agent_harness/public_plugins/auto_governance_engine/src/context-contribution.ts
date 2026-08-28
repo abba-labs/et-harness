@@ -156,10 +156,21 @@ const safeProjectRelativePath = (label: string, value: unknown): string => {
   return normalized
 }
 
+const READ_SCOPE_URI_RE = /^(?:source|project|knowledge|evidence|runtime|provider):\/\/\S+$/
+
+const safeReadScopeEntry = (label: string, value: unknown): string => {
+  const normalized = singleLine(label, value, 1_000).replaceAll('\\', '/')
+  if (READ_SCOPE_URI_RE.test(normalized)) return normalized
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    throw new Error(`${label} must not use an absolute Windows path`)
+  }
+  return safeProjectRelativePath(label, normalized)
+}
+
 const normalizeReadScope = (values: readonly string[] | undefined): string[] => {
   if (!values) return []
   if (values.length > MAX_SCOPE_ENTRIES) throw new Error('readScope exceeds its entry budget')
-  return uniqueStrings(values.map((value, index) => singleLine(`readScope[${index}]`, value, 1_000)))
+  return uniqueStrings(values.map((value, index) => safeReadScopeEntry(`readScope[${index}]`, value)))
 }
 
 const normalizeWriteScope = (

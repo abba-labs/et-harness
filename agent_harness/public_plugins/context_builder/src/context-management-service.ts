@@ -362,7 +362,7 @@ export class ContextManagementService extends Service {
     items: readonly InlineContextItem[],
   ): ContextSessionSnapshot {
     const snapshot = this.getTask(projectId, taskId)
-    const inlineItems = normalizeInlineContextItems([...snapshot.session.inlineItems, ...items])
+    const inlineItems = normalizeInlineContextItems([...(snapshot.session.inlineItems ?? []), ...items])
     return this.commit(
       snapshot,
       { ...snapshot.session, inlineItems, updatedAt: now() },
@@ -416,7 +416,7 @@ export class ContextManagementService extends Service {
       : snapshot.session.workingSet
     const inlineItems = input.inlineItems !== undefined
       ? normalizeInlineContextItems(input.inlineItems)
-      : snapshot.session.inlineItems
+      : snapshot.session.inlineItems ?? []
     const next: ContextSession = {
       ...snapshot.session,
       status: 'ACTIVE',
@@ -468,7 +468,7 @@ export class ContextManagementService extends Service {
       taskLedger: session.taskLedger,
       progressLedger: session.progressLedger,
       workingSet: session.workingSet,
-      inlineItems: session.inlineItems,
+      inlineItems: session.inlineItems ?? [],
       handles: session.handles,
     }
   }
@@ -549,7 +549,7 @@ export class ContextManagementService extends Service {
           priority: 'high',
           provenance: `runtime://${projectId}/context/${taskId}/progress-ledger`,
         },
-        ...session.inlineItems,
+        ...(session.inlineItems ?? []),
         ...(session.recentTail.length > 0 ? [{
           id: 'recent-tail',
           title: 'Recent Tail',

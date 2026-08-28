@@ -592,22 +592,27 @@ export class AutoGovernanceEngineService extends Service {
     }
     const project = this.runtimeContext.projectManager.getProjectContext(runtime.projectId)
     if (!project) throw new Error(`Auto Governance project disappeared during routing: ${runtime.projectId}`)
-    runtime.contextContributions = resolveDeclaredProjectContextContributions({
-      project,
-      request: {
-        schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
-        projectId: runtime.projectId,
-        taskId: runtime.taskId,
-        rawTask: runtime.goal,
-        phase,
-        workspacePath: project.projectRoot,
-        initialRoute: route,
-      },
-      providers: this.runtimeContext.governanceCatalog.listProviders(
-        PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
-      ),
-      serviceLookup: serviceName => this.dynamicContext().get(serviceName),
-    })
+    const hasDeclaredContextContributor = Object.values(project.adapters).some(
+      adapter => adapter.capability === PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+    )
+    runtime.contextContributions = hasDeclaredContextContributor
+      ? resolveDeclaredProjectContextContributions({
+          project,
+          request: {
+            schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
+            projectId: runtime.projectId,
+            taskId: runtime.taskId,
+            rawTask: runtime.goal,
+            phase,
+            workspacePath: project.projectRoot,
+            initialRoute: route,
+          },
+          providers: this.runtimeContext.governanceCatalog.listProviders(
+            PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+          ),
+          serviceLookup: serviceName => this.dynamicContext().get(serviceName),
+        })
+      : []
     const contributionReferences = mergeContributionReferences(runtime.contextContributions)
     for (const reference of contributionReferences) {
       const exists = reference.kind === 'architecture'
@@ -630,7 +635,7 @@ export class AutoGovernanceEngineService extends Service {
       ...contributionReferences,
     ]
     const existingInlineItems = this.runtimeContext.contextManager
-      .getTask(runtime.projectId, runtime.taskId).session.inlineItems
+      .getTask(runtime.projectId, runtime.taskId).session.inlineItems ?? []
     this.runtimeContext.contextManager.replaceInlineItems(
       runtime.projectId,
       runtime.taskId,
