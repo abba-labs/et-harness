@@ -1,0 +1,183 @@
+charter_version: "0.1"
+status: FROZEN
+normative: true
+owner_intent: USER_CONTROLLED
+change_control:
+  explicit_user_approval_required: true
+  silent_reinterpretation_forbidden: true
+  new_version_required_for_scope_change: true
+
+objective:
+  statement: >-
+    Prove whether the current ChatGPT conversation running GPT-5.6 Pro can act
+    as an external Agent through ET Harness, automatically receive the
+    Automated Testing Platform project context, Architecture, Rules, Knowledge
+    and Gates, and complete a real project task under those constraints.
+  harness_purpose: TURN_GENERAL_GPT_INTO_GOVERNED_PROJECT_AGENT
+
+agent_under_test:
+  kind: CURRENT_CHATGPT_CONVERSATION
+  model: GPT-5.6 Pro
+  role: EXTERNAL_GOVERNED_AGENT
+  substitutions_forbidden:
+    - COPILOT_CLI
+    - GITHUB_ACTIONS_HOSTED_MODEL
+    - OPENAI_API_FROM_CI
+    - DEEPSEEK_API
+    - CLAUDE_CODE
+    - CODEX_CLI
+    - MOCK_PROVIDER
+    - DETERMINISTIC_PROVIDER
+    - SYNTHETIC_SEMANTIC_PROVIDER
+
+project:
+  repository: abba-labs/et-harness
+  long_lived_branch: project/automated-testing-platform
+  project_id: et-automated-testing-platform
+  name: Automated Testing Platform
+
+transport:
+  kind: EXTERNAL_CHAT_AGENT_BRIDGE
+  preferred_implementation: GITHUB_ISSUE_MAILBOX
+  data_only: true
+  governance_logic_forbidden: true
+  github_actions_model_invocation_forbidden: true
+
+first_real_task:
+  raw_text: "分析6801芯片etimer这个IP。"
+  exact_text_required: true
+  manual_business_hints_forbidden: true
+  forbidden_manual_hints:
+    - SOURCE_FILE_PATHS
+    - GOOGLE_DRIVE_FOLDER_PATHS
+    - RULE_IDS
+    - ARCHITECTURE_IDS
+    - OUTPUT_PATHS
+    - OUTPUT_CHAPTERS
+    - REGISTER_FIELDS
+    - DRIVER_APIS
+
+required_automatic_chain:
+  - PROJECT_RESOLVE
+  - PROJECT_ROOT_BIND
+  - TASK_CONTEXT_BUILD
+  - ARCHITECTURE_ROUTE
+  - RULE_ROUTE
+  - KNOWLEDGE_ROUTE_AND_TRUST_POLICY
+  - GATE_ROUTE
+  - READ_WRITE_SCOPE_BUILD
+  - OUTPUT_CONTRACT_BUILD
+  - EXTERNAL_AGENT_REQUEST_BUILD
+  - RESPONSE_VALIDATION
+  - REFLECTION_REQUIREMENT
+  - CLOSURE_DECISION
+  - KNOWLEDGE_CAPTURE_DECISION
+
+external_sources:
+  google_drive:
+    allowed: true
+    mode: READ_ONLY
+    role: EXTERNAL_READ_ONLY_SOURCE_CAPABILITY
+    required_record_fields:
+      - SOURCE_ID_OR_FILE_ID
+      - FILE_NAME
+      - SOURCE_CATEGORY
+      - DISPOSITION_FOUND_NO_MATCH_UNAVAILABLE
+      - SUPPORTED_CONCLUSION
+      - TEMPORAL_OR_TRUST_STATUS
+    auto_promote_to_validated_knowledge: false
+
+claim_boundaries:
+  semantic_governance_layer:
+    immediate_target: true
+    can_claim:
+      - GOVERNED_REQUEST_GENERATED
+      - CURRENT_GPT_RECEIVED_CONTEXT
+      - CURRENT_GPT_RESPONSE_VALIDATED
+      - REFLECTION_COMPLETED
+      - CLOSURE_COMPLETED
+      - KNOWLEDGE_CAPTURE_AND_REUSE
+  mechanical_tool_enforcement_layer:
+    immediate_target: false
+    separate_future_test_required: true
+    layer_a_pass_must_not_imply_layer_b_pass: true
+
+required_evidence:
+  routing:
+    - RAW_TASK
+    - REQUEST_ID
+    - PROJECT_ID
+    - PROJECT_BINDING
+    - TASK_CONTEXT_HASH
+    - ARCHITECTURE_IDS
+    - RULE_IDS
+    - KNOWLEDGE_IDS_AND_TRUST_TIERS
+    - GATE_IDS
+    - READ_SCOPE
+    - WRITE_SCOPE
+    - OUTPUT_CONTRACT
+  execution:
+    - CONSULTED_PROJECT_FILES
+    - CONSULTED_EXTERNAL_SOURCES
+    - SOURCE_ACCESS_REASONS
+    - DRIVE_SOURCE_DISPOSITIONS
+    - AGENT_RESPONSE_PAYLOAD
+    - REQUESTED_OPERATIONS
+    - ACTUAL_PROJECT_CHANGES
+  compliance:
+    - OUTPUT_LOCATION_AND_FORM
+    - REQUIRED_SECTIONS_OR_MACHINE_CONTRACTS
+    - PUBLIC_IP_VS_ET6801_FACT_SEPARATION
+    - SOURCE_COMPLETENESS
+    - CONFIRMED_VS_UNKNOWN_SEPARATION
+    - SCOPE_COMPLIANCE
+    - CLAIMS_MATCH_EXECUTED_VALIDATION
+  closure:
+    - FRAMEWORK_EVIDENCE_STATE
+    - REFLECTION_RESULT
+    - CLOSURE_RECEIPT
+    - CLOSURE_BLOCKERS
+    - KNOWLEDGE_CAPTURE_DECISION
+    - NEXT_TURN_REUSE_WHEN_APPLICABLE
+
+pass_requirements:
+  - CURRENT_CHATGPT_IS_AGENT
+  - RAW_TASK_UNCHANGED
+  - ATP_PROJECT_AUTOMATICALLY_RESOLVED
+  - TASK_RELEVANT_NONEMPTY_ARGK_ROUTE
+  - ACTUAL_IP_ANALYSIS_RULES_ROUTED
+  - CURRENT_GPT_EXECUTES_THROUGH_BRIDGE
+  - EXTERNAL_SOURCES_PROVENANCED
+  - OUTPUT_VALIDATED_AGAINST_PROJECT_RULES
+  - CHANGES_WITHIN_WRITE_SCOPE
+  - NOT_EXECUTED_NEVER_REPORTED_AS_PASS
+  - REFLECTION_FRAMEWORK_REQUIRED_AND_PERSISTED
+  - CLOSURE_FRAMEWORK_DECIDED_WITH_RECEIPT
+  - FINAL_CLAIM_BOUND_TO_EXACT_EVIDENCE
+
+invalidating_conditions:
+  - AGENT_PROVIDER_SUBSTITUTED
+  - GITHUB_ACTIONS_DIRECT_MODEL_CALL_LABELED_AS_CURRENT_CHATGPT
+  - MANUAL_BUSINESS_HINTS_ADDED_OUTSIDE_HARNESS
+  - GPT_STARTS_PROJECT_WORK_BEFORE_FRAMEWORK_REQUEST
+  - ARGK_EMPTY_OR_GENERIC_ONLY
+  - RULES_SELECTED_AFTER_OUTPUT_TO_JUSTIFY_RESULT
+  - DRIVE_SOURCE_WITHOUT_IDENTITY_OR_PROVENANCE
+  - OUTPUT_ACCEPTED_WITHOUT_PROJECT_RULE_VALIDATION
+  - AGENT_SELF_CERTIFIES_EVIDENCE_OR_CLOSURE
+  - REFLECTION_SKIPPED
+  - CLOSURE_INFERRED_FROM_CI_EXIT_ALONE
+  - SEMANTIC_COMPLIANCE_CLAIMED_AS_MECHANICAL_ENFORCEMENT
+  - UNEXECUTED_HARDWARE_OR_BUILD_CLAIMED_AS_PASS
+
+branch_discipline:
+  canonical_base: project/automated-testing-platform
+  clean_pilot_branch: pilot/atp-et6801-etimer-external-chat-agent-v0.1
+  copilot_pilot_branch_is_canonical_base: false
+  merge_to_public_main_forbidden: true
+
+one_line_invariant: >-
+  This test proves whether the current ChatGPT conversation can work as a
+  governed external Agent through ET Harness on the real Automated Testing
+  Platform project; no other model, provider, automation environment or
+  shortcut may be substituted.
