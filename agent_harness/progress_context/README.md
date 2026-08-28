@@ -4,29 +4,129 @@
 
 它不是 Architecture / Rule / Knowledge / Gate 的替代品，而是供后续 Agent 或新聊天快速恢复公共 Harness 工程上下文的 Handoff Archive。
 
-## 新聊天恢复顺序
+## 当前最高优先级恢复基线
 
-继续 Harness 开发前，按顺序阅读：
+继续 Execution Supervisor / ATP 真实 Agent 测试前，必须先读：
 
-1. 本 `README.md`；
-2. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`；
-3. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`；
-4. `20260826_HARNESS_CURRENT_STATE.md`；
-5. `20260826_TEST_STRATEGY_AND_RESULTS.md`；
-6. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`；
-7. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`；
-8. `20260826_P0_P1_HARDENING.md`。
+1. `agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md`
+2. `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md`
+3. `agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md`
+4. `agent_harness/design/21_PUBLIC_AGENT_GOVERNANCE_KERNEL_V0_1.md`
+5. `agent_harness/design/20_FRAMEWORK_EFFICIENCY_OBSERVER_V0_1.md`
+6. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
+7. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`
+8. `20260826_HARNESS_CURRENT_STATE.md`
+9. `20260826_TEST_STRATEGY_AND_RESULTS.md`
+10. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`
+11. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`
+12. `20260826_P0_P1_HARDENING.md`
 
-## 当前仓库与分支模型
+如果旧聊天叙述、旧 Handoff 或分支名称与 `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md` 冲突，以最新机械证据和该 Audit 为准。
 
-公共 Harness 的长期上游仓库为：
+---
+
+## 当前公共仓库事实
 
 ```text
 repo: abba-labs/et-harness
-branch: main
+canonical branch: main
+current audited main HEAD:
+0474cea6da2b9618fd40a0167099f2c8477a0e3c
 ```
 
-分支职责：
+当前 Design 25 方向不变：
+
+```text
+Public Execution Supervisor
+= deterministic execution-event supervision
++ Obligation Ledger
++ Evidence/claim/completion evaluation
++ cross-process replay
++ mandatory bridge into existing Reflection/Knowledge/Context/Closure
+```
+
+但截至 2026-08-29：
+
+```text
+Design 25 direction                                   VALID / FROZEN
+Phase 0 canonical contract core                       PRESENT
+Phase 0 source consistency                            FAIL
+Phase 0 real CI/build/test/benchmark evidence         NOT EXECUTED
+Phase 0 overall                                       FAIL / INCOMPLETE
+Phase 1 persistent event store + replay               NOT IMPLEMENTED
+Phase 2 Obligation Ledger                             NOT IMPLEMENTED
+Phase 3 External Agent Event/Response Bridge          NOT IMPLEMENTED
+Phase 4 Claim/Evidence/Completion evaluator           NOT IMPLEMENTED
+Phase 5 Supervisor -> Reflection/Closure integration  NOT IMPLEMENTED
+Phase 6 Host enforcement profiles                     CONTRACT-ONLY / INCOMPLETE
+Phase 7 efficiency hardening                          BASELINE-ONLY / UNVERIFIED
+Phase 8 ATP real Pilot                                NOT EXECUTED
+```
+
+PR #13 `feat/public-execution-supervisor-phase1-contract-builder-v0.1` is obsolete as a Phase 1 implementation and must not be merged.
+
+---
+
+## 为什么 Phase 0 不能算 PASS
+
+`main` 已合入 PR #12，但机械检查显示：
+
+```text
+Harness Public Baseline run: 33192376336
+runner_id: 0
+steps: []
+conclusion: failure
+```
+
+PR #12 的对应 Actions 也没有真正启动 Runner，因此 `npm test / npm run build / npm run benchmark` 没有形成可信 PASS Evidence。
+
+同时 `main` 当前存在两套不兼容的 Execution Supervisor contract/type vocabulary。`tsconfig.json` 会编译 `src/**/*.ts`，所以这些额外文件不能因为没有从 `index.ts` export 就被忽略。
+
+详细文件和证据见：
+
+```text
+20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md
+```
+
+---
+
+## 唯一允许的下一步
+
+先修 Phase 0，不继续扩功能：
+
+```text
+current main
+  ↓
+clean Phase 0 repair branch
+  ↓
+one canonical contract model
+  ↓
+remove/rewrite incompatible prototypes
+  ↓
+npm test
+npm run build
+npm run benchmark
+Execution Supervisor Phase 0 CI
+Harness Public Baseline
+  ↓ all real PASS
+Design 25 Phase 1
+= persistent event store + cross-process replay
+```
+
+在 Phase 0 真实 PASS 前，禁止提前进行：
+
+```text
+ATP/eTimer 业务扩展
+External Chat Mailbox 扩展
+Obligation Ledger Phase 2
+Claim/Evidence evaluator Phase 4
+Closure integration Phase 5
+真实 ATP Pilot Phase 8
+```
+
+---
+
+## 分支模型
 
 ```text
 main
@@ -34,34 +134,55 @@ main
 
 project/<name>
 = main 公共 Harness
-  + 一个真实项目的完整代码
-  + 该项目 Project Plugin / Architecture / Rules / Knowledge / Gates
+  + 真实项目代码
+  + Project Plugin / A/R/K/G / Project Knowledge
+
+feat/<public-capability>
+= 从最新机械验证的 main 创建的单阶段公共能力分支
+
+pilot/<name>
+= 真实 Pilot 编排和证据，不作为公共 Runtime 实现基线
 ```
 
-同步方向固定：
+同步方向：
 
 ```text
-main
-  ↓ merge
+validated main
+  ↓
 project/<name>
+  ↓
+clean pilot branch
 ```
 
-项目分支不得整体反向合入 `main`。
+项目分支和 Pilot 分支不得整体反向合入 `main`。
 
-## 当前最新 Handoff
+---
 
-### `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
+## 开发效率冻结原则
 
-记录：
+后续提高效率靠收敛流程，而不是跳过治理：
 
-- 从 `abba-labs/et-tool` 提取公共 Harness 的来源基线与 SHA-256 校验；
-- `main` 和 `project/<name>` 的长期分支边界；
-- ET-TOOL Project Plugin、项目 Pilot 与项目型验证如何从公共 main 候选分离；
-- 新仓库公共 package / synthetic-project CI 的职责；
-- 为什么当前迁移保存的是可校验快照和明确 provenance，而不是逐提交过滤历史；
-- 下一步如何建立 `project/automated-testing-platform`。
+```text
+one phase = one responsibility
+one canonical contract model
+one clean branch from validated main
+focused tests before next phase
+no LLM/network/full reroute on event hot path
+no next phase before current phase has mechanical PASS
+```
 
-## 来源功能基线
+禁止再次发生：
+
+```text
+上一阶段还没有真实 PASS
+→ 并行创建下一阶段分支
+→ 多套 contract vocabulary 同时进入 main
+→ 最后再靠聊天叙述判断哪个是真的
+```
+
+---
+
+## 历史来源与已验证功能
 
 迁移来源：
 
@@ -75,11 +196,7 @@ last fully validated Harness code baseline:
 f37b1080ca65388fc0e32f7fa75567b512c86752
 ```
 
-迁移完成前，`abba-labs/et-tool` 保持为回滚与历史追溯源。新仓库通过 `MIGRATION_SOURCE.json` 保存来源、快照校验和与分离提交。
-
-## 已验证的主要公共功能阶段
-
-历史功能阶段：
+历史已验证主要功能：
 
 ```text
 PR #37 -> P0/P1 Harness hardening
@@ -88,61 +205,14 @@ PR #39 -> Public Layer knowledge policy smoke alignment
 PR #40 -> Tiered Knowledge retrieval and Evidence feedback
 ```
 
-这些功能由原仓库完成正向、负向和真实任务矩阵验证。迁移到独立仓库后，`main` 还必须通过自己的 Harness-only boundary、公共 package 和 synthetic-project 集成门禁。
+这些历史能力不因当前 Execution Supervisor Phase 0 问题而自动失效；当前 Audit 只重新冻结 Execution Supervisor 新阶段的事实状态。
 
-## 项目分支状态
+---
 
-```text
-project/et-tool
-status: STAGING
-```
-
-该分支当前用于保留从原始 Harness 快照中分离出的 ET-TOOL Project Plugin 和项目型 Harness 材料，尚未导入完整 ET-TOOL 产品代码，不能视为已完成项目迁移。
-
-```text
-project/automated-testing-platform
-status: NOT_CREATED / NEXT PHASE
-source project branch: Automated_Testing_Platform review_code
-```
-
-下一阶段应从 `et-harness/main` 创建该项目分支，并把项目完整代码、ATP Project Plugin 和独立 Knowledge Base 放在同一工作树中；不再使用跨仓库双根适配。
-
-## 执行原则
-
-- 以 `et-harness/main` 为公共 Harness canonical 分支；
-- 公共 Harness 变更先进入 `main`，再由项目分支合并；
-- 项目业务代码、项目私有规则和 Project Knowledge 不得进入 `main`；
-- 只继续最新 Handoff 明确留下的真实问题；
-- 不重新推翻已经通过正向、负向和真实任务矩阵验证的架构；
-- 结论必须来自代码、Runtime state、Evidence、Closure Receipt、CI marker 和精确 Run / HEAD，不能来自 Agent 自述；
-- 真实项目必须通过对应 Project Plugin 接入公共 Runtime；
-- 不能直接改项目后再事后补治理报告；
-- 迁移完成前不删除原仓库中的旧 Harness 实现。
-
-## 冻结原则
+## 总冻结原则
 
 > **Agent 不负责治理自己。Framework 负责治理 Agent。**
 
-Framework 决定流程何时必须发生，Agent 提供需要智能判断的语义结论。不要回退成：
+以及本阶段新增恢复不变量：
 
-- 让 Agent 自己决定是否治理；
-- 让 Host 重新实现 Governance business logic；
-- 只允许正式路由 `VALIDATED` Knowledge、隐藏 CANDIDATE；
-- 自动提升所有 Knowledge Candidate；
-- 每轮或每次 Tool Error 强制产生 Knowledge；
-- 暴露 raw shell / filesystem / J-Link 后期待 Agent 自觉 preflight；
-- 把项目业务规则硬编码进 Public Governance Engine；
-- 为追求理论完备引入当前没有真实收益的零信任复杂度；
-- 让一个项目分支的私有改动长期成为公共 Harness fork。
-
-## 后续文档命名
-
-推荐继续使用：
-
-```text
-YYYYMMDD_HARNESS_CURRENT_STATE.md
-YYYYMMDD_TEST_STRATEGY_AND_RESULTS.md
-YYYYMMDD_<PHASE>_HANDOFF.md
-```
-
-阶段完成时新增文件，不覆盖历史。旧结论被新证据推翻时，必须在新文件中明确写出原因和替代结论。
+> **不要从“最新看起来写了很多代码”的状态继续；只从最新机械验证、合同唯一、边界清晰的 canonical state 继续。**
