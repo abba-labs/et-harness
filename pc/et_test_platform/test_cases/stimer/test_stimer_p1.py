@@ -179,7 +179,9 @@ def test_stimer_p1_001_prescaler_ratio(
             )
 
         # 证据：保存全部COUNT.LIVE样本、中位速率和分频比，便于定位单轮抖动。
-        record_property("actual_rate_hz", median_rates)
+        # Canonical Result要求Mapping Key为字符串；计算过程仍保留整数divider索引。
+        median_rates_by_divider = {str(divider): rate for divider, rate in median_rates.items()}
+        record_property("actual_rate_hz", median_rates_by_divider)
         record_property("prescaler_rate_ratios", rate_ratios)
         record_property("prescaler_measurements", measurements)
         write_json_result(
@@ -188,7 +190,7 @@ def test_stimer_p1_001_prescaler_ratio(
                 "measurement_schema": "et.measurement.v1",
                 "case_id": "stimer_p1_001",
                 "measurements": measurements,
-                "median_rates_hz": median_rates,
+                "median_rates_hz": median_rates_by_divider,
                 "rate_ratios": rate_ratios,
             },
         )
