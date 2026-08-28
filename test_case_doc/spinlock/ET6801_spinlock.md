@@ -254,3 +254,27 @@ On-chip peer required: P2_001..P3_001
 - AXI SRAM1共享区的volatile和DMB/DSB策略已由FPGA P3共享计数验证；Silicon Cache/总线行为仍需独立取证。
 - SVD明确Owner语义，但Owner信息读取本身可能对空闲Resource产生Acquire副作用；实现测试Driver时必须避免把“观测”误做成“刺激”。
 - 当前FPGA证据：`artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/session.json`；Silicon尚无PASS证据。
+
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
+
+状态更新时间：`2026-08-28 21:24 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-08-28 20:20 CST` | `ba1304b458148b681ec5f0a6a392cdf7c0757f76` | `false` | `artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/` |
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 11 | 11 | 11 | 0 | 0 | 0 | 15 |
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| — | FPGA | NONE | — | — | — | — | — |
+<!-- ET_CHIP_TEST_STATUS_END -->
