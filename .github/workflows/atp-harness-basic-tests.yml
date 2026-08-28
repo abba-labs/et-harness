@@ -71,6 +71,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -117,10 +119,20 @@ jobs:
           (
             cd "$plugin_dir"
             npm test
-            ATP_CONTEXT_CONTRIBUTOR_INTEGRATION=1 npx vitest run \
-              tests/context-contributor-compiler.integration.test.ts
             npm run build
           )
+
+          compiler_root="$RUNNER_TEMP/atp-context-compiler-worktree"
+          git worktree add --detach "$compiler_root" HEAD
+          trap 'git worktree remove --force "$compiler_root" >/dev/null 2>&1 || true' EXIT
+          (
+            cd "$plugin_dir"
+            AUTOMATED_TESTING_PLATFORM_PROJECT_ROOT="$compiler_root" \
+              ATP_CONTEXT_CONTRIBUTOR_INTEGRATION=1 \
+              npx vitest run tests/context-contributor-compiler.integration.test.ts
+          )
+          git worktree remove --force "$compiler_root"
+          trap - EXIT
 
           if ! git diff --quiet -- "$plugin_dir"; then
             echo "ATP Project Plugin tests changed tracked plugin resources:"
