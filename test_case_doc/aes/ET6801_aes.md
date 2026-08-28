@@ -269,7 +269,7 @@ PC Golden
 | AES_P1_006 | ADAPTED | DIN_FLG请求消费/清除复核；历史HIL PASS |
 | AES_P1_007 | ADAPTED | DOUT_FLG + RESULT_DOUT；历史HIL PASS |
 | AES_P1_008 | ADAPTED | FINISH 1→0 W1C + RESULT_DOUT独立来源；历史HIL PASS |
-| AES_P1_009 | ADAPTED | 已按权威语义改为FIFO DMA输出Busy冲突刺激；历史CPU双输入FAIL保留，新的DMA Case等待HIL |
+| AES_P1_009 | ADAPTED | 已按权威语义改为FIFO DMA输出Busy冲突刺激；2026-08-28定向FPGA HIL PASS，历史CPU双输入FAIL仅保留为旧刺激证据 |
 | AES_P1_010 | ADAPTED | KEY_MISSING；历史HIL PASS |
 | AES_P1_011 | ADAPTED | IV_MISSING；历史HIL PASS |
 | AES_P1_012 | ADAPTED | COMPLETE IRQ + RESULT_DOUT；历史HIL PASS |
@@ -320,38 +320,36 @@ AES_P1_009 OUTPUT_CONFLICT
 
 没有真机时，可以通过模拟 Canonical Result 完成 `Stable endpoint -> ET6801实际寄存器名 -> ET_CASE_REPORT -> Excel` 的报告链审核，并据此判断 AES 的 Case/Evidence/Report 设计是否可作为其他 IP 模板。模拟通过不能把任何 Feature 的硬件状态升级为 PASS；硬件状态只由对应精确代码和镜像的 HIL Evidence 更新。
 
-### 7.1 当前未通过测试记录
+### 7.1 OUTPUT_CONFLICT 整改闭环记录
 
-时间：2026-08-24 20:42 CST
+时间：2026-08-28 08:08 CST
 
-| Case | 测试环境 | 实际硬件现象 | 已排除的软件链路问题 | 当前判定 | 闭环条件 |
+| Case | 测试环境 | 实际硬件现象 | 已排除的软件链路问题 | 当前判定 | Evidence |
 |---|---|---|---|---|---|
-| `AES_P1_009` | ET6801 FPGA，双输入块Test Extension构造Output Conflict | 输入握手和双输入块刺激已执行，但`OUTPUT_CONFLICT`的RAW、STATUS、Service latched均未置位 | 同一固件中的`INCOMPLETE_DISABLE`自然错误刺激可以稳定触发；IRQ读取、清除和事件记录链路具备有效对照 | `FPGA_OUTPUT_CONFLICT_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认OUTPUT_CONFLICT的真实触发条件与当前bit实现；取得权威刺激或修复后重跑 |
+| `AES_P1_009` | ET6801 FPGA；AES FIFO DMA输入2个Block，输出DMA仅接收1个Block并保持Busy | `ISR.LATCHED.OUTPUT_CONFLICT=1`，`event_count: 0→1`；清除后latched/raw/status均为0；复位后CPU PROCESS结果与Golden完全一致 | CPU双输入受`data_valid`反压，不能构造冲突；新Case改由真实DMA输出Busy状态产生第二笔AES结果 | `PASS` | `artifacts/runs/20260828_0811_aes_p1_009/` |
 
-该结论沿用2026-08-20的59次Execution证据（58 PASS / 1 FAIL）。没有新的Exact-SHA HIL前不得把它升级为PASS，也不得用Force IRQ代替自然Output Conflict因果证明。
-
-2026-08-24独立固件复测仍得到相同现象：正常输入握手和双输入块刺激均执行成功，但`OUTPUT_CONFLICT`的Raw和Status均为`0`，清除后仍为`0`。该结果只作为当前FPGA行为的补充诊断证据，不替代Formal Case统计，也不足以单独裁决“刺激条件错误”或“RTL功能缺失”。证据：`artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log`。
+2026-08-24 CPU双输入复测结果保留为旧刺激诊断证据，不再代表当前正式Case结论。正式Case以2026-08-28 DMA Busy冲突HIL结果为准。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-24 21:10 CST`
+状态更新时间：`2026-08-28 08:08 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-18 09:02 CST` | `5139cbeb395ec7435f8f2f4034ac45204efa3939` | `true` | `artifacts/runs/20260818_090242_880815_aes_formal_cases/tests/aes/` |
+| FPGA | `2026-08-28 08:08 CST` | `7b2afbc61f238ee3310482e46d351a53a5dcd183` | `false` | `artifacts/runs/20260828_0811_aes_p1_009/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 26 | 26 | 25 | 1 | 0 | 0 | 59 |
+| FPGA | 26 | 26 | 26 | 0 | 0 | 0 | 60 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `AES_P1_009` | FPGA | FAIL | `AES_F_016` / Output Conflict IRQ | 双输入块刺激后Raw、Status和Service latched均未置位；独立固件复测Raw/Status仍为`0` | 权威触发条件与当前FPGA实现尚未闭合，暂不能区分刺激语义与RTL行为 | 取得RTL/设计确认的触发条件或修复后的bit后重测 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
+| — | FPGA | NONE | — | — | — | — | — |
 <!-- ET_CHIP_TEST_STATUS_END -->
