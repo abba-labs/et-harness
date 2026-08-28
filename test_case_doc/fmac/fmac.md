@@ -1471,7 +1471,7 @@ cases:
     fields:
       - {source: artifact, path: watermark, label: Y空阈值, format: decimal, aggregate: distinct}
       - {source: artifact, path: status.unread_after_load, label: 装载后Y未读数量, format: decimal, aggregate: same}
-      - {source: artifact, path: status.unread_sequence, label: 逐级读取后的Y状态序列, format: text, aggregate: same}
+      - {source: artifact, path: status.unread_sequence, label: 逐级读取后的Y状态序列, format: text, aggregate: distinct}
       - {source: artifact, path: status.underflow, label: 空读后Y下溢状态, format: bool, aggregate: same}
   FMAC_P1_004:
     summary: "相同FIR事务按不同Chunk切分后，拼接输出与one-shot原始序列完全一致。"
@@ -1479,7 +1479,7 @@ cases:
       - {source: artifact, path: chunk_plan, label: Chunk切分, format: text, aggregate: distinct}
       - {source: artifact, path: one_shot_output, label: One-shot硬件输出, format: text, aggregate: same}
       - {source: artifact, path: chunked_output, label: Chunk拼接硬件输出, format: text, aggregate: same}
-      - {source: artifact, path: chunk_counts, label: 各Chunk收发数量, format: text, aggregate: same}
+      - {source: artifact, path: chunk_counts, label: 各Chunk收发数量, format: text, aggregate: distinct}
   FMAC_P1_005:
     summary: "Float32转Q15和Q15转Float32双向转换均与独立参考一致。"
     fields:
@@ -1545,7 +1545,7 @@ cases:
     summary: "Saturation、X1 Overflow和Y Underflow均形成硬件状态和真实IRQ投递。"
     fields:
       - {source: artifact, path: event, label: 自然错误Source, format: text, aggregate: distinct}
-      - {source: artifact, path: status_set, label: 对应硬件状态, format: bool, aggregate: same}
+      - {source: artifact, path: status_set, label: 对应硬件状态, format: bool, aggregate: distinct}
       - {source: artifact, path: after.latched, label: 自然错误ISR Latch, format: hex32, aggregate: distinct}
       - {source: artifact, path: after.event_count, label: IRQ投递计数, format: decimal, aggregate: range}
   FMAC_P1_015:
