@@ -5,7 +5,7 @@ on:
     branches:
       - feat/harness-project-context-contribution-v0.1
     paths:
-      - 'agent_harness/patch_requests/context_contribution_hardening_v0_1.patch'
+      - 'agent_harness/patch_requests/apply_context_contribution_hardening_v0_1.py'
       - '.github/workflows/apply-context-contribution-hardening-v0-1.yml'
 
 permissions:
@@ -20,13 +20,11 @@ jobs:
         with:
           ref: feat/harness-project-context-contribution-v0.1
           fetch-depth: 0
-      - name: Apply exact patch
+      - name: Apply deterministic hardening transform
         shell: bash
         run: |
           set -euo pipefail
-          patch_file='agent_harness/patch_requests/context_contribution_hardening_v0_1.patch'
-          git apply --check "$patch_file"
-          git apply "$patch_file"
+          python agent_harness/patch_requests/apply_context_contribution_hardening_v0_1.py
           git diff --check
       - name: Commit exact source changes
         shell: bash
