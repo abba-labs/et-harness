@@ -453,3 +453,29 @@ SVD把`RBR/THR/SRBR/STHR`数据字段定义为16 bit：普通UART路径使用低
 - ET6801 的 Feature/options/limits/实例/IRQ/Chip Driver/Board/Mapping 事实变化时必须同步本文件。
 - ET6801 的适配状态变化时，同时更新公共 `uart.md` 的 Chip Adaptation Summary。
 - 本文件不保存 `ET_CASE_SPEC` / `ET_CASE_PLAN` 机器块，避免形成第二份公共 Case 真值。
+
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
+
+状态更新时间：`2026-08-28 21:27 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-08-28 17:14 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 33 | 33 | 30 | 0 | 3 | 0 | 33 |
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| `UART_P1_008` | FPGA | SKIP | `UART_F_022` / Framing Error状态和Line Error中断 | 当前UART1/UART2交叉连接下，改变两端停止位后仍不能稳定形成可重复的Framing Error状态和中断 | 当前TX/RX连接无法确定性制造停止位采样错误，不能用不稳定刺激判断Feature | 提供可控错误帧发生器、FPGA波形发生器或可精确破坏停止位的Peer后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
+| `UART_P1_012` | FPGA | SKIP | `UART_F_027`、`UART_F_028` / Busy Detect中断及清除 | 正常启用FIFO并持续发送期间修改LCR，限定触发窗口内未形成确定性的Busy Detect中断 | 当前刺激不能稳定满足Busy Detect的硬件触发时序；现有结果不足以判定Feature PASS或FAIL | 取得ET6801 Busy Detect准确触发时序，或使用可控制发送与LCR写入相位的刺激后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
+| `UART_P3_009` | FPGA | SKIP | `UART_F_044` / Direct FIFO访问 | Capability读取结果表明Direct FIFO Access不可用，Case未执行FAR/TFR/RFW访问 | ET6801当前UART组件参数未声明Direct FIFO Access支持，目标芯片不具备该可执行能力 | 仅当后续RTL/芯片Capability明确支持Direct FIFO Access时复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
+<!-- ET_CHIP_TEST_STATUS_END -->
