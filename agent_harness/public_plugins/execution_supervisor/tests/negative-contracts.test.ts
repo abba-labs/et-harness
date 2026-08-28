@@ -78,18 +78,16 @@ describe('Execution Supervisor Phase 0 fail-closed validation', () => {
     }
   })
 
-  it('rejects duplicate obligations, unknown dependencies and cycles', () => {
+  it('rejects duplicate obligations and dependency cycles', () => {
     const contract = baseContract()
+    const template = contract.obligations[0]!
     const result = validateTaskSupervisionContract({
       ...contract,
       obligations: [
-        { ...contract.obligations[0], dependencies: ['OBL-002'] },
-        {
-          ...contract.obligations[0],
-          id: 'OBL-002',
-          dependencies: ['OBL-001'],
-        },
-        { ...contract.obligations[0] },
+        { ...template, id: 'OBL-CYCLE-A', dependencies: ['OBL-CYCLE-B'] },
+        { ...template, id: 'OBL-CYCLE-B', dependencies: ['OBL-CYCLE-A'] },
+        { ...template, id: 'OBL-DUPLICATE' },
+        { ...template, id: 'OBL-DUPLICATE' },
       ],
     })
     expect(result.valid).toBe(false)
