@@ -155,6 +155,7 @@ export interface ContextSession {
   readonly taskLedger: ContextTaskLedger
   readonly progressLedger: ContextProgressLedger
   readonly workingSet: readonly ContextReference[]
+  readonly inlineItems?: readonly InlineContextItem[]
   readonly handles: readonly ContextHandle[]
   readonly recentTail: readonly ContextRecentEvent[]
 }
@@ -170,6 +171,7 @@ export interface ContextStartTaskInput {
   readonly goal: string
   readonly maxChars?: number
   readonly recentTailLimit?: number
+  readonly inlineItems?: readonly InlineContextItem[]
 }
 
 export interface ContextRebuildInput {
@@ -177,6 +179,7 @@ export interface ContextRebuildInput {
   readonly taskId: string
   readonly phase?: ContextLifecyclePhase
   readonly workingSet?: readonly ContextReference[]
+  readonly inlineItems?: readonly InlineContextItem[]
   readonly clearRecentTail?: boolean
   readonly evidenceRefs?: readonly string[]
 }
@@ -207,5 +210,6 @@ export interface ContextHandoff {
   readonly taskLedger: ContextTaskLedger
   readonly progressLedger: ContextProgressLedger
   readonly workingSet: readonly ContextReference[]
+  readonly inlineItems?: readonly InlineContextItem[]
   readonly handles: readonly ContextHandle[]
 }

@@ -17,6 +17,7 @@ import type {
   ContextHandle,
   ContextHandleInput,
   ContextHandoff,
+  InlineContextItem,
   ContextLedgerEntry,
   ContextProgressLedger,
   ContextProgressLedgerPatch,
@@ -36,6 +37,16 @@ const DEFAULT_RECENT_TAIL_LIMIT = 5
 const MAX_RECENT_TAIL_LIMIT = 12
 const MAX_WORKING_SET = 64
 const MAX_HANDLES = 128
+const MAX_INLINE_ITEMS = 24
+const MAX_INLINE_ITEM_CHARS = 8_000
+const MAX_INLINE_TOTAL_CHARS = 16_000
+const RESERVED_INLINE_IDS = new Set([
+  'context-compass',
+  'task-ledger',
+  'progress-ledger',
+  'recent-tail',
+  'available-handles',
+])
 const MAX_LEDGER_ENTRIES = 64
 const MAX_PLAN_ITEMS = 32
 const ROUTE_MAP_LIMIT = 8
@@ -89,6 +100,37 @@ const normalizeReferences = (references: readonly ContextReference[]): ContextRe
   return result
 }
 
+export const normalizeInlineContextItems = (
+  items: readonly InlineContextItem[] | undefined,
+): InlineContextItem[] => {
+  if (!items) return []
+  if (items.length > MAX_INLINE_ITEMS) throw new Error(`Inline Context Items 超过上限 ${MAX_INLINE_ITEMS}`)
+  const deduped = new Map<string, InlineContextItem>()
+  let totalChars = 0
+  for (const item of items) {
+    const id = nonEmpty('Inline Context item id', item.id)
+    if (!/^[A-Za-z0-9._:-]+$/.test(id)) throw new Error(`Inline Context item id 非法: ${id}`)
+    if (RESERVED_INLINE_IDS.has(id)) throw new Error(`Inline Context item id 与 Runtime 保留项冲突: ${id}`)
+    if (deduped.has(id)) throw new Error(`Inline Context item id 重复: ${id}`)
+    const content = nonEmpty(`Inline Context ${id} content`, item.content)
+    if (content.length > MAX_INLINE_ITEM_CHARS) {
+      throw new Error(`Inline Context ${id} 超过 ${MAX_INLINE_ITEM_CHARS} 字符上限`)
+    }
+    totalChars += content.length
+    if (totalChars > MAX_INLINE_TOTAL_CHARS) {
+      throw new Error(`Inline Context 总内容超过 ${MAX_INLINE_TOTAL_CHARS} 字符上限`)
+    }
+    deduped.set(id, {
+      id,
+      title: nonEmpty(`Inline Context ${id} title`, item.title),
+      content,
+      priority: item.priority ?? 'high',
+      provenance: nonEmpty(`Inline Context ${id} provenance`, item.provenance),
+    })
+  }
+  return [...deduped.values()]
+}
+
 const normalizeHandles = (handles: readonly ContextHandleInput[]): ContextHandle[] => {
   const stamp = now()
   const deduped = new Map<string, ContextHandle>()
@@ -119,6 +161,7 @@ const isContextSession = (value: unknown): value is ContextSession => {
     && !!item.taskLedger
     && !!item.progressLedger
     && Array.isArray(item.workingSet)
+    && (item.inlineItems === undefined || Array.isArray(item.inlineItems))
     && Array.isArray(item.handles)
     && Array.isArray(item.recentTail)
 }
@@ -169,6 +212,7 @@ export class ContextManagementService extends Service {
         updatedAt: stamp,
       },
       workingSet: [],
+      inlineItems: normalizeInlineContextItems(input.inlineItems),
       handles: [],
       recentTail: [],
       createdAt: stamp,
@@ -195,7 +239,10 @@ export class ContextManagementService extends Service {
     if (record.value.projectId !== projectId || record.value.taskId !== taskId) {
       throw new Error(`Context task 项目隔离失败: ${projectId}/${taskId}`)
     }
-    return { stateVersion: record.version, session: record.value }
+    const session: ContextSession = record.value.inlineItems === undefined
+      ? { ...record.value, inlineItems: [] }
+      : record.value
+    return { stateVersion: record.version, session }
   }
 
   lintTask(projectId: string, taskId: string): ContextLintResult {
@@ -295,6 +342,34 @@ export class ContextManagementService extends Service {
     return this.commit(snapshot, { ...snapshot.session, workingSet, updatedAt: now() }, 'Replace Context Working Set')
   }
 
+  replaceInlineItems(
+    projectId: string,
+    taskId: string,
+    items: readonly InlineContextItem[],
+  ): ContextSessionSnapshot {
+    const snapshot = this.getTask(projectId, taskId)
+    const inlineItems = normalizeInlineContextItems(items)
+    return this.commit(
+      snapshot,
+      { ...snapshot.session, inlineItems, updatedAt: now() },
+      `Replace ${inlineItems.length} Inline Context Item(s)`,
+    )
+  }
+
+  attachInlineItems(
+    projectId: string,
+    taskId: string,
+    items: readonly InlineContextItem[],
+  ): ContextSessionSnapshot {
+    const snapshot = this.getTask(projectId, taskId)
+    const inlineItems = normalizeInlineContextItems([...(snapshot.session.inlineItems ?? []), ...items])
+    return this.commit(
+      snapshot,
+      { ...snapshot.session, inlineItems, updatedAt: now() },
+      `Attach ${items.length} Inline Context Item(s)`,
+    )
+  }
+
   addHandles(projectId: string, taskId: string, inputs: readonly ContextHandleInput[]): ContextSessionSnapshot {
     const snapshot = this.getTask(projectId, taskId)
     const existing = new Map(snapshot.session.handles.map(handle => [handle.reference, handle]))
@@ -339,12 +414,16 @@ export class ContextManagementService extends Service {
     const workingSet = input.workingSet !== undefined
       ? normalizeReferences(input.workingSet)
       : snapshot.session.workingSet
+    const inlineItems = input.inlineItems !== undefined
+      ? normalizeInlineContextItems(input.inlineItems)
+      : snapshot.session.inlineItems ?? []
     const next: ContextSession = {
       ...snapshot.session,
       status: 'ACTIVE',
       generation: snapshot.session.generation + 1,
       taskLedger,
       workingSet,
+      inlineItems,
       recentTail: input.clearRecentTail === false ? snapshot.session.recentTail : [],
       updatedAt: stamp,
     }
@@ -389,6 +468,7 @@ export class ContextManagementService extends Service {
       taskLedger: session.taskLedger,
       progressLedger: session.progressLedger,
       workingSet: session.workingSet,
+      inlineItems: session.inlineItems ?? [],
       handles: session.handles,
     }
   }
@@ -469,6 +549,7 @@ export class ContextManagementService extends Service {
           priority: 'high',
           provenance: `runtime://${projectId}/context/${taskId}/progress-ledger`,
         },
+        ...(session.inlineItems ?? []),
         ...(session.recentTail.length > 0 ? [{
           id: 'recent-tail',
           title: 'Recent Tail',
