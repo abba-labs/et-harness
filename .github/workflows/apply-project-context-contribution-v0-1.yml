@@ -6,6 +6,7 @@ on:
       - feat/harness-project-context-contribution-v0.1
     paths:
       - 'agent_harness/patch_requests/apply_project_context_contribution_v0_1.py'
+      - 'agent_harness/patch_requests/prepare_project_context_contribution_patch_v0_1.py'
       - '.github/workflows/apply-project-context-contribution-v0-1.yml'
   workflow_dispatch:
 
@@ -22,32 +23,8 @@ jobs:
           ref: feat/harness-project-context-contribution-v0.1
           fetch-depth: 0
       - name: Apply deterministic public patch
-        shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('agent_harness/patch_requests/apply_project_context_contribution_v0_1.py')
-          text = path.read_text(encoding='utf-8')
-          old = '''    count = text.count(old)
-    if count != 1:
-        raise SystemExit(f"{relative}: expected one replacement, found {count}")
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
-'''
-          new = '''    count = text.count(old)
-    repeated_contract_route = (
-        relative.endswith("auto_governance_engine/src/contracts.ts")
-        and old.startswith("  readonly route: AutoGovernanceRouteSnapshot")
-        and count in {1, 2}
-    )
-    if count != 1 and not repeated_contract_route:
-        raise SystemExit(f"{relative}: expected one replacement, found {count}")
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
-'''
-          if text.count(old) != 1:
-              raise SystemExit('patch helper marker mismatch')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
-          PY
+          python agent_harness/patch_requests/prepare_project_context_contribution_patch_v0_1.py
           python agent_harness/patch_requests/apply_project_context_contribution_v0_1.py
       - name: Validate and commit
         shell: bash
