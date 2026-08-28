@@ -36,44 +36,66 @@
 
 未经用户明确批准，不得更换 Agent、Provider、测试对象、传输方式或验收口径，也不得因为另一条路线更容易自动化而重新解释测试目的。
 
-## 当前事实纠正与最新 Handoff（必须读）
+## 执行监管与闭环设计基线（必须读）
 
 完成冻结 Charter 后，必须立即阅读：
+
+```text
+agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md
+```
+
+该文档冻结下一阶段的公共框架方向：
+
+- 当前真实缺口不是 eTimer 文档质量，而是外部 Agent 执行过程没有完整进入公共 Runtime；
+- 必须新增 Public Execution Supervisor、Obligation Ledger、执行事件/回执合同和跨进程重放；
+- 它是 Governance Runtime 的必需执行监管能力，不是第二套 Kernel、第二套 Context 或新 Agent；
+- Project Plugin 只提供结构化义务、Evidence Policy 和成功条件；
+- Host Adapter 只回传实际事件；
+- Public Supervisor 负责义务状态、违规、Evidence 和 Completion；
+- Kernel / Managers 继续负责 Reflection、Knowledge、Context 和 8/8 Closure；
+- 必须同时满足可靠性、通用性和效率，不允许每个事件全量重路由或调用模型；
+- 文档定义了分阶段实施、负向测试、效率测试和 ATP 最终复测标准。
+
+后续开发不得绕过该文档，直接继续堆 Mailbox、Workflow 或 eTimer 产物。
+
+## 当前事实纠正与历史 Handoff（必须读）
+
+随后阅读：
 
 ```text
 20260828_ATP_CURRENT_CHATGPT_CONTEXT_CONTRIBUTION_AND_PILOT_HANDOFF_V0_1.md
 ```
 
-该文件以 exact Git HEAD、CI Run、Artifact 和 Route Receipt 为准，完整记录：
+该文件记录此前阶段的 exact Git HEAD、CI Run、Artifact、Route Receipt、失败实验和错误 PASS 纠正。它是历史机械事实，不得删除或覆盖。
 
-- 我们真正要实现的产品目标和所有权边界；
-- 公共 `context.contribute` 已完成的范围；
-- ATP Project Plugin 当前仍为 data-only 的事实；
-- ATP Context Contributor 实验为什么失败；
-- 冻结 Route、Mailbox Request、Response、Verify 的真实测试结果；
-- 此前聊天中错误 PASS 叙述的纠正；
-- 当前可以证明和不能证明的内容；
-- 所有主要问题的现象、原因、影响和修复方向；
-- 下一对话必须使用的干净分支策略和严格执行顺序。
+其部分“当前状态”已被后续实现更新；最新执行方向和当前缺口以：
 
-后续 Agent 不得跳过这份文件，也不得基于旧聊天中的乐观叙述继续开发。
+```text
+25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md
++ 最新代码 / Run / Receipt
+```
+
+为准。
 
 ## 新聊天恢复顺序
 
 继续 Harness 开发前，按顺序阅读：
 
 1. 本 `README.md`；
-2. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.md`（涉及 ATP 真实 Agent 测试时必须）；
-3. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.yaml`（机器可读冻结合同）；
-4. `20260828_ATP_CURRENT_CHATGPT_CONTEXT_CONTRIBUTION_AND_PILOT_HANDOFF_V0_1.md`；
-5. `agent_harness/design/records/00_INDEX.md`；
-6. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`；
-7. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`；
-8. `20260826_HARNESS_CURRENT_STATE.md`；
-9. `20260826_TEST_STRATEGY_AND_RESULTS.md`；
-10. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`；
-11. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`；
-12. `20260826_P0_P1_HARDENING.md`。
+2. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.md`；
+3. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.yaml`；
+4. `agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md`；
+5. `20260828_ATP_CURRENT_CHATGPT_CONTEXT_CONTRIBUTION_AND_PILOT_HANDOFF_V0_1.md`；
+6. `agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md`；
+7. `agent_harness/design/21_PUBLIC_AGENT_GOVERNANCE_KERNEL_V0_1.md`；
+8. `agent_harness/design/20_FRAMEWORK_EFFICIENCY_OBSERVER_V0_1.md`；
+9. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`；
+10. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`；
+11. `20260826_HARNESS_CURRENT_STATE.md`；
+12. `20260826_TEST_STRATEGY_AND_RESULTS.md`；
+13. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`；
+14. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`；
+15. `20260826_P0_P1_HARDENING.md`。
 
 ## 当前仓库与分支模型
 
@@ -94,6 +116,9 @@ project/<name>
 = main 公共 Harness
   + 一个真实项目的完整代码
   + 该项目 Project Plugin / Architecture / Rules / Knowledge / Gates
+
+pilot/<name>
+= 只保存真实 Pilot 编排、请求/响应和验证证据
 ```
 
 同步方向固定：
@@ -102,44 +127,118 @@ project/<name>
 main
   ↓ merge
 project/<name>
+  ↓ clean branch
+pilot/<name>
 ```
 
-项目分支不得整体反向合入 `main`。
+项目分支不得整体反向合入 `main`；Pilot 分支也不得整体合入 `main`。
 
-## 当前最新 Handoff
+## 当前最新机械状态
+
+截至 2026-08-28 当前 ATP Pilot：
+
+```text
+Public generic context.contribute                  PASS
+ATP Project Context Contributor                    PASS
+ATP Task Context compilation                       PASS
+Frozen task Project/A/R/K/G/Scope/Output routing  PASS
+Clean Route + Context Gate v0.3                    PASS
+Current ChatGPT external work                      PARTIAL / OBSERVED OUTSIDE FULL RUNTIME LOOP
+Cross-process Task/Turn rehydration                 PARTIAL IMPLEMENTATION
+Host-neutral execution-event ingestion             NOT COMPLETE
+Obligation Ledger                                  NOT IMPLEMENTED
+Claim/Evidence completion evaluation               NOT IMPLEMENTED
+Real-Pilot Unified Reflection                       NOT EXECUTED
+Real-Pilot Knowledge forced classification          NOT EXECUTED
+Real-Pilot Context/Knowledge/8/8 Closure             NOT EXECUTED
+Follow-up Context/Knowledge reuse                   NOT EXECUTED
+Overall governed real-project Pilot                FAIL / INCOMPLETE
+```
+
+Exact latest clean Route Gate evidence:
+
+```text
+branch: pilot/atp-et6801-etimer-current-chatgpt-v0.3
+head:   67e3ac1732d00720e6eae22d82718ef7689c4ed1
+run:    33164110828
+result: success
+```
+
+该成功只证明确定性的 Route / Context 前半段，不证明当前 GPT 的完整执行、Evidence、Reflection、Knowledge、Context Closure 和 Task Completion。
+
+当前 `rehydrateTask()` / `rehydrateTurn()` 是根因修复的第一步，但仍需按照 Design 25 完成持久化执行事件、Obligation Ledger、Completion Evaluator 和真实 Closure。
+
+## 当前最重要的开发结论
+
+> **Agent 不负责治理自己。Framework 负责治理 Agent。**
+
+进一步明确为：
+
+```text
+Project Plugin
+= 提供项目规则、结构化义务、Evidence Policy、成功条件
+
+Host Adapter
+= 回传可观察的实际执行事件
+
+Execution Supervisor
+= 维护义务、违规、Evidence、完成状态和跨进程重放
+
+Governance Kernel / Managers
+= 强制 Reflection、分类、Context/Knowledge/8/8 Closure
+
+Agent
+= 执行业务任务和提供语义判断，不自证 PASS/Closure
+```
+
+## 当前实现顺序
+
+必须按以下顺序推进：
+
+```text
+1. 从 main 创建公共 Execution Supervisor feature branch
+2. 冻结通用事件、义务、Evidence、Completion 合同
+3. 实现持久化 Event Store 和跨进程重放
+4. 实现 Obligation Ledger 和负向测试
+5. 实现 External Agent Response/Event ingestion
+6. 接入 Claim/Evidence/Completion Evaluator
+7. 接回 Unified Reflection、Knowledge、Context 和 8/8 Closure
+8. 完成通用性矩阵和效率基线/回归门禁
+9. 合入 main
+10. main → project/automated-testing-platform
+11. ATP Context Contributor 输出结构化 supervision contract
+12. 从干净项目分支重建 current-ChatGPT Pilot
+13. 运行冻结 eTimer 任务和第二 Turn 复用测试
+14. 完整闭环通过后，再审阅两份 eTimer 文档质量
+```
+
+不得倒序先增加更多 eTimer 业务提示、人工 Rule ID、临时 Workflow 或自述式 PASS。
+
+## 历史 Handoff
 
 ### `20260828_ATP_CURRENT_CHATGPT_CONTEXT_CONTRIBUTION_AND_PILOT_HANDOFF_V0_1.md`
 
-当前事实结论：
+记录：
 
-```text
-Public generic context.contribute        PASS
-ATP data-only Project Plugin             PASS
-ATP project Context Contributor source   FAIL / NOT IMPLEMENTED ON BRANCH
-Frozen task project resolution           PASS
-Frozen task partial A/R routing          PASS
-Frozen task compiled Task Context        FAIL
-Frozen task K/G routing                  FAIL
-External Chat mailbox dispatch           FAIL / NOT CREATED
-Current ChatGPT Agent invocation          NOT EXECUTED
-eTimer analysis artifacts                NOT CREATED
-External source Evidence closure          NOT IMPLEMENTED
-Hardware validation                       NOT EXECUTED
-Overall real-project Pilot                FAIL / INCOMPLETE
-```
+- 公共 `context.contribute` 初始范围；
+- ATP data-only Project Plugin 的历史状态；
+- 旧 Context Contributor feature 为什么失败；
+- 冻结 Route、Mailbox、Response、Verify 的历史失败结果；
+- 错误乐观 PASS 的纠正；
+- 干净 Provider 分支策略。
 
-后续必须从干净的 `project/automated-testing-platform` 创建新的 Provider feature 分支，不得继续修补旧的失败 feature / pilot 分支。
+后续 Provider 已按该 Handoff 的干净路线实现并验证，但该文件仍保留为失败根因和过程证据。
 
-### 历史 Handoff：`20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
+### `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
 
 记录：
 
 - 从 `abba-labs/et-tool` 提取公共 Harness 的来源基线与 SHA-256 校验；
 - `main` 和 `project/<name>` 的长期分支边界；
-- ET-TOOL Project Plugin、项目 Pilot 与项目型验证如何从公共 main 候选分离；
+- ET-TOOL Project Plugin、项目 Pilot 与公共 main 的分离；
 - 新仓库公共 package / synthetic-project CI 的职责；
-- 为什么当前迁移保存的是可校验快照和明确 provenance，而不是逐提交过滤历史；
-- 下一步如何建立 `project/automated-testing-platform`。
+- 可校验快照和 provenance；
+- Automated Testing Platform 项目分支的建立。
 
 ## 来源功能基线
 
@@ -168,70 +267,50 @@ PR #39 -> Public Layer knowledge policy smoke alignment
 PR #40 -> Tiered Knowledge retrieval and Evidence feedback
 ```
 
-这些功能由原仓库完成正向、负向和真实任务矩阵验证。迁移到独立仓库后，`main` 还必须通过自己的 Harness-only boundary、公共 package 和 synthetic-project 集成门禁。
-
-当前公共 `main` 已合入通用 `context.contribute`，但这只证明公共合同和 synthetic-project 路径成立，不证明 ATP 已实现自己的 Provider，也不证明当前 ChatGPT 真实 Pilot 已通过。
-
-## 项目分支状态
-
-```text
-project/et-tool
-status: STAGING
-```
-
-该分支当前用于保留从原始 Harness 快照中分离出的 ET-TOOL Project Plugin 和项目型 Harness 材料，尚未导入完整 ET-TOOL 产品代码，不能视为已完成项目迁移。
-
-```text
-project/automated-testing-platform
-status: ATP PROJECT CODE IMPORTED / DATA-ONLY PROJECT PLUGIN
-```
-
-ATP Project Plugin、基础 A/R/K/G 接入已经存在，但当前长期项目分支尚未注册项目级 `context.contribute` Provider。旧的 Context Contributor feature 分支和 Current ChatGPT pilot 分支是失败实验分支，不得直接作为下一阶段实现基线。
+这些功能由原仓库完成正向、负向和真实任务矩阵验证。迁移到独立仓库后，`main` 仍必须通过自己的 Harness-only boundary、公共 package 和 synthetic-project 集成门禁。
 
 ## 执行原则
 
 - 以 `et-harness/main` 为公共 Harness canonical 分支；
 - 公共 Harness 变更先进入 `main`，再由项目分支合并；
 - 项目业务代码、项目私有规则和 Project Knowledge 不得进入 `main`；
-- 只继续最新 Handoff 明确留下的真实问题；
-- 不重新推翻已经通过正向、负向和真实任务矩阵验证的架构；
-- 结论必须来自代码、Runtime state、Evidence、Closure Receipt、CI marker 和精确 Run / HEAD，不能来自 Agent 自述；
+- 只继续最新设计基线明确留下的真实问题；
+- 不重新推翻已经通过正向、负向和真实任务矩阵验证的 Manager / Kernel 架构；
+- 结论必须来自代码、Runtime state、Execution Receipt、Evidence、Closure Receipt、CI marker 和精确 Run / HEAD，不能来自 Agent 自述；
 - 真实项目必须通过对应 Project Plugin 接入公共 Runtime；
 - 不能直接改项目后再事后补治理报告；
-- 迁移完成前不删除原仓库中的旧 Harness 实现；
-- ATP 真实项目的当前 GPT 测试必须使用 External Chat Agent Bridge，不得替换为 Copilot 或其他 Provider；
-- GitHub Actions 可以运行 Harness 和确定性校验，但不得调用其他模型冒充当前 ChatGPT 对话；
-- 当前 ChatGPT 宿主中的 GitHub / Drive 连接器访问只可作为语义治理层证据，不能冒充 Tool Gateway 机械拦截证据；
-- 旧文档与新机械证据冲突时，使用最新 Handoff 明确列出的 exact HEAD / Run / Receipt；
-- 上游阶段失败后，下游测试必须记录 `NOT_EXECUTED` 或 `BLOCKED_BY_DEPENDENCY`，不得写部分假 PASS。
+- 当前 GPT 测试必须使用 External Chat Agent Bridge，不得替换为 Copilot 或其他 Provider；
+- GitHub Actions 可以运行 Harness 和确定性校验，但不得调用其他模型冒充当前 ChatGPT；
+- 当前 ChatGPT 宿主中的 GitHub / Drive 连接器访问只能声明 `AUDIT` 语义治理，不能冒充 Tool Gateway `ENFORCE`；
+- 没有真实执行的验证不得记录为 PASS；
+- Route PASS、文档存在或 Agent 自述均不能替代完整 Execution/Reflection/Closure PASS；
+- 上游阶段失败后，下游必须记录 `NOT_EXECUTED` 或 `BLOCKED_BY_DEPENDENCY`。
 
 ## 冻结原则
 
-> **Agent 不负责治理自己。Framework 负责治理 Agent。**
-
-Framework 决定流程何时必须发生，Agent 提供需要智能判断的语义结论。不要回退成：
+不要回退成：
 
 - 让 Agent 自己决定是否治理；
 - 让 Host 重新实现 Governance business logic；
-- 只允许正式路由 `VALIDATED` Knowledge、隐藏 CANDIDATE；
+- 让 Project Plugin 实现公共 Agent Lifecycle；
+- 每个工具事件都全量重路由、重建 Context 或调用模型；
+- 把 Efficiency Observer 变成任务必需依赖；
 - 自动提升所有 Knowledge Candidate；
-- 每轮或每次 Tool Error 强制产生 Knowledge；
-- 暴露 raw shell / filesystem / J-Link 后期待 Agent 自觉 preflight；
-- 把项目业务规则硬编码进 Public Governance Engine；
-- 为追求理论完备引入当前没有真实收益的零信任复杂度；
-- 让一个项目分支的私有改动长期成为公共 Harness fork；
-- 为追求自动化方便而替换 Test Charter 中被冻结的 Agent 或测试对象；
-- 用 generated `dist`、临时 Workflow 或 Agent 自述代替真实 Source 和机械 Evidence；
-- 在 Route / Context Gate 未通过前启动 Mailbox、Response 或 Closure。
+- 每轮强制产生知识而不允许 `NONE`；
+- 暴露工具后期待 Agent 自觉 preflight；
+- 把项目业务规则硬编码进 Public Supervisor；
+- 为自动化方便替换 Test Charter 中被冻结的 Agent；
+- 用 generated `dist`、临时 Workflow 或 Agent 自述代替真实 Source、Receipt 和 Closure；
+- 在 Route / Context Gate 未通过前启动 Agent 执行；
+- 在 Execution / Obligation / Reflection / Closure 未通过时宣告整个 Pilot PASS。
 
 ## 后续文档命名
 
 推荐继续使用：
 
 ```text
-YYYYMMDD_HARNESS_CURRENT_STATE.md
-YYYYMMDD_TEST_STRATEGY_AND_RESULTS.md
-YYYYMMDD_<PHASE>_HANDOFF.md
+agent_harness/design/NN_<PUBLIC_CAPABILITY>_V0_1.md
+agent_harness/progress_context/YYYYMMDD_<PHASE>_HANDOFF.md
 ```
 
-阶段完成时新增文件，不覆盖历史。旧结论被新证据推翻时，必须在新文件中明确写出原因和替代结论。
+阶段完成时新增 Handoff，不覆盖历史。旧结论被新机械证据推翻时，必须在新文件中明确写出原因和替代结论。
