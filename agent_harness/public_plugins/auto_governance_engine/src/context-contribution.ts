@@ -146,7 +146,11 @@ const uniqueStrings = (values: readonly string[]): string[] =>
 const safeProjectRelativePath = (label: string, value: unknown): string => {
   const normalized = singleLine(label, value, 1_000).replaceAll('\\', '/')
   const segments = normalized.split('/')
-  if (isAbsolute(normalized) || normalized.startsWith('/') || segments.includes('..')) {
+  const windowsAbsolute = /^[A-Za-z]:\//.test(normalized)
+  const uriLike = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(normalized)
+  if (isAbsolute(normalized) || windowsAbsolute || uriLike
+    || normalized.startsWith('/') || normalized.startsWith('//')
+    || segments.includes('..')) {
     throw new Error(`${label} must be a safe project-relative path or glob`)
   }
   return normalized
@@ -461,6 +465,20 @@ export const mergeContributionInlineItems = (
     throw new Error('combined project context contributions exceed the content budget')
   }
   return items
+}
+
+export const replaceContributionInlineItems = (
+  existing: readonly InlineContextItem[],
+  contributions: readonly NormalizedProjectContextContribution[],
+): InlineContextItem[] => {
+  const contributed = mergeContributionInlineItems(contributions)
+  const preserved = existing.filter(item => !item.id.startsWith('contribution:'))
+  const ids = new Set(preserved.map(item => item.id))
+  for (const item of contributed) {
+    if (ids.has(item.id)) throw new Error(`Duplicate Inline Context item: ${item.id}`)
+    ids.add(item.id)
+  }
+  return [...preserved, ...contributed]
 }
 
 export const mergeContributionReferences = (

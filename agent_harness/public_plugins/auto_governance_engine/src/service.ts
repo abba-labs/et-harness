@@ -27,8 +27,8 @@ import {
   PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
   PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
   contributionReceipt,
-  mergeContributionInlineItems,
   mergeContributionReferences,
+  replaceContributionInlineItems,
   resolveDeclaredProjectContextContributions,
   type NormalizedProjectContextContribution,
 } from './context-contribution.js'
@@ -592,24 +592,22 @@ export class AutoGovernanceEngineService extends Service {
     }
     const project = this.runtimeContext.projectManager.getProjectContext(runtime.projectId)
     if (!project) throw new Error(`Auto Governance project disappeared during routing: ${runtime.projectId}`)
-    if (phase === 'analysis' || runtime.contextContributions.length === 0) {
-      runtime.contextContributions = resolveDeclaredProjectContextContributions({
-        project,
-        request: {
-          schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
-          projectId: runtime.projectId,
-          taskId: runtime.taskId,
-          rawTask: runtime.goal,
-          phase,
-          workspacePath: project.projectRoot,
-          initialRoute: route,
-        },
-        providers: this.runtimeContext.governanceCatalog.listProviders(
-          PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
-        ),
-        serviceLookup: serviceName => this.dynamicContext().get(serviceName),
-      })
-    }
+    runtime.contextContributions = resolveDeclaredProjectContextContributions({
+      project,
+      request: {
+        schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
+        projectId: runtime.projectId,
+        taskId: runtime.taskId,
+        rawTask: runtime.goal,
+        phase,
+        workspacePath: project.projectRoot,
+        initialRoute: route,
+      },
+      providers: this.runtimeContext.governanceCatalog.listProviders(
+        PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+      ),
+      serviceLookup: serviceName => this.dynamicContext().get(serviceName),
+    })
     const contributionReferences = mergeContributionReferences(runtime.contextContributions)
     for (const reference of contributionReferences) {
       const exists = reference.kind === 'architecture'
@@ -631,10 +629,12 @@ export class AutoGovernanceEngineService extends Service {
       ...route.gateIds.map(id => ({ kind: 'gate' as const, id, priority: 'high' as const })),
       ...contributionReferences,
     ]
+    const existingInlineItems = this.runtimeContext.contextManager
+      .getTask(runtime.projectId, runtime.taskId).session.inlineItems
     this.runtimeContext.contextManager.replaceInlineItems(
       runtime.projectId,
       runtime.taskId,
-      mergeContributionInlineItems(runtime.contextContributions),
+      replaceContributionInlineItems(existingInlineItems, runtime.contextContributions),
     )
     if (replaceWorkingSet) {
       this.runtimeContext.contextManager.replaceWorkingSet(runtime.projectId, runtime.taskId, refs)

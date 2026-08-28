@@ -7,6 +7,7 @@ import {
   PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
   mergeContributionInlineItems,
   mergeContributionReferences,
+  replaceContributionInlineItems,
   resolveDeclaredProjectContextContributions,
   type ProjectContextContributionRequestV01,
 } from '../src/context-contribution.js'
@@ -146,6 +147,32 @@ describe('optional project context contribution contract', () => {
     ])
   })
 
+  it('replaces only prior contribution items and preserves host-owned Inline Context', () => {
+    const contributions = resolveDeclaredProjectContextContributions({
+      project: adapterProject(),
+      request,
+      providers: [provider],
+      serviceLookup: () => validService,
+    })
+    const merged = replaceContributionInlineItems([
+      {
+        id: 'host-owned',
+        title: 'Host Owned',
+        content: 'keep me',
+        provenance: 'runtime://synthetic/host',
+      },
+      {
+        id: 'contribution:stale:scope',
+        title: 'Stale',
+        content: 'remove me',
+        provenance: 'provider://stale/context',
+      },
+    ], contributions)
+    expect(merged.some(item => item.id === 'host-owned')).toBe(true)
+    expect(merged.some(item => item.id === 'contribution:stale:scope')).toBe(false)
+    expect(merged.some(item => item.id.includes('synthetic-analysis'))).toBe(true)
+  })
+
   it('allows a declared provider to report that the task is not applicable', () => {
     const contributions = resolveDeclaredProjectContextContributions({
       project: adapterProject(),
@@ -186,6 +213,29 @@ describe('optional project context contribution contract', () => {
         }),
       }),
     })).toThrow(/safe project-relative path/)
+  })
+
+  it('rejects cross-platform absolute and URI-like write scopes', () => {
+    for (const unsafe of ['C:/other-project/**', 'source://external/write']) {
+      expect(() => resolveDeclaredProjectContextContributions({
+        project: adapterProject(),
+        request,
+        providers: [provider],
+        serviceLookup: () => ({
+          contributeContext: () => ({
+            applicable: true,
+            contribution: {
+              schema: PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
+              projectId: PROJECT_ID,
+              taskId: 'TASK-1',
+              contributionId: 'unsafe-cross-platform',
+              provenance: 'provider://synthetic.context-provider/TASK-1',
+              writeScope: { allowed: [unsafe], protected: [] },
+            },
+          }),
+        }),
+      })).toThrow(/safe project-relative path/)
+    }
   })
 
   it('rejects cross-project providers and asynchronous providers', () => {
