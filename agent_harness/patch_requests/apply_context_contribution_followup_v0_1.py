@@ -64,7 +64,7 @@ replace_once(
 service = "agent_harness/public_plugins/auto_governance_engine/src/service.ts"
 replace_between(
     service,
-    "    if (phase === 'analysis' || runtime.contextContributions.length === 0) {",
+    "    runtime.contextContributions = resolveDeclaredProjectContextContributions({",
     "    const contributionReferences = mergeContributionReferences(runtime.contextContributions)",
     """    const hasDeclaredContextContributor = Object.values(project.adapters).some(
       adapter => adapter.capability === PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
@@ -89,21 +89,13 @@ replace_between(
       : []
 """,
 )
-replace_between(
+replace_once(
     service,
-    "    this.runtimeContext.contextManager.replaceInlineItems(",
-    "    if (replaceWorkingSet) {",
-    """    const existingInlineItems =
-      this.runtimeContext.contextManager.getTask(runtime.projectId, runtime.taskId).session.inlineItems ?? []
-    const contributionInlineItems = mergeContributionInlineItems(runtime.contextContributions)
-    this.runtimeContext.contextManager.replaceInlineItems(
-      runtime.projectId,
-      runtime.taskId,
-      [
-        ...existingInlineItems.filter(item => !item.id.startsWith('contribution:')),
-        ...contributionInlineItems,
-      ],
-    )
+    """    const existingInlineItems = this.runtimeContext.contextManager
+      .getTask(runtime.projectId, runtime.taskId).session.inlineItems
+""",
+    """    const existingInlineItems = this.runtimeContext.contextManager
+      .getTask(runtime.projectId, runtime.taskId).session.inlineItems ?? []
 """,
 )
 
