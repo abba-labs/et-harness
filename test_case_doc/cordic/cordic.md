@@ -1822,7 +1822,7 @@ cases:
     fields:
       - {source: measurement, path: expected_primary_raw, label: 性能节点独立Golden, format: hex32, aggregate: distinct}
       - {source: observation, path: target_cycles, label: 目标侧执行周期 TIMING.CYCLE_COUNT, format: decimal, aggregate: distinct}
-      - {source: observation, path: timed_primary_raw, label: 计时事务RESULT.PRIMARY, format: hex32, aggregate: same}
+      - {source: observation, path: timed_primary_raw, label: 计时事务RESULT.PRIMARY, format: hex32, aggregate: distinct}
   CORDIC_P3_003:
     summary: "CORDIC零开销原子窗口在受控IRQ Pending下保持主次结果对应关系。"
     fields:
