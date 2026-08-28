@@ -155,7 +155,7 @@ export interface ContextSession {
   readonly taskLedger: ContextTaskLedger
   readonly progressLedger: ContextProgressLedger
   readonly workingSet: readonly ContextReference[]
-  readonly inlineItems: readonly InlineContextItem[]
+  readonly inlineItems?: readonly InlineContextItem[]
   readonly handles: readonly ContextHandle[]
   readonly recentTail: readonly ContextRecentEvent[]
 }
@@ -210,6 +210,6 @@ export interface ContextHandoff {
   readonly taskLedger: ContextTaskLedger
   readonly progressLedger: ContextProgressLedger
   readonly workingSet: readonly ContextReference[]
-  readonly inlineItems: readonly InlineContextItem[]
+  readonly inlineItems?: readonly InlineContextItem[]
   readonly handles: readonly ContextHandle[]
 }
