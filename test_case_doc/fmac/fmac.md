@@ -1430,7 +1430,7 @@ cases:
   FMAC_P0_001:
     summary: "正负Q15稳态输入经过四抽头FIR后，尾段结果与独立精确Golden一致。"
     fields:
-      - {source: artifact, path: input_value, label: Q15稳态输入, format: hex16, aggregate: distinct}
+      - {source: artifact, path: input_value, label: Q15稳态输入, format: decimal, aggregate: distinct}
       - {source: artifact, path: expected_tail, label: 期望稳态尾段, format: text, aggregate: distinct}
       - {source: artifact, path: actual_tail, label: 实际稳态尾段, format: text, aggregate: distinct}
       - {source: artifact, path: counts, label: FMAC收发数量, format: text, aggregate: same}
