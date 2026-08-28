@@ -441,27 +441,27 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-28 14:24 CST`
+状态更新时间：`2026-08-28 21:30 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 14:24 CST` | `29cc76f38804cdc076d6fc604eba5c2ca1e85467` | `true` | 全量基线：`artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/`；Debugger聚焦证据沿用；P1_004手动诊断：`artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`；Formal聚焦复测：`artifacts/runs/20260828_142500_wdg_targeted_after_fix/` |
+| FPGA | `2026-08-28 17:15 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 14 | 12 | 11 | 1 | 0 | 2 | 12 |
+| FPGA | 14 | 14 | 11 | 3 | 0 | 0 | 14 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `WDG_P0_004` | FPGA | NOT_EXECUTED | `WDG_F_007`、`WDG_F_014` / 系统复位 | 当前未执行破坏性系统复位刺激 | 当前bit没有安全的RESET_OUTPUT观测映射 | 发布安全的RESET_OUTPUT与跨重启记录映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
-| `WDG_P1_003` | FPGA | NOT_EXECUTED | `WDG_F_008`、`WDG_F_014` / 轮次复位 | 当前未执行两轮复位序列 | 当前bit没有安全的RESET_OUTPUT与跨重启记录映射 | 发布RESET_OUTPUT和跨重启记录映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
-| `WDG_P2_001` | FPGA | FAIL | `WDG_F_017` / 时钟分频 | Divider读回正确，但计数速率不随`/1`和`/2`变化；独立固件复测仍得到近似相同增量 | 当前FPGA WDG时钟路径或Divider映射未闭合 | RTL/bit确认Counter真实时钟路径后重测 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
+| `WDG_P0_004` | FPGA | FAIL | `WDG_F_007`、`WDG_F_014` / 真实超时复位与跨重启记录 | WDG配置`reset_enable=1`并启动后，20秒内目标通信始终在线，未发生预期断连和重连 | 当前FPGA未观测到WDG Reset Output形成系统复位；因此跨重启记录也无法取证 | RTL/bit确认WDG Reset Output到系统复位链路及持久记录映射后，使用相同超时流程复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
+| `WDG_P1_003` | FPGA | FAIL | `WDG_F_007`、`WDG_F_008`、`WDG_F_013`、`WDG_F_014` / IRQ与Reset轮次模式 | 第一轮Timeout IRQ能够到达；第二轮等待系统复位时，30秒内目标始终在线，未发生预期断连和重连 | ROUND1 IRQ路径有效，但ROUND2 Reset Output未形成可观测系统复位 | RTL/bit确认轮次模式的Reset Output链路和跨重启记录后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
+| `WDG_P2_001` | FPGA | FAIL | `WDG_F_003`、`WDG_F_017` / 时钟源与分频 | APB1 Divider 0/1读回均正确；计数中位速率分别为12421269.38和12508109.44，速率比0.993057，低于要求的1.5 | 当前FPGA WDG Counter速率未随Divider变化，时钟路径或Divider实现未闭合 | RTL/bit确认WDG Counter真实时钟路径和Divider实现后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核
@@ -476,4 +476,4 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 | `WDG_P2_001` | FAIL | Divider读回正确，但Counter速率不符合SVD的`/1`与`/2`关系。 |
 | `WDG_P3_001` | PASS | 后续Targeted HIL已经闭合Debugger绑定并通过。 |
 
-2026-08-28修正：`WDG_P1_004`失败来自测试驱动未解锁CRG写保护。补齐unlock/reset/lock事务后，手动HIL观察到Enable从1变为0、Counter恢复`0xFFFFFFFF`，Formal聚焦HIL PASS。当前汇总为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED；P0_004/P1_003只有在重新执行后才能转成PASS或FAIL。
+2026-08-28 14:24 CST聚焦修正：`WDG_P1_004`失败来自测试驱动未解锁CRG写保护。补齐unlock/reset/lock事务后，手动HIL观察到Enable从1变为0、Counter恢复`0xFFFFFFFF`，Formal聚焦HIL PASS。该次聚焦汇总为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED；后续全量执行结果以本文件唯一“当前芯片测试状态”区域为准。
