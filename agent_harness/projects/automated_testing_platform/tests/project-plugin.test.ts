@@ -4,6 +4,10 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { loadProjectManifestFile } from '@agent-harness/project-manager'
 import {
+  ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
+  ATP_PROJECT_ID,
+} from '../src/context-contributor.js'
+import {
   AUTOMATED_TESTING_PLATFORM_PROJECT_MANIFEST,
   AUTOMATED_TESTING_PLATFORM_REQUIRED_PATHS,
   findAutomatedTestingPlatformRoot,
@@ -20,7 +24,7 @@ afterEach(() => {
   }
 })
 
-describe('Automated Testing Platform Project Plugin shell', () => {
+describe('Automated Testing Platform Project Plugin', () => {
   it('discovers the repository root from nested project paths', () => {
     const root = findAutomatedTestingPlatformRoot()
     expect(isAutomatedTestingPlatformRoot(root)).toBe(true)
@@ -59,19 +63,23 @@ describe('Automated Testing Platform Project Plugin shell', () => {
     expect(validation.missing).toHaveLength(1)
   })
 
-  it('loads the manifest with a data-only adapter boundary', () => {
+  it('loads the manifest with one explicit project Context Contributor', () => {
     const root = findAutomatedTestingPlatformRoot()
     const manifest = loadProjectManifestFile(
       resolve(root, AUTOMATED_TESTING_PLATFORM_PROJECT_MANIFEST),
     )
 
     expect(manifest.contract_version).toBe('0.1')
-    expect(manifest.project.id).toBe('et-automated-testing-platform')
+    expect(manifest.project.id).toBe(ATP_PROJECT_ID)
     expect(manifest.project.aliases).toContain('ATP')
-    expect(manifest.adapters ?? {}).toEqual({})
+    expect(manifest.adapters?.task_context).toMatchObject({
+      provider: ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
+      capability: 'context.contribute',
+    })
     expect(manifest.resources.architecture.path).toContain(
       'agent_harness/projects/automated_testing_platform/architecture/',
     )
     expect(manifest.resources.knowledge.standard).toBe('knowledge-v0.1')
+    expect(manifest.metadata?.adapter_kind).toBe('project-context-contributor')
   })
 })
