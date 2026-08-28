@@ -287,7 +287,7 @@ PC Golden
 
 ## 第七章 历史 HIL 与当前验收边界
 
-2026-08-20 当前 ET6801 FPGA Evidence 记录：
+2026-08-20 当次 ET6801 FPGA Evidence 记录：
 
 ```text
 59 executions
@@ -295,7 +295,7 @@ PC Golden
 1 FAIL
 ```
 
-当前 FAIL：
+当次 FAIL：
 
 ```text
 AES_P1_009 OUTPUT_CONFLICT
@@ -333,19 +333,19 @@ AES_P1_009 OUTPUT_CONFLICT
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-28 08:08 CST`
+状态更新时间：`2026-08-28 21:20 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 08:08 CST` | `7b2afbc61f238ee3310482e46d351a53a5dcd183` | `false` | `artifacts/runs/20260828_0811_aes_p1_009/` |
+| FPGA | `2026-08-28 17:13 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/aes/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 26 | 26 | 26 | 0 | 0 | 0 | 60 |
+| FPGA | 26 | 26 | 26 | 0 | 0 | 0 | 59 |
 
 ### 当前非PASS Case
 
