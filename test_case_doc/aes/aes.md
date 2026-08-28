@@ -494,7 +494,7 @@ method:
   inputs:
   - 测试条件：AES-128/ECB/Encrypt+固定Key，配置完成后不提前写入输入。
   steps:
-  - 等待输入配置：Enable、配置ECB并写Key。
+  - 等待输入配置：Enable后先设置16-byte数据长度，再配置ECB并写Key。
   - 写入前状态读取：读取STATUS.DIN_REQ。
   - 初始请求确认：确认DIN_REQ=1。
   - 输入块写入：通过BLOCK_WRITE写入16-byte block。
@@ -535,7 +535,7 @@ method:
   inputs:
   - 测试条件：AES-128/ECB/Encrypt+固定Key和16-byte block；Expected由独立Golden计算。
   steps:
-  - AES配置：Enable、配置ECB并写Key。
+  - AES配置：Enable后先设置16-byte数据长度，再配置ECB并写Key。
   - 输入刺激：BLOCK_WRITE写入一个完整block。
   - 读取前状态：读取STATUS.DOUT_REQ。
   - 输出请求确认：确认DOUT_REQ=1后执行BLOCK_READ。

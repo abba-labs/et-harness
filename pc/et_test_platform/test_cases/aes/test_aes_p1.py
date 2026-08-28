@@ -671,9 +671,12 @@ def test_aes_p1_006_data_in_request_status(
         return tuple(actions)
 
     with case_cleanup_scope(cleanup_actions):
-        # 配置：显式启用 AES，再下发 ECB 配置和 Key。
+        # 配置：硬件要求在模块配置前先声明本次16-byte输入长度。
         support.aes.enable()
         aes_enabled = True
+        support.aes.data_length_set(len(_PAYLOAD16))
+
+        # 配置：下发 ECB 配置和 Key，进入非DMA输入请求阶段。
         support.aes.configure(config)
         support.aes.key_set(_KEY128, config.key_size)
 
@@ -762,9 +765,12 @@ def test_aes_p1_007_data_out_request_status(
         return tuple(actions)
 
     with case_cleanup_scope(cleanup_actions):
-        # 配置：显式启用 AES，写入 ECB 配置和 Key。
+        # 配置：硬件要求在模块配置前先声明本次16-byte输入长度。
         support.aes.enable()
         aes_enabled = True
+        support.aes.data_length_set(len(_PAYLOAD16))
+
+        # 配置：写入 ECB 配置和 Key，准备产生Data-Out请求。
         support.aes.configure(config)
         support.aes.key_set(_KEY128, config.key_size)
 
