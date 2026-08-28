@@ -1463,7 +1463,7 @@ cases:
     summary: "X1装满后Spare为0、Full置位，额外写入形成Overflow并可Clear。"
     fields:
       - {source: artifact, path: watermark, label: X1满阈值, format: decimal, aggregate: distinct}
-      - {source: artifact, path: threshold.after.spare, label: 达到阈值后X1剩余空间, format: decimal, aggregate: same}
+      - {source: artifact, path: threshold.after.spare, label: 达到阈值后X1剩余空间, format: decimal, aggregate: distinct}
       - {source: artifact, path: threshold.after.full, label: 达到阈值后X1装满状态, format: bool, aggregate: same}
       - {source: artifact, path: overflow.set, label: 额外写入后X1溢出状态, format: bool, aggregate: same}
   FMAC_P1_003:
