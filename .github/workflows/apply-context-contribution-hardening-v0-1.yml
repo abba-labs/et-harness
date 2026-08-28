@@ -1,0 +1,42 @@
+name: Apply Context Contribution Hardening v0.1
+
+on:
+  push:
+    branches:
+      - feat/harness-project-context-contribution-v0.1
+    paths:
+      - 'agent_harness/patch_requests/context_contribution_hardening_v0_1.patch'
+      - '.github/workflows/apply-context-contribution-hardening-v0-1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/harness-project-context-contribution-v0.1
+          fetch-depth: 0
+      - name: Apply exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          patch_file='agent_harness/patch_requests/context_contribution_hardening_v0_1.patch'
+          git apply --check "$patch_file"
+          git apply "$patch_file"
+          git diff --check
+      - name: Commit exact source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abba-shenfu'
+          git config user.email '76858597+Abba-shenfu@users.noreply.github.com'
+          git add \
+            agent_harness/public_plugins/auto_governance_engine/src/context-contribution.ts \
+            agent_harness/public_plugins/auto_governance_engine/src/service.ts \
+            agent_harness/public_plugins/auto_governance_engine/tests/context-contribution.test.ts
+          git commit -m 'fix: harden project context contribution lifecycle'
+          git push origin HEAD:feat/harness-project-context-contribution-v0.1
