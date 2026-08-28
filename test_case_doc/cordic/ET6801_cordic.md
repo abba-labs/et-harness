@@ -440,25 +440,25 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-28 15:12 CST`
+状态更新时间：`2026-08-28 21:25 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 08:14 CST` | `7b2afbc61f238ee3310482e46d351a53a5dcd183` | `true` | `artifacts/runs/20260828_0814_cordic_remediation/`、`artifacts/runs/20260828_0823_cordic_p2_001/` |
+| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/cordic/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 24 | 8 | 7 | 0 | 1 | 16 | 20 |
+| FPGA | 24 | 24 | 23 | 0 | 1 | 0 | 53 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CORDIC_P2_001` | FPGA | SKIP | `CORDIC_F_027` / DMA工作模式 | 历史实测中输入、输出DMA Channel在15秒内未完成 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式，Case适配状态为NOT_APPLICABLE；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | `artifacts/runs/20260828_0823_cordic_p2_001/` |
+| `CORDIC_P2_001` | FPGA | SKIP | `CORDIC_F_027` / DMA工作模式 | Runtime Capability明确拒绝CORDIC DMA工作模式，Case未向硬件发起DMA刺激 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式，Case适配状态为NOT_APPLICABLE；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/cordic/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核
