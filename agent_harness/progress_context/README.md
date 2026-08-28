@@ -9,19 +9,20 @@
 继续 Execution Supervisor / ATP 真实 Agent 测试前，必须先读：
 
 1. `agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md`
-2. `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md`
-3. `agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md`
-4. `agent_harness/design/21_PUBLIC_AGENT_GOVERNANCE_KERNEL_V0_1.md`
-5. `agent_harness/design/20_FRAMEWORK_EFFICIENCY_OBSERVER_V0_1.md`
-6. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
-7. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`
-8. `20260826_HARNESS_CURRENT_STATE.md`
-9. `20260826_TEST_STRATEGY_AND_RESULTS.md`
-10. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`
-11. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`
-12. `20260826_P0_P1_HARDENING.md`
+2. `20260829_EXECUTION_SUPERVISOR_PHASE0_REPAIR_WORKLOG_V0_1.md`
+3. `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md`
+4. `agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md`
+5. `agent_harness/design/21_PUBLIC_AGENT_GOVERNANCE_KERNEL_V0_1.md`
+6. `agent_harness/design/20_FRAMEWORK_EFFICIENCY_OBSERVER_V0_1.md`
+7. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
+8. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`
+9. `20260826_HARNESS_CURRENT_STATE.md`
+10. `20260826_TEST_STRATEGY_AND_RESULTS.md`
+11. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`
+12. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`
+13. `20260826_P0_P1_HARDENING.md`
 
-如果旧聊天叙述、旧 Handoff 或分支名称与 `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md` 冲突，以最新机械证据和该 Audit 为准。
+旧 Audit 记录的是修复前事实；涉及 Execution Supervisor Phase 0 当前状态时，以 `20260829_EXECUTION_SUPERVISOR_PHASE0_REPAIR_WORKLOG_V0_1.md`、最新 `main` 源码和最新机械证据为准。
 
 ---
 
@@ -30,8 +31,8 @@
 ```text
 repo: abba-labs/et-harness
 canonical branch: main
-current audited main HEAD:
-0474cea6da2b9618fd40a0167099f2c8477a0e3c
+Phase 0 source-repair merge:
+cae6c15ccea1aaa100db756bf943895e6af51e8c
 ```
 
 当前 Design 25 方向不变：
@@ -45,82 +46,145 @@ Public Execution Supervisor
 + mandatory bridge into existing Reflection/Knowledge/Context/Closure
 ```
 
-但截至 2026-08-29：
+截至 2026-08-29，当前状态必须写成：
 
 ```text
 Design 25 direction                                   VALID / FROZEN
 Phase 0 canonical contract core                       PRESENT
-Phase 0 source consistency                            FAIL
-Phase 0 real CI/build/test/benchmark evidence         NOT EXECUTED
-Phase 0 overall                                       FAIL / INCOMPLETE
-Phase 1 persistent event store + replay               NOT IMPLEMENTED
+Phase 0 source consistency                            PASS / REPAIRED
+Phase 0 conflicting PR12 prototypes                   REMOVED
+Phase 0 isolated source compile                       PASS
+Phase 0 repository test logic                         PASS 17/17 (isolated)
+Phase 0 additional fail-closed assertions             PASS 22/22
+Phase 0 full benchmark                                PASS 2 x 10000 samples
+Phase 0 committed baseline validation                 PASS
+Phase 0 GitHub Actions runner                         BLOCKED / STEPS=[]
+Phase 0 exact repository CI acceptance                BLOCKED / NOT EXECUTED
+Phase 0 overall                                       SOURCE REPAIRED / CI ACCEPTANCE BLOCKED
+Phase 1 persistent event store + replay               NOT STARTED
 Phase 2 Obligation Ledger                             NOT IMPLEMENTED
 Phase 3 External Agent Event/Response Bridge          NOT IMPLEMENTED
 Phase 4 Claim/Evidence/Completion evaluator           NOT IMPLEMENTED
 Phase 5 Supervisor -> Reflection/Closure integration  NOT IMPLEMENTED
 Phase 6 Host enforcement profiles                     CONTRACT-ONLY / INCOMPLETE
-Phase 7 efficiency hardening                          BASELINE-ONLY / UNVERIFIED
+Phase 7 efficiency hardening                          BASELINE-ONLY
 Phase 8 ATP real Pilot                                NOT EXECUTED
 ```
 
-PR #13 `feat/public-execution-supervisor-phase1-contract-builder-v0.1` is obsolete as a Phase 1 implementation and must not be merged.
+PR #13 `[OBSOLETE] feat: compile project obligations into Task Supervision Contracts` 已关闭且未合入。
+
+PR #15 `fix: repair Execution Supervisor Phase 0 canonical contracts` 已合入 `main`，其作用是修复源码状态，不代表 GitHub CI 已通过。
 
 ---
 
-## 为什么 Phase 0 不能算 PASS
+## Phase 0 现在已经修了什么
 
-`main` 已合入 PR #12，但机械检查显示：
+Phase 0 公共包已收敛回唯一 canonical 模型。
+
+当前 `agent_harness/public_plugins/execution_supervisor/src/` 只有：
 
 ```text
-Harness Public Baseline run: 33192376336
-runner_id: 0
-steps: []
-conclusion: failure
+baseline.ts
+contracts.ts
+hash.ts
+index.ts
+validation.ts
 ```
 
-PR #12 的对应 Actions 也没有真正启动 Runner，因此 `npm test / npm run build / npm run benchmark` 没有形成可信 PASS Evidence。
-
-同时 `main` 当前存在两套不兼容的 Execution Supervisor contract/type vocabulary。`tsconfig.json` 会编译 `src/**/*.ts`，所以这些额外文件不能因为没有从 `index.ts` export 就被忽略。
-
-详细文件和证据见：
+当前 canonical 测试只有：
 
 ```text
-20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md
+committed-baseline.test.ts
+contracts.test.ts
+negative-contracts.test.ts
+performance-baseline.test.ts
+```
+
+修复分支与 pre-PR12 canonical Phase 0 commit `4d7c2ffcfe05f938ac309a98f80e37576a2db552` 做树级比较后，Execution Supervisor package 没有剩余差异；后加的第二套 contract/runtime prototype 已全部移除。
+
+详细证据见：
+
+```text
+20260829_EXECUTION_SUPERVISOR_PHASE0_REPAIR_WORKLOG_V0_1.md
+```
+
+---
+
+## 为什么 Phase 0 仍不能写最终 PASS
+
+源码问题已经修复，但 GitHub Actions 当前仍然在 Runner 分配前失败。
+
+PR #15 Phase 0 Workflow 以及手工 rerun 都表现为：
+
+```text
+job created
+conclusion: failure
+steps: []
+```
+
+合并后的 `main` Public Baseline：
+
+```text
+run: 33220975191
+head: cae6c15ccea1aaa100db756bf943895e6af51e8c
+repository-boundary: failure
+steps: []
+public-integration: skipped
+package-build-and-test: skipped
+```
+
+因此：
+
+```text
+GitHub CI failure != source test failure
+```
+
+但同样：
+
+```text
+local/isolation PASS != GitHub repository CI PASS
+```
+
+所以最终状态必须保持：
+
+```text
+Phase 0 source repair             PASS
+Phase 0 local mechanical evidence PASS
+Phase 0 repository CI acceptance  BLOCKED
 ```
 
 ---
 
 ## 唯一允许的下一步
 
-先修 Phase 0，不继续扩功能：
+**不要开始 Design 25 Phase 1。**
+
+下一步只处理 Phase 0 最后一个未关闭项：
 
 ```text
-current main
+resolve / restore GitHub Actions runner execution
   ↓
-clean Phase 0 repair branch
+run exact repository npm test
+run exact repository npm run build
+run exact repository npm run benchmark
+run Phase 0 public/domain boundary checks
+run Harness Public Baseline
+  ↓ all real executed PASS
+mark Phase 0 ACCEPTED
   ↓
-one canonical contract model
-  ↓
-remove/rewrite incompatible prototypes
-  ↓
-npm test
-npm run build
-npm run benchmark
-Execution Supervisor Phase 0 CI
-Harness Public Baseline
-  ↓ all real PASS
-Design 25 Phase 1
+only then start Design 25 Phase 1
 = persistent event store + cross-process replay
 ```
 
-在 Phase 0 真实 PASS 前，禁止提前进行：
+在 Phase 0 exact repository CI acceptance 之前，禁止提前进行：
 
 ```text
-ATP/eTimer 业务扩展
-External Chat Mailbox 扩展
+Persistent Event Store 实现
 Obligation Ledger Phase 2
+External Chat Bridge Phase 3
 Claim/Evidence evaluator Phase 4
 Closure integration Phase 5
+ATP/eTimer 业务扩展
 真实 ATP Pilot Phase 8
 ```
 
@@ -163,6 +227,7 @@ clean pilot branch
 后续提高效率靠收敛流程，而不是跳过治理：
 
 ```text
+one conversation = one phase / one repair target
 one phase = one responsibility
 one canonical contract model
 one clean branch from validated main
@@ -205,7 +270,7 @@ PR #39 -> Public Layer knowledge policy smoke alignment
 PR #40 -> Tiered Knowledge retrieval and Evidence feedback
 ```
 
-这些历史能力不因当前 Execution Supervisor Phase 0 问题而自动失效；当前 Audit 只重新冻结 Execution Supervisor 新阶段的事实状态。
+这些历史能力不因当前 Execution Supervisor Phase 0 的 CI Runner 问题而自动失效。
 
 ---
 
@@ -213,6 +278,6 @@ PR #40 -> Tiered Knowledge retrieval and Evidence feedback
 
 > **Agent 不负责治理自己。Framework 负责治理 Agent。**
 
-以及本阶段新增恢复不变量：
+以及当前恢复不变量：
 
-> **不要从“最新看起来写了很多代码”的状态继续；只从最新机械验证、合同唯一、边界清晰的 canonical state 继续。**
+> **不要从“最新看起来写了很多代码”的状态继续；只从合同唯一、边界清晰、机械证据明确的 canonical state 继续。**
