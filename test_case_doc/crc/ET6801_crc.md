@@ -633,3 +633,27 @@ Current-SHA Silicon HIL:
 后续修正 / 最终结论：经项目同事人工确认，当前测试方法正常，失败原因是当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题。`CRC_P1_012`应继续记录为`HIL_FAIL / CONFIRMED_FPGA_FUNCTION_ISSUE`，不是SKIP，也不得通过弱化断言改成PASS。该结论仅限定当前FPGA实现，不代表未来修复后的RTL或硅后芯片行为。
 
 关联文件 / 证据：`artifacts/runs/20260824_153942_456192_manual_et6801_uart_crc/manual/uart_crc.log`。
+
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
+
+状态更新时间：`2026-08-28 21:26 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/` |
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 23 | 23 | 22 | 1 | 0 | 0 | 44 |
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| `CRC_P1_012` | FPGA | FAIL | `CRC_F_014` / CRC FIFO Overflow状态 | `FIFO_TRHD=1`并连续写入7次后，`FIFO.OVERFLOW`仍由`false`保持为`false`；恢复轮CRC实际值与期望值均为`0x140B8DD8`，剩余输入计数为0 | 人工已确认刺激方法有效；当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题，CRC计算与恢复路径正常 | RTL/bit修复`FIFO_OVF`后，使用相同紧凑写入和恢复流程复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/` |
+<!-- ET_CHIP_TEST_STATUS_END -->
