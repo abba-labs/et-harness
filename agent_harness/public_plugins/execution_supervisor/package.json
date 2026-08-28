@@ -1,0 +1,31 @@
+{
+  "name": "@agent-harness/execution-supervisor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Host-neutral public execution supervision contracts, validation and Phase 0 performance baselines",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "baselines"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "benchmark": "npm run build && node benchmarks/phase0-baseline.mjs",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}
