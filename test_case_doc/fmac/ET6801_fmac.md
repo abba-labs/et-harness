@@ -536,13 +536,13 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-28 14:25 CST`
+状态更新时间：`2026-08-28 21:23 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 14:25 CST` | `29cc76f38804cdc076d6fc604eba5c2ca1e85467` | `true` | 全量基线：`artifacts/runs/20260825_212348_344047_fmac_formal_cases/tests/fmac/`；P1_002/P1_014修正版证据沿用；P1_006/P1_010手动诊断：`artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`；Formal聚焦复测：`artifacts/runs/20260828_142600_fmac_targeted_final/` |
+| FPGA | `2026-08-28 17:14 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/fmac/` |
 
 ### 当前结果汇总
 
