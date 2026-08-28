@@ -8,12 +8,13 @@ import '@agent-harness/knowledge-manager'
 import '@agent-harness/gate-manager'
 import '@agent-harness/evidence-state-manager'
 import '@agent-harness/context-builder'
-import type { ProjectCandidateResult, ProjectContext } from '@agent-harness/project-contract'
+import type { ProjectContext } from '@agent-harness/project-contract'
 import type { ContextPriority, ContextReference } from '@agent-harness/context-builder'
 import type {
   AutoGovernanceActionCheck,
   AutoGovernanceBootstrapInput,
   AutoGovernanceCompletionResult,
+  AutoGovernanceContextContributionReceipt,
   AutoGovernanceContextEnvelope,
   AutoGovernancePendingReview,
   AutoGovernanceReviewDecisionInput,
@@ -22,6 +23,19 @@ import type {
   AutoGovernanceTaskStatus,
   AutoGovernanceToolObservation,
 } from './contracts.js'
+import {
+  PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+  PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
+  contributionReceipt,
+  mergeContributionReferences,
+  replaceContributionInlineItems,
+  resolveDeclaredProjectContextContributions,
+  type NormalizedProjectContextContribution,
+} from './context-contribution.js'
+import {
+  resolveGovernanceRouteGraph,
+  type GovernanceRouteResourceKind,
+} from './route-resolver.js'
 
 const MAX_QUERY_CHARS = 4000
 const MAX_REVIEW_PACKETS = 32
@@ -35,6 +49,7 @@ interface RuntimeTask {
   codeChangeEpoch: number
   codeChangeSeen: boolean
   route: AutoGovernanceRouteSnapshot
+  contextContributions: NormalizedProjectContextContribution[]
   applicableGateIds: string[]
   currentPacketIds: string[]
   lastContextStateVersion?: number
@@ -64,8 +79,31 @@ const recordOf = (value: unknown): Record<string, any> | undefined =>
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
 
-const candidateIds = (candidates: readonly ProjectCandidateResult[]): string[] =>
-  unique(candidates.map(candidate => candidate.id))
+const contributionReceipts = (
+  contributions: readonly NormalizedProjectContextContribution[],
+): AutoGovernanceContextContributionReceipt[] => contributions.map(contributionReceipt)
+
+const mergeRouteReferences = (
+  route: AutoGovernanceRouteSnapshot,
+  references: readonly ContextReference[],
+): AutoGovernanceRouteSnapshot => ({
+  architectureIds: unique([
+    ...route.architectureIds,
+    ...references.filter(item => item.kind === 'architecture').map(item => item.id),
+  ]),
+  ruleIds: unique([
+    ...route.ruleIds,
+    ...references.filter(item => item.kind === 'rule').map(item => item.id),
+  ]),
+  knowledgeIds: unique([
+    ...route.knowledgeIds,
+    ...references.filter(item => item.kind === 'knowledge').map(item => item.id),
+  ]),
+  gateIds: unique([
+    ...route.gateIds,
+    ...references.filter(item => item.kind === 'gate').map(item => item.id),
+  ]),
+})
 
 const normalizedPath = (value: string): string => {
   const full = resolve(value)
@@ -223,6 +261,7 @@ export class AutoGovernanceEngineService extends Service {
       goal: runtime.goal,
       stateVersion: frame.stateVersion,
       route: runtime.route,
+      contextContributions: contributionReceipts(runtime.contextContributions),
       applicableGateIds: [...runtime.applicableGateIds],
       pendingReviews,
       text: this.renderGovernanceContext(runtime, frame.pack.text, pendingReviews),
@@ -447,6 +486,7 @@ export class AutoGovernanceEngineService extends Service {
       codeChangeEpoch: runtime.codeChangeEpoch,
       codeChangeSeen: runtime.codeChangeSeen,
       route: runtime.route,
+      contextContributions: contributionReceipts(runtime.contextContributions),
       applicableGateIds: [...runtime.applicableGateIds],
       pendingReviews: runtime.currentPacketIds
         .map(packetId => this.pendingReviews.get(packetId))
@@ -495,6 +535,7 @@ export class AutoGovernanceEngineService extends Service {
       codeChangeEpoch: 0,
       codeChangeSeen: false,
       route: emptyRoute(),
+      contextContributions: [],
       applicableGateIds: [],
       currentPacketIds: [],
     }
@@ -510,22 +551,96 @@ export class AutoGovernanceEngineService extends Service {
   ): AutoGovernanceRouteSnapshot {
     const query = queryText.replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY_CHARS)
     const request = { projectId: runtime.projectId, query, scope: { taskId: runtime.taskId }, limit: 8 }
-    const architecture = this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, limit: 6 })
-    const rules = this.runtimeContext.ruleManager.searchRules({ ...request, limit: 10 })
-    const knowledge = this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 })
-    const gates = this.runtimeContext.gateManager.searchGates({ ...request, limit: phase === 'implementation' ? 24 : 8 })
-    const route: AutoGovernanceRouteSnapshot = {
-      architectureIds: candidateIds(architecture),
-      ruleIds: candidateIds(rules),
-      knowledgeIds: candidateIds(knowledge),
-      gateIds: candidateIds(gates),
+    const seeds = {
+      architecture: this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, limit: 6 }),
+      rule: this.runtimeContext.ruleManager.searchRules({ ...request, limit: 10 }),
+      knowledge: this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, limit: 8 }),
+      gate: this.runtimeContext.gateManager.searchGates({
+        ...request,
+        limit: phase === 'implementation' ? 24 : 8,
+      }),
     }
+    const exactLookup = (kind: GovernanceRouteResourceKind, id: string) => {
+      if (kind === 'architecture') {
+        return this.runtimeContext.architectureNavigator.searchArchitecture({ ...request, query: id, limit: 1 })[0]
+      }
+      if (kind === 'rule') {
+        return this.runtimeContext.ruleManager.searchRules({ ...request, query: id, limit: 1 })[0]
+      }
+      if (kind === 'knowledge') {
+        return this.runtimeContext.knowledgeManager.searchKnowledge({ ...request, query: id, limit: 1 })[0]
+      }
+      return this.runtimeContext.gateManager.searchGates({ ...request, query: id, limit: 1 })[0]
+    }
+    const resolution = resolveGovernanceRouteGraph({
+      projectId: runtime.projectId,
+      seeds,
+      maxDepth: 2,
+      limits: {
+        architecture: 12,
+        rule: 24,
+        knowledge: 20,
+        gate: phase === 'implementation' ? 32 : 16,
+      },
+      exactLookup,
+    })
+    let route: AutoGovernanceRouteSnapshot = {
+      architectureIds: resolution.candidates.architecture.map(candidate => candidate.id),
+      ruleIds: resolution.candidates.rule.map(candidate => candidate.id),
+      knowledgeIds: resolution.candidates.knowledge.map(candidate => candidate.id),
+      gateIds: resolution.candidates.gate.map(candidate => candidate.id),
+    }
+    const project = this.runtimeContext.projectManager.getProjectContext(runtime.projectId)
+    if (!project) throw new Error(`Auto Governance project disappeared during routing: ${runtime.projectId}`)
+    const hasDeclaredContextContributor = Object.values(project.adapters).some(
+      adapter => adapter.capability === PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+    )
+    runtime.contextContributions = hasDeclaredContextContributor
+      ? resolveDeclaredProjectContextContributions({
+          project,
+          request: {
+            schema: PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
+            projectId: runtime.projectId,
+            taskId: runtime.taskId,
+            rawTask: runtime.goal,
+            phase,
+            workspacePath: project.projectRoot,
+            initialRoute: route,
+          },
+          providers: this.runtimeContext.governanceCatalog.listProviders(
+            PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+          ),
+          serviceLookup: serviceName => this.dynamicContext().get(serviceName),
+        })
+      : []
+    const contributionReferences = mergeContributionReferences(runtime.contextContributions)
+    for (const reference of contributionReferences) {
+      const exists = reference.kind === 'architecture'
+        ? this.runtimeContext.architectureNavigator.getNode(runtime.projectId, reference.id) !== undefined
+        : reference.kind === 'rule'
+          ? this.runtimeContext.ruleManager.getNode(runtime.projectId, reference.id) !== undefined
+          : reference.kind === 'knowledge'
+            ? this.runtimeContext.knowledgeManager.getNode(runtime.projectId, reference.id) !== undefined
+            : this.runtimeContext.gateManager.getNode(runtime.projectId, reference.id) !== undefined
+      if (!exists) {
+        throw new Error(`Context contributor referenced missing ${reference.kind} resource: ${reference.id}`)
+      }
+    }
+    route = mergeRouteReferences(route, contributionReferences)
     const refs: ContextReference[] = [
       ...route.architectureIds.map(id => ({ kind: 'architecture' as const, id, priority: 'high' as const })),
       ...route.ruleIds.map(id => ({ kind: 'rule' as const, id, priority: 'high' as const })),
       ...route.knowledgeIds.map(id => ({ kind: 'knowledge' as const, id, priority: 'normal' as const })),
       ...route.gateIds.map(id => ({ kind: 'gate' as const, id, priority: 'high' as const })),
+      ...contributionReferences,
     ]
+    const existingInlineItems = this.runtimeContext.contextManager
+      .getTask(runtime.projectId, runtime.taskId).session.inlineItems ?? []
+    this.runtimeContext.contextManager.replaceInlineItems(
+      runtime.projectId,
+      runtime.taskId,
+      replaceContributionInlineItems(existingInlineItems, runtime.contextContributions),
+    )
     if (replaceWorkingSet) {
       this.runtimeContext.contextManager.replaceWorkingSet(runtime.projectId, runtime.taskId, refs)
     } else {

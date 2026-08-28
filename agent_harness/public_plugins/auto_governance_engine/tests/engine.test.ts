@@ -38,5 +38,4 @@ describe('host-independent Auto Governance action classification', () => {
     expect(summary.length).toBeLessThanOrEqual(190)
     expect(summary).toContain('(+17 more)')
   })
-
 })
