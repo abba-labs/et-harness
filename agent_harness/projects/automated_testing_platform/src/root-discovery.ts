@@ -15,12 +15,15 @@ export const AUTOMATED_TESTING_PLATFORM_ROOT_MARKERS = [
 
 export const AUTOMATED_TESTING_PLATFORM_REQUIRED_PATHS = [
   AUTOMATED_TESTING_PLATFORM_PROJECT_MANIFEST,
+  'agent_harness/projects/automated_testing_platform/src/context-contributor.ts',
   'agent_harness/projects/automated_testing_platform/architecture/00_INDEX.md',
   'agent_harness/projects/automated_testing_platform/rules/00_INDEX.md',
+  'agent_harness/projects/automated_testing_platform/rules/020_ip_analysis_routing_contract.md',
   'agent_harness/projects/automated_testing_platform/knowledge/00_INDEX.md',
   'agent_harness/projects/automated_testing_platform/knowledge/TAXONOMY.yaml',
   'agent_harness/projects/automated_testing_platform/knowledge/SOURCES.yaml',
   'agent_harness/projects/automated_testing_platform/gates/00_INDEX.md',
+  'tools/governance/compile_task_context.py',
 ] as const
 
 export function isAutomatedTestingPlatformRoot(candidate: string): boolean {

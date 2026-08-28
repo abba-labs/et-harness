@@ -18,6 +18,19 @@ files:
       - 任务上下文
       - 规则Owner
       - 证据
+  - id: R020
+    file: 020_ip_analysis_routing_contract.md
+    title: IP Analysis Routing Contract
+    summary: Project-scoped routing projection for compiled IP analysis context, source disposition, two-document output and analysis-only scope.
+    aliases:
+      - ip analysis
+      - chip ip analysis
+      - source disposition
+      - public ip document
+      - chip adaptation document
+      - IP分析
+      - 芯片IP分析
+      - 资料处置
 ---
 
 # Automated Testing Platform Rule Interface

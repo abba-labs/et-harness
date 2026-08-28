@@ -10,7 +10,7 @@ project:
     - ET Automated Testing Platform
     - ATP
     - 自动化测试平台
-  description: Existing project exposed to ET Harness through a minimal data-only Project Plugin.
+  description: Existing project exposed to ET Harness through a project-owned Context Contributor and A/R/K/G projection.
 
 root:
   markers:
@@ -34,14 +34,23 @@ resources:
     path: agent_harness/projects/automated_testing_platform/gates/
     standard: gate-v0.1
 
-adapters: {}
+adapters:
+  task_context:
+    provider: project.automated-testing-platform.context
+    capability: context.contribute
+    metadata:
+      contract_version: "0.1"
+      service: atpContextContributor
+      method: contributeContext
+      fail_closed: true
 
 metadata:
-  adapter_kind: data-only-project-plugin
+  adapter_kind: project-context-contributor
   constitution: AGENTS.md
   system_map: project-governance/system-map.yaml
   rule_catalog: report/design/rule_owner_catalog.yaml
   task_context_compiler: tools/governance/compile_task_context.py
+  task_context_runtime: project-governance/runtime/current_task_context.json
   harness_repository: abba-labs/et-harness
   long_lived_project_branch: project/automated-testing-platform
   test_baseline_revision: e9e3affb537113b43d15fbe71b222b213f4410d9
