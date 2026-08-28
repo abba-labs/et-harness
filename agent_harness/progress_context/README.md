@@ -4,18 +4,52 @@
 
 它不是 Architecture / Rule / Knowledge / Gate 的替代品，而是供后续 Agent 或新聊天快速恢复公共 Harness 工程上下文的 Handoff Archive。
 
+## ATP 真实项目测试硬冻结（必须先读）
+
+任何涉及以下目标的工作：
+
+```text
+当前 ChatGPT 对话 / GPT-5.6 Pro
+→ ET Harness
+→ Automated Testing Platform
+→ 真实项目任务
+```
+
+必须首先完整阅读并遵守：
+
+```text
+20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.md
+20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.yaml
+```
+
+两份文件共同冻结：
+
+- 测试的唯一目的；
+- 被测 Agent 必须是当前 ChatGPT 对话中的 GPT-5.6 Pro；
+- External Chat Agent Bridge 的数据传输边界；
+- ATP 项目、A/R/K/G、Task Context、Evidence、Reflection、Closure 的完整链路；
+- Google Drive 作为外部只读资料源的边界；
+- 语义治理与机械 Tool Gateway 治理必须分层声明；
+- 禁止使用 Copilot、其他 Provider 或 CI 内置模型替代当前 GPT；
+- 首个真实任务的原始输入及禁止人工提示项；
+- PASS / FAIL 和证据要求。
+
+未经用户明确批准，不得更换 Agent、Provider、测试对象、传输方式或验收口径，也不得因为另一条路线更容易自动化而重新解释测试目的。
+
 ## 新聊天恢复顺序
 
 继续 Harness 开发前，按顺序阅读：
 
 1. 本 `README.md`；
-2. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`；
-3. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`；
-4. `20260826_HARNESS_CURRENT_STATE.md`；
-5. `20260826_TEST_STRATEGY_AND_RESULTS.md`；
-6. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`；
-7. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`；
-8. `20260826_P0_P1_HARDENING.md`。
+2. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.md`（涉及 ATP 真实 Agent 测试时必须）；
+3. `20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.yaml`（机器可读冻结合同）；
+4. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`；
+5. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`；
+6. `20260826_HARNESS_CURRENT_STATE.md`；
+7. `20260826_TEST_STRATEGY_AND_RESULTS.md`；
+8. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`；
+9. `20260826_KNOWLEDGE_TIERED_REFERENCE_FEEDBACK.md`；
+10. `20260826_P0_P1_HARDENING.md`。
 
 ## 当前仓库与分支模型
 
@@ -101,11 +135,10 @@ status: STAGING
 
 ```text
 project/automated-testing-platform
-status: NOT_CREATED / NEXT PHASE
-source project branch: Automated_Testing_Platform review_code
+status: CREATED / ATP PROJECT CODE IMPORTED
 ```
 
-下一阶段应从 `et-harness/main` 创建该项目分支，并把项目完整代码、ATP Project Plugin 和独立 Knowledge Base 放在同一工作树中；不再使用跨仓库双根适配。
+ATP Project Plugin、基础 A/R/K/G 接入和真实 Agent Pilot 必须在独立 test / pilot 分支验证，再按证据决定是否合入长期项目分支。真实 Agent Pilot 必须遵守本 README 顶部列出的冻结 Test Charter。
 
 ## 执行原则
 
@@ -117,7 +150,10 @@ source project branch: Automated_Testing_Platform review_code
 - 结论必须来自代码、Runtime state、Evidence、Closure Receipt、CI marker 和精确 Run / HEAD，不能来自 Agent 自述；
 - 真实项目必须通过对应 Project Plugin 接入公共 Runtime；
 - 不能直接改项目后再事后补治理报告；
-- 迁移完成前不删除原仓库中的旧 Harness 实现。
+- 迁移完成前不删除原仓库中的旧 Harness 实现；
+- ATP 真实项目的当前 GPT 测试必须使用 External Chat Agent Bridge，不得替换为 Copilot 或其他 Provider；
+- GitHub Actions 可以运行 Harness 和确定性校验，但不得调用其他模型冒充当前 ChatGPT 对话；
+- 当前 ChatGPT 宿主中的 GitHub / Drive 连接器访问只可作为语义治理层证据，不能冒充 Tool Gateway 机械拦截证据。
 
 ## 冻结原则
 
@@ -133,7 +169,8 @@ Framework 决定流程何时必须发生，Agent 提供需要智能判断的语�
 - 暴露 raw shell / filesystem / J-Link 后期待 Agent 自觉 preflight；
 - 把项目业务规则硬编码进 Public Governance Engine；
 - 为追求理论完备引入当前没有真实收益的零信任复杂度；
-- 让一个项目分支的私有改动长期成为公共 Harness fork。
+- 让一个项目分支的私有改动长期成为公共 Harness fork；
+- 为追求自动化方便而替换 Test Charter 中被冻结的 Agent 或测试对象。
 
 ## 后续文档命名
 
