@@ -142,6 +142,14 @@ export const CORE_GOVERNANCE_CAPABILITIES: readonly GovernanceCapabilityContract
     criticality: 'core',
   },
   {
+    id: 'context.contribute',
+    version: '0.1',
+    summary: '允许项目通过可选 Provider 在初始 A/R/K/G 路由后贡献任务特定 Context、Scope、Validation 与 Output Contract；未声明 Provider 的项目保持原行为',
+    criticality: 'optional',
+    inputSchema: 'agent-harness.project-context-contribution-request.v0.1',
+    outputSchema: 'agent-harness.project-context-contribution.v0.1',
+  },
+  {
     id: 'experience.manage',
     version: '0.1',
     summary: '管理 Agent 提交的项目经验候选和跨任务经验状态',

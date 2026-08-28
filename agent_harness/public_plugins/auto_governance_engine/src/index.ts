@@ -3,6 +3,8 @@ import type { GovernanceManifest } from '@agent-harness/governance-core'
 import AutoGovernanceEngineService from './service.js'
 
 export * from './contracts.js'
+export * from './context-contribution.js'
+export * from './route-resolver.js'
 export * from './service.js'
 
 export const name = 'agent-harness-auto-governance-engine'
@@ -34,6 +36,7 @@ export const governanceManifest: GovernanceManifest = {
     'evidence.read',
     'context.build',
     'context.manage',
+    'context.contribute',
   ],
   provides: [{
     capability: 'governance.auto-engine',

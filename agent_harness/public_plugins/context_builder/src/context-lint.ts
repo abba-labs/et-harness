@@ -1,5 +1,6 @@
 import type {
   ContextHandleInput,
+  InlineContextItem,
   ContextLedgerEntry,
   ContextProgressLedger,
   ContextRecentEventInput,
@@ -30,11 +31,14 @@ const LIMITS = {
   recentSummary: 300,
   handleTitle: 120,
   handleSummary: 220,
+  inlineId: 160,
+  inlineTitle: 240,
+  inlineContent: 8_000,
   reference: 500,
 } as const
 
 const UNCERTAINTY_RE = /(可能|猜测|似乎|预计|大概|也许|怀疑|maybe|probably|likely|seems?|suspect|assum(?:e|ed|ption))/i
-const STABLE_REFERENCE_RE = /^(?:[ARKG]\d{3}(?:\.\d{3})*|(?:knowledge|source|evidence|project|file|runtime):\/\/\S+)$/i
+const STABLE_REFERENCE_RE = /^(?:[ARKG]\d{3}(?:\.\d{3})*|(?:knowledge|source|evidence|project|file|runtime|provider):\/\/\S+)$/i
 
 const issue = (
   severity: ContextLintSeverity,
@@ -154,6 +158,19 @@ export function lintHandle(input: ContextHandleInput): ContextLintResult {
   return toResult(issues)
 }
 
+export function lintInlineContextItem(input: InlineContextItem): ContextLintResult {
+  const issues: ContextLintIssue[] = []
+  lintSingleLine(input.id, 'inline.id', LIMITS.inlineId, issues)
+  lintSingleLine(input.title, 'inline.title', LIMITS.inlineTitle, issues)
+  lintReference(input.provenance, 'inline.provenance', issues)
+  const content = input.content.trim()
+  if (!content) issues.push(issue('ERROR', 'EMPTY_TEXT', 'inline.content', 'inline.content 不能为空'))
+  if (content.length > LIMITS.inlineContent) {
+    issues.push(issue('ERROR', 'TEXT_TOO_LONG', 'inline.content', `inline.content 超过 ${LIMITS.inlineContent} 字符上限`))
+  }
+  return toResult(issues)
+}
+
 export function lintContextSession(session: ContextSession): ContextLintResult {
   const issues: ContextLintIssue[] = []
   const task = lintTaskLedger(session.taskLedger)
@@ -163,6 +180,12 @@ export function lintContextSession(session: ContextSession): ContextLintResult {
     const result = lintRecentEvent(event)
     for (const item of [...result.errors, ...result.warnings]) {
       issues.push({ ...item, field: `recentTail[${index}].${item.field.replace(/^recent\./, '')}` })
+    }
+  })
+  session.inlineItems.forEach((item, index) => {
+    const result = lintInlineContextItem(item)
+    for (const issueItem of [...result.errors, ...result.warnings]) {
+      issues.push({ ...issueItem, field: `inlineItems[${index}].${issueItem.field.replace(/^inline\./, '')}` })
     }
   })
   session.handles.forEach((handle, index) => {

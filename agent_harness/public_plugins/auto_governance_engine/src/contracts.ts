@@ -5,6 +5,14 @@ export interface AutoGovernanceRouteSnapshot {
   readonly gateIds: readonly string[]
 }
 
+export interface AutoGovernanceContextContributionReceipt {
+  readonly providerId: string
+  readonly contributionId: string
+  readonly fingerprint: string
+  readonly referenceIds: readonly string[]
+  readonly inlineItemIds: readonly string[]
+}
+
 export type AutoGovernanceReviewDecision = 'PENDING' | 'PASS' | 'BLOCK'
 
 export interface AutoGovernancePendingReview {
@@ -30,6 +38,7 @@ export interface AutoGovernanceTaskStatus {
   readonly codeChangeEpoch: number
   readonly codeChangeSeen: boolean
   readonly route: AutoGovernanceRouteSnapshot
+  readonly contextContributions: readonly AutoGovernanceContextContributionReceipt[]
   readonly applicableGateIds: readonly string[]
   readonly pendingReviews: readonly AutoGovernancePendingReview[]
   readonly lastContextStateVersion?: number
@@ -42,6 +51,7 @@ export interface AutoGovernanceContextEnvelope {
   readonly goal: string
   readonly stateVersion: number
   readonly route: AutoGovernanceRouteSnapshot
+  readonly contextContributions: readonly AutoGovernanceContextContributionReceipt[]
   readonly applicableGateIds: readonly string[]
   readonly pendingReviews: readonly AutoGovernancePendingReview[]
   readonly text: string
