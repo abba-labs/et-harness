@@ -1141,7 +1141,7 @@ cases:
 
 | Chip | Feature适配状态 | Case适配状态 | 主要Gap | 详细分析 |
 |---|---:|---:|---|---|
-| ET6801 | ADAPTED=11; MAPPING_GAP=2; NEEDS_VERIFICATION=4 | ADAPTED=10; MAPPING_GAP=1; NEEDS_VERIFICATION=3 | 2026-08-26复核后为10 PASS / 2 FAIL / 0 SKIP / 2 NOT_EXECUTED；SVD声明的reset能力不再通过Runtime Capability屏蔽，P0_004/P1_003待重跑 | `ET6801_wdg.md` |
+| ET6801 | ADAPTED=12; MAPPING_GAP=2; NEEDS_VERIFICATION=3 | ADAPTED=11; MAPPING_GAP=1; NEEDS_VERIFICATION=2 | 2026-08-28修复模块复位驱动并完成HIL后为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED；P2_001保持映射Gap，P0_004/P1_003待重跑 | `ET6801_wdg.md` |
 
 ## 5. Common Gap / Evolution
 

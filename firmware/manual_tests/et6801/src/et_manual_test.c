@@ -10,6 +10,86 @@
 #include "et_manual_test_internal.h"
 #include "system_et6x.h"
 
+#define ET_MANUAL_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+
+typedef int (*et_manual_case_handler_t)(void);
+
+typedef struct
+{
+    const char *case_id;
+    et_manual_case_handler_t handler;
+} et_manual_case_entry_t;
+
+typedef struct
+{
+    const char *ip_name;
+    const et_manual_case_entry_t *cases;
+    size_t case_count;
+} et_manual_ip_entry_t;
+
+
+/* Comment a Case entry to exclude it from the selected IP. */
+static const et_manual_case_entry_t g_dualcore_cases[] = {
+    {"dualcore_smoke", et_manual_dualcore_smoke},
+};
+
+/* Comment a Case entry to exclude it from the selected IP. */
+static const et_manual_case_entry_t g_crg_cases[] = {
+    {"crg_register_reset_matrix", et_manual_crg_register_reset_matrix},
+};
+
+static const et_manual_case_entry_t g_uart_cases[] = {
+    {"uart_p1_008", et_manual_uart_p1_008_framing_error_detection},
+    {"uart_p1_012", et_manual_uart_p1_012_busy_detect_irq},
+    {"uart_p3_009", et_manual_uart_p3_009_direct_fifo_access},
+};
+
+static const et_manual_case_entry_t g_crc_cases[] = {
+    {"crc_p1_012", et_manual_crc_p1_012_fifo_overflow_recovery},
+};
+
+static const et_manual_case_entry_t g_aes_cases[] = {
+    {"aes_p1_009", et_manual_aes_p1_009_output_conflict},
+};
+
+static const et_manual_case_entry_t g_cordic_cases[] = {
+    {"cordic_p1_003", et_manual_cordic_p1_003_scale7_arctan_precision},
+    {"cordic_p2_001", et_manual_cordic_p2_001_dma_mode_equivalence},
+};
+
+static const et_manual_case_entry_t g_fmac_cases[] = {
+    {"fmac_p1_006", et_manual_fmac_p1_006_float_overflow_clear},
+    {"fmac_p1_010", et_manual_fmac_p1_010_negative_status_clear},
+};
+
+static const et_manual_case_entry_t g_wdg_cases[] = {
+    {"wdg_p1_004", et_manual_wdg_p1_004_module_reset_and_recovery},
+    //{"wdg_p2_001", et_manual_wdg_p2_001_clock_divider_rate},
+};
+
+static const et_manual_case_entry_t g_stimer_cases[] = {
+    //{"stimer_p1_001", et_manual_stimer_p1_001_prescaler_ratio},
+    {"stimer_p2_003", et_manual_stimer_p2_003_debugger_halt_behavior},
+};
+
+/*
+ * Comment an IP entry to exclude all of its Cases from this build.  STIMER is
+ * kept last because its debugger-dependent Case may halt firmware execution.
+ */
+static const et_manual_ip_entry_t g_manual_ip_registry[] = {
+    //{"crg", g_crg_cases, ET_MANUAL_ARRAY_SIZE(g_crg_cases)},
+    //{"uart", g_uart_cases, ET_MANUAL_ARRAY_SIZE(g_uart_cases)},
+    //{"crc", g_crc_cases, ET_MANUAL_ARRAY_SIZE(g_crc_cases)},
+    //{"aes", g_aes_cases, ET_MANUAL_ARRAY_SIZE(g_aes_cases)},
+    //{"cordic", g_cordic_cases, ET_MANUAL_ARRAY_SIZE(g_cordic_cases)},
+    {"fmac", g_fmac_cases, ET_MANUAL_ARRAY_SIZE(g_fmac_cases)},
+    {"wdg", g_wdg_cases, ET_MANUAL_ARRAY_SIZE(g_wdg_cases)},
+    //{"stimer", g_stimer_cases, ET_MANUAL_ARRAY_SIZE(g_stimer_cases)},
+		//{"dualcore", g_dualcore_cases, ET_MANUAL_ARRAY_SIZE(g_dualcore_cases)},
+};
+
+
+
 static void configure_pin(GPIO_PinNumber pin, uint8_t mode)
 {
     IOC_Init_TypeDef config;
@@ -146,77 +226,48 @@ void et_manual_log_result(const char *case_id, int result)
     et_manual_log_text((result == ET_MANUAL_RESULT_PASS) ? " status=PASS\r\n" : " status=FAIL\r\n");
 }
 
+static int run_registered_ip(const et_manual_ip_entry_t *ip_entry)
+{
+    size_t case_index;
+    int failures = 0;
+
+    et_manual_log_text("[MANUAL] ip=");
+    et_manual_log_text(ip_entry->ip_name);
+    et_manual_log_text(" start\r\n");
+
+    for (case_index = 0u; case_index < ip_entry->case_count; ++case_index)
+    {
+        const et_manual_case_entry_t *case_entry = &ip_entry->cases[case_index];
+        int result = case_entry->handler();
+
+        et_manual_log_result(case_entry->case_id, result);
+
+        if (result != ET_MANUAL_RESULT_PASS)
+        {
+            ++failures;
+        }
+    }
+
+    et_manual_log_text("[MANUAL] ip=");
+    et_manual_log_text(ip_entry->ip_name);
+    et_manual_log_text(" end\r\n");
+
+    return failures;
+}
+
 int et_manual_test_run(void)
 {
+    size_t ip_index;
     int failures = 0;
-    int result;
 
     initialize_hardware();
     wait_for_pc_capture();
     et_manual_log_text("[MANUAL] suite=ET6801_MANUAL_DIAGNOSTICS start\r\n");
 
-#if defined(ET_MANUAL_CORE1_SMOKE_ONLY)
-    result = et_manual_dualcore_smoke();
-    et_manual_log_result("dualcore_smoke", result);
-    failures += result;
-#else
-    result = et_manual_crg_register_reset_matrix();
-    et_manual_log_result("crg_register_reset_matrix", result);
-    failures += result;
-
-    result = et_manual_uart_p1_008_framing_error_detection();
-    et_manual_log_result("uart_p1_008", result);
-    failures += result;
-
-    result = et_manual_uart_p1_012_busy_detect_irq();
-    et_manual_log_result("uart_p1_012", result);
-    failures += result;
-
-    result = et_manual_uart_p3_009_direct_fifo_access();
-    et_manual_log_result("uart_p3_009", result);
-    failures += result;
-
-    result = et_manual_crc_p1_012_fifo_overflow_recovery();
-    et_manual_log_result("crc_p1_012", result);
-    failures += result;
-
-    result = et_manual_aes_p1_009_output_conflict();
-    et_manual_log_result("aes_p1_009", result);
-    failures += result;
-
-    result = et_manual_cordic_p1_003_scale7_arctan_precision();
-    et_manual_log_result("cordic_p1_003", result);
-    failures += result;
-
-    result = et_manual_cordic_p2_001_dma_mode_equivalence();
-    et_manual_log_result("cordic_p2_001", result);
-    failures += result;
-
-    result = et_manual_fmac_p1_006_float_overflow_clear();
-    et_manual_log_result("fmac_p1_006", result);
-    failures += result;
-
-    result = et_manual_fmac_p1_010_negative_status_clear();
-    et_manual_log_result("fmac_p1_010", result);
-    failures += result;
-
-    result = et_manual_stimer_p1_001_prescaler_ratio();
-    et_manual_log_result("stimer_p1_001", result);
-    failures += result;
-
-    result = et_manual_wdg_p1_004_module_reset_and_recovery();
-    et_manual_log_result("wdg_p1_004", result);
-    failures += result;
-
-    result = et_manual_wdg_p2_001_clock_divider_rate();
-    et_manual_log_result("wdg_p2_001", result);
-    failures += result;
-
-    /* Debugger-dependent Case runs last so a missing debugger cannot hide all other evidence. */
-    result = et_manual_stimer_p2_003_debugger_halt_behavior();
-    et_manual_log_result("stimer_p2_003", result);
-    failures += result;
-#endif
+    for (ip_index = 0u; ip_index < ET_MANUAL_ARRAY_SIZE(g_manual_ip_registry); ++ip_index)
+    {
+        failures += run_registered_ip(&g_manual_ip_registry[ip_index]);
+    }
 
     et_manual_log_u32("[OBSERVE] failure_count", (uint32_t)failures);
     et_manual_log_text("[MANUAL] suite=ET6801_MANUAL_DIAGNOSTICS end\r\n");

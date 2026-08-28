@@ -8,9 +8,8 @@
 
 static void reset_wdg(void)
 {
-    CRG_unlockClockConfig();
+    /* The WDG test Driver owns the protected CRG reset transaction. */
     (void)WDG_testResetModule(ET_MANUAL_WDG);
-    CRG_lockClockConfig();
 }
 
 static void configure_wdg(uint32_t reload)

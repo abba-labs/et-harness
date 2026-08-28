@@ -302,7 +302,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 
 | Gap ID | Type | Current fact | Release condition |
 |---|---|---|---|
-| wdg_case_implementation_gap | CLOSED / FPGA_HIL_PARTIAL | 14个Case均已闭合；按2026-08-26状态规则复核后，当前结论为10 PASS / 2 FAIL / 0 SKIP / 2 NOT_EXECUTED。P1_004手动HIL与P2_001 Formal HIL均为FAIL；P0_004/P1_003需在恢复Capability后重新执行。 | 闭合P1_004、P2_001硬件问题，重跑P0_004/P1_003，并执行Silicon HIL。 |
+| wdg_case_implementation_gap | CLOSED / FPGA_HIL_PARTIAL | 14个Case均已闭合；2026-08-28修复WDG测试驱动的CRG写保护事务后，P1_004手动与Formal HIL均PASS；当前结论为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED。 | 闭合P2_001硬件问题，重跑P0_004/P1_003，并执行Silicon HIL。 |
 | wdg_runtime_capability_service_gap | CLOSED | Static Capability发布生成器事实，Runtime Service已实现。 | 保持Static/Runtime重叠事实一致。 |
 | wdg_semantic_capability_mapping_gap | MAPPING | limits/options/parameters为空，Runtime-only语义无机器映射。 | 通过通用Capability规则/执行映射发布，不手工伪造Static镜像。 |
 | wdg_config_readback_gap | CLOSED | 隔离Test Driver Extension已提供配置readback。 | 保持P1_005以硬件readback为判据。 |
@@ -310,7 +310,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 | wdg_irq_service_gap | CLOSED | 公共Source级ISR latch/event_count已实现。 | 保持Raw/Status/latch/event_count分层。 |
 | wdg_unmask_pending_semantics_gap | SEMANTIC | Raw在Mask期间pending后Unmask是否立即形成Delivery尚未由target direct evidence冻结。 | RTL/LRS/current-HIL冻结；P1_006不预设。 |
 | wdg_target_reset_recovery_gap | FPGA_MAPPING / RERUN_REQUIRED | expected-reset lifecycle已经具备；当前FPGA bit未观察到WDG系统复位输出。RESET_OUTPUT仍按SVD硬件契约发布，不能再通过Runtime裁剪形成SKIP。 | 当前FPGA重跑P0_004/P1_003并保留真实结果；Silicon按独立证据执行。 |
-| wdg_module_reset_scope_gap | FPGA_HIL_FAIL / DRIVER_DEFECT | 发布版WDG_resetWatchdog使用的legacy CRG枚举值与ET6801 SRST0 WDG位位置不一致；测试扩展按CMSIS位位置和有界脉冲调用CRG reset后，当前FPGA的WDG状态仍不复位。 | P1_004保持FAIL；SDK发布前修复正式Driver并删除测试扩展，修复后重新验证。 |
+| wdg_module_reset_scope_gap | CLOSED / FPGA_HIL_PASS | 发布版WDG_resetWatchdog使用legacy CRG枚举值；测试扩展已按ET6801 SRST0位位置执行，并补齐CRG unlock/reset/lock完整事务。复位后Enable=0、Counter=0xFFFFFFFF，恢复后可重新计数。 | SDK发布前修复正式Driver并删除测试扩展；Silicon继续独立验证。 |
 | wdg_clock_timebase_mapping_gap | FPGA_RTL_MAPPING_GAP / HIL_FAIL | ET6801 SVD定义APB1分频编码0=/1、1=/2；PC到Service、Wrap和CRG Driver的divider链路保持原值，PLLCLK_CFG3读回也分别为0和1。2026-08-22使用最低1.5倍速率比的强Oracle复测，divider=0/1的Counter中位速率分别为12,535,775.11 count/s与12,552,841.37 count/s，实际比值0.99864，未体现分频效果。 | RTL/bit所有者确认WDG时钟源与STB分频字段是否真正接入Counter时基；修复或说明映射后重跑P2_001，并在Silicon HIL独立验证。 |
 | wdg_debug_halt_control_gap | CLOSED / FPGA_HIL_PASS | 公共DebugController已从Run Config取得J-Link路径和探针配置；P3_001真实执行两轮2 s Halt，暂停使能delta=3,889,169、暂停失能delta=28,398,807，满足最大0.25比例Oracle。 | 保持Run Config注入Debugger配置并补充Silicon HIL。 |
 | wdg_nmi_route_mapping_gap | SEMANTIC / FPGA_HIL_PASS | P2_002已证明自然WDG timeout产生CPU NMI与WDG IRQ双事件；SVD仍未命名四路Source到WDG实例/处理域的精确bit绑定。 | 由RTL/LRS冻结精确Source位；当前公共Case不猜测该绑定。 |
@@ -330,7 +330,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 | WDG_F_008 | SUPPORTED | WORK_MODE轮次语义存在；当前FPGA的reset输出行为需要由P1_003重新执行裁决。 | NEEDS_VERIFICATION | WDG_P1_003 |
 | WDG_F_009 | SUPPORTED | CTRL.HALT_EN直接存在，SYSC还有每实例Halt gating；SDK英文brief与硬件语义冲突已按SVD裁决，当前FPGA真实J-Link Halt专项HIL已PASS。 | ADAPTED | WDG_P3_001 |
 | WDG_F_010 | SUPPORTED | LOCK保护与配置readback已由Driver Test Extension和公共Wrap表达。 | ADAPTED | WDG_P1_005 |
-| WDG_F_011 | SUPPORTED | SVD定义模块复位，测试扩展按CMSIS位位置执行；当前FPGA手动HIL观察到复位后仍Enable且Counter继续递减，结论为FAIL。 | NEEDS_VERIFICATION | WDG_P1_004 |
+| WDG_F_011 | SUPPORTED | SVD定义模块复位；测试扩展按CMSIS位位置和CRG写保护事务执行，当前FPGA手动与Formal HIL均PASS。 | ADAPTED | WDG_P1_004 |
 | WDG_F_012 | SUPPORTED | INT_EN/MASK/FORCE/CLR/RAW/STATUS已由公共端点分层表达。 | ADAPTED | WDG_P1_001, WDG_P1_006 |
 | WDG_F_013 | SUPPORTED | 每实例独立IRQ已由公共Service保存Source与event_count。 | ADAPTED | WDG_P1_001, WDG_P1_002, WDG_P1_003, WDG_P1_006, WDG_P1_007 |
 | WDG_F_014 | SUPPORTED | SYSC.RST_REC字段存在；当前FPGA系统reset链路未通过，必须由P0_004/P1_003执行并保留真实结果。 | NEEDS_VERIFICATION | WDG_P0_004, WDG_P1_003 |
@@ -351,7 +351,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 | WDG_P1_001 | ADAPTED | Source级IRQ Service latch/event_count与自然超时Formal Case已实现。 |
 | WDG_P1_002 | ADAPTED | 当前FPGA HIL PASS；Early/Inside/Late均由COUNTER.CURRENT定位并验证自然IRQ。 |
 | WDG_P1_003 | NEEDS_VERIFICATION | SVD声明RESET_OUTPUT；已移除FPGA Capability屏蔽，待Formal HIL重跑。当前状态为NOT_EXECUTED，不得继续记为SKIP。 |
-| WDG_P1_004 | NEEDS_VERIFICATION | 手动HIL中模块复位后WDG仍保持Enable且Counter继续递减；这是硬件/驱动FAIL，不是SKIP，Formal HIL修复后重跑。 |
+| WDG_P1_004 | ADAPTED | 当前FPGA手动与Formal HIL PASS；模块复位后WDG禁用且Counter恢复默认值，随后可重新配置和计数。 |
 | WDG_P1_005 | ADAPTED | LOCK/UNLOCK与完整配置readback已实现。 |
 | WDG_P1_006 | ADAPTED | Force API与Source级IRQ Service已实现。 |
 | WDG_P1_007 | ADAPTED | 自然IRQ与interrupt record Case已实现。 |
@@ -371,19 +371,19 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 5. Window验证由固定delay升级为按实际COUNTER.CURRENT定位early/inside/late，并保留自然IRQ与完整reset两级证据。
 6. 真实系统reset、module reset、Debugger Halt、NMI route和Clock source均按Owner分层；WDG Service不跨IP接管CRG/CPU/Debugger。
 7. P2_001通过CRG Owner的测试读回扩展避开历史getter的错误源，并使用独立PC时间比例作为速率Oracle；正式SDK getter的历史问题仍独立记录，不污染WDG公共Case。2026-08-22增强HIL证明寄存器配置生效但Counter速率未体现分频，该结果按真实FAIL保留。
-8. 当前保留17个硬件Feature，14个Case均已实现；按2026-08-26规则复核后，当前结论为10 PASS / 2 FAIL / 0 SKIP / 2 NOT_EXECUTED。P1_004和P2_001保留真实FAIL，P0_004/P1_003恢复Capability后等待Formal HIL。原F001/P0_001停止使用且ID不复用。
+8. 当前保留17个硬件Feature，14个Case均已实现；2026-08-28修复P1_004的CRG写保护事务并完成HIL后，当前结论为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED。P2_001保留真实FAIL，P0_004/P1_003等待Formal HIL。原F001/P0_001停止使用且ID不复用。
 
 ### 7.2 当前状态
 
 ```text
 WDG Public Features: 17 active (WDG_F_001 retired, ID not reused)
-WDG ET_CASE_SPEC: 14 / IMPLEMENTED / CURRENT=10 PASS + 2 FAIL + 0 SKIP + 2 NOT_EXECUTED
+WDG ET_CASE_SPEC: 14 / IMPLEMENTED / CURRENT=11 PASS + 1 FAIL + 0 SKIP + 2 NOT_EXECUTED
 Remaining ET_CASE_PLAN: 0
 Formal Case Registry / test_wdg_p*.py: IMPLEMENTED
 PC Driver / Firmware Service / Common Wrap: IMPLEMENTED
 Machine Capability semantic mapping: PARTIAL
 Repository-native scoped document gate: PENDING AT DOCUMENT-WRITE TIME
-Current classification: 14 logical Cases / 10 PASS / 2 FAIL / 0 SKIP / 2 NOT_EXECUTED
+Current classification: 14 logical Cases / 11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED
 FAIL Cases: WDG_P1_004, WDG_P2_001
 NOT_EXECUTED Cases: WDG_P0_004, WDG_P1_003 / capability correction requires a fresh Formal HIL run
 FAIL Reasons: P1_004 module reset leaves WDG enabled and counting; P2_001 divider readback is correct but Counter rate does not follow the SVD-defined /1 versus /2 relationship
@@ -441,31 +441,27 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-26 12:15 CST`
+状态更新时间：`2026-08-28 14:24 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA Full HIL | `2026-08-22 09:34 CST` | `edfd188173e93b3a580ba1d30587795c2ca1749c` | `true` | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
-| FPGA Targeted HIL | `2026-08-22 15:35 CST` | `edfd188173e93b3a580ba1d30587795c2ca1749c` | `true` | `artifacts/runs/20260822_wdg_debug_halt_verified/tests/wdg/` |
+| FPGA | `2026-08-28 14:24 CST` | `29cc76f38804cdc076d6fc604eba5c2ca1e85467` | `true` | 全量基线：`artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/`；Debugger聚焦证据沿用；P1_004手动诊断：`artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`；Formal聚焦复测：`artifacts/runs/20260828_142500_wdg_targeted_after_fix/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA Full HIL | 14 | 14 | 9 | 1 | 4 | 0 | 14 |
-| FPGA Targeted HIL | 14 | 1 | 1 | 0 | 0 | 13 | 1 |
+| FPGA | 14 | 12 | 11 | 1 | 0 | 2 | 12 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `WDG_P0_004` | FPGA Full HIL | SKIP | `WDG_F_007`、`WDG_F_014` / 系统复位 | 当前FPGA Runtime未发布RESET_OUTPUT，未执行破坏性复位刺激 | 当前bit没有WDG系统复位输出映射 | 发布安全的RESET_OUTPUT映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
-| `WDG_P1_003` | FPGA Full HIL | SKIP | `WDG_F_008`、`WDG_F_014` / 轮次复位 | 当前FPGA Runtime未发布RESET_OUTPUT，未执行两轮复位序列 | 当前bit没有WDG系统复位输出映射 | 发布RESET_OUTPUT和跨重启记录映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
-| `WDG_P1_004` | FPGA Full HIL | SKIP | `WDG_F_011` / 模块复位 | 独立固件复测中模块复位后WDG仍保持Enable且Counter继续递减 | 当前FPGA不发布MODULE_RESET，已知SDK枚举问题修正后硬件状态仍未复位 | 新bit或Silicon发布MODULE_RESET能力后重测 | `firmware/manual_tests/et6801/src/et_manual_wdg_test.c` |
-| `WDG_P2_001` | FPGA Full HIL | FAIL | `WDG_F_017` / 时钟分频 | Divider读回正确，但计数速率不随`/1`和`/2`变化；独立固件复测仍得到近似相同增量 | 当前FPGA WDG时钟路径或Divider映射未闭合 | RTL/bit确认Counter真实时钟路径后重测 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
-| `WDG_P3_001` | FPGA Full HIL | SKIP | `WDG_F_009` / Debug Halt | 全量运行时缺少Debugger绑定而跳过；后续Targeted HIL已通过 | 原全量Bench未注入J-Link配置，该阻塞已在Targeted Lane闭合 | 下次全量HIL复用当前Debugger配置 | `artifacts/runs/20260822_wdg_debug_halt_verified/tests/wdg/` |
+| `WDG_P0_004` | FPGA | NOT_EXECUTED | `WDG_F_007`、`WDG_F_014` / 系统复位 | 当前未执行破坏性系统复位刺激 | 当前bit没有安全的RESET_OUTPUT观测映射 | 发布安全的RESET_OUTPUT与跨重启记录映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
+| `WDG_P1_003` | FPGA | NOT_EXECUTED | `WDG_F_008`、`WDG_F_014` / 轮次复位 | 当前未执行两轮复位序列 | 当前bit没有安全的RESET_OUTPUT与跨重启记录映射 | 发布RESET_OUTPUT和跨重启记录映射后重测 | `artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg/` |
+| `WDG_P2_001` | FPGA | FAIL | `WDG_F_017` / 时钟分频 | Divider读回正确，但计数速率不随`/1`和`/2`变化；独立固件复测仍得到近似相同增量 | 当前FPGA WDG时钟路径或Divider映射未闭合 | RTL/bit确认Counter真实时钟路径后重测 | `artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核
@@ -480,4 +476,4 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 | `WDG_P2_001` | FAIL | Divider读回正确，但Counter速率不符合SVD的`/1`与`/2`关系。 |
 | `WDG_P3_001` | PASS | 后续Targeted HIL已经闭合Debugger绑定并通过。 |
 
-其余9个Case沿用Full HIL PASS；当前汇总为10 PASS / 2 FAIL / 0 SKIP / 2 NOT_EXECUTED。P0_004/P1_003只有在重新执行后才能转成PASS或FAIL。
+2026-08-28修正：`WDG_P1_004`失败来自测试驱动未解锁CRG写保护。补齐unlock/reset/lock事务后，手动HIL观察到Enable从1变为0、Counter恢复`0xFFFFFFFF`，Formal聚焦HIL PASS。当前汇总为11 PASS / 1 FAIL / 0 SKIP / 2 NOT_EXECUTED；P0_004/P1_003只有在重新执行后才能转成PASS或FAIL。

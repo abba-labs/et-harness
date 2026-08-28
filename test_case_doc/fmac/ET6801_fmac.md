@@ -2,7 +2,7 @@
 
 > 本文件记录 ET6801 FMAC 的目标芯片 Hardware Truth、当前 SDK Driver、历史目标代码/日志、平台映射、Source Item Trace、Conflict/Unknown 与公共 `fmac.md` 的适配结果。
 > ET6801 是本次唯一测试目标。ET3101/ET6003、ET60157 手册以及用户上传的其他 ET6x Driver 版本只作为 Family/Historical Reference，不能单独证明 ET6801 `SUPPORTED`，不能覆盖当前 ET6801 SVD 与 `review_code` Driver 事实。
-> 当前已实现FMAC Driver Test Extension、Common Wrap、Firmware Service、PC Driver和23个Formal Case源码，并已接入全局运行时组合；ET6801 FMAC执行映射模块边界说明已按R220注释契约复核。2026-08-25 21:24 CST完成的49节点FPGA/HIL全量执行保留为历史基线。其后`FMAC_P1_002`和`FMAC_P1_014`完成修正版聚焦复测；2026-08-26经数字设计确认，原`FMAC_P1_016`对应的X1/X2 Load Error和Y Store Error属于普通软件不可构造的内部故障，已从Formal Case集合删除，但三个硬件Feature继续保留。按当前23个Case口径，已有证据汇总为46个执行节点、44 PASS、2 FAIL；历史日志中的PASS/FAIL仍只作为测试设计和问题证据。
+> 当前已实现FMAC Driver Test Extension、Common Wrap、Firmware Service、PC Driver和23个Formal Case源码，并已接入全局运行时组合；ET6801 FMAC执行映射模块边界说明已按R220注释契约复核。2026-08-25 21:24 CST完成的49节点FPGA/HIL全量执行保留为历史基线。其后`FMAC_P1_002`、`FMAC_P1_006`、`FMAC_P1_010`和`FMAC_P1_014`完成修正版聚焦复测；2026-08-26经数字设计确认，原`FMAC_P1_016`对应的X1/X2 Load Error和Y Store Error属于普通软件不可构造的内部故障，已从Formal Case集合删除，但三个硬件Feature继续保留。按当前23个Case口径，已有证据汇总为46个执行节点、46 PASS、0 FAIL；历史日志中的PASS/FAIL仍只作为测试设计和问题证据。
 
 # 第一章 Source Coverage 与 Evidence
 
@@ -108,7 +108,7 @@ ET6801 当前直接硬件证据
 | X1/X2 Load Error与Y Store Error自然条件 | VERIFIED | E10,E19,E20 | Source身份明确；数字设计确认其属于普通软件不可构造的内部故障，不建立自然激励Formal Case。 |
 | DMA controller/interface Mapping | VERIFIED | E09,E11 | ET6801 Profile已发布FMAC FIFO、双向Request、可选Controller和Interface集合；公共Case运行时解析。 |
 | 当前自动化实现 | VERIFIED | E11,E16,E20 | FMAC Driver Test Extension、Wrap、Service、PC Driver和23个Formal Case源码已实现并进入运行时组合；三个内部故障Feature不建立Formal Case。 |
-| 当前FPGA/Silicon Result | VERIFIED | E16,E17,E18,E20 | FPGA/HIL历史全量基线为49个参数化节点；移除`FMAC_P1_016`三个无效软件刺激节点后，当前Case集合证据汇总为46个节点、44 PASS、2 FAIL；Silicon未执行。 |
+| 当前FPGA/Silicon Result | VERIFIED | E16,E17,E18,E20,E21 | FPGA/HIL历史全量基线为49个参数化节点；移除`FMAC_P1_016`三个无效软件刺激节点，并以修正版聚焦复测替代P1_006/P1_010旧失败后，当前Case集合证据汇总为46个节点、46 PASS、0 FAIL；Silicon未执行。 |
 
 ## 1.5 Claim Evidence Locator
 
@@ -134,6 +134,7 @@ ET6801 当前直接硬件证据
 | E18 | `artifacts/runs/20260825_234451_089183_fmac_formal_cases/tests/fmac` + `artifacts/reports/20260825_234455_593803_ET6801_FMAC测试报告.xlsx` | `FMAC_P1_014`修正版FPGA/HIL聚焦复测 | Saturation、X1 Overflow、Y Underflow三个自然IRQ节点全部PASS；证明对应状态、Raw/Status、ISR Latch与投递计数链路闭合，并替代E16中X1 Overflow参数节点的旧失败结论。 |
 | E19 | `artifacts/runs/20260826_082728_005875_manual_et6801_uart_crc/manual/uart_crc.log` | `fmac_p1_006`, `fmac_p1_010`, `fmac_p1_016`独立手动固件诊断 | P1_006四种清除方法中仅CRG复位清除目标位；P1_010由SR写1和CRG复位清除，CR.CLR/SR写0无效；P1_016对X1/X2/Y各执行合法边界、请求量越界、额外写入和物理边界跨越共12组刺激，`INT_RAW_RPT/INT_STATUS_RPT`始终为0。 |
 | E20 | 本文`4.4.6`节，2026-08-26数字设计人工确认 | X1/X2 Load Error与Y Store Error触发来源 | 三个Source属于普通软件无法构造的内部故障；原P1_016的软件越界装载不是有效自然刺激，Feature保留但不再建立Formal Case。 |
+| E21 | `artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`、`artifacts/runs/20260828_142600_fmac_targeted_final/` | 2026-08-28 FMAC修正版手动诊断与Formal聚焦HIL | P1_006按“越界输入 -> 正常输入 -> W1C”执行后PASS；P1_010按正值恢复并W1C后PASS；正式PC到Firmware链路2/2 PASS。 |
 
 # 第二章 ET6801 Hardware / Driver Facts
 
@@ -360,7 +361,7 @@ Keil build for new FMAC automation: PASS
 FPGA FMAC Formal Case: FULL_BASELINE_EXECUTED / 40 PASS / 9 FAIL / 0 SKIP / 0 ERROR
 FPGA FMAC P1_002 focused rerun: EXECUTED / 3 PASS / 0 FAIL / 0 SKIP / 0 ERROR
 FPGA FMAC P1_014 focused rerun: EXECUTED / 3 PASS / 0 FAIL / 0 SKIP / 0 ERROR
-FPGA FMAC current Case set evidence roll-up: 44 PASS / 2 FAIL / 0 SKIP / 0 ERROR
+FPGA FMAC current Case set evidence roll-up: 46 PASS / 0 FAIL / 0 SKIP / 0 ERROR
 Silicon FMAC Formal Case: NOT_EXECUTED / NOT_VERIFIED
 Historical ET6801 tests/logs: REFERENCE_ONLY
 ```
@@ -425,7 +426,7 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 - 4.4.5中的手动诊断在2.0f越界转换后立即执行`CR.CLR`、SR写1和SR写0，没有先输入正常数据，因此“只能通过CRG复位清除”的判断不完整，不能作为目标位无法软件清除的最终结论。
 - 修正后的最小测试顺序固定为：输入2.0f触发Overflow并读出结果 -> 输入0.25f并读出结果以撤销实时条件 -> 执行动态Clear和目标状态W1C -> 回读`SR.FLOAT2FIXED_OVF_RPT`。
 - ET6801 Chip Driver Test Extension、独立手动测试和公共Formal Case均已按该顺序修正，公共Wrap、Service、Wire和PC Driver接口没有变化。
-- 该硬件行为限制了软件清除时机，设计上不合理；当前修正版尚未执行HIL，`FMAC_P1_006`仍保留历史FAIL，必须以修正版真机结果更新最终状态。
+- 该硬件行为限制了软件清除时机，设计上不合理；2026-08-28修正版手动诊断和Formal HIL均已PASS，历史FAIL由本次E21证据替代。
 
 ## 第五章 Chip -> Public Feature Mapping
 
@@ -500,7 +501,7 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 | FMAC_P1_007 | ADAPTED | 当前FPGA HIL PASS；Internal Clip、Wrap和Saturation状态已验证。 |
 | FMAC_P1_008 | ADAPTED | 当前FPGA HIL PASS；Final Saturate/Wrap稳态输出已验证。 |
 | FMAC_P1_009 | ADAPTED | 当前FPGA HIL PASS；RAW/SAT12/SAT16输出模式已验证。 |
-| FMAC_P1_010 | ADAPTED | 当前FPGA HIL FAIL；Offset数值和Negative置位正确；手动HIL已证明目标位采用SR写1清，当前公共清除路径需修正。 |
+| FMAC_P1_010 | ADAPTED | 当前FPGA HIL PASS；Offset数值、Negative置位、正常输入恢复和SR写1清除链路均已闭合。 |
 | FMAC_P1_011 | ADAPTED | 当前FPGA HIL PASS；LEFT1/NONE/RIGHT1移位对照已验证。 |
 | FMAC_P1_012 | ADAPTED | 当前FPGA HIL全部11类Force参数节点PASS；IRQ控制矩阵和ISR latch/count已验证。 |
 | FMAC_P1_013 | ADAPTED | 当前FPGA HIL两组节点PASS；X1/Y自然Request Source已验证。 |
@@ -535,24 +536,23 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-26 15:18 CST`
+状态更新时间：`2026-08-28 14:25 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-26 08:27 CST` | `00aa003e5932bdf5f01d20200586a227e1afd045` | `true` | 全量基线：`artifacts/runs/20260825_212348_344047_fmac_formal_cases/tests/fmac/`；P1_002修正版：`artifacts/runs/20260825_233023_383688_fmac_formal_cases/tests/fmac/`；P1_014修正版：`artifacts/runs/20260825_234451_089183_fmac_formal_cases/tests/fmac/`；剩余三项手动诊断：`artifacts/runs/20260826_082728_005875_manual_et6801_uart_crc/manual/uart_crc.log` |
+| FPGA | `2026-08-28 14:25 CST` | `29cc76f38804cdc076d6fc604eba5c2ca1e85467` | `true` | 全量基线：`artifacts/runs/20260825_212348_344047_fmac_formal_cases/tests/fmac/`；P1_002/P1_014修正版证据沿用；P1_006/P1_010手动诊断：`artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`；Formal聚焦复测：`artifacts/runs/20260828_142600_fmac_targeted_final/` |
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 23 | 23 | 21 | 2 | 0 | 0 | 46 |
+| FPGA | 23 | 23 | 23 | 0 | 0 | 0 | 46 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `FMAC_P1_006` | FPGA | FAIL | Float钳位与Overflow状态 | 历史运行中正负越界输出分别为16383和-16384，Overflow均置位；旧Case在越界条件仍存在时立即清除，因此目标位保持为1 | 数字设计确认清除前必须先完成一次正常转换；旧Case构造缺少该步骤，修正版尚未复测 | 使用修正版“越界输入 -> 0.25正常输入 -> W1C”顺序重新执行手动测试和Formal Case | E19 |
-| `FMAC_P1_010` | FPGA | FAIL | Output Offset与Negative状态 | 零Offset输出0、正Offset输出4096、负值状态成功置位；独立手动固件证明SR写1可清，CR.CLR和SR写0无效 | 当前公共清除路径选择错误，不是目标状态无法清除 | 经人工批准后新增Chip Driver Test Extension专用W1C接口，并由Wrap调用后复测 | E19 |
+| — | FPGA | NONE | — | — | — | — | — |
 <!-- ET_CHIP_TEST_STATUS_END -->

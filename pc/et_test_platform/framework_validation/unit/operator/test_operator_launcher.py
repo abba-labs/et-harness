@@ -497,18 +497,20 @@ def test_gui_schema_only_edits_runtime_environment_fields() -> None:
     assert not any(token in path for token in forbidden for path in paths)
 
 
-# 测试 Feature：GUI快捷动作只声明现有Pipeline阶段，不注入命令或测试选择。
+# 测试 Feature：GUI快捷动作只声明现有Pipeline阶段或固定门禁，不注入命令或测试选择。
 #
-# 测试方法：解析Schema中的六个动作，检查动作标识、阶段选择和环境检查保留语义。
+# 测试方法：解析Schema中的八个动作，检查动作标识、门禁类型、阶段选择和环境检查保留语义。
 #
 # 通过条件：动作集合固定完整，所有选择均为Pipeline dotted path，且不携带脚本字段。
-def test_gui_quick_actions_are_controlled_pipeline_selections() -> None:
+def test_gui_quick_actions_are_controlled_operations() -> None:
 
     schema = RUN_CONFIG_GUI._load_gui_schema()
     actions = RUN_CONFIG_GUI._quick_actions(schema)
 
     assert [action["id"] for action in actions] == [
         "environment_check",
+        "software_quality_gate",
+        "full_gate",
         "build_firmware",
         "deploy_firmware",
         "deploy_bitfile",
@@ -517,15 +519,17 @@ def test_gui_quick_actions_are_controlled_pipeline_selections() -> None:
     ]
     assert actions[0]["check_only"] is True
     assert actions[0]["preserve_selection"] is True
+    assert actions[1]["gate"] == "software_quality"
+    assert actions[2]["gate"] == "full"
     assert actions[-1]["select"] == ("execute.run_tests", "execute.generate_report")
     assert "script" not in schema["quick_actions"][0]
 
 
-# 测试 Feature：单项快捷动作形成精确Pipeline预设并保留全部安全门禁。
+# 测试 Feature：单项快捷动作形成精确Pipeline预设并保留硬件人工确认。
 #
 # 测试方法：分别应用编译、硬件部署、PC测试和环境检查动作，读取全部阶段布尔值。
 #
-# 通过条件：普通动作只启用声明阶段，硬件/测试动作自动启用代码门禁，人工确认不被篡改。
+# 通过条件：普通动作只启用声明阶段且不隐式运行门禁，人工硬件确认不被篡改。
 def test_gui_quick_action_presets_are_exact_and_safe() -> None:
 
     payload = yaml.safe_load(
@@ -554,19 +558,37 @@ def test_gui_quick_action_presets_are_exact_and_safe() -> None:
         "deploy.bootrom",
         "deploy.firmware",
     )
-    assert deployed["pipeline"]["code_check"] is True
+    assert deployed["pipeline"]["code_check"] is False
     assert deployed["pipeline"]["confirm_hardware_actions"] is False
     assert set(RUN_CONFIG_GUI._selected_pipeline_steps(tested)) == {
         "execute.run_tests",
         "execute.generate_report",
     }
-    assert tested["pipeline"]["code_check"] is True
+    assert tested["pipeline"]["code_check"] is False
 
     payload["pipeline"]["build"]["firmware"] = True
     checked = RUN_CONFIG_GUI._apply_quick_action_preset(
         payload, actions["environment_check"], profile
     )
     assert RUN_CONFIG_GUI._selected_pipeline_steps(checked) == ("build.firmware",)
+
+
+# 测试 Feature：软件质量门禁和全量门禁使用唯一验证入口且不触发Pipeline硬件阶段。
+#
+# 测试方法：分别生成两个门禁按钮的命令，检查入口脚本和参数。
+#
+# 通过条件：软件质量门禁携带--skip-tests，全量门禁不携带裁剪参数。
+def test_gui_gate_actions_use_canonical_validator() -> None:
+
+    assert RUN_CONFIG_GUI._gate_command("software_quality") == [
+        sys.executable,
+        str(REPOSITORY_ROOT / "tools/validate_pc.py"),
+        "--skip-tests",
+    ]
+    assert RUN_CONFIG_GUI._gate_command("full") == [
+        sys.executable,
+        str(REPOSITORY_ROOT / "tools/validate_pc.py"),
+    ]
 
 
 # 测试 Feature：快捷动作可用性由当前Pipeline Profile自动决定。
@@ -929,12 +951,14 @@ def test_pipeline_rejects_unconfirmed_hardware_actions(tmp_path: Path) -> None:
         RUN_PIPELINE._load_context(config)
 
 
-# 测试 Feature：任何真实硬件步骤必须先执行唯一软件总门禁。
+# 测试 Feature：真实硬件单步动作与软件门禁解耦。
 #
-# 测试方法：启用Formal硬件测试和人工确认，但显式关闭code_check。
+# 测试方法：启用Formal硬件测试和人工确认，并显式关闭code_check后解析配置。
 #
-# 通过条件：配置解析立即拒绝，不会先烧录、复位或运行pytest。
-def test_pipeline_rejects_hardware_actions_without_software_preflight(tmp_path: Path) -> None:
+# 通过条件：配置可以进入Runner；硬件确认仍然生效，门禁由独立按钮人工执行。
+def test_pipeline_accepts_hardware_actions_without_implicit_software_gate(
+    tmp_path: Path,
+) -> None:
 
     template = yaml.safe_load(
         (REPOSITORY_ROOT / "run_config.example.yaml").read_text(encoding="utf-8")
@@ -951,8 +975,10 @@ def test_pipeline_rejects_hardware_actions_without_software_preflight(tmp_path: 
     config = tmp_path / "run_config.yaml"
     config.write_text(yaml.safe_dump(template, sort_keys=False), encoding="utf-8")
 
-    with pytest.raises(RuntimeError, match="pipeline.code_check"):
-        RUN_PIPELINE._load_context(config)
+    context = RUN_PIPELINE._load_context(config)
+
+    assert context.config["pipeline"]["code_check"] is False
+    assert context.config["pipeline"]["confirm_hardware_actions"] is True
 
 
 # 测试 Feature：配置字段采用关闭式契约，避免拼写错误被静默忽略。

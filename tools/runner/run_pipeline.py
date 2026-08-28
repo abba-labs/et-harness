@@ -397,8 +397,6 @@ def _validate_pipeline_selection(
     )
     if target_kind != "renode" and hardware_selected and not pipeline["confirm_hardware_actions"]:
         raise RuntimeError("real hardware steps require pipeline.confirm_hardware_actions: true")
-    if target_kind != "renode" and hardware_selected and not pipeline["code_check"]:
-        raise RuntimeError("real hardware steps require pipeline.code_check: true")
     constraints = profile.get("constraints", {})
     if not isinstance(constraints, Mapping):
         raise RuntimeError("pipeline_profile.constraints must be a mapping")

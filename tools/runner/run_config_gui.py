@@ -27,6 +27,7 @@ DEFAULT_CONFIG = REPOSITORY_ROOT / "run_config.yaml"
 CONFIG_TEMPLATE = REPOSITORY_ROOT / "run_config.example.yaml"
 GUI_SCHEMA = REPOSITORY_ROOT / "tools/runner/run_config_gui_schema.yaml"
 PIPELINE_RUNNER = REPOSITORY_ROOT / "tools/runner/run_pipeline.py"
+SOFTWARE_VALIDATOR = REPOSITORY_ROOT / "tools/validate_pc.py"
 GUI_SCHEMA_ID = "et-run-config-gui/v1"
 LOG_BATCH_INTERVAL_MS = 80
 LOG_MAX_BATCH_ITEMS = 200
@@ -92,7 +93,7 @@ def _load_gui_schema(path: Path = GUI_SCHEMA) -> dict[str, Any]:
     return payload
 
 
-# 快捷动作只能选择现有Pipeline布尔阶段，不能携带命令、脚本或任意参数。
+# 快捷动作只能选择现有Pipeline阶段或受控门禁类型，不能携带命令、脚本或任意参数。
 def _quick_actions(schema: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     raw_actions = schema.get("quick_actions")
     if not isinstance(raw_actions, list) or not raw_actions:
@@ -106,12 +107,15 @@ def _quick_actions(schema: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
         identifier = str(raw.get("id", "")).strip()
         label = str(raw.get("label", "")).strip()
         check_only = raw.get("check_only")
+        gate = str(raw.get("gate", "none")).strip()
         selections = raw.get("select")
         preserve_selection = raw.get("preserve_selection", False)
         if not identifier or not label or identifier in identifiers:
             raise RuntimeError("GUI quick action id and label must be non-empty and unique")
         if not isinstance(check_only, bool) or not isinstance(preserve_selection, bool):
             raise RuntimeError(f"GUI quick action {identifier!r} has invalid boolean metadata")
+        if gate not in {"none", "software_quality", "full"}:
+            raise RuntimeError(f"GUI quick action {identifier!r} has invalid gate metadata")
         if not isinstance(selections, list) or not all(
             isinstance(item, str)
             and item.count(".") == 1
@@ -121,12 +125,17 @@ def _quick_actions(schema: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
             raise RuntimeError(f"GUI quick action {identifier!r} has invalid Pipeline selections")
         if check_only and selections:
             raise RuntimeError(f"check-only GUI quick action {identifier!r} cannot select stages")
+        if gate != "none" and (check_only or selections or not preserve_selection):
+            raise RuntimeError(
+                f"GUI gate action {identifier!r} must preserve selections and select no Pipeline stage"
+            )
         identifiers.add(identifier)
         actions.append(
             {
                 "id": identifier,
                 "label": label,
                 "check_only": check_only,
+                "gate": gate,
                 "select": tuple(selections),
                 "preserve_selection": preserve_selection,
             }
@@ -204,26 +213,13 @@ def _quick_action_supported(action: Mapping[str, Any], profile: Mapping[str, Any
     return all(step in implemented for step in resolved)
 
 
-def _selection_requires_code_check(payload: Mapping[str, Any], profile: Mapping[str, Any]) -> bool:
-    if str(_get_dotted(payload, "target.kind")) == "renode":
-        return False
-    selected = set(_selected_pipeline_steps(payload))
-    if "execute.run_tests" in selected:
-        return True
-    steps = _profile_steps(profile)
-    return any(
-        step in steps
-        and isinstance(steps[step], Mapping)
-        and bool(steps[step].get("hardware_action"))
-        for step in selected
-    )
-
-
-# 单项动作只改Pipeline选择，不绕过唯一配置、Runner、Profile或硬件确认门禁。
+# 单项动作只改Pipeline选择；软件门禁由独立按钮人工触发，硬件确认仍由Runner强制执行。
 def _apply_quick_action_preset(
     payload: Mapping[str, Any], action: Mapping[str, Any], profile: Mapping[str, Any]
 ) -> dict[str, Any]:
     updated = copy.deepcopy(dict(payload))
+    if str(action["gate"]) != "none":
+        return updated
     if not _quick_action_supported(action, profile):
         raise RuntimeError(f"当前Pipeline Profile不支持“{action['label']}”")
 
@@ -242,8 +238,6 @@ def _apply_quick_action_preset(
             _set_dotted(updated, f"pipeline.{step}", True)
 
     pipeline["environment_check"] = True
-    if _selection_requires_code_check(updated, profile):
-        pipeline["code_check"] = True
     return updated
 
 
@@ -410,6 +404,15 @@ def _pipeline_command(config: Path, *, check_only: bool) -> list[str]:
     if check_only:
         command.append("--check-only")
     return command
+
+
+# 两类门禁复用现有唯一验证入口，不读取运行配置，也不选择任何硬件阶段。
+def _gate_command(gate: str) -> list[str]:
+    if gate == "software_quality":
+        return [sys.executable, str(SOFTWARE_VALIDATOR), "--skip-tests"]
+    if gate == "full":
+        return [sys.executable, str(SOFTWARE_VALIDATOR)]
+    raise RuntimeError(f"unsupported GUI gate action: {gate!r}")
 
 
 # 用于二次人工提示；最终硬件门禁仍由run_pipeline.py强制执行。
@@ -705,6 +708,11 @@ class RunConfigGui:
         if self._running:
             messagebox.showwarning("任务运行中", "请等待当前任务结束。", parent=self.root)
             return
+        gate = str(action["gate"])
+        if gate != "none":
+            self._start_process(action_label=str(action["label"]), command=_gate_command(gate))
+            return
+
         try:
             payload = self._collect_payload()
             profile = _selected_profile(payload, config_path=self.config_path)
@@ -789,16 +797,24 @@ class RunConfigGui:
             self._refresh_dynamic_state()
 
     # 子线程只读取子进程输出，所有Tk控件更新仍在主线程完成。
-    def _start_process(self, *, check_only: bool, action_label: str) -> None:
+    def _start_process(
+        self,
+        *,
+        action_label: str,
+        check_only: bool = False,
+        command: Sequence[str] | None = None,
+    ) -> None:
         if self._running:
             messagebox.showwarning("任务运行中", "请等待当前任务结束。", parent=self.root)
             return
-        command = _pipeline_command(self.config_path, check_only=check_only)
+        process_command = list(
+            command or _pipeline_command(self.config_path, check_only=check_only)
+        )
         started_at = datetime.now().astimezone().isoformat(timespec="seconds")
         self._append_log(
             f"\n[ACTION] {action_label}\n[START] {started_at}\n"
             + "$ "
-            + subprocess.list2cmdline(command)
+            + subprocess.list2cmdline(process_command)
             + "\n"
         )
         self.status.set(f"正在执行：{action_label}")
@@ -810,7 +826,7 @@ class RunConfigGui:
                 child_environment = os.environ.copy()
                 child_environment["PYTHONIOENCODING"] = "utf-8"
                 self.process = subprocess.Popen(
-                    command,
+                    process_command,
                     cwd=REPOSITORY_ROOT,
                     env=child_environment,
                     stdout=subprocess.PIPE,

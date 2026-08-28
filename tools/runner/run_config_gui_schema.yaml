@@ -1,9 +1,11 @@
 schema: et-run-config-gui/v1
 
 # GUI只描述运行环境字段，不管理IP、P等级或Case；测试集合仍由代码注册表决定。
-# 快捷动作只选择现有Pipeline阶段；命令和硬件属性仍由Pipeline Profile提供。
+# 快捷动作只选择现有Pipeline阶段或固定门禁类型；不得在Schema中携带任意命令。
 quick_actions:
   - {id: environment_check, label: 环境检查, check_only: true, select: [], preserve_selection: true}
+  - {id: software_quality_gate, label: 软件质量门禁, check_only: false, gate: software_quality, select: [], preserve_selection: true}
+  - {id: full_gate, label: 全量门禁, check_only: false, gate: full, select: [], preserve_selection: true}
   - {id: build_firmware, label: 编译固件, check_only: false, select: [build.firmware]}
   - {id: deploy_firmware, label: 烧录固件, check_only: false, select: [deploy.firmware]}
   - {id: deploy_bitfile, label: 烧录 bitfile, check_only: false, select: [deploy.bitfile]}

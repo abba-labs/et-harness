@@ -575,6 +575,8 @@ DRV_Status WDG_testResetModule(WDG_Type *WDGx)
     reset_mask = (WDGx == WDG0) ? CRG_SRST0_CRG_SRST_N_WDG0_Msk
                                 : CRG_SRST0_CRG_SRST_N_WDG1_Msk;
 
+    /* SRST0 is write-protected; own the complete unlock/reset/lock sequence. */
+    CRG_unlockClockConfig();
     CLEAR_BIT(CRG->SRST0, reset_mask);
     __DSB();
 
@@ -585,6 +587,7 @@ DRV_Status WDG_testResetModule(WDG_Type *WDGx)
 
     SET_BIT(CRG->SRST0, reset_mask);
     __DSB();
+    CRG_lockClockConfig();
 
     return DRV_OK;
 }

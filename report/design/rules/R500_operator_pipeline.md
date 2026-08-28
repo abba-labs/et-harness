@@ -75,12 +75,15 @@ run_test.bat / run_config_gui.bat
 3. 非Renode目标只要选择真实测试或`hardware_action`阶段，必须显式设置
    `pipeline.confirm_hardware_actions: true`；该字段不是通用授权，具体硬件操作仍须遵守项目人工门禁。
 4. Runner使用单机文件锁，禁止两个Pipeline同时占用同一测试环境。
-5. `code_check`只调用唯一总门禁`tools/validate_pc.py`。
-6. 测试集合只读取`IP_REGISTRY`和各IP Case Registry；配置和Profile不得旁路注册表。
-7. 任一阶段失败返回非零；报告生成不得把pytest FAIL改写为PASS。
-8. FPGA PFLASH部署必须在同一次Pipeline运行中依次完成`deploy.bitfile`、
+5. GUI中的“软件质量门禁”固定调用`tools/validate_pc.py --skip-tests`，“全量门禁”固定调用
+   `tools/validate_pc.py`；两者均不得选择、编译或操作硬件。
+6. 单步编译、烧录、启动和测试按钮只执行自身选择的Pipeline阶段，不得隐式运行软件门禁；
+   `code_check`只控制“完整流水线”是否在所选阶段前调用唯一总门禁。
+7. 测试集合只读取`IP_REGISTRY`和各IP Case Registry；配置和Profile不得旁路注册表。
+8. 任一阶段失败返回非零；报告生成不得把pytest FAIL改写为PASS。
+9. FPGA PFLASH部署必须在同一次Pipeline运行中依次完成`deploy.bitfile`、
    `deploy.bootrom`和`deploy.firmware`；前两个阶段的`result=PASS` Manifest是唯一有效前置证据。
-9. 低层部署脚本只是Pipeline内部阶段。缺少`ET_ARTIFACT_RUN_DIR`、当前Run前置证据或正确顺序时，
+10. 低层部署脚本只是Pipeline内部阶段。缺少`ET_ARTIFACT_RUN_DIR`、当前Run前置证据或正确顺序时，
    PFLASH脚本必须在任何擦写动作前失败关闭；`-SkipFlash`仅用于不改写PFLASH的受控运行操作。
 
 ### 5.1 测试选择与执行级别
@@ -117,7 +120,7 @@ Runner只能从正式Registry中执行本次明确选中的集合。选择来源
 
 ### 5.3 HIL前置契约预检
 
-形成正式FPGA、Silicon或真实仪器结论前，当前逻辑批次必须先通过同一套无硬件预检：
+形成正式FPGA、Silicon或真实仪器结论前，当前逻辑批次必须通过同一套无硬件预检：
 
 ```text
 规则与代码门禁
@@ -133,7 +136,8 @@ Runner只能从正式Registry中执行本次明确选中的集合。选择来源
 - 同一源码状态和同一逻辑批次内，预检结果可供多个已选Case/IP复用，禁止为每个Case重复运行总软件门禁；
 - 修复过程中的专项复测先运行Task Context列出的最小专项验证；批次代码完成后统一运行一次总软件门禁，再形成正式HIL结论；
 - 参数、Evidence字段或报告模板发生变化时，必须覆盖受影响的参数分支和真实数据形状，不能只验证无参数理想样本；
-- 预检失败必须在任何烧录、复位、上电或Formal HIL动作前停止；
+- 定位和修复Bug期间允许单独执行环境检查、编译、烧录、启动或指定Case，不得因此自动运行门禁；
+- 逻辑修复批次完成后、形成正式HIL结论或提交代码前必须单独运行“全量门禁”；
 - 软件预检PASS只证明软件契约可执行，不能替代真实硬件PASS。
 
 推荐验证顺序为：

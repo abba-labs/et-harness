@@ -6,8 +6,9 @@
 #include "et_manual_test_config.h"
 #include "et_manual_test_internal.h"
 
-/* J-Link writes RELEASE after holding the CPU for the requested observation window. */
-volatile uint32_t et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_RELEASE;
+/* Keil Watch uses these arrays to compare PAUSE and RUN_FREE counter behavior. */
+volatile uint32_t et_manual_stimer_pause_samples[ET_MANUAL_STIMER_DEBUG_SAMPLE_COUNT];
+volatile uint32_t et_manual_stimer_run_free_samples[ET_MANUAL_STIMER_DEBUG_SAMPLE_COUNT];
 
 static void reset_stimer(void)
 {
@@ -77,18 +78,15 @@ int et_manual_stimer_p1_001_prescaler_ratio(void)
 
 /*
  * 测试Feature：STIMER在Debugger CPU Halt期间的PAUSE与RUN_FREE策略。
- * 测试方法：STIMER0分别配置PAUSE和RUN_FREE；每个场景先复位，固件发布阶段门标记后等待，
- *           J-Link主动Halt CPU并保持相同时间，再写入RELEASE并继续运行。
+ * 测试方法：STIMER0分别配置PAUSE和RUN_FREE；在Keil中逐步执行两个采样循环，每次直接读取CNT_RPT，
+ *           使用单步之间的CPU Halt时间作为观测窗口。
  * 通过条件：PAUSE计数增量不超过RUN_FREE的十分之一，且RUN_FREE计数增量大于零。
  */
 int et_manual_stimer_p2_003_debugger_halt_behavior(void)
 {
-    uint32_t pause_before;
-    uint32_t pause_after;
     uint32_t pause_delta;
-    uint32_t run_before;
-    uint32_t run_after;
     uint32_t run_delta;
+    uint32_t sample_index;
 
     et_manual_log_text("[MANUAL] case=stimer_p2_003 feature=debugger_halt_behavior\r\n");
 
@@ -97,45 +95,42 @@ int et_manual_stimer_p2_003_debugger_halt_behavior(void)
     configure_stimer();
     STIMER_enableCPUHalt(ET_MANUAL_STIMER);
     STIMER_startTimer(ET_MANUAL_STIMER);
-    pause_before = STIMER_getTimerCount(ET_MANUAL_STIMER);
 
-    /* 激励：发布阶段门，J-Link Halt CPU保持观测窗口后写RELEASE。 */
-    et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_PAUSE_READY;
-    et_manual_log_text("[ACTION] debugger_hold stage=PAUSE\r\n");
-
-    while (et_manual_stimer_debug_gate != ET_MANUAL_STIMER_DEBUG_GATE_RELEASE)
+    /* 激励：逐步执行，每次从硬件CNT_RPT寄存器直接保留一个PAUSE样本。 */
+    for (sample_index = 0u; sample_index < ET_MANUAL_STIMER_DEBUG_SAMPLE_COUNT; ++sample_index)
     {
-        __NOP();
+        et_manual_stimer_pause_samples[sample_index] = ET_MANUAL_STIMER->CNT_RPT;
     }
 
-    pause_after = STIMER_getTimerCount(ET_MANUAL_STIMER);
-    pause_delta = pause_after - pause_before;
+    pause_delta = et_manual_stimer_pause_samples[ET_MANUAL_STIMER_DEBUG_LAST_SAMPLE_INDEX] -
+                  et_manual_stimer_pause_samples[0u];
 
     /* 配置：RUN_FREE场景再次复位，确保策略切换不依赖前一场景。 */
     reset_stimer();
     configure_stimer();
     STIMER_disableCPUHalt(ET_MANUAL_STIMER);
     STIMER_startTimer(ET_MANUAL_STIMER);
-    run_before = STIMER_getTimerCount(ET_MANUAL_STIMER);
 
-    /* 激励：发布第二个阶段门，J-Link保持与PAUSE场景相同的窗口。 */
-    et_manual_stimer_debug_gate = ET_MANUAL_STIMER_DEBUG_GATE_RUN_FREE_READY;
-    et_manual_log_text("[ACTION] debugger_hold stage=RUN_FREE\r\n");
-
-    while (et_manual_stimer_debug_gate != ET_MANUAL_STIMER_DEBUG_GATE_RELEASE)
+    /* 激励：保持相同单步节奏，直接保留RUN_FREE场景的硬件计数样本。 */
+    for (sample_index = 0u; sample_index < ET_MANUAL_STIMER_DEBUG_SAMPLE_COUNT; ++sample_index)
     {
-        __NOP();
+        et_manual_stimer_run_free_samples[sample_index] = ET_MANUAL_STIMER->CNT_RPT;
     }
 
-    run_after = STIMER_getTimerCount(ET_MANUAL_STIMER);
-    run_delta = run_after - run_before;
+    run_delta = et_manual_stimer_run_free_samples[ET_MANUAL_STIMER_DEBUG_LAST_SAMPLE_INDEX] -
+                et_manual_stimer_run_free_samples[0u];
 
     /* 观测：同时保留两种策略的原始计数和增量，便于人工复核。 */
-    et_manual_log_u32("[OBSERVE] pause_before", pause_before);
-    et_manual_log_u32("[OBSERVE] pause_after", pause_after);
+    et_manual_log_u32("[OBSERVE] pause_first",
+                      et_manual_stimer_pause_samples[0u]);
+    et_manual_log_u32("[OBSERVE] pause_last",
+                      et_manual_stimer_pause_samples[ET_MANUAL_STIMER_DEBUG_LAST_SAMPLE_INDEX]);
     et_manual_log_u32("[OBSERVE] pause_delta", pause_delta);
-    et_manual_log_u32("[OBSERVE] run_free_before", run_before);
-    et_manual_log_u32("[OBSERVE] run_free_after", run_after);
+    et_manual_log_u32("[OBSERVE] run_free_first",
+                      et_manual_stimer_run_free_samples[0u]);
+    et_manual_log_u32(
+        "[OBSERVE] run_free_last",
+        et_manual_stimer_run_free_samples[ET_MANUAL_STIMER_DEBUG_LAST_SAMPLE_INDEX]);
     et_manual_log_u32("[OBSERVE] run_free_delta", run_delta);
     et_manual_log_u32("[EXPECT] pause_ratio_divisor",
                       ET_MANUAL_STIMER_PAUSE_DELTA_RATIO_DIVISOR);
