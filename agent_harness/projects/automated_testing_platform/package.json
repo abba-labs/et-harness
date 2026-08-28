@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Automated Testing Platform Project Plugin: project identity and data-only A/R/K/G routing",
+  "description": "Automated Testing Platform Project Plugin: project identity, A/R/K/G routing, and project-owned context contribution",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
@@ -26,10 +26,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run tests",
+    "test:compiler": "ATP_CONTEXT_CONTRIBUTOR_INTEGRATION=1 vitest run tests/context-contributor-compiler.integration.test.ts",
     "prepare": "npm run build"
   },
   "peerDependencies": {
+    "@agent-harness/governance-core": "0.1.0",
     "@agent-harness/project-manager": "0.1.0",
+    "@agent-harness/auto-governance-engine": "0.1.0",
     "@deepseek-ai/cordis": "^4.0.0"
   },
   "devDependencies": {
@@ -40,6 +43,7 @@
     "@agent-harness/rule-manager": "file:../../public_plugins/rule_manager",
     "@agent-harness/knowledge-manager": "file:../../public_plugins/knowledge_manager",
     "@agent-harness/gate-manager": "file:../../public_plugins/gate_manager",
+    "@agent-harness/auto-governance-engine": "file:../../public_plugins/auto_governance_engine",
     "@deepseek-ai/cordis": "^4.0.0",
     "@types/node": "^24.10.0",
     "typescript": "^6.0.3",
