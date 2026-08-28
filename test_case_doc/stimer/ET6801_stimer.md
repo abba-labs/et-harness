@@ -360,7 +360,7 @@ Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
 Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 ```
 
-上面的27-execution全量记录是早期Bench状态，不得继续把其中`STIMER_P2_003`的SKIP当作当前结论；Debugger绑定闭合后的最新专项结果是FAIL。`STIMER_P1_001`也已改为内部COUNT.LIVE速率比验证，历史SKIP不再有效，当前状态为NOT_EXECUTED。剩余`STIMER_P1_008`、`STIMER_P2_002`、`STIMER_P3_001`确实依赖外部物理观测或刺激Bench，可保留SKIP。
+上面的27-execution记录是早期Bench状态，不得继续把其中`STIMER_P2_003`的SKIP当作当前结论；Debugger绑定闭合后的结果是FAIL。`STIMER_P1_001`已改为内部COUNT.LIVE速率比验证，并在后续全量HIL中PASS。其余Case的当前状态只读取文末唯一`ET_CHIP_TEST_STATUS`区域。
 
 ### 7.3 2026-08-22 Debug Halt行为诊断
 
