@@ -182,7 +182,7 @@ export function lintContextSession(session: ContextSession): ContextLintResult {
       issues.push({ ...item, field: `recentTail[${index}].${item.field.replace(/^recent\./, '')}` })
     }
   })
-  session.inlineItems.forEach((item, index) => {
+  ;(session.inlineItems ?? []).forEach((item, index) => {
     const result = lintInlineContextItem(item)
     for (const issueItem of [...result.errors, ...result.warnings]) {
       issues.push({ ...issueItem, field: `inlineItems[${index}].${issueItem.field.replace(/^inline\./, '')}` })
