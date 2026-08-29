@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs'
-import { access } from 'node:fs/promises'
+import { access, mkdir, readFile, rmdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -550,6 +550,77 @@ describe('Phase 1 file Execution Event Store', () => {
       expectedFirst,
       syntheticEvent(2),
     ])
+    await reopened.close()
+  })
+
+  it('recovers a mutation lock owned by a dead process but never steals a live lock', async () => {
+    const directory = await createDirectory()
+    const store = await createFileExecutionEventStore({
+      directory,
+      binding: syntheticBinding(),
+      limits: SYNTHETIC_LIMITS,
+    })
+    const lockPath = join(directory, 'mutation.lock')
+    const lock = (pid: number, generation: string) => `${JSON.stringify({
+      schema: 'agent-harness.execution-mutation-lock.v0.1',
+      pid,
+      createdAt: '2026-08-29T00:00:00.000Z',
+      generation,
+    })}\n`
+
+    await mkdir(lockPath)
+    await writeFile(join(lockPath, 'owner.json'), lock(
+      2_147_483_647,
+      '00000000-0000-4000-8000-000000000001',
+    ), 'utf8')
+    await expect(store.append(syntheticEvent(1))).resolves.toMatchObject({ status: 'ACCEPTED' })
+
+    await mkdir(lockPath)
+    await writeFile(join(lockPath, 'owner.json'), lock(
+      process.pid,
+      '00000000-0000-4000-8000-000000000002',
+    ), 'utf8')
+    await expectStoreError(store.append(syntheticEvent(2)), 'STORE_CHANGED')
+    expect(store.eventCount).toBe(1)
+    await store.close()
+  })
+
+  it('atomically isolates one stale lock generation under concurrent recovery', async () => {
+    const directory = await createDirectory()
+    const binding = syntheticBinding()
+    const store = await createFileExecutionEventStore({
+      directory,
+      binding,
+      limits: SYNTHETIC_LIMITS,
+    })
+    const lockPath = join(directory, 'mutation.lock')
+    await mkdir(lockPath)
+    await writeFile(join(lockPath, 'owner.json'), `${JSON.stringify({
+      schema: 'agent-harness.execution-mutation-lock.v0.1',
+      pid: 2_147_483_647,
+      createdAt: '2026-08-29T00:00:00.000Z',
+      generation: '00000000-0000-4000-8000-000000000003',
+    })}\n`, 'utf8')
+
+    await mkdir(`${lockPath}.guard`)
+    await expectStoreError(store.append(syntheticEvent(1)), 'STORE_CHANGED')
+    expect(await readFile(join(lockPath, 'owner.json'), 'utf8'))
+      .toContain('00000000-0000-4000-8000-000000000003')
+    await rmdir(`${lockPath}.guard`)
+
+    const outcomes = await Promise.allSettled([
+      store.append(syntheticEvent(1)),
+      store.append(syntheticEvent(1, { eventId: 'event-concurrent-recovery' })),
+    ])
+    const accepted = outcomes.filter(item =>
+      item.status === 'fulfilled' && item.value.status === 'ACCEPTED')
+    expect(accepted).toHaveLength(1)
+    expect(store.eventCount).toBe(1)
+    await store.close()
+
+    const reopened = await openFileExecutionEventStore({ directory, binding })
+    expect(reopened.eventCount).toBe(1)
+    expect((await reopened.replay({ limit: 10 })).events).toHaveLength(1)
     await reopened.close()
   })
 

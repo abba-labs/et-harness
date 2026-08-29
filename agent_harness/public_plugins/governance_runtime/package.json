@@ -17,6 +17,7 @@
     "@agent-harness/agent-governance-kernel": "0.1.0",
     "@agent-harness/agent-governance-closure-adapters": "0.1.0",
     "@agent-harness/auto-governance-engine": "0.1.0",
+    "@agent-harness/execution-supervisor": "0.1.0",
     "@agent-harness/knowledge-manager": "0.2.0",
     "@deepseek-ai/cordis": "^4.0.0"
   },
@@ -25,6 +26,7 @@
     "@agent-harness/agent-governance-kernel": "file:../agent_governance_kernel",
     "@agent-harness/agent-governance-closure-adapters": "file:../agent_governance_closure_adapters",
     "@agent-harness/auto-governance-engine": "file:../auto_governance_engine",
+    "@agent-harness/execution-supervisor": "file:../execution_supervisor",
     "@agent-harness/knowledge-manager": "file:../knowledge_manager",
     "@deepseek-ai/cordis": "^4.0.0",
     "@types/node": "^24.10.0",

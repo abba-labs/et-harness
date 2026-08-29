@@ -2,7 +2,11 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { ReflectionDomain, TurnReflectionProviderInput } from '../src/contracts.js'
+import type {
+  ContentAddressedReadinessBinding,
+  ReflectionDomain,
+  TurnReflectionProviderInput,
+} from '../src/contracts.js'
 import { TurnJournalStore } from '../src/turn-journal-store.js'
 import { TurnReflectionController } from '../src/turn-reflection-controller.js'
 import { TurnReflectionStore } from '../src/turn-reflection-store.js'
@@ -47,6 +51,11 @@ const noChangeResult = (input: TurnReflectionProviderInput) => ({
   obligations: { opened: [], resolved: [], unchanged: [] },
 })
 
+const readinessBinding = (hex = 'a'): ContentAddressedReadinessBinding => ({
+  ref: `supervision-readiness://TASK-1/TURN-1/${hex}`,
+  fingerprint: `sha256:${hex.repeat(64)}`,
+})
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
@@ -85,6 +94,61 @@ describe('Unified Turn Reflection', () => {
       journal.getTurn('TASK-1', 'TURN-1')!,
     )
     expect(reloaded?.result.context.progress).toContain('analyzed')
+  })
+
+  it('content-addresses Reflection to one exact readiness binding and fails closed on rebinding', async () => {
+    const { root, journal, controller } = createRuntime()
+    journal.beginTurn({ taskId: 'TASK-1', turnId: 'TURN-BINDING', agentId: 'AGENT-1' })
+    let calls = 0
+    let observed: ContentAddressedReadinessBinding | undefined
+    controller.registerProvider({
+      providerId: 'bound-reflector',
+      reflect(input) {
+        calls += 1
+        observed = input.readinessBinding
+        return noChangeResult(input)
+      },
+    })
+
+    const binding = readinessBinding()
+    const first = await controller.reflectTurn('TASK-1', 'TURN-BINDING', { readinessBinding: binding })
+    const replay = await controller.reflectTurn('TASK-1', 'TURN-BINDING', { readinessBinding: binding })
+
+    expect(calls).toBe(1)
+    expect(observed).toEqual(binding)
+    expect(replay.inputFingerprint).toBe(first.inputFingerprint)
+    expect(first.readinessBinding).toEqual(binding)
+    expect(new TurnReflectionStore(root).get(
+      'TASK-1',
+      'TURN-BINDING',
+      journal.getTurn('TASK-1', 'TURN-BINDING')!,
+    )?.readinessBinding).toEqual(binding)
+
+    await expect(controller.reflectTurn('TASK-1', 'TURN-BINDING', {
+      readinessBinding: readinessBinding('b'),
+    })).rejects.toThrow('different sealed input')
+    expect(calls).toBe(1)
+  })
+
+  it('rejects a malformed readiness fingerprint before invoking Reflection', async () => {
+    const { journal, controller } = createRuntime()
+    journal.beginTurn({ taskId: 'TASK-INVALID-BINDING', turnId: 'TURN-1', agentId: 'AGENT-1' })
+    let calls = 0
+    controller.registerProvider({
+      providerId: 'must-not-run',
+      reflect(input) {
+        calls += 1
+        return noChangeResult(input)
+      },
+    })
+
+    await expect(controller.reflectTurn('TASK-INVALID-BINDING', 'TURN-1', {
+      readinessBinding: {
+        ref: 'supervision-readiness://TASK-INVALID-BINDING/TURN-1',
+        fingerprint: 'sha256:not-a-content-hash',
+      },
+    })).rejects.toThrow('sha256:<64 lowercase hex>')
+    expect(calls).toBe(0)
   })
 
   it('requires explicit coverage of every reflection domain even when the result is NO_CHANGE', async () => {

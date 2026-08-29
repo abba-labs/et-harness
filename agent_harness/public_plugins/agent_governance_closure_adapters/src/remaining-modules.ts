@@ -419,6 +419,12 @@ export function createObligationGateReconcileModule(
     domains: ['obligations'],
     apply(input) {
       const { opened, resolved, unchanged } = input.reflection.obligations
+      // Agent reflection may propose a resolution, but a supervised Turn is
+      // bound to the Supervisor ledger and cannot self-certify that transition.
+      const supervised = (input as ClosureModuleInput & {
+        readonly readinessBinding?: unknown
+      }).readinessBinding !== undefined
+      const effectiveResolved = supervised ? [] : resolved
       if (input.projectBinding.kind === 'UNBOUND') {
         if (opened.length === 0 && resolved.length === 0 && unchanged.length === 0) {
           return successfulReceipt(module, input, { status: 'NO_CHANGE' })
@@ -444,12 +450,12 @@ export function createObligationGateReconcileModule(
       }
 
       const openSet = new Set(unique(prior.openObligations))
-      for (const value of unique(resolved)) openSet.delete(value)
+      for (const value of unique(effectiveResolved)) openSet.delete(value)
       for (const value of unique(opened)) openSet.add(value)
       for (const value of unique(unchanged)) openSet.add(value)
       const openObligations = [...openSet]
 
-      const resolvedGateIds = gateIdsFrom(resolved)
+      const resolvedGateIds = gateIdsFrom(effectiveResolved)
       const gateEvidenceRefs: string[] = []
       for (const gateId of resolvedGateIds) {
         const plan = gateManager.getExecutionPlan(projectId, gateId)
@@ -478,14 +484,14 @@ export function createObligationGateReconcileModule(
       const value = {
         openObligations,
         openedInTurn: unique(opened),
-        resolvedInTurn: unique(resolved),
+        resolvedInTurn: unique(effectiveResolved),
         unchangedInTurn: unique(unchanged),
         gateIds: unique([...openGateIds, ...resolvedGateIds]),
         blockingGateIds: unique(blockingGateIds),
         reconciledAtTurn: input.turnId,
         idempotencyKey: input.idempotencyKey,
       }
-      if (!current && openObligations.length === 0 && resolved.length === 0) {
+      if (!current && openObligations.length === 0 && effectiveResolved.length === 0) {
         return successfulReceipt(module, input, {
           status: 'NO_CHANGE',
           evidenceRefs: unique(gateEvidenceRefs),

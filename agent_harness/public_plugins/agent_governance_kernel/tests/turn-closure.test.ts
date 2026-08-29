@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   MANDATORY_CLOSURE_MODULE_IDS,
+  type ContentAddressedReadinessBinding,
   type ClosureModule,
   type ClosureModuleInput,
   type ClosureModuleReceipt,
@@ -46,6 +47,11 @@ const noChangeResult = (input: TurnReflectionProviderInput) => ({
   evidence: none('evidence'),
   workingSet: { keep: input.journal.resourceTouchRefs, add: [], remove: [] },
   obligations: { opened: [], resolved: [], unchanged: [] },
+})
+
+const readinessBinding = (hex = 'c'): ContentAddressedReadinessBinding => ({
+  ref: `supervision-readiness://TASK-1/TURN-1/${hex}`,
+  fingerprint: `sha256:${hex.repeat(64)}`,
 })
 
 const createRuntime = () => {
@@ -160,6 +166,32 @@ describe('Closure Coordinator', () => {
     const reloaded = new TurnClosureStore(root).get('TASK-1', 'TURN-1')
     expect(reloaded?.status).toBe('COMPLETE')
     expect(reloaded?.moduleReceipts).toHaveLength(MANDATORY_CLOSURE_MODULE_IDS.length)
+  })
+
+  it('persists the exact Reflection readiness binding in Closure and rejects CLOSED rebinding', async () => {
+    const { root, journal, reflection, registry, closure } = createRuntime()
+    journal.beginTurn({ taskId: 'TASK-1', turnId: 'TURN-BOUND', agentId: 'AGENT-1' })
+    reflection.registerProvider({ providerId: 'bound-reflector', reflect: noChangeResult })
+    const binding = readinessBinding()
+    await reflection.reflectTurn('TASK-1', 'TURN-BOUND', { readinessBinding: binding })
+
+    const calls = new Map<string, number>()
+    let observed: ContentAddressedReadinessBinding | undefined
+    registerMandatory(registry, calls, (module, input) => {
+      observed = input.readinessBinding
+      return receipt(module, input)
+    })
+    const completed = await closure.closeTurn('TASK-1', 'TURN-BOUND')
+
+    expect(completed.status).toBe('COMPLETE')
+    expect(completed.readinessBinding).toEqual(binding)
+    expect(observed).toEqual(binding)
+    expect(new TurnClosureStore(root).get('TASK-1', 'TURN-BOUND')?.readinessBinding).toEqual(binding)
+
+    await expect(reflection.reflectTurn('TASK-1', 'TURN-BOUND', {
+      readinessBinding: readinessBinding('d'),
+    })).rejects.toThrow('different sealed input')
+    for (const id of MANDATORY_CLOSURE_MODULE_IDS) expect(calls.get(id)).toBe(1)
   })
 
   it('replays only failed modules and reuses successful idempotent receipts', async () => {

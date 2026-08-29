@@ -3,7 +3,9 @@ import {
   AGENT_CLAIM_KINDS,
   EVIDENCE_PROVIDER_KINDS,
   EVIDENCE_RESULT_STATUSES,
+  MANDATORY_LIFECYCLE_CLOSURE_MODULE_IDS,
   OBLIGATION_LEDGER_STATUS_SCHEMA,
+  SUPERVISION_LIFECYCLE_BINDING_SCHEMA,
   type AgentClaimV01,
   type ClaimEvidenceSatisfactionV01,
   type ClaimEvidenceTargetV01,
@@ -15,8 +17,10 @@ import {
   type ExecutionEventEnvelopeV01,
   type ExecutionEventStoreBindingV01,
   type ExecutionEventStoreV01,
+  type ExecutionLifecycleAuthorityV01,
   type ExecutionObligationLedgerV01,
   type ExecutionReplayCursorV01,
+  type ExecutionStoreFinalizationV01,
   type EvidencePolicyV01,
   type JsonRecord,
   type MutationReceiptV01,
@@ -34,6 +38,8 @@ import {
   type SourceDispositionSatisfactionV01,
   type SourceDispositionTargetV01,
   type SourceDisposition,
+  type SupervisionLifecycleBindingV01,
+  type SupervisionReadinessReceiptV01,
   type TaskSupervisionContractV01,
   type ValidationReceiptV01,
   type ValidationSatisfactionV01,
@@ -41,6 +47,13 @@ import {
   type WriteScopeTargetV01,
 } from './contracts.js'
 import { canonicalJson, hashCanonicalJson, sha256Hex } from './hash.js'
+import {
+  assertLifecycleBindingShape,
+  createLifecycleFinalization,
+  createSupervisionReadinessReceipt,
+  lifecycleClosureRef,
+  supervisionFingerprint,
+} from './lifecycle-closure.js'
 import { evaluateTrustedEvidence } from './trusted-evaluation.js'
 import { validateTaskSupervisionContract } from './validation.js'
 import {
@@ -831,6 +844,7 @@ const violationFor = (
 
 class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   readonly #eventStore: ExecutionEventStoreV01
+  readonly #lifecycleAuthority: ExecutionLifecycleAuthorityV01 | undefined
   readonly #binding: ExecutionEventStoreBindingV01
   readonly #contractHash: string
   readonly #definitions: readonly ObligationDefinitionV01[]
@@ -852,6 +866,7 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   #openExternalSpan: ExecutionEventEnvelopeV01[] | undefined
   #cursor: ExecutionReplayCursorV01 | undefined
   #taskEndEvent: ExecutionEventEnvelopeV01 | undefined
+  #appliedLifecycleFinalizationHash: string | undefined
   #completionDecision: CompletionDecisionV01 = {
     status: 'IN_PROGRESS',
     pendingObligationIds: [],
@@ -860,8 +875,12 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     evidenceRefs: [],
   }
 
-  constructor(eventStore: ExecutionEventStoreV01) {
+  constructor(
+    eventStore: ExecutionEventStoreV01,
+    lifecycleAuthority?: ExecutionLifecycleAuthorityV01,
+  ) {
     this.#eventStore = eventStore
+    this.#lifecycleAuthority = lifecycleAuthority
     this.#binding = immutableSnapshot(eventStore.binding)
     this.#contractHash = hashCanonicalJson(this.#binding.contract)
     this.#definitions = this.#binding.contract.obligations
@@ -934,7 +953,10 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       })
       for (const event of page.events) this.#applyEvent(event)
       this.#cursor = page.cursor
-      if (!page.hasMore) return
+      if (!page.hasMore) break
+    }
+    if (this.#eventStore.finalization) {
+      await this.#applyDurableLifecycleBinding(this.#eventStore.finalization)
     }
   }
 
@@ -971,6 +993,231 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   }
   getCompletionDecision(): CompletionDecisionV01 {
     return immutableSnapshot(this.#completionDecision)
+  }
+
+  getReadinessReceipt(): SupervisionReadinessReceiptV01 | undefined {
+    if (!this.#cursor || !this.#taskEndEvent || this.#completionDecision.status !== 'READY_TO_CLOSE') {
+      return undefined
+    }
+    return createSupervisionReadinessReceipt({
+      binding: this.#binding,
+      cursor: this.#cursor,
+      status: this.getStatus(),
+      decision: this.#completionDecision,
+      taskEndEventId: this.#taskEndEvent.eventId,
+      taskEndTimestamp: this.#taskEndEvent.timestamp,
+    })
+  }
+
+  async attachLifecycleClosure(
+    binding: SupervisionLifecycleBindingV01,
+  ): Promise<CompletionDecisionV01> {
+    if (!this.#lifecycleAuthority) {
+      throw new Error('Framework lifecycle authority is required to attach Closure')
+    }
+    await this.synchronize()
+    const existingFinalization = this.#eventStore.finalization
+    if (existingFinalization) {
+      if (existingFinalization.finalizationHash !== hashCanonicalJson(binding)
+          || existingFinalization.finalizationRef !== lifecycleClosureRef(binding)) {
+        throw new Error('Execution Event Store is finalized with a different lifecycle binding')
+      }
+      if (this.#completionDecision.status !== 'COMPLETE') {
+        throw new Error('Durable lifecycle binding did not project COMPLETE')
+      }
+      return this.getCompletionDecision()
+    }
+    const readiness = this.#validateLifecycleBinding(binding)
+    await this.#lifecycleAuthority.verifyLifecycleClosure(binding)
+    const finalization = createLifecycleFinalization(binding, readiness.cursor)
+    await this.#eventStore.finalize(finalization)
+    this.#applyLifecycleBinding(binding, finalization.finalizationRef)
+    return this.getCompletionDecision()
+  }
+
+  #validateLifecycleBinding(
+    binding: SupervisionLifecycleBindingV01,
+  ): SupervisionReadinessReceiptV01 {
+    assertLifecycleBindingShape(binding)
+    const readiness = this.getReadinessReceipt()
+    if (!readiness) throw new Error('Latest durable supervision state is not READY_TO_CLOSE')
+    const contract = this.#binding.contract
+    const policy = contract.completionPolicy
+    if (!policy.requireAllMustSatisfied
+        || !policy.requireNoViolations
+        || !policy.requireReflection
+        || !policy.requireKnowledgeDecision
+        || !policy.requireContextUpdate
+        || !policy.requireClosureReceipt) {
+      throw new Error('Governed lifecycle attachment requires the full mandatory completion policy')
+    }
+    const requiredModuleIds = [...new Set(policy.requiredClosureModuleIds)]
+    const frozenModuleIds = [...MANDATORY_LIFECYCLE_CLOSURE_MODULE_IDS]
+    if (requiredModuleIds.length === 0
+        || requiredModuleIds.length !== policy.requiredClosureModuleIds.length) {
+      throw new Error('Governed lifecycle attachment requires unique mandatory Closure module IDs')
+    }
+    if (requiredModuleIds.length !== frozenModuleIds.length
+        || [...requiredModuleIds].sort().some((id, index) => id !== [...frozenModuleIds].sort()[index])) {
+      throw new Error('Governed lifecycle completion policy must require all eight frozen Closure modules')
+    }
+    const actualModuleIds = binding.moduleReceipts.map(item => item.moduleId)
+    if (actualModuleIds.length !== requiredModuleIds.length
+        || [...actualModuleIds].sort().some((id, index) => id !== [...requiredModuleIds].sort()[index])) {
+      throw new Error('Lifecycle binding does not contain exactly the required Closure modules')
+    }
+    const requiredLifecycleKinds = [
+      'REFLECTION',
+      'KNOWLEDGE_DECISION',
+      'CONTEXT_UPDATE',
+      'CLOSURE',
+    ] as const
+    for (const kind of requiredLifecycleKinds) {
+      if (!this.#definitions.some(item => item.kind === kind && item.severity === 'MUST')) {
+        throw new Error(`Governed lifecycle contract is missing MUST ${kind} obligation`)
+      }
+    }
+    for (const [label, actual, expected] of [
+      ['projectId', binding.projectId, contract.projectId],
+      ['taskId', binding.taskId, contract.taskId],
+      ['turnId', binding.turnId, this.#binding.turnId],
+      ['agentId', binding.agentId, contract.agentId],
+      ['contextHash', binding.contextHash, contract.contextHash],
+      ['readinessRef', binding.readinessRef, readiness.receiptRef],
+      ['readinessHash', binding.readinessHash, readiness.receiptHash],
+    ] as const) {
+      if (actual !== expected) throw new Error(`${label} does not match the exact readiness binding`)
+    }
+    if (Date.parse(binding.kernelClosureCreatedAt) < Date.parse(readiness.taskEndTimestamp)) {
+      throw new Error('Kernel Closure predates the persisted TASK_END request')
+    }
+    this.#preflightLifecycleProjection()
+    return readiness
+  }
+
+  async #applyDurableLifecycleBinding(
+    finalization: ExecutionStoreFinalizationV01,
+  ): Promise<void> {
+    if (!this.#lifecycleAuthority) {
+      throw new Error('Framework lifecycle authority is required to replay finalized Closure')
+    }
+    if (finalization.payload.schema !== SUPERVISION_LIFECYCLE_BINDING_SCHEMA) {
+      throw new Error('Durable Event Store finalization is not a lifecycle Closure binding')
+    }
+    const binding = finalization.payload as unknown as SupervisionLifecycleBindingV01
+    if (this.#appliedLifecycleFinalizationHash === finalization.finalizationHash) {
+      if (finalization.finalizationRef !== lifecycleClosureRef(binding)
+          || finalization.finalizationHash !== hashCanonicalJson(binding)) {
+        throw new Error('Durable lifecycle finalization content address is invalid')
+      }
+      await this.#lifecycleAuthority.verifyLifecycleClosure(binding)
+      return
+    }
+    const readiness = this.#validateLifecycleBinding(binding)
+    if (finalization.cursor.sequence !== readiness.cursor.sequence
+        || finalization.cursor.stateHash !== readiness.cursor.stateHash) {
+      throw new Error('Durable lifecycle finalization cursor does not match readiness')
+    }
+    if (finalization.finalizationRef !== lifecycleClosureRef(binding)
+        || finalization.finalizationHash !== hashCanonicalJson(binding)) {
+      throw new Error('Durable lifecycle finalization content address is invalid')
+    }
+    await this.#lifecycleAuthority.verifyLifecycleClosure(binding)
+    this.#applyLifecycleBinding(binding, finalization.finalizationRef)
+    this.#appliedLifecycleFinalizationHash = finalization.finalizationHash
+  }
+
+  #preflightLifecycleProjection(): void {
+    const lifecycleKinds = new Set([
+      'REFLECTION',
+      'KNOWLEDGE_DECISION',
+      'CONTEXT_UPDATE',
+      'CLOSURE',
+    ])
+    const projected = new Map<string, ObligationState>(
+      [...this.#states].map(([id, state]) => [id, state.state]),
+    )
+    for (let pass = 0; pass < this.#definitions.length; pass += 1) {
+      let changed = false
+      for (const definition of this.#definitions) {
+        if (!lifecycleKinds.has(definition.kind)) continue
+        const dependenciesSatisfied = (definition.dependencies ?? []).every(id =>
+          ['SATISFIED', 'NOT_APPLICABLE', 'WAIVED'].includes(projected.get(id) ?? 'PENDING'))
+        const next: ObligationState = dependenciesSatisfied ? 'SATISFIED' : 'BLOCKED'
+        if (projected.get(definition.id) !== next) {
+          projected.set(definition.id, next)
+          changed = true
+        }
+      }
+      if (!changed) break
+    }
+    const unresolved = this.#definitions.filter(definition =>
+      lifecycleKinds.has(definition.kind)
+      && definition.severity === 'MUST'
+      && projected.get(definition.id) !== 'SATISFIED')
+    if (unresolved.length > 0) {
+      throw new Error(`Lifecycle obligations cannot close with unresolved dependencies: ${unresolved.map(item => item.id).join(', ')}`)
+    }
+  }
+
+  #applyLifecycleBinding(
+    binding: SupervisionLifecycleBindingV01,
+    closureRef: string,
+  ): void {
+    const lifecycleKinds = new Set([
+      'REFLECTION',
+      'KNOWLEDGE_DECISION',
+      'CONTEXT_UPDATE',
+      'CLOSURE',
+    ])
+    for (const definition of this.#definitions) {
+      if (!lifecycleKinds.has(definition.kind)) continue
+      const state = this.#states.get(definition.id)!
+      this.#intrinsicallySatisfiedIds.add(definition.id)
+      state.updatedAt = binding.kernelClosureCreatedAt
+      state.reason = 'Satisfied by exact Framework Reflection and Kernel Closure binding'
+      uniqueAppend(state.evidenceRefs, binding.reflection.reflectionRef)
+      uniqueAppend(state.evidenceRefs, binding.kernelClosureRef)
+      uniqueAppend(state.evidenceRefs, closureRef)
+    }
+    for (let pass = 0; pass < this.#definitions.length; pass += 1) {
+      let changed = false
+      for (const definition of this.#definitions) {
+        if (!lifecycleKinds.has(definition.kind)) continue
+        const state = this.#states.get(definition.id)!
+        const blockers = (definition.dependencies ?? []).filter(id => {
+          const dependency = this.#states.get(id)?.state
+          return !dependency || !['SATISFIED', 'NOT_APPLICABLE', 'WAIVED'].includes(dependency)
+        })
+        state.blockerRefs = blockers
+        const next = blockers.length === 0 ? 'SATISFIED' : 'BLOCKED'
+        if (state.state !== next) {
+          state.state = next
+          changed = true
+        }
+      }
+      if (!changed) break
+    }
+    const unresolved = this.#definitions.filter(definition =>
+      lifecycleKinds.has(definition.kind)
+      && definition.severity === 'MUST'
+      && this.#states.get(definition.id)!.state !== 'SATISFIED')
+    if (unresolved.length > 0) {
+      throw new Error(`Lifecycle obligations remain unresolved: ${unresolved.map(item => item.id).join(', ')}`)
+    }
+    this.#completionDecision = immutableSnapshot({
+      status: 'COMPLETE',
+      pendingObligationIds: [],
+      violatedObligationIds: [],
+      blockerRefs: [],
+      evidenceRefs: [
+        ...this.#completionDecision.evidenceRefs,
+        binding.reflection.reflectionRef,
+        binding.kernelClosureRef,
+      ].filter((value, index, values) => values.indexOf(value) === index),
+      closureRef,
+    })
+    this.#appliedLifecycleFinalizationHash = hashCanonicalJson(binding)
   }
 
   #applyEvent(event: ExecutionEventEnvelopeV01): void {
@@ -1569,7 +1816,10 @@ export const createExecutionObligationLedger = async (
       .map(item => `${item.path} ${item.code}: ${item.message}`)
       .join('\n'))
   }
-  const ledger = new ExecutionObligationLedger(input.eventStore)
+  const ledger = new ExecutionObligationLedger(
+    input.eventStore,
+    input.lifecycleAuthority,
+  )
   await ledger.synchronize()
   return ledger
 }

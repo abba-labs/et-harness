@@ -10,6 +10,7 @@ import {
   type TurnReflectionRecord,
 } from './contracts.js'
 import { ClosureModuleRegistry } from './closure-module-registry.js'
+import { contentAddressedReadinessBindingEquals } from './reflection.js'
 import { TurnClosureStore } from './turn-closure-store.js'
 import { TurnJournalStore } from './turn-journal-store.js'
 import { TurnReflectionStore } from './turn-reflection-store.js'
@@ -23,12 +24,16 @@ const sha256 = (value: unknown): string =>
 const journalRef = (journal: TurnJournalRecord): string =>
   `governance-journal://task/${journal.taskId}/turn/${journal.turnId}`
 
-const closureInputFingerprint = (journal: TurnJournalRecord): string => sha256({
+const closureInputFingerprint = (
+  journal: TurnJournalRecord,
+  reflection: TurnReflectionRecord,
+): string => sha256({
   taskId: journal.taskId,
   turnId: journal.turnId,
   projectBinding: journal.projectBinding,
   reflectionRef: journal.reflectionRef,
   reflectionInputFingerprint: journal.reflectionInputFingerprint,
+  readinessBinding: reflection.readinessBinding,
   mandatoryModuleIds: MANDATORY_CLOSURE_MODULE_IDS,
 })
 
@@ -123,9 +128,10 @@ export class ClosureCoordinator {
     }
 
     const reflection = this.requireReflection(journal)
-    const inputFingerprint = closureInputFingerprint(journal)
+    const inputFingerprint = closureInputFingerprint(journal, reflection)
     const existing = this.closures.get(taskId, turnId)
-    if (existing && existing.inputFingerprint !== inputFingerprint) {
+    if (existing && (existing.inputFingerprint !== inputFingerprint
+        || !contentAddressedReadinessBindingEquals(existing.readinessBinding, reflection.readinessBinding))) {
       throw new Error(`Turn Closure replay input changed: ${taskId}/${turnId}`)
     }
     if (existing?.status === 'COMPLETE') {
@@ -155,6 +161,7 @@ export class ClosureCoordinator {
         journalRef: journalRef(journal),
         reflectionRef: journal.reflectionRef,
         inputFingerprint,
+        readinessBinding: reflection.readinessBinding,
         status: 'PENDING',
         moduleReceipts: existing?.moduleReceipts ?? [],
         missingMandatoryModuleIds,
@@ -190,6 +197,7 @@ export class ClosureCoordinator {
         journalRef: journalRef(journal),
         reflection: reflection.result,
         idempotencyKey,
+        readinessBinding: reflection.readinessBinding,
       }
       try {
         const raw = await module.apply(input)
@@ -214,6 +222,7 @@ export class ClosureCoordinator {
       journalRef: journalRef(journal),
       reflectionRef: journal.reflectionRef,
       inputFingerprint,
+      readinessBinding: reflection.readinessBinding,
       status,
       moduleReceipts,
       missingMandatoryModuleIds: [],

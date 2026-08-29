@@ -8,6 +8,10 @@ import {
   type TurnClosureReceipt,
 } from './contracts.js'
 import { assertKernelIdentifier } from './lifecycle.js'
+import {
+  contentAddressedReadinessBindingEquals,
+  validateContentAddressedReadinessBinding,
+} from './reflection.js'
 
 const atomicWriteJson = (file: string, value: unknown): void => {
   mkdirSync(dirname(file), { recursive: true })
@@ -87,8 +91,12 @@ export class TurnClosureStore {
       'missingMandatoryModuleIds',
     ) as readonly MandatoryClosureModuleId[]
     const blockingReasons = stringArray(raw.blockingReasons, 'blockingReasons')
+    const readinessBinding = raw.readinessBinding === undefined
+      ? undefined
+      : validateContentAddressedReadinessBinding(raw.readinessBinding)
     return {
       ...raw,
+      ...(readinessBinding ? { readinessBinding } : {}),
       moduleReceipts,
       missingMandatoryModuleIds,
       blockingReasons,
@@ -96,16 +104,25 @@ export class TurnClosureStore {
   }
 
   put(receipt: TurnClosureReceipt): TurnClosureReceipt {
+    const readinessBinding = receipt.readinessBinding === undefined
+      ? undefined
+      : validateContentAddressedReadinessBinding(receipt.readinessBinding)
+    const normalized = {
+      ...receipt,
+      ...(readinessBinding ? { readinessBinding } : {}),
+    }
     const existing = this.get(receipt.taskId, receipt.turnId)
     if (existing?.status === 'COMPLETE') {
-      if (existing.inputFingerprint === receipt.inputFingerprint) return existing
+      if (existing.inputFingerprint === receipt.inputFingerprint
+          && contentAddressedReadinessBindingEquals(existing.readinessBinding, readinessBinding)) return existing
       throw new Error(`Completed Turn Closure Receipt cannot be replaced: ${receipt.taskId}/${receipt.turnId}`)
     }
-    if (existing && existing.inputFingerprint !== receipt.inputFingerprint) {
+    if (existing && (existing.inputFingerprint !== receipt.inputFingerprint
+        || !contentAddressedReadinessBindingEquals(existing.readinessBinding, readinessBinding))) {
       throw new Error(`Turn Closure replay input changed: ${receipt.taskId}/${receipt.turnId}`)
     }
-    atomicWriteJson(this.file(receipt.taskId, receipt.turnId), receipt)
-    return receipt
+    atomicWriteJson(this.file(receipt.taskId, receipt.turnId), normalized)
+    return normalized
   }
 
   private file(taskId: string, turnId: string): string {

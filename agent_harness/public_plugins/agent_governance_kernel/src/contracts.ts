@@ -91,10 +91,16 @@ export interface TurnReflectionResult {
   readonly obligations: ObligationReflection
 }
 
+export interface ContentAddressedReadinessBinding {
+  readonly ref: string
+  readonly fingerprint: string
+}
+
 export interface TurnReflectionRequest {
   readonly taskContextRef?: string
   readonly publicCandidateRefs?: readonly string[]
   readonly projectCandidateRefs?: readonly string[]
+  readonly readinessBinding?: ContentAddressedReadinessBinding
 }
 
 export interface TurnReflectionProviderInput {
@@ -102,6 +108,7 @@ export interface TurnReflectionProviderInput {
   readonly taskContextRef?: string
   readonly publicCandidateRefs: readonly string[]
   readonly projectCandidateRefs: readonly string[]
+  readonly readinessBinding?: ContentAddressedReadinessBinding
 }
 
 export interface TurnReflectionProvider {
@@ -118,6 +125,7 @@ export interface TurnReflectionRecord {
   readonly createdAt: string
   readonly journalRef: string
   readonly inputFingerprint: string
+  readonly readinessBinding?: ContentAddressedReadinessBinding
   readonly result: TurnReflectionResult
 }
 
@@ -137,6 +145,7 @@ export interface ClosureModuleInput {
   readonly journalRef: string
   readonly reflection: TurnReflectionResult
   readonly idempotencyKey: string
+  readonly readinessBinding?: ContentAddressedReadinessBinding
 }
 
 export interface ClosureModuleReceipt {
@@ -170,6 +179,7 @@ export interface TurnClosureReceipt {
   readonly journalRef: string
   readonly reflectionRef: string
   readonly inputFingerprint: string
+  readonly readinessBinding?: ContentAddressedReadinessBinding
   readonly status: TurnClosureStatus
   readonly moduleReceipts: readonly ClosureModuleReceipt[]
   readonly missingMandatoryModuleIds: readonly MandatoryClosureModuleId[]

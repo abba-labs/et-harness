@@ -5,7 +5,12 @@ import type {
   TurnReflectionRecord,
   TurnReflectionRequest,
 } from './contracts.js'
-import { reflectionInputFingerprint, validateTurnReflectionResult } from './reflection.js'
+import {
+  contentAddressedReadinessBindingEquals,
+  reflectionInputFingerprint,
+  validateContentAddressedReadinessBinding,
+  validateTurnReflectionResult,
+} from './reflection.js'
 import { TurnJournalStore } from './turn-journal-store.js'
 import { TurnReflectionStore } from './turn-reflection-store.js'
 
@@ -45,17 +50,22 @@ export class TurnReflectionController {
   ): Promise<TurnReflectionRecord> {
     let journal = this.requireJournal(taskId, turnId)
     if (journal.status === 'OPEN') journal = this.journal.sealTurn(taskId, turnId)
+    const input = this.providerInput(journal, request)
+    const fingerprint = reflectionInputFingerprint(input)
     if (journal.status === 'CLOSED') {
       const existing = this.reflections.get(taskId, turnId, journal)
       if (!existing) throw new Error(`CLOSED Turn ${turnId} is missing its required Reflection record`)
+      if (existing.inputFingerprint !== fingerprint
+          || !contentAddressedReadinessBindingEquals(existing.readinessBinding, input.readinessBinding)) {
+        throw new Error(`Turn ${turnId} already has Reflection for a different sealed input`)
+      }
       return existing
     }
 
-    const input = this.providerInput(journal, request)
-    const fingerprint = reflectionInputFingerprint(input)
     const existing = this.reflections.get(taskId, turnId, journal)
     if (existing) {
-      if (existing.inputFingerprint !== fingerprint) {
+      if (existing.inputFingerprint !== fingerprint
+          || !contentAddressedReadinessBindingEquals(existing.readinessBinding, input.readinessBinding)) {
         throw new Error(`Turn ${turnId} already has Reflection for a different sealed input`)
       }
       return existing
@@ -78,6 +88,7 @@ export class TurnReflectionController {
         journal,
         providerId: provider.providerId,
         inputFingerprint: fingerprint,
+        readinessBinding: input.readinessBinding,
         result,
       })
       this.journal.attachReflection(taskId, turnId, {
@@ -108,6 +119,9 @@ export class TurnReflectionController {
       ...(request.taskContextRef?.trim() ? { taskContextRef: request.taskContextRef.trim() } : {}),
       publicCandidateRefs: unique(request.publicCandidateRefs ?? []),
       projectCandidateRefs,
+      ...(request.readinessBinding
+        ? { readinessBinding: validateContentAddressedReadinessBinding(request.readinessBinding) }
+        : {}),
     }
   }
 }

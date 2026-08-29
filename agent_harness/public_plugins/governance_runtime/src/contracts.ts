@@ -9,6 +9,12 @@ import type {
   AutoGovernanceReviewDecisionResult,
   AutoGovernanceTaskStatus,
 } from '@agent-harness/auto-governance-engine'
+import type {
+  CompletionDecisionV01,
+  ExecutionEventStoreV01,
+  ObligationLedgerStatusV01,
+  SupervisionReadinessReceiptV01,
+} from '@agent-harness/execution-supervisor'
 
 export const GOVERNANCE_RUNTIME_CONTRACT_VERSION = '0.1' as const
 
@@ -119,6 +125,25 @@ export interface GovernanceOpenTurnInput {
   readonly workspacePath?: string
   readonly userMessageRefs?: readonly string[]
   readonly semanticExecutor?: GovernanceSemanticExecutor
+  /** Framework-owned durable execution stream. Agents must never receive this capability. */
+  readonly supervisionEventStore?: ExecutionEventStoreV01
+}
+
+export interface GovernanceRehydrateSupervisedTurnInput {
+  readonly runtimeId: string
+  readonly eventStore: ExecutionEventStoreV01
+  readonly semanticExecutor?: GovernanceSemanticExecutor
+}
+
+export interface GovernanceBindSupervisedTurnInput {
+  readonly runtimeId: string
+  readonly eventStore: ExecutionEventStoreV01
+}
+
+export interface GovernanceSupervisionStatus {
+  readonly ledger: ObligationLedgerStatusV01
+  readonly decision: CompletionDecisionV01
+  readonly readiness?: SupervisionReadinessReceiptV01
 }
 
 export interface GovernanceOpenTurnResult {
@@ -211,9 +236,11 @@ export interface GovernanceCloseTurnResult {
   readonly knowledgeVerificationWarnings: readonly string[]
   readonly knowledgePromotions: readonly GovernanceKnowledgePromotion[]
   readonly knowledgePromotionWarnings: readonly string[]
+  readonly supervision?: GovernanceSupervisionStatus
 }
 
 export interface GovernanceRuntimeStatus {
+  /** Last synchronized snapshot; completion admission must call Runtime completeTask(). */
   readonly runtimeId: string
   readonly actorId: string
   readonly projectId: string
@@ -221,6 +248,7 @@ export interface GovernanceRuntimeStatus {
   readonly activeTurnId?: string
   readonly autoGovernance: AutoGovernanceTaskStatus
   readonly unresolvedTurnIds: readonly string[]
+  readonly supervision?: GovernanceSupervisionStatus
 }
 
 export interface GovernanceRuntimeReviewDecisionInput extends AutoGovernanceReviewDecisionInput {

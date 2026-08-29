@@ -1,7 +1,9 @@
 import {
+  EXECUTION_STORE_FINALIZATION_SCHEMA,
   type ExecutionEventEnvelopeV01,
   type ExecutionEventStoreBindingV01,
   type ExecutionEventStoreLimitsV01,
+  type ExecutionStoreFinalizationV01,
   type ExecutionStoreIssueCode,
 } from '../contracts.js'
 import { canonicalJson, hashCanonicalJson } from '../hash.js'
@@ -382,4 +384,107 @@ export const parseStoreRecord = (
     )
   }
   return immutableCanonicalClone(result)
+}
+
+export const serializeStoreFinalization = (
+  finalization: ExecutionStoreFinalizationV01,
+): string => `${canonicalJson(finalization)}\n`
+
+export const parseStoreFinalization = (text: string): ExecutionStoreFinalizationV01 => {
+  if (!text.endsWith('\n')) {
+    throw new ExecutionEventStoreError(
+      'STORE_TRUNCATED_RECORD',
+      'Store finalization is missing its terminating newline',
+      { field: 'finalization' },
+    )
+  }
+  const body = text.slice(0, -1)
+  if (!body || body.includes('\n') || body.includes('\r')) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      'Store finalization must contain exactly one canonical JSON record',
+      { field: 'finalization' },
+    )
+  }
+  const record = parseCanonicalObject(body, 'finalization')
+  requireExactKeys(record, [
+    'schema',
+    'cursor',
+    'finalizationRef',
+    'finalizationHash',
+    'finalizedAt',
+    'payload',
+  ], 'finalization')
+  if (record.schema !== EXECUTION_STORE_FINALIZATION_SCHEMA) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      `Unsupported store finalization schema ${String(record.schema)}`,
+      { field: 'finalization.schema' },
+    )
+  }
+  const cursor = objectRecord(record.cursor)
+  requireExactKeys(cursor ?? {}, ['sequence', 'stateHash'], 'finalization.cursor')
+  if (!cursor || !Number.isSafeInteger(cursor.sequence) || Number(cursor.sequence) < 0) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      'finalization.cursor.sequence must be a non-negative safe integer',
+      { field: 'finalization.cursor.sequence' },
+    )
+  }
+  const stateHash = requireHash(cursor.stateHash, 'finalization.cursor.stateHash')
+  if (typeof record.finalizationRef !== 'string' || !record.finalizationRef.trim()) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      'finalizationRef cannot be empty',
+      { field: 'finalization.finalizationRef' },
+    )
+  }
+  const finalizationHash = requireHash(record.finalizationHash, 'finalization.finalizationHash')
+  if (typeof record.finalizedAt !== 'string' || Number.isNaN(Date.parse(record.finalizedAt))) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      'finalization.finalizedAt must be an ISO-compatible timestamp',
+      { field: 'finalization.finalizedAt' },
+    )
+  }
+  const payload = objectRecord(record.payload)
+  if (!payload) {
+    throw new ExecutionEventStoreError(
+      'STORE_INVALID_CANONICAL_JSON',
+      'finalization.payload must be an object',
+      { field: 'finalization.payload' },
+    )
+  }
+  const expectedHash = hashCanonicalJson(payload)
+  if (finalizationHash !== expectedHash) {
+    throw new ExecutionEventStoreError(
+      'STORE_FINALIZATION_CONFLICT',
+      'finalizationHash does not match the canonical payload',
+      {
+        field: 'finalization.finalizationHash',
+        expected: expectedHash,
+        actual: finalizationHash,
+      },
+    )
+  }
+  const expectedRef = `supervision-closure://sha256:${finalizationHash}`
+  if (record.finalizationRef !== expectedRef) {
+    throw new ExecutionEventStoreError(
+      'STORE_FINALIZATION_CONFLICT',
+      'finalizationRef does not match the content-addressed payload',
+      {
+        field: 'finalization.finalizationRef',
+        expected: expectedRef,
+        actual: record.finalizationRef,
+      },
+    )
+  }
+  return immutableCanonicalClone({
+    schema: EXECUTION_STORE_FINALIZATION_SCHEMA,
+    cursor: { sequence: Number(cursor.sequence), stateHash },
+    finalizationRef: record.finalizationRef,
+    finalizationHash,
+    finalizedAt: record.finalizedAt,
+    payload,
+  })
 }

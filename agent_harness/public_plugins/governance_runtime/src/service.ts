@@ -11,11 +11,26 @@ import type {
 } from '@agent-harness/agent-governance-kernel'
 import type { AutoGovernanceContextEnvelope } from '@agent-harness/auto-governance-engine'
 import type { KnowledgeCategory, KnowledgeTaxonomy } from '@agent-harness/knowledge-manager'
+import {
+  SUPERVISION_LIFECYCLE_BINDING_SCHEMA,
+  createExecutionObligationLedger,
+  hashCanonicalJson,
+  sha256Hex,
+  supervisionFingerprint,
+  type CompletionDecisionV01,
+  type ExecutionEventEnvelopeV01,
+  type ExecutionEventStoreV01,
+  type ExecutionLifecycleAuthorityV01,
+  type ExecutionObligationLedgerV01,
+  type SupervisionLifecycleBindingV01,
+  type SupervisionReadinessReceiptV01,
+} from '@agent-harness/execution-supervisor'
 import { evaluateKnowledgeGovernanceDecision } from './knowledge-governance-decision.js'
 import {
   GOVERNANCE_RUNTIME_CONTRACT_VERSION,
   type GovernanceActionPreflightInput,
   type GovernanceActionPreflightResult,
+  type GovernanceBindSupervisedTurnInput,
   type GovernanceCloseTurnInput,
   type GovernanceCloseTurnResult,
   type GovernanceKnowledgeCategoryOption,
@@ -25,6 +40,7 @@ import {
   type GovernanceKnowledgeVerificationResult,
   type GovernanceOpenTurnInput,
   type GovernanceOpenTurnResult,
+  type GovernanceRehydrateSupervisedTurnInput,
   type GovernanceRuntimeReviewDecisionInput,
   type GovernanceRuntimeReviewDecisionResult,
   type GovernanceRuntimeStatus,
@@ -42,7 +58,15 @@ interface RuntimeSession {
   projectId: string
   taskId: string
   activeTurnId?: string
+  activeTurnTaskTextHash?: string
   semanticExecutor?: GovernanceSemanticExecutor
+  contextHash?: string
+  supervision?: RuntimeSupervision
+}
+
+interface RuntimeSupervision {
+  readonly eventStore: ExecutionEventStoreV01
+  readonly ledger: ExecutionObligationLedgerV01
 }
 
 interface ReflectionJob {
@@ -71,6 +95,32 @@ const reflectionKey = (taskId: string, turnId: string): string => `${taskId}::${
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
 
+const recordValue = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+
+const visibleExecutionMessage = (event: ExecutionEventEnvelopeV01): string | undefined => {
+  const payload = recordValue(event.payload)
+  const manifest = event.kind === 'USER_MESSAGE'
+    ? recordValue(payload?.requestManifest)
+    : event.kind === 'ASSISTANT_MESSAGE'
+      ? recordValue(payload?.responseManifest)
+      : undefined
+  const message = event.kind === 'USER_MESSAGE'
+    ? recordValue(manifest?.userMessage)
+    : event.kind === 'ASSISTANT_MESSAGE'
+      ? recordValue(manifest?.assistantMessage)
+      : undefined
+  const content = message?.content ?? payload?.text ?? payload?.content
+  return typeof content === 'string' && content.trim() ? content : undefined
+}
+
+const reflectionBindingRef = (reflection: TurnReflectionRecord | undefined): string | undefined =>
+  reflection?.readinessBinding
+    ? `${reflection.readinessBinding.ref}|${reflection.readinessBinding.fingerprint}`
+    : undefined
+
 const errorText = (error: unknown): string => {
   const raw = error instanceof Error ? error.message : String(error)
   return raw.replace(/\s+/g, ' ').trim().slice(0, 1200) || 'Unknown post-Closure error'
@@ -88,6 +138,7 @@ export class GovernanceRuntimeService extends Service {
   private readonly runtimeContext: Context
   private readonly sessions = new Map<string, RuntimeSession>()
   private readonly reflectionJobs = new Map<string, ReflectionJob>()
+  private readonly closeJobs = new Map<string, Promise<GovernanceCloseTurnResult>>()
   private readonly observations = new GovernanceTurnObservationStore()
 
   constructor(ctx: Context) {
@@ -103,6 +154,7 @@ export class GovernanceRuntimeService extends Service {
       return () => {
         disposeReflectionProvider()
         this.observations.clear()
+        this.closeJobs.clear()
         this.reflectionJobs.clear()
         this.sessions.clear()
       }
@@ -146,6 +198,12 @@ export class GovernanceRuntimeService extends Service {
         throw new Error(`Runtime ${runtimeId} is already bound to ${session.projectId}/${session.taskId}/${session.actorId}`)
       }
       if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
+      if (session.supervision?.eventStore.binding.turnId !== undefined
+          && session.supervision.eventStore.binding.turnId !== turnId) {
+        throw new Error(
+          `Runtime ${runtimeId} is supervised only for Turn ${session.supervision.eventStore.binding.turnId}`,
+        )
+      }
       if (session.activeTurnId) {
         const recoveringTurnId = session.activeTurnId
         const recovered = await this.closeKnownTurn(session, recoveringTurnId, {})
@@ -180,6 +238,17 @@ export class GovernanceRuntimeService extends Service {
       ...(input.workspacePath?.trim() ? { workspacePath: input.workspacePath.trim() } : {}),
       phase: 'analysis',
     })
+    session.contextHash = hashCanonicalJson(context)
+    session.activeTurnTaskTextHash = sha256Hex(taskText)
+
+    if (input.supervisionEventStore) {
+      if (input.supervisionEventStore.binding.turnId !== turnId) {
+        throw new Error(
+          `Supervision turnId mismatch: ${input.supervisionEventStore.binding.turnId} != ${turnId}`,
+        )
+      }
+      await this.bindSupervision(session, input.supervisionEventStore, context)
+    }
 
     let journal = this.runtimeContext.agentGovernanceKernel.beginTurn({
       taskId,
@@ -227,6 +296,83 @@ export class GovernanceRuntimeService extends Service {
       taskObservation,
       knowledgeDecision,
     }
+  }
+
+  async bindSupervisedTurn(input: GovernanceBindSupervisedTurnInput): Promise<void> {
+    const session = this.requireSession(input.runtimeId)
+    if (!session.activeTurnId || input.eventStore.binding.turnId !== session.activeTurnId) {
+      throw new Error('Execution Event Store does not match the active Runtime Turn')
+    }
+    const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(session.actorId)
+    await this.bindSupervision(session, input.eventStore, context)
+  }
+
+  async rehydrateSupervisedTurn(input: GovernanceRehydrateSupervisedTurnInput): Promise<void> {
+    const runtimeId = cleanIdentifier('runtimeId', input.runtimeId)
+    const binding = input.eventStore.binding
+    const contract = binding.contract
+    if (binding.runtimeId !== runtimeId) {
+      throw new Error(`Supervision Runtime identity mismatch: ${binding.runtimeId} != ${runtimeId}`)
+    }
+    let session = this.sessions.get(runtimeId)
+    if (!session) {
+      const journal = this.runtimeContext.agentGovernanceKernel.getTurn(contract.taskId, binding.turnId)
+      const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId)
+      if (!journal || !reflection) {
+        throw new Error(
+          'Cross-process supervised rehydration requires a durable Kernel Turn and readiness-bound Reflection',
+        )
+      }
+      if (journal.agentId !== contract.agentId
+          || journal.projectBinding.kind !== 'BOUND'
+          || journal.projectBinding.projectId !== contract.projectId) {
+        throw new Error('Persisted Kernel Turn identity does not match supervision contract')
+      }
+      const taskText = await this.readDurableTaskText(input.eventStore)
+      const project = this.runtimeContext.autoGovernanceEngine.resolveProject({
+        taskText,
+        projectId: contract.projectId,
+      })
+      if (!project || project.projectId !== contract.projectId) {
+        throw new Error(`Supervised project cannot be restored: ${contract.projectId}`)
+      }
+      this.runtimeContext.autoGovernanceEngine.bootstrapTask({
+        actorId: contract.agentId,
+        taskId: contract.taskId,
+        goal: taskText,
+        projectId: contract.projectId,
+        phase: 'implementation',
+      })
+      const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(contract.agentId)
+      if (hashCanonicalJson(context.route) !== contract.routeHash) {
+        throw new Error('Rehydrated Auto Governance route does not match the durable supervision routeHash')
+      }
+      session = {
+        runtimeId,
+        actorId: contract.agentId,
+        projectId: contract.projectId,
+        taskId: contract.taskId,
+        ...(journal.status === 'CLOSED' ? {} : { activeTurnTaskTextHash: sha256Hex(taskText) }),
+        contextHash: contract.contextHash,
+        ...(journal.status === 'CLOSED' ? {} : { activeTurnId: binding.turnId }),
+        ...(input.semanticExecutor ? { semanticExecutor: input.semanticExecutor } : {}),
+      }
+      this.sessions.set(runtimeId, session)
+    } else if (input.semanticExecutor) {
+      session.semanticExecutor = input.semanticExecutor
+    }
+    await this.bindSupervision(session, input.eventStore, undefined, true)
+    const decision = session.supervision!.ledger.getCompletionDecision()
+    const currentReadiness = session.supervision!.ledger.getReadinessReceipt()
+    if (decision.status !== 'COMPLETE') {
+      if (!currentReadiness
+          || reflectionBindingRef(
+            this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId),
+          ) !== `${currentReadiness.receiptRef}|${supervisionFingerprint(currentReadiness.receiptHash)}`) {
+        throw new Error('Persisted Reflection is not bound to the latest durable supervision readiness')
+      }
+    }
+    if (decision.status !== 'COMPLETE') session.activeTurnId = binding.turnId
   }
 
   observeWork(input: GovernanceWorkObservation): GovernanceWorkObservationResult {
@@ -334,6 +480,9 @@ export class GovernanceRuntimeService extends Service {
 
   async closeTurn(input: GovernanceCloseTurnInput): Promise<GovernanceCloseTurnResult> {
     const session = this.requireSession(input.runtimeId)
+    if (session.supervision && session.supervision.eventStore.binding.turnId !== input.turnId) {
+      throw new Error('Supervision Event Store cannot authorize a different Turn')
+    }
     if (session.activeTurnId !== input.turnId) {
       const journal = this.runtimeContext.agentGovernanceKernel.getTurn(session.taskId, input.turnId)
       if (!journal || journal.status === 'CLOSED') {
@@ -346,10 +495,19 @@ export class GovernanceRuntimeService extends Service {
         assistantMessageRefs: unique(input.assistantMessageRefs),
       })
     }
-    return this.closeKnownTurn(session, input.turnId, {
+    const key = reflectionKey(session.taskId, input.turnId)
+    const existingJob = this.closeJobs.get(key)
+    if (existingJob) return existingJob
+    const job = this.closeKnownTurn(session, input.turnId, {
       ...(input.publicCandidateRefs ? { publicCandidateRefs: input.publicCandidateRefs } : {}),
       ...(input.projectCandidateRefs ? { projectCandidateRefs: input.projectCandidateRefs } : {}),
     })
+    this.closeJobs.set(key, job)
+    try {
+      return await job
+    } finally {
+      if (this.closeJobs.get(key) === job) this.closeJobs.delete(key)
+    }
   }
 
   recordReviewDecision(input: GovernanceRuntimeReviewDecisionInput): GovernanceRuntimeReviewDecisionResult {
@@ -382,6 +540,27 @@ export class GovernanceRuntimeService extends Service {
         reason: `Unresolved governance Turns remain: ${unresolved.map(item => item.turnId).join(', ')}`,
       }
     }
+    if (session.supervision) {
+      return this.completeSupervisedTask(session)
+    }
+    return this.runtimeContext.autoGovernanceEngine.completeTask(session.actorId)
+  }
+
+  private async completeSupervisedTask(session: RuntimeSession) {
+    const supervision = session.supervision!
+    await supervision.ledger.synchronize()
+    const decision = supervision.ledger.getCompletionDecision()
+    const finalization = supervision.eventStore.finalization
+    if (decision.status !== 'COMPLETE'
+        || !decision.closureRef
+        || finalization?.finalizationRef !== decision.closureRef) {
+      return {
+        projectId: session.projectId,
+        taskId: session.taskId,
+        status: 'BLOCKED' as const,
+        reason: 'Execution Supervisor has not admitted the exact durable lifecycle Closure.',
+      }
+    }
     return this.runtimeContext.autoGovernanceEngine.completeTask(session.actorId)
   }
 
@@ -391,6 +570,7 @@ export class GovernanceRuntimeService extends Service {
     this.runtimeContext.autoGovernanceEngine.pauseTask(session.actorId)
   }
 
+  /** Last synchronized snapshot only. This synchronous view is not completion authority. */
   getStatus(runtimeIdInput: string): GovernanceRuntimeStatus | undefined {
     const runtimeId = runtimeIdInput.trim()
     const session = this.sessions.get(runtimeId)
@@ -408,6 +588,7 @@ export class GovernanceRuntimeService extends Service {
       ...(session.activeTurnId ? { activeTurnId: session.activeTurnId } : {}),
       autoGovernance,
       unresolvedTurnIds,
+      ...(session.supervision ? { supervision: this.supervisionStatus(session.supervision) } : {}),
     }
   }
 
@@ -427,6 +608,26 @@ export class GovernanceRuntimeService extends Service {
       readonly projectCandidateRefs?: readonly string[]
     },
   ): Promise<GovernanceCloseTurnResult> {
+    let readiness: SupervisionReadinessReceiptV01 | undefined
+    if (session.supervision) {
+      if (session.activeTurnId !== turnId
+          || session.supervision.eventStore.binding.turnId !== turnId) {
+        throw new Error('Supervised Closure identity does not match the active Runtime Turn')
+      }
+      await session.supervision.ledger.synchronize()
+      const decision = session.supervision.ledger.getCompletionDecision()
+      if (decision.status === 'COMPLETE') {
+        readiness = undefined
+      } else {
+        readiness = session.supervision.ledger.getReadinessReceipt()
+        if (!readiness || decision.status !== 'READY_TO_CLOSE') {
+          throw new Error(`Execution Supervisor blocks Turn Closure: ${decision.status}`)
+        }
+        if (readiness.turnId !== turnId) {
+          throw new Error('Supervision readiness cannot authorize a different Turn')
+        }
+      }
+    }
     const existingReflection = this.runtimeContext.agentGovernanceKernel.getReflection(session.taskId, turnId)
     const executor = session.semanticExecutor
     const key = reflectionKey(session.taskId, turnId)
@@ -445,6 +646,18 @@ export class GovernanceRuntimeService extends Service {
     }
 
     try {
+      if (session.supervision && readiness && !existingReflection) {
+        const durableTaskText = await this.readDurableTaskText(session.supervision.eventStore)
+        if (sha256Hex(durableTaskText) !== session.activeTurnTaskTextHash) {
+          throw new Error('Durable USER_MESSAGE task input does not match the Runtime task input')
+        }
+        await this.projectTrustedExecutionObservations(
+          session,
+          turnId,
+          session.supervision.eventStore,
+          readiness,
+        )
+      }
       const reflection = existingReflection ?? await this.runtimeContext.agentGovernanceKernel.reflectTurn(
         session.taskId,
         turnId,
@@ -456,6 +669,12 @@ export class GovernanceRuntimeService extends Service {
           ...(candidateRefs.projectCandidateRefs
             ? { projectCandidateRefs: unique(candidateRefs.projectCandidateRefs) }
             : {}),
+          ...(readiness ? {
+            readinessBinding: {
+              ref: readiness.receiptRef,
+              fingerprint: supervisionFingerprint(readiness.receiptHash),
+            },
+          } : {}),
         },
       )
       const decisionContext = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(session.actorId)
@@ -469,12 +688,32 @@ export class GovernanceRuntimeService extends Service {
         throw new Error(`Knowledge Governance requires capture for Turn ${turnId}, but Reflection emitted NONE`)
       }
       const closure = await this.runtimeContext.agentGovernanceKernel.closeTurn(session.taskId, turnId)
+      let supervisionDecision: CompletionDecisionV01 | undefined
       let knowledgeVerifications: GovernanceKnowledgeVerificationResult[] = []
       let knowledgeVerificationWarnings: string[] = []
       let knowledgePromotions: GovernanceKnowledgePromotion[] = []
       let knowledgePromotionWarnings: string[] = []
       if (closure.status === 'COMPLETE') {
-        if (session.activeTurnId === turnId) delete session.activeTurnId
+        if (session.supervision) {
+          const currentReadiness = readiness ?? session.supervision.ledger.getReadinessReceipt()
+          if (!currentReadiness) {
+            const existingDecision = session.supervision.ledger.getCompletionDecision()
+            if (existingDecision.status !== 'COMPLETE') {
+              throw new Error('Execution Supervisor readiness is unavailable for Kernel Closure')
+            }
+            supervisionDecision = existingDecision
+          } else {
+            const binding = this.buildLifecycleBinding(session, currentReadiness, reflection, closure)
+            supervisionDecision = await session.supervision.ledger.attachLifecycleClosure(binding)
+          }
+          if (supervisionDecision.status !== 'COMPLETE') {
+            throw new Error(`Execution Supervisor rejected Kernel Closure: ${supervisionDecision.status}`)
+          }
+        }
+        if (session.activeTurnId === turnId) {
+          delete session.activeTurnId
+          delete session.activeTurnTaskTextHash
+        }
         try {
           const verificationFeedback = this.applyKnowledgeVerificationReflections(
             session.projectId,
@@ -511,10 +750,282 @@ export class GovernanceRuntimeService extends Service {
         knowledgeVerificationWarnings,
         knowledgePromotions,
         knowledgePromotionWarnings,
+        ...(session.supervision ? { supervision: this.supervisionStatus(session.supervision) } : {}),
       }
     } finally {
       this.reflectionJobs.delete(key)
     }
+  }
+
+  private async bindSupervision(
+    session: RuntimeSession,
+    eventStore: ExecutionEventStoreV01,
+    context?: AutoGovernanceContextEnvelope,
+    finalizedRecovery = false,
+  ): Promise<void> {
+    const binding = eventStore.binding
+    const contract = binding.contract
+    for (const [label, actual, expected] of [
+      ['runtimeId', binding.runtimeId, session.runtimeId],
+      ['projectId', contract.projectId, session.projectId],
+      ['taskId', contract.taskId, session.taskId],
+      ['agentId', contract.agentId, session.actorId],
+    ] as const) {
+      if (actual !== expected) throw new Error(`Supervision ${label} mismatch: ${actual} != ${expected}`)
+    }
+    if (session.contextHash !== contract.contextHash) {
+      throw new Error('Runtime session Context does not match supervision contextHash')
+    }
+    if (session.activeTurnId && binding.turnId !== session.activeTurnId) {
+      throw new Error(`Supervision turnId mismatch: ${binding.turnId} != ${session.activeTurnId}`)
+    }
+    if (session.supervision && session.supervision.eventStore !== eventStore) {
+      throw new Error(`Runtime ${session.runtimeId} is already bound to another Execution Event Store`)
+    }
+    if (session.supervision) return
+    if (context) {
+      if (hashCanonicalJson(context.route) !== contract.routeHash) {
+        throw new Error('Auto Governance route does not match supervision routeHash')
+      }
+      if (session.contextHash !== contract.contextHash) {
+        throw new Error('Auto Governance Context does not match supervision contextHash')
+      }
+    } else if (!finalizedRecovery) {
+      throw new Error('Live Auto Governance Context is required to bind a supervised Turn')
+    }
+    const authority: ExecutionLifecycleAuthorityV01 = {
+      verifyLifecycleClosure: lifecycle => this.verifyKernelLifecycleBinding(lifecycle),
+    }
+    const ledger = await createExecutionObligationLedger({ eventStore, lifecycleAuthority: authority })
+    session.supervision = { eventStore, ledger }
+  }
+
+  private async readDurableTaskText(eventStore: ExecutionEventStoreV01): Promise<string> {
+    let after: ExecutionEventStoreV01['cursor'] | undefined
+    do {
+      const page = await eventStore.replay({
+        ...(after ? { after } : {}),
+        limit: Math.max(1, eventStore.limits.maxReplayEvents),
+      })
+      for (const event of page.events) {
+        if (event.kind !== 'USER_MESSAGE') continue
+        const text = visibleExecutionMessage(event)
+        if (text?.trim()) return text.trim()
+      }
+      if (!page.hasMore) break
+      after = page.cursor
+    } while (true)
+    throw new Error('Finalized supervision stream does not contain a durable USER_MESSAGE task input')
+  }
+
+  private supervisionStatus(supervision: RuntimeSupervision) {
+    const readiness = supervision.ledger.getReadinessReceipt()
+    return {
+      ledger: supervision.ledger.getStatus(),
+      decision: supervision.ledger.getCompletionDecision(),
+      ...(readiness ? { readiness } : {}),
+    }
+  }
+
+  private buildLifecycleBinding(
+    session: RuntimeSession,
+    readiness: SupervisionReadinessReceiptV01,
+    reflection: TurnReflectionRecord,
+    closure: import('@agent-harness/agent-governance-kernel').TurnClosureReceipt,
+  ): SupervisionLifecycleBindingV01 {
+    const journal = this.runtimeContext.agentGovernanceKernel.getTurn(session.taskId, readiness.turnId)
+    if (!journal?.closureReceiptRef) throw new Error('Kernel Closure receipt reference is unavailable')
+    return {
+      schema: SUPERVISION_LIFECYCLE_BINDING_SCHEMA,
+      readinessRef: readiness.receiptRef,
+      readinessHash: readiness.receiptHash,
+      projectId: readiness.projectId,
+      taskId: readiness.taskId,
+      turnId: readiness.turnId,
+      agentId: readiness.agentId,
+      contextHash: readiness.contextHash,
+      journalRef: closure.journalRef,
+      reflection: {
+        reflectionRef: closure.reflectionRef,
+        inputFingerprint: reflection.inputFingerprint,
+        domainDecisions: {
+          knowledge: reflection.result.knowledge.scopeDecision,
+          experience: reflection.result.experience.scopeDecision,
+          architecture: reflection.result.architecture.scopeDecision,
+          rules: reflection.result.rules.scopeDecision,
+          evidence: reflection.result.evidence.scopeDecision,
+        },
+      },
+      kernelClosureRef: journal.closureReceiptRef,
+      kernelClosureInputFingerprint: closure.inputFingerprint,
+      kernelClosureCreatedAt: closure.createdAt,
+      moduleReceipts: closure.moduleReceipts.map(receipt => ({
+        moduleId: receipt.moduleId,
+        moduleVersion: receipt.moduleVersion,
+        status: receipt.status === 'APPLIED' || receipt.status === 'NO_CHANGE'
+          ? receipt.status
+          : (() => { throw new Error(`Kernel Closure module is not successful: ${receipt.moduleId}`) })(),
+        idempotencyKey: receipt.idempotencyKey,
+      })),
+    }
+  }
+
+  private verifyKernelLifecycleBinding(binding: SupervisionLifecycleBindingV01): void {
+    const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(binding.taskId, binding.turnId)
+    const closure = this.runtimeContext.agentGovernanceKernel.getClosureReceipt(binding.taskId, binding.turnId)
+    const journal = this.runtimeContext.agentGovernanceKernel.getTurn(binding.taskId, binding.turnId)
+    if (!reflection || !closure || !journal || closure.status !== 'COMPLETE' || !journal.closureReceiptRef) {
+      throw new Error('Kernel does not hold one COMPLETE lifecycle receipt for this binding')
+    }
+    const expectedReadinessBinding = {
+      ref: binding.readinessRef,
+      fingerprint: supervisionFingerprint(binding.readinessHash),
+    }
+    if (reflection.readinessBinding?.ref !== expectedReadinessBinding.ref
+        || reflection.readinessBinding?.fingerprint !== expectedReadinessBinding.fingerprint
+        || closure.readinessBinding?.ref !== expectedReadinessBinding.ref
+        || closure.readinessBinding?.fingerprint !== expectedReadinessBinding.fingerprint) {
+      throw new Error('Durable Kernel Reflection/Closure is not bound to the exact supervision readiness')
+    }
+    const expected = this.buildLifecycleBinding({
+      runtimeId: '',
+      actorId: binding.agentId,
+      projectId: binding.projectId,
+      taskId: binding.taskId,
+    }, {
+      schema: 'agent-harness.supervision-readiness-receipt.v0.1',
+      requestId: '', runtimeId: '', projectId: binding.projectId, taskId: binding.taskId,
+      turnId: binding.turnId, agentId: binding.agentId, contextHash: binding.contextHash,
+      contractHash: '', cursor: { sequence: 0, stateHash: '' }, ledgerStatusHash: '', decisionHash: '',
+      taskEndEventId: '', taskEndTimestamp: closure.createdAt,
+      receiptHash: binding.readinessHash, receiptRef: binding.readinessRef,
+    }, reflection, closure)
+    if (hashCanonicalJson(expected) !== hashCanonicalJson(binding)) {
+      throw new Error('Lifecycle binding does not exactly match durable Kernel receipts')
+    }
+  }
+
+  private async projectTrustedExecutionObservations(
+    session: RuntimeSession,
+    turnId: string,
+    eventStore: ExecutionEventStoreV01,
+    readiness: SupervisionReadinessReceiptV01,
+  ): Promise<void> {
+    if (eventStore.cursor.sequence !== readiness.cursor.sequence
+        || eventStore.cursor.stateHash !== readiness.cursor.stateHash) {
+      throw new Error('Execution Event Store advanced after readiness was frozen')
+    }
+    const sourceName = `trusted-execution-event-store:${readiness.cursor.stateHash}`
+    const existing = this.observations.list(session.taskId, turnId)
+      .find(item => item.sourceName === sourceName)
+    if (existing) return
+    const projectedKinds = [
+      'USER_MESSAGE',
+      'ASSISTANT_MESSAGE',
+      'TASK_END_REQUEST',
+      'VALIDATION_RESULT',
+      'OUTPUT_EMITTED',
+      'SOURCE_DISPOSITION',
+    ] as const
+    const projectedKindSet = new Set<ExecutionEventEnvelopeV01['kind']>(projectedKinds)
+    interface ProjectionSummary {
+      readonly sequence: number
+      readonly eventId: string
+      readonly kind: ExecutionEventEnvelopeV01['kind']
+      readonly payloadHash: string
+      readonly trustedPayload?: unknown
+    }
+    const buckets = new Map<string, ProjectionSummary[]>()
+    const compactReceipt = (event: ExecutionEventEnvelopeV01): unknown => {
+      const receipt = recordValue(recordValue(event.payload)?.receipt)
+      if (!receipt) return undefined
+      const keep = event.kind === 'VALIDATION_RESULT'
+        ? ['providerId', 'validationId', 'targetIdentity', 'resultStatus', 'timestamp']
+        : event.kind === 'OUTPUT_EMITTED'
+          ? ['providerId', 'outputContractId', 'resourceId', 'path', 'contentHash', 'structuralValidationStatus', 'timestamp']
+          : ['provider', 'resourceId', 'disposition', 'purpose', 'error']
+      const result: Record<string, unknown> = {}
+      for (const key of keep) {
+        const value = receipt[key]
+        if (typeof value === 'string') result[key] = value.slice(0, 2_000)
+      }
+      for (const key of ['artifactRefs', 'evidenceRefs', 'ruleValidationRefs']) {
+        const value = receipt[key]
+        if (Array.isArray(value)) result[key] = value.filter(item => typeof item === 'string').slice(0, 8)
+      }
+      return result
+    }
+    const summarize = (event: ExecutionEventEnvelopeV01): ProjectionSummary => {
+      let trustedPayload: unknown
+      if (event.kind === 'USER_MESSAGE' || event.kind === 'ASSISTANT_MESSAGE') {
+        const content = visibleExecutionMessage(event)
+        if (content !== undefined) trustedPayload = { content: content.slice(0, 2_000) }
+      } else if (event.kind === 'TASK_END_REQUEST') {
+        const requestedBy = recordValue(event.payload)?.requestedBy
+        if (typeof requestedBy === 'string') trustedPayload = { requestedBy }
+      } else if (['VALIDATION_RESULT', 'OUTPUT_EMITTED', 'SOURCE_DISPOSITION'].includes(event.kind)) {
+        trustedPayload = { receipt: compactReceipt(event) }
+      }
+      return {
+        sequence: event.sequence,
+        eventId: event.eventId,
+        kind: event.kind,
+        payloadHash: event.payloadHash,
+        ...(trustedPayload === undefined ? {} : { trustedPayload }),
+      }
+    }
+    const retain = (bucket: ProjectionSummary[], summary: ProjectionSummary, limit: number): void => {
+      if (bucket.length < limit) bucket.push(summary)
+      else bucket[bucket.length - 1] = summary
+    }
+    const kindCounts = new Map<string, number>()
+    let eventCount = 0
+    let after: ExecutionEventStoreV01['cursor'] | undefined
+    do {
+      const page = await eventStore.replay({
+        ...(after ? { after } : {}),
+        limit: Math.max(1, eventStore.limits.maxReplayEvents),
+      })
+      for (const event of page.events) {
+        eventCount += 1
+        kindCounts.set(event.kind, (kindCounts.get(event.kind) ?? 0) + 1)
+        const bucketKey = projectedKindSet.has(event.kind) ? event.kind : 'OTHER'
+        const bucket = buckets.get(bucketKey) ?? []
+        retain(bucket, summarize(event), bucketKey === 'OTHER' ? 6 : 4)
+        buckets.set(bucketKey, bucket)
+      }
+      if (!page.hasMore) break
+      after = page.cursor
+    } while (true)
+    if (eventStore.cursor.sequence !== readiness.cursor.sequence
+        || eventStore.cursor.stateHash !== readiness.cursor.stateHash
+        || eventCount !== eventStore.eventCount) {
+      throw new Error('Execution Event Store changed while trusted observations were projected')
+    }
+    const sampledEvents = [
+      ...projectedKinds.flatMap(kind => buckets.get(kind) ?? []),
+      ...(buckets.get('OTHER') ?? []),
+    ]
+    const observation = this.observations.put({
+      taskId: session.taskId,
+      turnId,
+      kind: 'RESOURCE_TOUCH',
+      text: JSON.stringify({
+        trustedExecutionProjection: 'v0.1',
+        cursor: readiness.cursor,
+        eventCount,
+        kindCounts: Object.fromEntries([...kindCounts].sort(([left], [right]) => left.localeCompare(right))),
+        sampledEvents,
+      }),
+      refs: [
+        `execution-store-cursor://sha256:${readiness.cursor.stateHash}`,
+        ...sampledEvents.map(event => `execution-event://${event.eventId}`),
+      ],
+      sourceName,
+    })
+    this.runtimeContext.agentGovernanceKernel.appendTurnRefs(session.taskId, turnId, {
+      toolEventRefs: [observation.observationRef],
+    })
   }
 
   private async executeSemanticReflection(input: TurnReflectionProviderInput): Promise<unknown> {

@@ -3,12 +3,17 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path'
 import {
   TURN_REFLECTION_CONTRACT_VERSION,
+  type ContentAddressedReadinessBinding,
   type TurnJournalRecord,
   type TurnReflectionRecord,
   type TurnReflectionResult,
 } from './contracts.js'
 import { assertKernelIdentifier } from './lifecycle.js'
-import { validateTurnReflectionResult } from './reflection.js'
+import {
+  contentAddressedReadinessBindingEquals,
+  validateContentAddressedReadinessBinding,
+  validateTurnReflectionResult,
+} from './reflection.js'
 
 const atomicWriteJson = (file: string, value: unknown): void => {
   mkdirSync(dirname(file), { recursive: true })
@@ -41,21 +46,30 @@ export class TurnReflectionStore {
         || typeof raw.inputFingerprint !== 'string') {
       throw new Error(`Invalid Turn Reflection record: ${taskId}/${turnId}`)
     }
+    const readinessBinding = raw.readinessBinding === undefined
+      ? undefined
+      : validateContentAddressedReadinessBinding(raw.readinessBinding)
     const result = validateTurnReflectionResult(raw.result, journal)
-    return { ...raw, result } as TurnReflectionRecord
+    return { ...raw, ...(readinessBinding ? { readinessBinding } : {}), result } as TurnReflectionRecord
   }
 
   put(input: {
     readonly journal: TurnJournalRecord
     readonly providerId: string
     readonly inputFingerprint: string
+    readonly readinessBinding?: ContentAddressedReadinessBinding
     readonly result: TurnReflectionResult
   }): TurnReflectionRecord {
     const { journal, providerId, inputFingerprint, result } = input
     assertKernelIdentifier('providerId', providerId)
+    const readinessBinding = input.readinessBinding === undefined
+      ? undefined
+      : validateContentAddressedReadinessBinding(input.readinessBinding)
     const existing = this.get(journal.taskId, journal.turnId, journal)
     if (existing) {
-      if (existing.inputFingerprint === inputFingerprint && existing.providerId === providerId) return existing
+      if (existing.inputFingerprint === inputFingerprint
+          && existing.providerId === providerId
+          && contentAddressedReadinessBindingEquals(existing.readinessBinding, readinessBinding)) return existing
       throw new Error(`Turn Reflection already exists with a different input/provider: ${journal.taskId}/${journal.turnId}`)
     }
     const record: TurnReflectionRecord = {
@@ -66,6 +80,7 @@ export class TurnReflectionStore {
       createdAt: new Date().toISOString(),
       journalRef: `governance-journal://task/${journal.taskId}/turn/${journal.turnId}`,
       inputFingerprint,
+      ...(readinessBinding ? { readinessBinding } : {}),
       result,
     }
     atomicWriteJson(this.file(journal.taskId, journal.turnId), record)

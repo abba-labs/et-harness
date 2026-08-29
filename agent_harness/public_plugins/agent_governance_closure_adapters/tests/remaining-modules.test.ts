@@ -256,4 +256,60 @@ describe('Step 5 remaining Mandatory Closure Modules', () => {
     expect(replay.status).toBe('NO_CHANGE')
     expect(version).toBe(1)
   })
+
+  it('does not let supervised Agent reflection resolve a persisted obligation', async () => {
+    let state: any
+    let version = 0
+    const stateManager = {
+      readState: () => state,
+      updateState(input: any) {
+        version += 1
+        state = {
+          projectId: input.projectId,
+          scope: input.scope,
+          key: input.key,
+          value: input.value,
+          version,
+          reason: input.reason,
+          evidenceRefs: input.evidenceRefs ?? [],
+          updatedAt: 'now',
+        }
+        return state
+      },
+    }
+    const gateManager = {
+      getExecutionPlan: () => undefined,
+      checkGateEvidence: () => {
+        throw new Error('No Gate lookup is expected for this obligation')
+      },
+    }
+    const module = createObligationGateReconcileModule(stateManager as never, gateManager as never)
+
+    const opened = baseInput()
+    opened.reflection.obligations = {
+      opened: ['Run the required validation'],
+      resolved: [],
+      unchanged: [],
+    }
+    expect((await module.apply(opened)).status).toBe('APPLIED')
+
+    const supervisedResolution: ClosureModuleInput = {
+      ...baseInput(),
+      idempotencyKey: 'closure:step5:supervised-resolution',
+      readinessBinding: {
+        ref: 'supervision-readiness://sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        fingerprint: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      },
+    }
+    supervisedResolution.reflection.obligations = {
+      opened: [],
+      resolved: ['Run the required validation'],
+      unchanged: [],
+    }
+
+    const receipt = await module.apply(supervisedResolution)
+    expect(receipt.status).toBe('APPLIED')
+    expect(state.value.openObligations).toEqual(['Run the required validation'])
+    expect(state.value.resolvedInTurn).toEqual([])
+  })
 })

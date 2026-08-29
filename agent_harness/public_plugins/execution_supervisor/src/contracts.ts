@@ -8,6 +8,23 @@ export const PERFORMANCE_BASELINE_REPORT_SCHEMA =
   'agent-harness.execution-supervisor-baseline.v0.1' as const
 export const OBLIGATION_LEDGER_STATUS_SCHEMA =
   'agent-harness.obligation-ledger-status.v0.1' as const
+export const EXECUTION_STORE_FINALIZATION_SCHEMA =
+  'agent-harness.execution-store-finalization.v0.1' as const
+export const SUPERVISION_READINESS_RECEIPT_SCHEMA =
+  'agent-harness.supervision-readiness-receipt.v0.1' as const
+export const SUPERVISION_LIFECYCLE_BINDING_SCHEMA =
+  'agent-harness.supervision-lifecycle-binding.v0.1' as const
+
+export const MANDATORY_LIFECYCLE_CLOSURE_MODULE_IDS = [
+  'context-closure',
+  'knowledge-closure',
+  'experience-memory-closure',
+  'architecture-closure',
+  'rules-closure',
+  'evidence-state-closure',
+  'working-set-closure',
+  'obligation-gate-reconcile',
+] as const
 
 export const MAX_EXECUTION_EVENT_PAYLOAD_BYTES = 64 * 1024
 export const MAX_TASK_SUPERVISION_CONTRACT_BYTES = 512 * 1024
@@ -123,6 +140,8 @@ export const EXECUTION_STORE_ISSUE_CODES = [
   'STORE_EVENT_CHAIN_MISMATCH',
   'STORE_CHANGED',
   'STORE_CLOSED',
+  'STORE_FINALIZED',
+  'STORE_FINALIZATION_CONFLICT',
   'STORE_WRITE_FAILED',
 ] as const
 export type ExecutionStoreIssueCode =
@@ -408,6 +427,15 @@ export interface ExecutionReplayCursorV01 {
   readonly stateHash: string
 }
 
+export interface ExecutionStoreFinalizationV01 {
+  readonly schema: typeof EXECUTION_STORE_FINALIZATION_SCHEMA
+  readonly cursor: ExecutionReplayCursorV01
+  readonly finalizationRef: string
+  readonly finalizationHash: string
+  readonly finalizedAt: string
+  readonly payload: JsonRecord
+}
+
 export interface ExecutionReplayPageV01 {
   readonly events: readonly ExecutionEventEnvelopeV01[]
   readonly cursor: ExecutionReplayCursorV01
@@ -424,8 +452,10 @@ export interface ExecutionEventStoreV01 {
   readonly limits: ExecutionEventStoreLimitsV01
   readonly cursor: ExecutionReplayCursorV01
   readonly eventCount: number
+  readonly finalization: ExecutionStoreFinalizationV01 | undefined
   append(event: ExecutionEventEnvelopeV01): Promise<ExecutionEventAcceptanceV01>
   replay(request: ExecutionReplayRequestV01): Promise<ExecutionReplayPageV01>
+  finalize(finalization: ExecutionStoreFinalizationV01): Promise<ExecutionStoreFinalizationV01>
   close(): Promise<void>
 }
 
@@ -479,6 +509,61 @@ export interface ObligationLedgerStatusV01 {
   readonly violatedObligationIds: readonly string[]
 }
 
+export interface SupervisionReadinessReceiptV01 {
+  readonly schema: typeof SUPERVISION_READINESS_RECEIPT_SCHEMA
+  readonly requestId: string
+  readonly runtimeId: string
+  readonly projectId: string
+  readonly taskId: string
+  readonly turnId: string
+  readonly agentId: string
+  readonly contextHash: string
+  readonly contractHash: string
+  readonly cursor: ExecutionReplayCursorV01
+  readonly ledgerStatusHash: string
+  readonly decisionHash: string
+  readonly taskEndEventId: string
+  readonly taskEndTimestamp: string
+  readonly receiptHash: string
+  readonly receiptRef: string
+}
+
+export interface SupervisionReflectionBindingV01 {
+  readonly reflectionRef: string
+  readonly inputFingerprint: string
+  readonly domainDecisions: Readonly<{
+    knowledge: 'NONE' | 'PROJECT' | 'PUBLIC' | 'BOTH'
+    experience: 'NONE' | 'PROJECT' | 'PUBLIC' | 'BOTH'
+    architecture: 'NONE' | 'PROJECT' | 'PUBLIC' | 'BOTH'
+    rules: 'NONE' | 'PROJECT' | 'PUBLIC' | 'BOTH'
+    evidence: 'NONE' | 'PROJECT' | 'PUBLIC' | 'BOTH'
+  }>
+}
+
+export interface SupervisionClosureModuleBindingV01 {
+  readonly moduleId: string
+  readonly moduleVersion: string
+  readonly status: 'APPLIED' | 'NO_CHANGE'
+  readonly idempotencyKey: string
+}
+
+export interface SupervisionLifecycleBindingV01 {
+  readonly schema: typeof SUPERVISION_LIFECYCLE_BINDING_SCHEMA
+  readonly readinessRef: string
+  readonly readinessHash: string
+  readonly projectId: string
+  readonly taskId: string
+  readonly turnId: string
+  readonly agentId: string
+  readonly contextHash: string
+  readonly journalRef: string
+  readonly reflection: SupervisionReflectionBindingV01
+  readonly kernelClosureRef: string
+  readonly kernelClosureInputFingerprint: string
+  readonly kernelClosureCreatedAt: string
+  readonly moduleReceipts: readonly SupervisionClosureModuleBindingV01[]
+}
+
 export interface ExecutionObligationLedgerV01 {
   readonly binding: ExecutionEventStoreBindingV01
   readonly cursor: ExecutionReplayCursorV01
@@ -488,10 +573,21 @@ export interface ExecutionObligationLedgerV01 {
   synchronize(): Promise<void>
   getStatus(): ObligationLedgerStatusV01
   getCompletionDecision(): CompletionDecisionV01
+  getReadinessReceipt(): SupervisionReadinessReceiptV01 | undefined
+  attachLifecycleClosure(
+    binding: SupervisionLifecycleBindingV01,
+  ): Promise<CompletionDecisionV01>
 }
 
 export interface CreateExecutionObligationLedgerInputV01 {
   readonly eventStore: ExecutionEventStoreV01
+  readonly lifecycleAuthority?: ExecutionLifecycleAuthorityV01
+}
+
+export interface ExecutionLifecycleAuthorityV01 {
+  verifyLifecycleClosure(
+    binding: SupervisionLifecycleBindingV01,
+  ): Promise<void> | void
 }
 
 export interface CompletionDecisionV01 {

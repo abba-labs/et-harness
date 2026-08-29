@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
   TURN_REFLECTION_CONTRACT_VERSION,
+  type ContentAddressedReadinessBinding,
   type KnowledgeVerificationReflection,
   type ProjectBinding,
   type ReflectionCandidate,
@@ -17,6 +18,7 @@ const SCOPES = new Set<ReflectionScopeDecision>(['NONE', 'PROJECT', 'PUBLIC', 'B
 const CANDIDATE_SCOPES = new Set<ReflectionCandidateScope>(['PROJECT', 'PUBLIC', 'BOTH'])
 const DOMAINS = ['knowledge', 'experience', 'architecture', 'rules', 'evidence'] as const satisfies readonly ReflectionDomain[]
 const KNOWLEDGE_VERIFICATION_RELATIONS = new Set(['SUPPORT', 'CONTRADICT'])
+const CONTENT_FINGERPRINT = /^sha256:[0-9a-f]{64}$/
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -31,6 +33,27 @@ const asStringArray = (value: unknown, path: string): string[] => {
     throw new Error(`${path} must be an array of non-empty strings`)
   }
   return [...new Set(value.map(item => item.trim()))]
+}
+
+export function validateContentAddressedReadinessBinding(
+  value: unknown,
+): ContentAddressedReadinessBinding {
+  if (!isRecord(value)) throw new Error('readinessBinding must be an object')
+  const ref = asString(value.ref, 'readinessBinding.ref')
+  const fingerprint = asString(value.fingerprint, 'readinessBinding.fingerprint')
+  if (!CONTENT_FINGERPRINT.test(fingerprint)) {
+    throw new Error('readinessBinding.fingerprint must be sha256:<64 lowercase hex>')
+  }
+  return { ref, fingerprint }
+}
+
+export function contentAddressedReadinessBindingEquals(
+  left: ContentAddressedReadinessBinding | undefined,
+  right: ContentAddressedReadinessBinding | undefined,
+): boolean {
+  return left === undefined
+    ? right === undefined
+    : right !== undefined && left.ref === right.ref && left.fingerprint === right.fingerprint
 }
 
 const asConfidence = (value: unknown, path: string): number => {
@@ -195,6 +218,7 @@ export function reflectionInputFingerprint(input: TurnReflectionProviderInput): 
     taskContextRef: input.taskContextRef,
     publicCandidateRefs: sorted(input.publicCandidateRefs),
     projectCandidateRefs: sorted(input.projectCandidateRefs),
+    readinessBinding: input.readinessBinding,
   }
   return `sha256:${createHash('sha256').update(JSON.stringify(stable)).digest('hex')}`
 }
