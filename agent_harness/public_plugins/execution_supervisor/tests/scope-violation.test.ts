@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createExecutionObligationLedger,
   createFileExecutionEventStore,
+  evaluateMutationPreflight,
   type MutationReceiptV01,
   type TaskSupervisionContractV01,
 } from '../src/index.js'
@@ -52,6 +53,30 @@ const mutationReceipt = (
 })
 
 describe('Phase 2 Obligation Ledger write-scope violations', () => {
+  it('uses the same WRITE_SCOPE semantics for deterministic preflight', () => {
+    const contract = writeScopeContract()
+    expect(evaluateMutationPreflight(contract, {
+      resourceId: 'resource-allowed',
+      path: 'workspace/allowed/result.json',
+      action: 'UPDATE',
+    })).toMatchObject({ allowed: true, obligationId: 'OBL-WRITE-SCOPE' })
+    expect(evaluateMutationPreflight(contract, {
+      resourceId: 'resource-unauthorized',
+      path: 'workspace/forbidden/result.json',
+      action: 'UPDATE',
+    })).toMatchObject({ allowed: false, obligationId: 'OBL-WRITE-SCOPE' })
+    expect(evaluateMutationPreflight(contract, {
+      resourceId: 'resource-allowed',
+      path: 'workspace/allowed/moved.json',
+      action: 'MOVE',
+    })).toMatchObject({ allowed: false })
+    expect(evaluateMutationPreflight(contract, {
+      resourceId: 'resource-allowed',
+      action: 'UPDATE',
+      scopeDecision: 'ALLOWED',
+    } as never)).toMatchObject({ allowed: false })
+  })
+
   it('derives one OUT_OF_SCOPE_WRITE violation instead of trusting an ALLOWED assertion', async () => {
     const directory = await createDirectory()
     const binding = syntheticBinding({ contract: writeScopeContract() })

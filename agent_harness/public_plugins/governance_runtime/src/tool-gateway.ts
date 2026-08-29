@@ -1,8 +1,10 @@
 import type {
   GovernanceActionPreflightInput,
   GovernanceActionPreflightResult,
+  GovernanceActionEffect,
   GovernanceWorkObservationResult,
 } from './contracts.js'
+import type { MutationIntentV01 } from '@agent-harness/execution-supervisor'
 
 export interface GovernanceToolRuntimePort {
   preflightAction(input: GovernanceActionPreflightInput): GovernanceActionPreflightResult
@@ -19,7 +21,11 @@ export interface GovernanceToolRuntimePort {
   }): GovernanceWorkObservationResult
 }
 
-export interface GovernedToolInvocation extends GovernanceActionPreflightInput {
+export interface GovernedToolInvocation {
+  readonly runtimeId: string
+  readonly turnId: string
+  readonly name: string
+  readonly arguments?: unknown
   readonly eventRef?: string
   readonly resourceRefs?: readonly string[]
 }
@@ -36,9 +42,22 @@ export type GovernedRawToolExecutor<T = unknown> = (
   invocation: Pick<GovernedToolInvocation, 'name' | 'arguments'>,
 ) => Promise<GovernedRawToolResult<T>> | GovernedRawToolResult<T>
 
+type GovernedToolPlanningInput = Pick<GovernedToolInvocation, 'name' | 'arguments'>
+
+export type GovernedToolEffectDefinition =
+  | { readonly kind: 'READ_ONLY' }
+  | {
+      readonly kind: 'MUTATION'
+      readonly intent: (invocation: GovernedToolPlanningInput) => MutationIntentV01
+    }
+
 export interface GovernedToolDefinition<T = unknown> {
   readonly name: string
   readonly execute: GovernedRawToolExecutor<T>
+  /** Trusted registration-side effect metadata; never supplied by the Agent invocation. */
+  readonly effect?: GovernedToolEffectDefinition
+  /** Trusted Host event identity mapper required by supervised ENFORCE. */
+  readonly eventIdentity?: (invocation: GovernedToolPlanningInput) => string
 }
 
 export type GovernedToolExecutionResult<T = unknown> =
@@ -65,6 +84,8 @@ export type GovernedToolExecutionResult<T = unknown> =
 interface RegisteredGovernedTool {
   readonly name: string
   readonly execute: GovernedRawToolExecutor<unknown>
+  readonly effect?: GovernedToolEffectDefinition
+  readonly eventIdentity?: (invocation: GovernedToolPlanningInput) => string
 }
 
 const errorText = (error: unknown): string => {
@@ -76,6 +97,20 @@ const keyOf = (name: string): string => name.trim().toLowerCase()
 const compactName = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
+
+const validateEffectDefinition = (effect: GovernedToolEffectDefinition | undefined): void => {
+  if (!effect) return
+  const keys = Object.keys(effect).sort()
+  if (effect.kind === 'READ_ONLY'
+      && keys.length === 1
+      && keys[0] === 'kind') return
+  if (effect.kind === 'MUTATION'
+      && keys.length === 2
+      && keys[0] === 'intent'
+      && keys[1] === 'kind'
+      && typeof effect.intent === 'function') return
+  throw new Error('Governed Tool effect definition is malformed or unsupported')
+}
 
 const RESERVED_GOVERNANCE_MUTATION_SUFFIXES = [
   'evidencestatemanagerrecordevidence',
@@ -109,14 +144,22 @@ export class GovernedToolGateway {
     for (const definition of definitions) {
       const name = definition.name.trim()
       if (!name) throw new Error('Governed Tool name cannot be empty')
+      validateEffectDefinition(definition.effect)
       if (isForbiddenAgentFacingToolName(name)) {
         throw new Error(`Agent-facing tool is a reserved Governance mutation capability: ${name}`)
       }
       const key = keyOf(name)
       if (this.tools.has(key)) throw new Error(`Duplicate Governed Tool registration: ${name}`)
+      const effect = definition.effect?.kind === 'READ_ONLY'
+        ? { kind: 'READ_ONLY' as const }
+        : definition.effect?.kind === 'MUTATION'
+          ? { kind: 'MUTATION' as const, intent: definition.effect.intent }
+          : undefined
       this.tools.set(key, {
         name,
         execute: definition.execute as GovernedRawToolExecutor<unknown>,
+        ...(effect ? { effect } : {}),
+        ...(definition.eventIdentity ? { eventIdentity: definition.eventIdentity } : {}),
       })
     }
   }
@@ -140,11 +183,35 @@ export class GovernedToolGateway {
       }
     }
 
+    const planningInput: GovernedToolPlanningInput = {
+      name: tool.name,
+      ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
+    }
+    let effect: GovernanceActionEffect | undefined
+    let trustedEventRef: string | undefined
+    try {
+      effect = tool.effect?.kind === 'MUTATION'
+        ? { kind: 'MUTATION', intent: tool.effect.intent(planningInput) }
+        : tool.effect
+      trustedEventRef = tool.eventIdentity?.(planningInput)?.trim()
+    } catch (error) {
+      return {
+        status: 'BLOCKED',
+        executorCalled: false,
+        preflight: {
+          allowed: false,
+          reason: `Trusted tool preflight planning failed: ${errorText(error)}`,
+        },
+      }
+    }
+
     const preflight = this.runtime.preflightAction({
       runtimeId: invocation.runtimeId,
       turnId: invocation.turnId,
       name: tool.name,
       ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
+      ...(trustedEventRef ? { eventRef: trustedEventRef } : {}),
+      ...(effect ? { effect } : {}),
     })
     if (!preflight.allowed) {
       return { status: 'BLOCKED', executorCalled: false, preflight }
@@ -159,7 +226,7 @@ export class GovernedToolGateway {
         ...(invocation.resourceRefs ?? []),
         ...(raw.resourceRefs ?? []),
       ])
-      const eventRef = raw.eventRef ?? invocation.eventRef
+      const eventRef = trustedEventRef ?? raw.eventRef ?? invocation.eventRef
       const observation = this.runtime.observeWork({
         kind: 'tool-result',
         runtimeId: invocation.runtimeId,
@@ -187,7 +254,9 @@ export class GovernedToolGateway {
         name: tool.name,
         ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
         isError: true,
-        ...(invocation.eventRef ? { eventRef: invocation.eventRef } : {}),
+        ...(trustedEventRef ?? invocation.eventRef
+          ? { eventRef: trustedEventRef ?? invocation.eventRef }
+          : {}),
         ...(invocation.resourceRefs?.length ? { resourceRefs: invocation.resourceRefs } : {}),
         summary,
       })

@@ -47,6 +47,29 @@ closeTurn()
 
 Host Adapter 不允许重新实现 Context、Knowledge、Rule、Gate、Reflection 或 Closure 逻辑。
 
+## Host supervision profile
+
+受监管 Turn 可以在 `openTurn()`、`bindSupervisedTurn()` 或
+`rehydrateSupervisedTurn()` 绑定严格校验的 `HostCapabilityContractV01`。Runtime
+把 Host/Adapter 身份以及 `requestedLevel`、`effectiveLevel` 和协商原因固定到
+当前 supervision session，并通过 `getStatus()` 如实返回：
+
+```text
+AUDIT
+  允许事后/并行摄取可信执行事件
+  缺证据或出现 violation 仍阻止 completion
+  claimsMechanicalInterception = false
+
+ENFORCE
+  仅在 preflight + tool interception + stable event identity 都存在时成立
+  所有受监管动作经唯一 GovernedToolGateway -> preflightAction()
+  越界或不可证明的动作在 raw executor 前 BLOCK
+```
+
+能力不足时 `requested ENFORCE` 只会得到明确的 `effective AUDIT`，不会冒充已拦截。
+Capability metadata 是受信 Host wiring 提供的能力事实，不是 Agent 自报 Evidence，
+也不是密码学 Host 认证。
+
 ## Model 只负责
 
 模型通过统一 `GovernanceSemanticExecutor` 做语义判断：
@@ -110,6 +133,19 @@ registered governed tool
 
 Raw executor 保存在 Gateway 内部，模型调用时不能临时传入 callback。未注册工具和
 `recordEvidence` 等 Governance mutation capability 在执行前 fail-closed。
+
+在 supervised ENFORCE 中，工具注册方还必须声明：
+
+```text
+READ_ONLY
+或 MUTATION + registration-side mutation intent mapper
+以及 registration-side stable event identity mapper
+```
+
+Agent-facing invocation 不能提供或替换 effect mapper、scope decision 或稳定事件身份。
+MUTATION preflight 直接使用 Ledger 冻结的 Task Supervision Contract；不会解析 shell、
+MCP 或 Host 专属参数。允许动作执行后，Host Adapter/Tool Plugin 仍负责把真实工具结果和
+`RESOURCE_WRITE` receipt 摄入现有 Event Store；普通 Turn Observation 不是持久化 Evidence。
 
 Evidence / State Manager、Knowledge Manager 和 Validation Policy 是 Framework 服务，
 不能作为 raw model-visible tool 暴露给 Agent。

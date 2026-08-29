@@ -19,6 +19,7 @@ import {
   EXTERNAL_AGENT_REQUEST_MANIFEST_SCHEMA,
   EXTERNAL_AGENT_RESPONSE_MANIFEST_SCHEMA,
   EXECUTION_EVENT_SCHEMA,
+  HOST_CAPABILITY_CONTRACT_SCHEMA,
   TASK_SUPERVISION_CONTRACT_SCHEMA,
   createFileExecutionEventStore,
   hashCanonicalJson,
@@ -26,10 +27,12 @@ import {
   sha256Hex,
   type ExecutionEventStoreV01,
   type ExecutionEventEnvelopeV01,
+  type HostCapabilityContractV01,
   type JsonRecord,
   type TaskSupervisionContractV01,
 } from '@agent-harness/execution-supervisor'
-import { afterEach, describe, expect, it } from 'vitest'
+import { createGovernedToolGateway } from '../src/tool-gateway.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const MODULE_IDS = [
   'context-closure', 'knowledge-closure', 'experience-memory-closure', 'architecture-closure',
@@ -189,13 +192,26 @@ const startRuntime = async (projectRoot: string) => {
   }
 }
 
-const contractFor = (context: unknown): TaskSupervisionContractV01 => ({
+const contractFor = (
+  context: unknown,
+  overrides: {
+    runtimeId?: string
+    taskId?: string
+    agentId?: string
+    supervisionLevel?: 'AUDIT' | 'ENFORCE'
+    writeScope?: boolean
+  } = {},
+): TaskSupervisionContractV01 => ({
   schema: TASK_SUPERVISION_CONTRACT_SCHEMA,
-  projectId: 'project-1', taskId: 'task-1', agentId: 'agent-1',
+  projectId: 'project-1', taskId: overrides.taskId ?? 'task-1', agentId: overrides.agentId ?? 'agent-1',
   contextHash: hashCanonicalJson(context),
   routeHash: hashCanonicalJson((context as { route: unknown }).route),
-  supervisionLevel: 'AUDIT', evidencePolicies: [],
+  supervisionLevel: overrides.supervisionLevel ?? 'AUDIT', evidencePolicies: [],
   obligations: [
+    ...(overrides.writeScope ? [{
+      id: 'OBL-WRITE', kind: 'WRITE_SCOPE' as const, severity: 'MUST' as const, sourceRefs: [],
+      target: { allowedResourceIds: ['resource-allowed'] }, satisfaction: { requireInScope: true },
+    }] : []),
     { id: 'OBL-REFLECTION', kind: 'REFLECTION', severity: 'MUST', sourceRefs: [], target: {}, satisfaction: {} },
     { id: 'OBL-KNOWLEDGE', kind: 'KNOWLEDGE_DECISION', severity: 'MUST', sourceRefs: [], target: {}, satisfaction: {}, dependencies: ['OBL-REFLECTION'] },
     { id: 'OBL-CONTEXT', kind: 'CONTEXT_UPDATE', severity: 'MUST', sourceRefs: [], target: {}, satisfaction: {}, dependencies: ['OBL-KNOWLEDGE'] },
@@ -205,6 +221,24 @@ const contractFor = (context: unknown): TaskSupervisionContractV01 => ({
     requireAllMustSatisfied: true, requireNoViolations: true, requireReflection: true,
     requireKnowledgeDecision: true, requireContextUpdate: true, requireClosureReceipt: true,
     allowShouldWarnings: true, requiredClosureModuleIds: MODULE_IDS,
+  },
+})
+
+const hostCapabilities = (
+  hostId: string,
+  overrides: Partial<HostCapabilityContractV01['capabilities']> = {},
+): HostCapabilityContractV01 => ({
+  schema: HOST_CAPABILITY_CONTRACT_SCHEMA,
+  hostId,
+  adapterId: `adapter-${hostId}`,
+  capabilities: {
+    supportsPreflight: true,
+    supportsToolInterception: true,
+    supportsStableToolEventId: true,
+    supportsResourceHash: true,
+    supportsMessageRef: true,
+    supportsCrossProcessResume: true,
+    ...overrides,
   },
 })
 
@@ -223,6 +257,229 @@ const executionEvent = (
 const none = () => ({ scopeDecision: 'NONE' as const, rationale: 'No durable change.', candidates: [] })
 
 describe('Governance Runtime real supervised lifecycle', () => {
+  it('runs truthful AUDIT and ENFORCE profiles through the real Runtime, Ledger and Gateway', async () => {
+    const caseRoot = resolve(tempRoot, randomUUID())
+    cleanup.push(caseRoot)
+    const projectRoot = resolve(caseRoot, 'project')
+    process.env.AGENT_HARNESS_STATE_ROOT = resolve(caseRoot, 'state')
+    await mkdir(projectRoot, { recursive: true })
+    await writeProject(projectRoot)
+    const harness = await startRuntime(projectRoot)
+
+    const enforceOpen = await harness.runtime.openTurn({
+      runtimeId: 'runtime-enforce', actorId: 'agent-enforce', taskId: 'task-enforce',
+      turnId: 'turn-enforce', taskText: 'Enforce Host boundary integration',
+      projectId: 'project-1', workspacePath: projectRoot,
+    })
+    const enforceContract = contractFor(enforceOpen.context, {
+      taskId: 'task-enforce', agentId: 'agent-enforce', supervisionLevel: 'ENFORCE', writeScope: true,
+    })
+    const enforceStore = await createFileExecutionEventStore({
+      directory: resolve(caseRoot, 'enforce-store'),
+      binding: {
+        requestId: 'request-enforce', runtimeId: 'runtime-enforce',
+        turnId: 'turn-enforce', contract: enforceContract,
+      },
+      limits: { maxEvents: 100, maxStoreBytes: 2_000_000, maxReplayEvents: 20 },
+    })
+    const mutableBinding = structuredClone(enforceStore.binding)
+    const enforcePort: ExecutionEventStoreV01 = {
+      get binding() { return mutableBinding },
+      get limits() { return enforceStore.limits },
+      get cursor() { return enforceStore.cursor },
+      get eventCount() { return enforceStore.eventCount },
+      get finalization() { return enforceStore.finalization },
+      append: event => enforceStore.append(event),
+      replay: request => enforceStore.replay(request),
+      finalize: finalization => enforceStore.finalize(finalization),
+      close: () => enforceStore.close(),
+    }
+    await expect(harness.runtime.bindSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+    })).rejects.toThrow('requires an explicit Host capability contract')
+    await harness.runtime.bindSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+      hostCapabilities: hostCapabilities('host-enforce'),
+    })
+    expect(harness.runtime.getStatus('runtime-enforce')?.supervision?.hostProfile).toMatchObject({
+      capabilities: { hostId: 'host-enforce', adapterId: 'adapter-host-enforce' },
+      negotiation: { requestedLevel: 'ENFORCE', effectiveLevel: 'ENFORCE' },
+      claimsMechanicalInterception: true,
+    })
+
+    const forbiddenExecutor = vi.fn(() => ({ value: 'unsafe' }))
+    const allowedExecutor = vi.fn(() => ({ value: 'written', eventRef: 'raw-replacement' }))
+    const missingIdentityExecutor = vi.fn(() => ({ value: 'unsafe' }))
+    const missingEffectExecutor = vi.fn(() => ({ value: 'unsafe' }))
+    const gateway = createGovernedToolGateway(harness.runtime, [
+      {
+        name: 'write_forbidden',
+        effect: { kind: 'MUTATION', intent: () => ({ resourceId: 'resource-forbidden', action: 'UPDATE' }) },
+        eventIdentity: () => 'host-event-forbidden',
+        execute: forbiddenExecutor,
+      },
+      {
+        name: 'write_allowed',
+        effect: { kind: 'MUTATION', intent: () => ({ resourceId: 'resource-allowed', action: 'UPDATE' }) },
+        eventIdentity: () => 'host-event-allowed',
+        execute: allowedExecutor,
+      },
+      {
+        name: 'missing_identity',
+        effect: { kind: 'READ_ONLY' },
+        execute: missingIdentityExecutor,
+      },
+      {
+        name: 'missing_effect',
+        eventIdentity: () => 'host-event-without-effect',
+        execute: missingEffectExecutor,
+      },
+    ])
+
+    ;(mutableBinding.contract.obligations[0] as any).target = {
+      allowedResourceIds: ['resource-forbidden'],
+    }
+    await expect(gateway.execute({
+      runtimeId: 'runtime-enforce', turnId: 'turn-enforce', name: 'write_forbidden',
+      eventRef: 'agent-replacement',
+    })).resolves.toMatchObject({ status: 'BLOCKED', executorCalled: false })
+    expect(forbiddenExecutor).not.toHaveBeenCalled()
+    await expect(gateway.execute({
+      runtimeId: 'runtime-enforce', turnId: 'turn-enforce', name: 'missing_identity',
+      eventRef: 'agent-only-event',
+    })).resolves.toMatchObject({ status: 'BLOCKED', executorCalled: false })
+    expect(missingIdentityExecutor).not.toHaveBeenCalled()
+    await expect(gateway.execute({
+      runtimeId: 'runtime-enforce', turnId: 'turn-enforce', name: 'missing_effect',
+    })).resolves.toMatchObject({ status: 'BLOCKED', executorCalled: false })
+    expect(missingEffectExecutor).not.toHaveBeenCalled()
+    await expect(gateway.execute({
+      runtimeId: 'runtime-enforce', turnId: 'turn-enforce', name: 'write_allowed',
+      eventRef: 'agent-replacement',
+    })).resolves.toMatchObject({ status: 'EXECUTED', executorCalled: true, result: 'written' })
+    expect(allowedExecutor).toHaveBeenCalledOnce()
+    expect(harness.runtime.getTurnObservations('runtime-enforce', 'turn-enforce'))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: 'TOOL_RESULT', refs: ['host-event-allowed'] }),
+      ]))
+    await expect(harness.runtime.bindSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+      hostCapabilities: hostCapabilities('host-replacement'),
+    })).rejects.toThrow('another Host profile')
+    await expect(harness.runtime.rehydrateSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+      hostCapabilities: hostCapabilities('host-enforce', { supportsCrossProcessResume: false }),
+    })).rejects.toThrow('does not support cross-process resume')
+    await expect(harness.runtime.rehydrateSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+    })).rejects.toThrow('requires an explicit Host capability contract')
+    await expect(harness.runtime.rehydrateSupervisedTurn({
+      runtimeId: 'runtime-enforce', eventStore: enforcePort,
+      hostCapabilities: hostCapabilities('host-enforce'),
+    })).rejects.toThrow('Persisted Reflection is not bound')
+    mutableBinding.turnId = 'turn-forged-after-bind'
+    await expect(harness.runtime.closeTurn({
+      runtimeId: 'runtime-enforce', turnId: 'turn-enforce',
+    })).rejects.toThrow('Execution Supervisor blocks Turn Closure: IN_PROGRESS')
+    await expect(harness.runtime.closeTurn({
+      runtimeId: 'runtime-enforce', turnId: 'turn-forged-after-bind',
+    })).rejects.toThrow('cannot authorize a different Turn')
+
+    const downgradeOpen = await harness.runtime.openTurn({
+      runtimeId: 'runtime-downgrade', actorId: 'agent-downgrade', taskId: 'task-downgrade',
+      turnId: 'turn-downgrade', taskText: 'Downgraded Host boundary integration',
+      projectId: 'project-1', workspacePath: projectRoot,
+    })
+    const downgradeContract = contractFor(downgradeOpen.context, {
+      taskId: 'task-downgrade', agentId: 'agent-downgrade', supervisionLevel: 'ENFORCE',
+    })
+    const downgradeStore = await createFileExecutionEventStore({
+      directory: resolve(caseRoot, 'downgrade-store'),
+      binding: {
+        requestId: 'request-downgrade', runtimeId: 'runtime-downgrade',
+        turnId: 'turn-downgrade', contract: downgradeContract,
+      },
+      limits: { maxEvents: 100, maxStoreBytes: 2_000_000, maxReplayEvents: 20 },
+    })
+    await harness.runtime.bindSupervisedTurn({
+      runtimeId: 'runtime-downgrade', eventStore: downgradeStore,
+      hostCapabilities: hostCapabilities('host-downgrade', { supportsToolInterception: false }),
+    })
+    expect(harness.runtime.getStatus('runtime-downgrade')?.supervision?.hostProfile).toMatchObject({
+      negotiation: { requestedLevel: 'ENFORCE', effectiveLevel: 'AUDIT' },
+      claimsMechanicalInterception: false,
+    })
+
+    const auditOpen = await harness.runtime.openTurn({
+      runtimeId: 'runtime-audit', actorId: 'agent-audit', taskId: 'task-audit',
+      turnId: 'turn-audit', taskText: 'Audit Host boundary integration',
+      projectId: 'project-1', workspacePath: projectRoot,
+    })
+    const auditContract = contractFor(auditOpen.context, {
+      taskId: 'task-audit', agentId: 'agent-audit', supervisionLevel: 'AUDIT', writeScope: true,
+    })
+    const auditStore = await createFileExecutionEventStore({
+      directory: resolve(caseRoot, 'audit-store'),
+      binding: {
+        requestId: 'request-audit', runtimeId: 'runtime-audit', turnId: 'turn-audit', contract: auditContract,
+      },
+      limits: { maxEvents: 100, maxStoreBytes: 2_000_000, maxReplayEvents: 20 },
+    })
+    await harness.runtime.bindSupervisedTurn({
+      runtimeId: 'runtime-audit', eventStore: auditStore,
+      hostCapabilities: hostCapabilities('host-audit', {
+        supportsPreflight: false, supportsToolInterception: false,
+      }),
+    })
+    expect(harness.runtime.getStatus('runtime-audit')?.supervision?.hostProfile).toMatchObject({
+      negotiation: { requestedLevel: 'AUDIT', effectiveLevel: 'AUDIT' },
+      claimsMechanicalInterception: false,
+    })
+    const auditExecutor = vi.fn(() => ({ value: 'already-written' }))
+    const auditGateway = createGovernedToolGateway(harness.runtime, [{
+      name: 'audit_write',
+      effect: { kind: 'MUTATION', intent: () => ({ resourceId: 'resource-forbidden', action: 'UPDATE' }) },
+      execute: auditExecutor,
+    }])
+    await expect(auditGateway.execute({
+      runtimeId: 'runtime-audit', turnId: 'turn-audit', name: 'audit_write',
+    })).resolves.toMatchObject({ status: 'EXECUTED', executorCalled: true })
+    const receipt = {
+      resourceId: 'resource-forbidden', action: 'UPDATE', scopeDecision: 'OUTSIDE_SCOPE',
+      executorId: 'audit-host-tool',
+    }
+    await auditStore.append({
+      schema: EXECUTION_EVENT_SCHEMA,
+      requestId: 'request-audit', runtimeId: 'runtime-audit', projectId: 'project-1',
+      taskId: 'task-audit', turnId: 'turn-audit', agentId: 'agent-audit',
+      contextHash: auditContract.contextHash, sequence: 1, eventId: 'audit-write-event',
+      timestamp: '2026-08-29T00:00:01.000Z', kind: 'RESOURCE_WRITE',
+      payloadHash: hashCanonicalJson({ receipt }), payload: { receipt },
+    })
+    const taskEndPayload = { requestedBy: 'agent-audit' }
+    await auditStore.append({
+      schema: EXECUTION_EVENT_SCHEMA,
+      requestId: 'request-audit', runtimeId: 'runtime-audit', projectId: 'project-1',
+      taskId: 'task-audit', turnId: 'turn-audit', agentId: 'agent-audit',
+      contextHash: auditContract.contextHash, sequence: 2, eventId: 'audit-task-end',
+      timestamp: '2026-08-29T00:00:02.000Z', kind: 'TASK_END_REQUEST',
+      payloadHash: hashCanonicalJson(taskEndPayload), payload: taskEndPayload,
+    })
+    await expect(harness.runtime.closeTurn({
+      runtimeId: 'runtime-audit', turnId: 'turn-audit',
+    })).rejects.toThrow('Execution Supervisor blocks Turn Closure: BLOCKED')
+    expect(harness.runtime.completeTask('runtime-audit')).toMatchObject({ status: 'BLOCKED' })
+    expect(harness.runtime.getStatus('runtime-audit')?.supervision).toMatchObject({
+      ledger: { violatedObligationIds: ['OBL-WRITE'] },
+      decision: { status: 'BLOCKED', violatedObligationIds: ['OBL-WRITE'] },
+    })
+
+    await enforceStore.close()
+    await downgradeStore.close()
+    await auditStore.close()
+    await harness.dispose()
+  }, 30_000)
+
   it('runs READY through one real Reflection, 8/8 Closure, COMPLETE and clean finalized rehydrate', async () => {
     const caseRoot = resolve(tempRoot, randomUUID())
     cleanup.push(caseRoot)

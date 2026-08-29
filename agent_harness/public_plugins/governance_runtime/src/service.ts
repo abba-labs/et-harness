@@ -14,14 +14,18 @@ import type { KnowledgeCategory, KnowledgeTaxonomy } from '@agent-harness/knowle
 import {
   SUPERVISION_LIFECYCLE_BINDING_SCHEMA,
   createExecutionObligationLedger,
+  evaluateMutationPreflight,
   hashCanonicalJson,
+  negotiateSupervisionLevel,
   sha256Hex,
   supervisionFingerprint,
+  validateHostCapabilityContract,
   type CompletionDecisionV01,
   type ExecutionEventEnvelopeV01,
   type ExecutionEventStoreV01,
   type ExecutionLifecycleAuthorityV01,
   type ExecutionObligationLedgerV01,
+  type HostCapabilityContractV01,
   type SupervisionLifecycleBindingV01,
   type SupervisionReadinessReceiptV01,
 } from '@agent-harness/execution-supervisor'
@@ -38,6 +42,7 @@ import {
   type GovernanceKnowledgePromotion,
   type GovernanceKnowledgeSourceOption,
   type GovernanceKnowledgeVerificationResult,
+  type GovernanceHostSupervisionProfile,
   type GovernanceOpenTurnInput,
   type GovernanceOpenTurnResult,
   type GovernanceRehydrateSupervisedTurnInput,
@@ -67,6 +72,7 @@ interface RuntimeSession {
 interface RuntimeSupervision {
   readonly eventStore: ExecutionEventStoreV01
   readonly ledger: ExecutionObligationLedgerV01
+  readonly hostProfile?: GovernanceHostSupervisionProfile
 }
 
 interface ReflectionJob {
@@ -180,6 +186,16 @@ export class GovernanceRuntimeService extends Service {
     const turnId = cleanIdentifier('turnId', input.turnId)
     const taskText = input.taskText.trim()
     if (!taskText) throw new Error('taskText cannot be empty')
+    if (input.hostCapabilities && !input.supervisionEventStore) {
+      throw new Error('Host capability facts require a supervised Runtime binding')
+    }
+    const requestedHostProfile = input.supervisionEventStore
+      ? this.resolveHostProfile(
+        input.supervisionEventStore.binding.contract.supervisionLevel,
+        input.hostCapabilities,
+        false,
+      )
+      : undefined
 
     const project = this.runtimeContext.autoGovernanceEngine.resolveProject({
       taskText,
@@ -197,11 +213,20 @@ export class GovernanceRuntimeService extends Service {
       if (session.actorId !== actorId || session.projectId !== project.projectId || session.taskId !== taskId) {
         throw new Error(`Runtime ${runtimeId} is already bound to ${session.projectId}/${session.taskId}/${session.actorId}`)
       }
-      if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
-      if (session.supervision?.eventStore.binding.turnId !== undefined
-          && session.supervision.eventStore.binding.turnId !== turnId) {
+      if (session.supervision?.ledger.binding.turnId !== undefined
+          && session.supervision.ledger.binding.turnId !== turnId) {
         throw new Error(
-          `Runtime ${runtimeId} is supervised only for Turn ${session.supervision.eventStore.binding.turnId}`,
+          `Runtime ${runtimeId} is supervised only for Turn ${session.supervision.ledger.binding.turnId}`,
+        )
+      }
+      if (session.supervision && input.supervisionEventStore) {
+        if (session.supervision.eventStore !== input.supervisionEventStore) {
+          throw new Error(`Runtime ${runtimeId} is already bound to another Execution Event Store`)
+        }
+        this.assertCompatibleHostProfile(
+          runtimeId,
+          session.supervision.hostProfile,
+          requestedHostProfile,
         )
       }
       if (session.activeTurnId) {
@@ -225,7 +250,6 @@ export class GovernanceRuntimeService extends Service {
         actorId,
         projectId: project.projectId,
         taskId,
-        ...(input.semanticExecutor ? { semanticExecutor: input.semanticExecutor } : {}),
       }
       this.sessions.set(runtimeId, session)
     }
@@ -247,8 +271,14 @@ export class GovernanceRuntimeService extends Service {
           `Supervision turnId mismatch: ${input.supervisionEventStore.binding.turnId} != ${turnId}`,
         )
       }
-      await this.bindSupervision(session, input.supervisionEventStore, context)
+      await this.bindSupervision(
+        session,
+        input.supervisionEventStore,
+        context,
+        input.hostCapabilities,
+      )
     }
+    if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
 
     let journal = this.runtimeContext.agentGovernanceKernel.beginTurn({
       taskId,
@@ -304,13 +334,14 @@ export class GovernanceRuntimeService extends Service {
       throw new Error('Execution Event Store does not match the active Runtime Turn')
     }
     const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(session.actorId)
-    await this.bindSupervision(session, input.eventStore, context)
+    await this.bindSupervision(session, input.eventStore, context, input.hostCapabilities)
   }
 
   async rehydrateSupervisedTurn(input: GovernanceRehydrateSupervisedTurnInput): Promise<void> {
     const runtimeId = cleanIdentifier('runtimeId', input.runtimeId)
     const binding = input.eventStore.binding
     const contract = binding.contract
+    this.resolveHostProfile(contract.supervisionLevel, input.hostCapabilities, true)
     if (binding.runtimeId !== runtimeId) {
       throw new Error(`Supervision Runtime identity mismatch: ${binding.runtimeId} != ${runtimeId}`)
     }
@@ -355,13 +386,16 @@ export class GovernanceRuntimeService extends Service {
         ...(journal.status === 'CLOSED' ? {} : { activeTurnTaskTextHash: sha256Hex(taskText) }),
         contextHash: contract.contextHash,
         ...(journal.status === 'CLOSED' ? {} : { activeTurnId: binding.turnId }),
-        ...(input.semanticExecutor ? { semanticExecutor: input.semanticExecutor } : {}),
       }
       this.sessions.set(runtimeId, session)
-    } else if (input.semanticExecutor) {
-      session.semanticExecutor = input.semanticExecutor
     }
-    await this.bindSupervision(session, input.eventStore, undefined, true)
+    await this.bindSupervision(
+      session,
+      input.eventStore,
+      undefined,
+      input.hostCapabilities,
+      true,
+    )
     const decision = session.supervision!.ledger.getCompletionDecision()
     const currentReadiness = session.supervision!.ledger.getReadinessReceipt()
     if (decision.status !== 'COMPLETE') {
@@ -373,6 +407,7 @@ export class GovernanceRuntimeService extends Service {
       }
     }
     if (decision.status !== 'COMPLETE') session.activeTurnId = binding.turnId
+    if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
   }
 
   observeWork(input: GovernanceWorkObservation): GovernanceWorkObservationResult {
@@ -470,6 +505,33 @@ export class GovernanceRuntimeService extends Service {
 
   preflightAction(input: GovernanceActionPreflightInput): GovernanceActionPreflightResult {
     const session = this.requireActiveTurn(input.runtimeId, input.turnId)
+    const profile = session.supervision?.hostProfile
+    if (session.supervision && profile?.negotiation.effectiveLevel === 'ENFORCE') {
+      if (!input.eventRef?.trim()) {
+        return {
+          allowed: false,
+          reason: 'Supervised ENFORCE actions require a stable Host tool event identity.',
+        }
+      }
+      if (!input.effect) {
+        return {
+          allowed: false,
+          reason: 'Supervised ENFORCE actions require a trusted tool effect declaration.',
+        }
+      }
+      if (input.effect.kind === 'MUTATION') {
+        const scope = evaluateMutationPreflight(
+          session.supervision.ledger.binding.contract,
+          input.effect.intent,
+        )
+        if (!scope.allowed) {
+          return {
+            allowed: false,
+            ...(scope.reason ? { reason: scope.reason } : {}),
+          }
+        }
+      }
+    }
     const reason = this.runtimeContext.autoGovernanceEngine.guardAction({
       actorId: session.actorId,
       name: input.name,
@@ -480,7 +542,7 @@ export class GovernanceRuntimeService extends Service {
 
   async closeTurn(input: GovernanceCloseTurnInput): Promise<GovernanceCloseTurnResult> {
     const session = this.requireSession(input.runtimeId)
-    if (session.supervision && session.supervision.eventStore.binding.turnId !== input.turnId) {
+    if (session.supervision && session.supervision.ledger.binding.turnId !== input.turnId) {
       throw new Error('Supervision Event Store cannot authorize a different Turn')
     }
     if (session.activeTurnId !== input.turnId) {
@@ -611,7 +673,7 @@ export class GovernanceRuntimeService extends Service {
     let readiness: SupervisionReadinessReceiptV01 | undefined
     if (session.supervision) {
       if (session.activeTurnId !== turnId
-          || session.supervision.eventStore.binding.turnId !== turnId) {
+          || session.supervision.ledger.binding.turnId !== turnId) {
         throw new Error('Supervised Closure identity does not match the active Runtime Turn')
       }
       await session.supervision.ledger.synchronize()
@@ -761,6 +823,7 @@ export class GovernanceRuntimeService extends Service {
     session: RuntimeSession,
     eventStore: ExecutionEventStoreV01,
     context?: AutoGovernanceContextEnvelope,
+    hostCapabilities?: HostCapabilityContractV01,
     finalizedRecovery = false,
   ): Promise<void> {
     const binding = eventStore.binding
@@ -779,10 +842,22 @@ export class GovernanceRuntimeService extends Service {
     if (session.activeTurnId && binding.turnId !== session.activeTurnId) {
       throw new Error(`Supervision turnId mismatch: ${binding.turnId} != ${session.activeTurnId}`)
     }
+    const hostProfile = this.resolveHostProfile(
+      contract.supervisionLevel,
+      hostCapabilities,
+      finalizedRecovery,
+    )
     if (session.supervision && session.supervision.eventStore !== eventStore) {
       throw new Error(`Runtime ${session.runtimeId} is already bound to another Execution Event Store`)
     }
-    if (session.supervision) return
+    if (session.supervision) {
+      this.assertCompatibleHostProfile(
+        session.runtimeId,
+        session.supervision.hostProfile,
+        hostProfile,
+      )
+      return
+    }
     if (context) {
       if (hashCanonicalJson(context.route) !== contract.routeHash) {
         throw new Error('Auto Governance route does not match supervision routeHash')
@@ -797,7 +872,62 @@ export class GovernanceRuntimeService extends Service {
       verifyLifecycleClosure: lifecycle => this.verifyKernelLifecycleBinding(lifecycle),
     }
     const ledger = await createExecutionObligationLedger({ eventStore, lifecycleAuthority: authority })
-    session.supervision = { eventStore, ledger }
+    session.supervision = {
+      eventStore,
+      ledger,
+      ...(hostProfile ? { hostProfile } : {}),
+    }
+  }
+
+  private resolveHostProfile(
+    requestedLevel: 'AUDIT' | 'ENFORCE',
+    value: HostCapabilityContractV01 | undefined,
+    finalizedRecovery: boolean,
+  ): GovernanceHostSupervisionProfile | undefined {
+    if (!value) {
+      if (requestedLevel === 'ENFORCE') {
+        throw new Error('Supervised ENFORCE requires an explicit Host capability contract')
+      }
+      return undefined
+    }
+    const validation = validateHostCapabilityContract(value)
+    if (!validation.valid) {
+      throw new Error(`Invalid Host capability contract: ${validation.issues
+        .map(issue => `${issue.path} ${issue.message}`)
+        .join('; ')}`)
+    }
+    const capabilities: HostCapabilityContractV01 = {
+      schema: validation.value.schema,
+      hostId: validation.value.hostId,
+      adapterId: validation.value.adapterId,
+      capabilities: { ...validation.value.capabilities },
+    }
+    const negotiation = negotiateSupervisionLevel(requestedLevel, capabilities)
+    if (finalizedRecovery
+        && negotiation.effectiveLevel === 'ENFORCE'
+        && !capabilities.capabilities.supportsCrossProcessResume) {
+      throw new Error('ENFORCE Host profile does not support cross-process resume')
+    }
+    return {
+      capabilities,
+      negotiation: {
+        requestedLevel: negotiation.requestedLevel,
+        effectiveLevel: negotiation.effectiveLevel,
+        reasons: [...negotiation.reasons],
+      },
+      claimsMechanicalInterception: negotiation.effectiveLevel === 'ENFORCE',
+    }
+  }
+
+  private assertCompatibleHostProfile(
+    runtimeId: string,
+    existing: GovernanceHostSupervisionProfile | undefined,
+    requested: GovernanceHostSupervisionProfile | undefined,
+  ): void {
+    if (!requested) return
+    if (!existing || hashCanonicalJson(existing) !== hashCanonicalJson(requested)) {
+      throw new Error(`Runtime ${runtimeId} is already bound to another Host profile`)
+    }
   }
 
   private async readDurableTaskText(eventStore: ExecutionEventStoreV01): Promise<string> {
@@ -821,6 +951,9 @@ export class GovernanceRuntimeService extends Service {
   private supervisionStatus(supervision: RuntimeSupervision) {
     const readiness = supervision.ledger.getReadinessReceipt()
     return {
+      ...(supervision.hostProfile
+        ? { hostProfile: structuredClone(supervision.hostProfile) }
+        : {}),
       ledger: supervision.ledger.getStatus(),
       decision: supervision.ledger.getCompletionDecision(),
       ...(readiness ? { readiness } : {}),

@@ -23,6 +23,8 @@ import {
   type ExecutionStoreFinalizationV01,
   type EvidencePolicyV01,
   type JsonRecord,
+  type MutationIntentV01,
+  type MutationPreflightDecisionV01,
   type MutationReceiptV01,
   type OutputReceiptV01,
   type OutputSatisfactionV01,
@@ -797,13 +799,13 @@ const pathWithinPrefix = (path: string, prefix: string): boolean => {
   return candidate === boundary || candidate.startsWith(`${boundary}/`)
 }
 
-const writeAllowed = (
+const mutationAllowed = (
   obligation: ObligationDefinitionV01,
-  receipt: MutationReceiptV01,
+  mutation: MutationIntentV01,
 ): boolean => {
   // The v0.1 mutation receipt has only one path/resource identity and cannot
   // prove both endpoints of MOVE or COPY. Fail closed until that contract grows.
-  if (receipt.action === 'MOVE' || receipt.action === 'COPY') return false
+  if (mutation.action === 'MOVE' || mutation.action === 'COPY') return false
   const target = recordOf(obligation.target)
   const satisfaction = recordOf(obligation.satisfaction)
   if (!target || satisfaction?.requireInScope !== true) return false
@@ -812,9 +814,53 @@ const writeAllowed = (
     ? []
     : stringArray(target.allowedPathPrefixes)
   if (!allowedResourceIds || !allowedPathPrefixes) return false
-  if (allowedResourceIds.includes(receipt.resourceId)) return true
-  return receipt.path !== undefined
-    && allowedPathPrefixes.some(prefix => pathWithinPrefix(receipt.path!, prefix))
+  if (allowedResourceIds.includes(mutation.resourceId)) return true
+  return mutation.path !== undefined
+    && allowedPathPrefixes.some(prefix => pathWithinPrefix(mutation.path!, prefix))
+}
+
+const writeAllowed = (
+  obligation: ObligationDefinitionV01,
+  receipt: MutationReceiptV01,
+): boolean => mutationAllowed(obligation, receipt)
+
+const validMutationIntent = (intent: MutationIntentV01): boolean => {
+  const record = recordOf(intent)
+  if (!record) return false
+  const keys = Object.keys(record).sort()
+  const expected = (intent.path === undefined
+    ? ['action', 'resourceId']
+    : ['action', 'path', 'resourceId']).sort()
+  return keys.length === expected.length
+    && keys.every((key, index) => key === expected[index])
+    && typeof intent.resourceId === 'string'
+    && intent.resourceId.trim().length > 0
+    && ['CREATE', 'UPDATE', 'DELETE', 'MOVE', 'COPY'].includes(intent.action)
+    && (intent.path === undefined
+      || (typeof intent.path === 'string' && intent.path.trim().length > 0))
+}
+
+/** Deterministic hot-path scope decision; it never changes Ledger state. */
+export const evaluateMutationPreflight = (
+  contract: TaskSupervisionContractV01,
+  intent: MutationIntentV01,
+): MutationPreflightDecisionV01 => {
+  if (!validMutationIntent(intent)) {
+    return {
+      allowed: false,
+      reason: 'Mutation intent is malformed or contains undeclared fields.',
+    }
+  }
+  const writeScope = contract.obligations.find(definition => definition.kind === 'WRITE_SCOPE')
+  if (!writeScope) return { allowed: true }
+  if (mutationAllowed(writeScope, intent)) {
+    return { allowed: true, obligationId: writeScope.id }
+  }
+  return {
+    allowed: false,
+    obligationId: writeScope.id,
+    reason: `Mutation is outside WRITE_SCOPE obligation ${writeScope.id}.`,
+  }
 }
 
 const violationFor = (

@@ -303,6 +303,19 @@ export interface MutationReceiptV01 {
   readonly executorId: string
 }
 
+/** Trusted, pre-execution description of the resource mutation a tool intends. */
+export interface MutationIntentV01 {
+  readonly resourceId: string
+  readonly path?: string
+  readonly action: MutationReceiptV01['action']
+}
+
+export interface MutationPreflightDecisionV01 {
+  readonly allowed: boolean
+  readonly obligationId?: string
+  readonly reason?: string
+}
+
 export interface WriteScopeTargetV01 {
   readonly allowedResourceIds: readonly string[]
   readonly allowedPathPrefixes?: readonly string[]

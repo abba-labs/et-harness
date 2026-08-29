@@ -116,4 +116,102 @@ describe('Governed Tool Gateway', () => {
     expect(runtime.preflightAction).not.toHaveBeenCalled()
     expect(runtime.observeWork).not.toHaveBeenCalled()
   })
+
+  it('trusted registration effect controls ENFORCE preflight before raw execution', async () => {
+    const runtime: GovernanceToolRuntimePort = {
+      preflightAction: vi.fn(input => ({
+        allowed: input.eventRef === 'host-event-1'
+          && input.effect?.kind === 'MUTATION'
+          && input.effect.intent.resourceId === 'resource-allowed',
+        reason: 'outside scope',
+      })),
+      observeWork: vi.fn(() => observationResult),
+    }
+    const executor = vi.fn(() => ({ value: 'unsafe' }))
+    const gateway = createGovernedToolGateway(runtime, [{
+      name: 'write_file',
+      effect: {
+        kind: 'MUTATION',
+        intent: () => ({ resourceId: 'resource-forbidden', action: 'UPDATE' }),
+      },
+      eventIdentity: () => 'host-event-1',
+      execute: executor,
+    }])
+
+    const result = await gateway.execute({
+      runtimeId: 'runtime-1',
+      turnId: 'turn-1',
+      name: 'write_file',
+      arguments: { path: 'forbidden' },
+      eventRef: 'agent-event',
+      effect: { kind: 'READ_ONLY' },
+    } as never)
+
+    expect(result).toMatchObject({ status: 'BLOCKED', executorCalled: false })
+    expect(runtime.preflightAction).toHaveBeenCalledWith(expect.objectContaining({
+      eventRef: 'host-event-1',
+      effect: { kind: 'MUTATION', intent: { resourceId: 'resource-forbidden', action: 'UPDATE' } },
+    }))
+    expect(executor).not.toHaveBeenCalled()
+  })
+
+  it('preserves the trusted event identity for success and executor errors', async () => {
+    const runtime: GovernanceToolRuntimePort = {
+      preflightAction: vi.fn(() => ({ allowed: true })),
+      observeWork: vi.fn(() => observationResult),
+    }
+    const gateway = createGovernedToolGateway(runtime, [
+      {
+        name: 'read_ok',
+        effect: { kind: 'READ_ONLY' },
+        eventIdentity: () => 'host-event-ok',
+        execute: () => ({ value: 'ok', eventRef: 'raw-event' }),
+      },
+      {
+        name: 'read_error',
+        effect: { kind: 'READ_ONLY' },
+        eventIdentity: () => 'host-event-error',
+        execute: () => { throw new Error('failed') },
+      },
+    ])
+
+    await gateway.execute({
+      runtimeId: 'runtime-1', turnId: 'turn-1', name: 'read_ok', eventRef: 'agent-event',
+    })
+    await gateway.execute({
+      runtimeId: 'runtime-1', turnId: 'turn-1', name: 'read_error', eventRef: 'agent-error',
+    })
+
+    expect(runtime.observeWork).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      eventRef: 'host-event-ok',
+    }))
+    expect(runtime.observeWork).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      eventRef: 'host-event-error', isError: true,
+    }))
+  })
+
+  it('rejects malformed effects and snapshots valid registration metadata', async () => {
+    expect(() => createGovernedToolGateway({
+      preflightAction: () => ({ allowed: true }),
+      observeWork: () => observationResult,
+    }, [{
+      name: 'unknown',
+      effect: { kind: 'UNKNOWN' },
+      execute: () => ({ value: 'unsafe' }),
+    } as never])).toThrow('effect definition')
+
+    const runtime: GovernanceToolRuntimePort = {
+      preflightAction: vi.fn(() => ({ allowed: true })),
+      observeWork: vi.fn(() => observationResult),
+    }
+    const mutableEffect: any = { kind: 'READ_ONLY' }
+    const gateway = createGovernedToolGateway(runtime, [{
+      name: 'stable', effect: mutableEffect, execute: () => ({ value: 'ok' }),
+    }])
+    mutableEffect.kind = 'UNKNOWN'
+    await gateway.execute({ runtimeId: 'runtime-1', turnId: 'turn-1', name: 'stable' })
+    expect(runtime.preflightAction).toHaveBeenCalledWith(expect.objectContaining({
+      effect: { kind: 'READ_ONLY' },
+    }))
+  })
 })

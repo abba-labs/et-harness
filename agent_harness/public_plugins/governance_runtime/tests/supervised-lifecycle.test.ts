@@ -154,6 +154,7 @@ describe('Governance Runtime supervised lifecycle', () => {
       finalization: undefined,
     }
     const ledger: any = {
+      binding: { turnId: 'turn-1' },
       synchronize: vi.fn(),
       getCompletionDecision: vi.fn(() => ({
         status: 'READY_TO_CLOSE', pendingObligationIds: [], violatedObligationIds: [], blockerRefs: [], evidenceRefs: [],
@@ -223,7 +224,10 @@ describe('Governance Runtime supervised lifecycle', () => {
       activeTurnId: 'turn-2',
       supervision: {
         eventStore: { binding: { turnId: 'turn-1' } },
-        ledger: { getCompletionDecision: () => ({ status: 'COMPLETE' }) },
+        ledger: {
+          binding: { turnId: 'turn-1' },
+          getCompletionDecision: () => ({ status: 'COMPLETE' }),
+        },
       },
     }]])
     service.runtimeContext = { agentGovernanceKernel: { closeTurn: closeKernel } }

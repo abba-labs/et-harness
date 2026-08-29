@@ -12,7 +12,10 @@ import type {
 import type {
   CompletionDecisionV01,
   ExecutionEventStoreV01,
+  HostCapabilityContractV01,
+  MutationIntentV01,
   ObligationLedgerStatusV01,
+  SupervisionNegotiationV01,
   SupervisionReadinessReceiptV01,
 } from '@agent-harness/execution-supervisor'
 
@@ -127,20 +130,31 @@ export interface GovernanceOpenTurnInput {
   readonly semanticExecutor?: GovernanceSemanticExecutor
   /** Framework-owned durable execution stream. Agents must never receive this capability. */
   readonly supervisionEventStore?: ExecutionEventStoreV01
+  /** Trusted Host wiring facts. Agent/model output is never a capability source. */
+  readonly hostCapabilities?: HostCapabilityContractV01
 }
 
 export interface GovernanceRehydrateSupervisedTurnInput {
   readonly runtimeId: string
   readonly eventStore: ExecutionEventStoreV01
+  readonly hostCapabilities?: HostCapabilityContractV01
   readonly semanticExecutor?: GovernanceSemanticExecutor
 }
 
 export interface GovernanceBindSupervisedTurnInput {
   readonly runtimeId: string
   readonly eventStore: ExecutionEventStoreV01
+  readonly hostCapabilities?: HostCapabilityContractV01
+}
+
+export interface GovernanceHostSupervisionProfile {
+  readonly capabilities: HostCapabilityContractV01
+  readonly negotiation: SupervisionNegotiationV01
+  readonly claimsMechanicalInterception: boolean
 }
 
 export interface GovernanceSupervisionStatus {
+  readonly hostProfile?: GovernanceHostSupervisionProfile
   readonly ledger: ObligationLedgerStatusV01
   readonly decision: CompletionDecisionV01
   readonly readiness?: SupervisionReadinessReceiptV01
@@ -207,7 +221,13 @@ export interface GovernanceActionPreflightInput {
   readonly turnId: string
   readonly name: string
   readonly arguments?: unknown
+  readonly eventRef?: string
+  readonly effect?: GovernanceActionEffect
 }
+
+export type GovernanceActionEffect =
+  | { readonly kind: 'READ_ONLY' }
+  | { readonly kind: 'MUTATION'; readonly intent: MutationIntentV01 }
 
 export interface GovernanceActionPreflightResult {
   readonly allowed: boolean
