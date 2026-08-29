@@ -118,18 +118,73 @@ The first integration script also emitted one non-fatal temporary working-direct
 
 An initial WSL `/tmp` attempt was aborted and its task-created files were removed. The accepted Linux runs used only the D-drive environment listed above.
 
+The authorized Phase 1 branch-base receipt `f2a1dfa` was created before this local acceptance was recorded. That differs from the ideal ordering in the Handoff. The receipt added only provenance documentation, explicitly prohibited implementation before acceptance, and introduced no production source or test divergence from main. This ordering deviation is preserved here and is not presented as strict sequence compliance.
+
 ## 7. End-state audit
 
-The disposable main validation worktree contained only explained build/install outputs after validation:
+The exact captured `git status --short` from the disposable main validation worktree was:
 
 ```text
-tracked generated dist refreshes
-untracked dist directories
-untracked package-lock.json files
-the generated local benchmark
+ M agent_harness/examples/governance_demo_plugin/dist/index.d.ts
+ M agent_harness/examples/governance_demo_plugin/dist/index.js
+ M agent_harness/governance_core/dist/catalog-engine.d.ts
+ M agent_harness/governance_core/dist/catalog-engine.js
+ M agent_harness/governance_core/dist/contracts.d.ts
+ M agent_harness/governance_core/dist/contracts.js
+ M agent_harness/governance_core/dist/cordis-service.d.ts
+ M agent_harness/governance_core/dist/cordis-service.js
+ M agent_harness/governance_core/dist/events.d.ts
+ M agent_harness/governance_core/dist/events.js
+ M agent_harness/governance_core/dist/index.d.ts
+ M agent_harness/governance_core/dist/index.js
+ M agent_harness/governance_core/dist/validator.d.ts
+ M agent_harness/governance_core/dist/validator.js
+?? agent_harness/governance_core/dist/metrics.d.ts
+?? agent_harness/governance_core/dist/metrics.js
+?? agent_harness/model_adapters/generic_model/dist/
+?? agent_harness/model_adapters/generic_model/package-lock.json
+?? agent_harness/model_adapters/json_process_client/dist/
+?? agent_harness/model_adapters/json_process_client/package-lock.json
+?? agent_harness/model_adapters/openai_compatible_wrapper/dist/
+?? agent_harness/model_adapters/openai_compatible_wrapper/package-lock.json
+?? agent_harness/pilots/generic_model/dist/
+?? agent_harness/pilots/generic_model/package-lock.json
+?? agent_harness/project_contract/dist/
+?? agent_harness/project_contract/package-lock.json
+?? agent_harness/public_plugins/agent_governance_closure_adapters/dist/
+?? agent_harness/public_plugins/agent_governance_closure_adapters/package-lock.json
+?? agent_harness/public_plugins/agent_governance_kernel/dist/
+?? agent_harness/public_plugins/agent_governance_kernel/package-lock.json
+?? agent_harness/public_plugins/architecture_navigator/dist/
+?? agent_harness/public_plugins/architecture_navigator/package-lock.json
+?? agent_harness/public_plugins/auto_governance_engine/dist/
+?? agent_harness/public_plugins/auto_governance_engine/package-lock.json
+?? agent_harness/public_plugins/auto_governance_orchestrator/dist/
+?? agent_harness/public_plugins/auto_governance_orchestrator/package-lock.json
+?? agent_harness/public_plugins/context_builder/dist/
+?? agent_harness/public_plugins/context_builder/package-lock.json
+?? agent_harness/public_plugins/evidence_state_manager/dist/
+?? agent_harness/public_plugins/evidence_state_manager/package-lock.json
+?? agent_harness/public_plugins/execution_supervisor/baselines/phase0-local-current.json
+?? agent_harness/public_plugins/execution_supervisor/dist/
+?? agent_harness/public_plugins/execution_supervisor/package-lock.json
+?? agent_harness/public_plugins/experience_memory_manager/dist/
+?? agent_harness/public_plugins/experience_memory_manager/package-lock.json
+?? agent_harness/public_plugins/framework_efficiency_observer/dist/
+?? agent_harness/public_plugins/framework_efficiency_observer/package-lock.json
+?? agent_harness/public_plugins/gate_manager/dist/
+?? agent_harness/public_plugins/gate_manager/package-lock.json
+?? agent_harness/public_plugins/governance_runtime/dist/
+?? agent_harness/public_plugins/governance_runtime/package-lock.json
+?? agent_harness/public_plugins/knowledge_manager/dist/
+?? agent_harness/public_plugins/knowledge_manager/package-lock.json
+?? agent_harness/public_plugins/project_manager/dist/
+?? agent_harness/public_plugins/project_manager/package-lock.json
+?? agent_harness/public_plugins/rule_manager/dist/
+?? agent_harness/public_plugins/rule_manager/package-lock.json
 ```
 
-Canonical `execution_supervisor/src` and `execution_supervisor/tests` had no diff. None of the generated dist, dependency or lock files were transferred to the Phase 1 development worktree.
+These were explained build/install outputs and the generated local benchmark. Canonical `execution_supervisor/src` and `execution_supervisor/tests` had no diff. None of the generated dist, dependency or lock files were transferred to the Phase 1 development worktree.
 
 The authorized Phase 1 worktree was clean before this evidence record was added and its production source still had no divergence from main.
 
