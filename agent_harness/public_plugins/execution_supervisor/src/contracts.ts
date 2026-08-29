@@ -130,6 +130,23 @@ export type ExecutionStoreIssueCode =
 
 export type JsonRecord = Readonly<Record<string, unknown>>
 
+export const AGENT_CLAIM_KINDS = [
+  'OUTPUT',
+  'VALIDATION',
+  'RULE_COMPLIANCE',
+] as const
+export type AgentClaimKind = typeof AGENT_CLAIM_KINDS[number]
+
+export interface AgentClaimV01 {
+  readonly id: string
+  readonly kind: AgentClaimKind
+  readonly targetIdentity: string
+  readonly resultStatus: EvidenceResultStatus
+  readonly validationId?: string
+  readonly outputContractId?: string
+  readonly evidenceRefs: readonly string[]
+}
+
 export interface ObligationDefinitionV01 {
   readonly id: string
   readonly kind: ObligationKind
@@ -228,6 +245,15 @@ export interface ResourceReceiptV01 {
   readonly error?: string
 }
 
+export interface SourceDispositionTargetV01 {
+  readonly resourceId: string
+}
+
+export interface SourceDispositionSatisfactionV01 {
+  readonly acceptedProviderIds: readonly string[]
+  readonly acceptedDispositions: readonly ('NO_MATCH' | 'UNAVAILABLE')[]
+}
+
 export interface RequiredResourceTargetV01 {
   readonly resourceId: string
   readonly revision?: string
@@ -282,20 +308,65 @@ export interface ValidationReceiptV01 {
   readonly resultStatus: EvidenceResultStatus
   readonly artifactRefs: readonly string[]
   readonly evidenceRefs: readonly string[]
+  readonly claimRefs: readonly string[]
   readonly timestamp: string
 }
 
+export interface ValidationTargetV01 {
+  readonly validationId: string
+  readonly targetIdentity: string
+}
+
+export interface ValidationSatisfactionV01 {
+  readonly requiredResultStatus: 'PASS'
+}
+
+export type ValidationResultEventPayloadV01 = JsonRecord & {
+  readonly receipt: ValidationReceiptV01
+}
+
 export interface OutputReceiptV01 {
+  readonly providerId: string
+  readonly providerKind: EvidenceProviderKind
   readonly outputContractId: string
   readonly resourceId: string
   readonly path?: string
   readonly contentHash: string
+  readonly projectRevision?: string
+  readonly contextHash: string
+  readonly targetIdentity: string
   readonly structuralValidationStatus:
     | 'PASS'
     | 'FAIL'
     | 'NOT_EXECUTED'
   readonly ruleValidationRefs: readonly string[]
   readonly evidenceRefs: readonly string[]
+  readonly claimRefs: readonly string[]
+  readonly timestamp: string
+}
+
+export interface OutputTargetV01 {
+  readonly outputContractId: string
+  readonly resourceId: string
+  readonly contentHash: string
+}
+
+export interface OutputSatisfactionV01 {
+  readonly requiredStructuralStatus: 'PASS'
+  readonly requiredResultStatus: 'PASS'
+}
+
+export type OutputEmittedEventPayloadV01 = JsonRecord & {
+  readonly receipt: OutputReceiptV01
+}
+
+export interface ClaimEvidenceTargetV01 {
+  readonly claimKinds: readonly AgentClaimKind[]
+  readonly targetIdentities?: readonly string[]
+}
+
+export interface ClaimEvidenceSatisfactionV01 {
+  readonly requireEvidenceForPassClaims: true
 }
 
 export interface ExecutionEventAcceptanceV01 {
@@ -371,6 +442,8 @@ export interface OpenFileExecutionEventStoreInputV01 {
 
 export const OBLIGATION_VIOLATION_CODES = [
   'OUT_OF_SCOPE_WRITE',
+  'UNSUPPORTED_PASS_CLAIM',
+  'TRUSTED_VALIDATION_FAILED',
 ] as const
 export type ObligationViolationCode =
   typeof OBLIGATION_VIOLATION_CODES[number]
@@ -383,10 +456,14 @@ export interface ObligationViolationRecordV01 {
   readonly eventId: string
   readonly sequence: number
   readonly observedAt: string
-  readonly resourceId: string
+  readonly resourceId?: string
   readonly path?: string
-  readonly action: MutationReceiptV01['action']
-  readonly executorId: string
+  readonly action?: MutationReceiptV01['action']
+  readonly executorId?: string
+  readonly claimId?: string
+  readonly targetIdentity?: string
+  readonly providerId?: string
+  readonly evidenceRef?: string
 }
 
 export interface ObligationLedgerStatusV01 {
@@ -410,6 +487,7 @@ export interface ExecutionObligationLedgerV01 {
   ): Promise<ExecutionEventAcceptanceV01>
   synchronize(): Promise<void>
   getStatus(): ObligationLedgerStatusV01
+  getCompletionDecision(): CompletionDecisionV01
 }
 
 export interface CreateExecutionObligationLedgerInputV01 {

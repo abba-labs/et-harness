@@ -1,8 +1,8 @@
 # Public Execution Supervisor
 
-## Phase 2 status
+## Phase 3+4 status
 
-This package provides the Phase 0 Host-neutral public contracts and deterministic validators, the bounded Phase 1 durable execution-event boundary, and the Phase 2 deterministic Obligation Ledger projection:
+This package provides the Phase 0 Host-neutral public contracts and deterministic validators, the bounded Phase 1 durable execution-event boundary, the Phase 2 deterministic Obligation Ledger projection, and the merged Phase 3+4 trusted external execution evaluation boundary:
 
 ```text
 Task Supervision Contract
@@ -21,11 +21,23 @@ Deterministic PENDING / BLOCKED / SATISFIED / VIOLATED transitions
 Dependency blocking and unblocking without automatic satisfaction
 Out-of-scope mutation violation records
 Immutable status query and replay-equivalent reconstruction
+Strict external Agent request and response manifests
+Whole-bundle prevalidation before durable event ingestion
+Exact visible request/response content and identity binding
+Structured claim records without free-form prose parsing
+Trusted Evidence Policy matching with deterministic stale checks
+SOURCE_DISPOSITION / OUTPUT / VALIDATION / CLAIM_EVIDENCE / RULE_COMPLIANCE evaluation
+Unsupported-PASS and trusted-validation-failure violation records
+IN_PROGRESS / BLOCKED / FAILED / READY_TO_CLOSE pre-Closure decisions
 ```
 
-It intentionally does **not** register a Governance Runtime lifecycle service, evaluate claims or Completion, bridge a Host, authenticate receipt providers, trigger Reflection/Knowledge/Closure or modify another public package. Those capabilities belong to later implementation phases in the normative design.
+It intentionally does **not** register a Governance Runtime lifecycle service, call a model or network service, cryptographically authenticate a Host/provider/model, trigger Reflection/Knowledge/Context/Closure or modify another public package. Those capabilities belong to later implementation phases in the normative design.
 
-The Ledger consumes only events accepted by the Phase 1 Event Store. Assistant or user messages cannot set obligation state, rejected events cannot mutate the Ledger and duplicate events are idempotent. A provider ID must match the Project-contributed allowlist, but Phase 2 does not prove who emitted the receipt; provider authentication remains a later Host/Event Bridge responsibility.
+The data-only Bridge validates the complete bundle before the first append and calls only the Ledger ingestion API. The Ledger consumes only events accepted by the Phase 1 Event Store. Assistant or user prose cannot set obligation state, rejected events cannot mutate the Ledger and duplicate events are idempotent. Expected and actual provider/model identity must match, but a data-only manifest does not cryptographically prove who emitted it; mechanical Host enforcement remains a later phase.
+
+Evidence evaluation requires contributed provider, Context, revision, target, result and deterministic timestamp policy matches. `NOT_EXECUTED`, `NOT_VERIFIED` and `HISTORICAL` remain honest visible facts but cannot satisfy required PASS. A structured PASS claim without matching prior trusted Evidence creates a deterministic violation. Free-form text is never parsed into trusted Evidence.
+
+Completion evaluation in this phase is pre-Closure only. It may return `READY_TO_CLOSE` after all execution-stage MUST obligations resolve, while explicitly reporting deferred Reflection/Knowledge/Context/Closure obligations. It never returns `COMPLETE`, creates a Closure Receipt or calls a Runtime lifecycle entrypoint.
 
 Phase 2 v0.1 accepts one `WRITE_SCOPE` obligation. It computes scope from the contributed resource/path allowlist rather than trusting `MutationReceipt.scopeDecision`. `MOVE` and `COPY` fail closed because the v0.1 receipt cannot represent both endpoints.
 
@@ -49,6 +61,12 @@ Corrupt, truncated, non-canonical or wrongly bound stores fail closed
 Required resources are satisfied only by exact, allowlisted `FOUND` receipts
 Ledger replay is deterministic and produces no duplicate violations
 Ordinary event ingestion does not build a full status snapshot
+Bridge validation performs no model or network call
+Invalid bundles append no prefix; runtime append failures report the exact durable prefix
+Evidence freshness uses accepted event time, never wall-clock time
+Provider ID and kind use conjunctive policy matching when both are declared
+Agent claims never become Evidence by self-certification
+Pre-Closure evaluation never returns COMPLETE
 ```
 
 ## Commands
