@@ -21,6 +21,9 @@ import {
   type ContractValidationIssue,
   type ContractValidationResult,
   type ExecutionEventEnvelopeV01,
+  type ExecutionEventStoreBindingV01,
+  type ExecutionEventStoreLimitsV01,
+  type ExecutionReplayCursorV01,
   type HostCapabilityContractV01,
   type HostCapabilityFlagsV01,
   type ObligationDefinitionV01,
@@ -592,6 +595,63 @@ export const validateExecutionEventEnvelope = (
   return validationResult<ExecutionEventEnvelopeV01>(value, issues)
 }
 
+export const validateExecutionEventStoreBinding = (
+  value: unknown,
+): ContractValidationResult<ExecutionEventStoreBindingV01> => {
+  const issues: ContractValidationIssue[] = []
+  const record = recordOf(value)
+  if (!record) {
+    issue(issues, '$', 'REQUIRED_OBJECT', 'Execution Event Store binding must be an object')
+    return { valid: false, issues }
+  }
+  exactKeys(record, ['requestId', 'runtimeId', 'turnId', 'contract'], '$', issues)
+  requireString(record, 'requestId', '$', issues, { identifier: true })
+  requireString(record, 'runtimeId', '$', issues, { identifier: true })
+  requireString(record, 'turnId', '$', issues, { identifier: true })
+  const contract = validateTaskSupervisionContract(record.contract)
+  if (!contract.valid) {
+    for (const nested of contract.issues) {
+      const suffix = nested.path === '$' ? '' : nested.path.slice(1)
+      issue(issues, `$.contract${suffix}`, nested.code, nested.message)
+    }
+  }
+  return validationResult<ExecutionEventStoreBindingV01>(value, issues)
+}
+
+export const validateExecutionEventStoreLimits = (
+  value: unknown,
+): ContractValidationResult<ExecutionEventStoreLimitsV01> => {
+  const issues: ContractValidationIssue[] = []
+  const record = recordOf(value)
+  if (!record) {
+    issue(issues, '$', 'REQUIRED_OBJECT', 'Execution Event Store limits must be an object')
+    return { valid: false, issues }
+  }
+  exactKeys(record, ['maxEvents', 'maxStoreBytes', 'maxReplayEvents'], '$', issues)
+  const maxEvents = requireInteger(record, 'maxEvents', '$', issues, 1)
+  requireInteger(record, 'maxStoreBytes', '$', issues, 1)
+  const maxReplayEvents = requireInteger(record, 'maxReplayEvents', '$', issues, 1)
+  if (maxEvents !== undefined && maxReplayEvents !== undefined && maxReplayEvents > maxEvents) {
+    issue(issues, '$.maxReplayEvents', 'REPLAY_LIMIT_EXCEEDS_STORE_LIMIT', 'maxReplayEvents cannot exceed maxEvents')
+  }
+  return validationResult<ExecutionEventStoreLimitsV01>(value, issues)
+}
+
+export const validateExecutionReplayCursor = (
+  value: unknown,
+): ContractValidationResult<ExecutionReplayCursorV01> => {
+  const issues: ContractValidationIssue[] = []
+  const record = recordOf(value)
+  if (!record) {
+    issue(issues, '$', 'REQUIRED_OBJECT', 'Execution replay cursor must be an object')
+    return { valid: false, issues }
+  }
+  exactKeys(record, ['sequence', 'stateHash'], '$', issues)
+  requireInteger(record, 'sequence', '$', issues, 0)
+  requireString(record, 'stateHash', '$', issues, { hash: true })
+  return validationResult<ExecutionReplayCursorV01>(value, issues)
+}
+
 export const validateHostCapabilityContract = (
   value: unknown,
 ): ContractValidationResult<HostCapabilityContractV01> => {
@@ -830,6 +890,30 @@ export const assertValidExecutionEventEnvelope = (
   value: unknown,
 ): ExecutionEventEnvelopeV01 => {
   const result = validateExecutionEventEnvelope(value)
+  if (!result.valid) throw new TypeError(result.issues.map(item => `${item.path} ${item.code}: ${item.message}`).join('\n'))
+  return result.value
+}
+
+export const assertValidExecutionEventStoreBinding = (
+  value: unknown,
+): ExecutionEventStoreBindingV01 => {
+  const result = validateExecutionEventStoreBinding(value)
+  if (!result.valid) throw new TypeError(result.issues.map(item => `${item.path} ${item.code}: ${item.message}`).join('\n'))
+  return result.value
+}
+
+export const assertValidExecutionEventStoreLimits = (
+  value: unknown,
+): ExecutionEventStoreLimitsV01 => {
+  const result = validateExecutionEventStoreLimits(value)
+  if (!result.valid) throw new TypeError(result.issues.map(item => `${item.path} ${item.code}: ${item.message}`).join('\n'))
+  return result.value
+}
+
+export const assertValidExecutionReplayCursor = (
+  value: unknown,
+): ExecutionReplayCursorV01 => {
+  const result = validateExecutionReplayCursor(value)
   if (!result.valid) throw new TypeError(result.issues.map(item => `${item.path} ${item.code}: ${item.message}`).join('\n'))
   return result.value
 }

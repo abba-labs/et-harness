@@ -104,6 +104,28 @@ export const RECEIPT_ACCEPTANCE_STATUSES = [
 export type ReceiptAcceptanceStatus =
   typeof RECEIPT_ACCEPTANCE_STATUSES[number]
 
+export const EXECUTION_STORE_ISSUE_CODES = [
+  'EVENT_INVALID',
+  'EVENT_ID_INTEGRITY_CONFLICT',
+  'SEQUENCE_GAP',
+  'EVENT_BINDING_MISMATCH',
+  'STORE_BINDING_MISMATCH',
+  'STORE_ALREADY_EXISTS',
+  'STORE_NOT_FOUND',
+  'STORE_INVALID_LOCATION',
+  'STORE_LIMIT_EXCEEDED',
+  'STORE_TRUNCATED_RECORD',
+  'STORE_INVALID_CANONICAL_JSON',
+  'STORE_STATE_HASH_MISMATCH',
+  'STORE_CURSOR_INVALID',
+  'STORE_EVENT_CHAIN_MISMATCH',
+  'STORE_CHANGED',
+  'STORE_CLOSED',
+  'STORE_WRITE_FAILED',
+] as const
+export type ExecutionStoreIssueCode =
+  typeof EXECUTION_STORE_ISSUE_CODES[number]
+
 export type JsonRecord = Readonly<Record<string, unknown>>
 
 export interface ObligationDefinitionV01 {
@@ -251,7 +273,69 @@ export interface ExecutionEventAcceptanceV01 {
   readonly status: ReceiptAcceptanceStatus
   readonly acceptedAt: string
   readonly reasons: readonly string[]
+  readonly issues?: readonly ExecutionStoreIssueV01[]
   readonly stateHash?: string
+}
+
+export interface ExecutionStoreIssueV01 {
+  readonly code: ExecutionStoreIssueCode
+  readonly message: string
+  readonly field?: string
+  readonly expected?: string | number
+  readonly actual?: string | number
+  readonly sequence?: number
+  readonly offset?: number
+  readonly sourceCode?: string
+}
+
+export interface ExecutionEventStoreBindingV01 {
+  readonly requestId: string
+  readonly runtimeId: string
+  readonly turnId: string
+  readonly contract: TaskSupervisionContractV01
+}
+
+export interface ExecutionEventStoreLimitsV01 {
+  readonly maxEvents: number
+  readonly maxStoreBytes: number
+  readonly maxReplayEvents: number
+}
+
+export interface ExecutionReplayCursorV01 {
+  readonly sequence: number
+  readonly stateHash: string
+}
+
+export interface ExecutionReplayPageV01 {
+  readonly events: readonly ExecutionEventEnvelopeV01[]
+  readonly cursor: ExecutionReplayCursorV01
+  readonly hasMore: boolean
+}
+
+export interface ExecutionReplayRequestV01 {
+  readonly after?: ExecutionReplayCursorV01
+  readonly limit: number
+}
+
+export interface ExecutionEventStoreV01 {
+  readonly binding: ExecutionEventStoreBindingV01
+  readonly limits: ExecutionEventStoreLimitsV01
+  readonly cursor: ExecutionReplayCursorV01
+  readonly eventCount: number
+  append(event: ExecutionEventEnvelopeV01): Promise<ExecutionEventAcceptanceV01>
+  replay(request: ExecutionReplayRequestV01): Promise<ExecutionReplayPageV01>
+  close(): Promise<void>
+}
+
+export interface CreateFileExecutionEventStoreInputV01 {
+  readonly directory: string
+  readonly binding: ExecutionEventStoreBindingV01
+  readonly limits: ExecutionEventStoreLimitsV01
+}
+
+export interface OpenFileExecutionEventStoreInputV01 {
+  readonly directory: string
+  readonly binding: ExecutionEventStoreBindingV01
 }
 
 export interface CompletionDecisionV01 {

@@ -1,8 +1,8 @@
 # Public Execution Supervisor
 
-## Phase 0 status
+## Phase 1 status
 
-This package currently freezes only the Host-neutral public contracts and their deterministic validators:
+This package provides the Phase 0 Host-neutral public contracts and deterministic validators, plus the bounded Phase 1 durable execution-event boundary:
 
 ```text
 Task Supervision Contract
@@ -12,9 +12,17 @@ Evidence Policy
 Completion Policy and Completion Decision
 Host Capability Contract and truthful AUDIT/ENFORCE negotiation
 Phase 0 performance-baseline report
+Immutable Task Contract and execution identity binding
+Append-only canonical JSONL event records
+Full-envelope idempotency and sequence/hash-chain integrity
+Bounded cursor replay across sequential process handoff
 ```
 
-It intentionally does **not** yet register a Runtime service, persist events, maintain a live Obligation Ledger, evaluate claims, trigger Closure or modify another public package. Those capabilities belong to the later implementation phases in the normative design.
+It intentionally does **not** register a Runtime service, maintain or evaluate an Obligation Ledger, evaluate claims, bridge a Host, trigger Reflection/Knowledge/Closure or modify another public package. Those capabilities belong to later implementation phases in the normative design.
+
+The file store requires a caller-controlled absolute directory and separates create from open. It supports one active writer with sequential process handoff. It detects a stale instance when the durable files change, but does not claim concurrent multi-writer coordination, crash atomicity, power-loss durability or protection from an attacker with write access.
+
+The hash chain detects mutation, deletion or reordering inside the retained history. Under the frozen no-authoritative-cursor design, replacing the whole event log with an earlier complete valid prefix cannot be distinguished from a store that legitimately stopped at that prefix; stronger rollback detection requires a separately trusted external checkpoint. Replay equivalence in this phase means the exact event projection and sequence, not identical wall-clock-derived state hashes across independently created stores.
 
 ## Invariants
 
@@ -27,6 +35,8 @@ Fail-closed schema validation
 ENFORCE is never claimed when the Host cannot intercept and preflight tools
 COMPLETE is impossible without a Closure Receipt reference
 Numeric performance SLOs remain unfrozen in Phase 0
+Store size, event count and replay page size are bounded by validated caller configuration
+Corrupt, truncated, non-canonical or wrongly bound stores fail closed
 ```
 
 ## Commands
@@ -35,7 +45,9 @@ Numeric performance SLOs remain unfrozen in Phase 0
 npm install --ignore-scripts
 npm test
 npm run build
+npm run test:phase1-process
 npm run benchmark -- --output ./baselines/phase0-performance-baseline.json
+npm run benchmark:phase1
 ```
 
-The benchmark publishes p50/p95/p99 measurements for deterministic Task Contract and Execution Event validation. It is a baseline artifact, not a frozen performance threshold.
+The Phase 0 benchmark publishes deterministic contract-validation measurements. The Phase 1 benchmark measures 1,000 durable appends plus paginated replay. Both are measurement artifacts, not frozen performance thresholds.

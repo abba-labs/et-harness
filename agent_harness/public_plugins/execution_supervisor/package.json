@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Host-neutral public execution supervision contracts, validation and Phase 0 performance baselines",
+  "description": "Host-neutral execution supervision contracts with bounded durable event replay",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -20,7 +20,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:phase1-process": "npm run build && node tests/fixtures/phase1-process-runner.mjs",
     "benchmark": "npm run build && node benchmarks/phase0-baseline.mjs",
+    "benchmark:phase1": "npm run build && node benchmarks/phase1-event-store.mjs",
     "prepare": "npm run build"
   },
   "devDependencies": {

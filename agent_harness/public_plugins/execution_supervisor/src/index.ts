@@ -1,4 +1,5 @@
 export * from './baseline.js'
 export * from './contracts.js'
+export * from './event-store.js'
 export * from './hash.js'
 export * from './validation.js'
