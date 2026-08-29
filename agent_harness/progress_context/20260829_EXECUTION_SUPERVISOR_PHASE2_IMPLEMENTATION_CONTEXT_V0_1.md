@@ -164,12 +164,24 @@ policy, including the allowed provider/disposition and any declared exact
 revision/content-hash requirements. A generic statement that a resource was read
 is not proof.
 
+For Phase 2 v0.1, `REQUIRED_RESOURCE` accepts only `FOUND`. `NO_MATCH` and
+`UNAVAILABLE` remain durable facts but cannot satisfy the resource obligation;
+their separate `SOURCE_DISPOSITION` semantics are outside this phase. A matching
+provider ID means only that the receipt matches the Project-contributed allowlist
+at the trusted Event Store input boundary. Phase 2 does not claim cryptographic
+provider authentication, which requires the later Host/Event Bridge boundary.
+
 Write-scope evaluation must compare the mutation's structured resource/path
 identity with the contributed scope policy. It must not trust an Agent assertion
 that a write was allowed. An out-of-scope event creates one deterministic,
 queryable violation record and transitions the applicable `WRITE_SCOPE`
 obligation to `VIOLATED`. Replay and duplicate ingestion must not create duplicate
 violations.
+
+Phase 2 v0.1 accepts at most one `WRITE_SCOPE` obligation so multiple-scope union
+or intersection semantics cannot be guessed. Because the current mutation receipt
+contains only one resource/path identity, `MOVE` and `COPY` fail closed until a
+future reviewed contract can represent both endpoints.
 
 Unsupported obligation kinds remain visible and truthfully unresolved; Phase 2
 must not invent future Phase 4 or Phase 5 semantics to satisfy them.

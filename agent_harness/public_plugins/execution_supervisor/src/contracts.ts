@@ -6,6 +6,8 @@ export const HOST_CAPABILITY_CONTRACT_SCHEMA =
   'agent-harness.host-capabilities.v0.1' as const
 export const PERFORMANCE_BASELINE_REPORT_SCHEMA =
   'agent-harness.execution-supervisor-baseline.v0.1' as const
+export const OBLIGATION_LEDGER_STATUS_SCHEMA =
+  'agent-harness.obligation-ledger-status.v0.1' as const
 
 export const MAX_EXECUTION_EVENT_PAYLOAD_BYTES = 64 * 1024
 export const MAX_TASK_SUPERVISION_CONTRACT_BYTES = 512 * 1024
@@ -226,6 +228,22 @@ export interface ResourceReceiptV01 {
   readonly error?: string
 }
 
+export interface RequiredResourceTargetV01 {
+  readonly resourceId: string
+  readonly revision?: string
+  readonly contentHash?: string
+}
+
+export interface RequiredResourceSatisfactionV01 {
+  readonly acceptedProviderIds: readonly string[]
+  readonly acceptedDispositions: readonly SourceDisposition[]
+  readonly requireContentHash?: boolean
+}
+
+export type ResourceReadEventPayloadV01 = JsonRecord & {
+  readonly receipt: ResourceReceiptV01
+}
+
 export interface MutationReceiptV01 {
   readonly resourceId: string
   readonly path?: string
@@ -238,6 +256,19 @@ export interface MutationReceiptV01 {
     | 'OUTSIDE_SCOPE'
     | 'UNKNOWN'
   readonly executorId: string
+}
+
+export interface WriteScopeTargetV01 {
+  readonly allowedResourceIds: readonly string[]
+  readonly allowedPathPrefixes?: readonly string[]
+}
+
+export interface WriteScopeSatisfactionV01 {
+  readonly requireInScope: true
+}
+
+export type ResourceWriteEventPayloadV01 = JsonRecord & {
+  readonly receipt: MutationReceiptV01
 }
 
 export interface ValidationReceiptV01 {
@@ -336,6 +367,53 @@ export interface CreateFileExecutionEventStoreInputV01 {
 export interface OpenFileExecutionEventStoreInputV01 {
   readonly directory: string
   readonly binding: ExecutionEventStoreBindingV01
+}
+
+export const OBLIGATION_VIOLATION_CODES = [
+  'OUT_OF_SCOPE_WRITE',
+] as const
+export type ObligationViolationCode =
+  typeof OBLIGATION_VIOLATION_CODES[number]
+
+export interface ObligationViolationRecordV01 {
+  readonly id: string
+  readonly code: ObligationViolationCode
+  readonly obligationId: string
+  readonly severity: ObligationSeverity
+  readonly eventId: string
+  readonly sequence: number
+  readonly observedAt: string
+  readonly resourceId: string
+  readonly path?: string
+  readonly action: MutationReceiptV01['action']
+  readonly executorId: string
+}
+
+export interface ObligationLedgerStatusV01 {
+  readonly schema: typeof OBLIGATION_LEDGER_STATUS_SCHEMA
+  readonly binding: ExecutionEventStoreBindingV01
+  readonly contractHash: string
+  readonly cursor: ExecutionReplayCursorV01
+  readonly obligations: readonly ObligationStateRecordV01[]
+  readonly violations: readonly ObligationViolationRecordV01[]
+  readonly pendingObligationIds: readonly string[]
+  readonly blockedObligationIds: readonly string[]
+  readonly satisfiedObligationIds: readonly string[]
+  readonly violatedObligationIds: readonly string[]
+}
+
+export interface ExecutionObligationLedgerV01 {
+  readonly binding: ExecutionEventStoreBindingV01
+  readonly cursor: ExecutionReplayCursorV01
+  ingest(
+    event: ExecutionEventEnvelopeV01,
+  ): Promise<ExecutionEventAcceptanceV01>
+  synchronize(): Promise<void>
+  getStatus(): ObligationLedgerStatusV01
+}
+
+export interface CreateExecutionObligationLedgerInputV01 {
+  readonly eventStore: ExecutionEventStoreV01
 }
 
 export interface CompletionDecisionV01 {
