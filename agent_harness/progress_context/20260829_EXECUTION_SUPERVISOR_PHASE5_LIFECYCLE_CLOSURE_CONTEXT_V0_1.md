@@ -65,6 +65,7 @@ Deliver only:
 content-addressed Supervision Readiness Receipt
 exact contract/task/turn/agent/context/event-cursor/decision binding
 Framework-only lifecycle Closure attachment API
+same-Event-Store durable finalized seal after exact lifecycle attachment
 existing Kernel Closure Receipt binding to the readiness fingerprint
 deterministic lifecycle-obligation projection
 Runtime close admission before Reflection and Closure
@@ -135,7 +136,10 @@ Runtime completeTask verifies the same final binding
 
 Any new accepted execution event after readiness invalidates that readiness
 receipt. A stale Closure binding must be rejected rather than completing the
-newer stream.
+newer stream. After final lifecycle attachment, the existing Phase 1 Event Store
+must persist a finalized seal at the exact final event cursor. A later process
+may replay the store but cannot append another execution event. This seal is
+part of the existing Event Store authority, not a second lifecycle or store.
 
 ## 6. Readiness and Closure binding
 
@@ -147,8 +151,7 @@ request/runtime/project/task/turn/agent/context identity
 event cursor sequence and state hash
 Obligation Ledger status hash
 READY_TO_CLOSE Completion Decision hash
-TASK_END event identity
-created-at or deterministic source timestamp
+TASK_END event identity and its already-persisted timestamp
 ```
 
 The final lifecycle binding must bind at least:
@@ -160,13 +163,27 @@ Kernel reflectionRef and reflection input fingerprint
 explicit NONE/PROJECT/PUBLIC/BOTH Knowledge decision
 Kernel Closure Receipt ref and input fingerprint
 all required module IDs, versions and APPLIED/NO_CHANGE statuses
-final Supervisor COMPLETE decision and closureRef
+final Supervisor completion decision preimage
 ```
 
 This is a content-addressed binding receipt, not a second Turn lifecycle or a
 second Closure store. Replaying the same exact receipt is an idempotent no-op.
 A different receipt for the same readiness state or a receipt against a changed
 cursor fails closed.
+
+The content-address sequence is acyclic and frozen:
+
+```text
+readinessHash
+  -> Kernel closureRef bound to readinessHash
+  -> lifecycleBindingHash over readinessHash + Kernel receipt facts
+     (does not contain its own ref or a decision containing that ref)
+  -> CompletionDecision { status: COMPLETE, closureRef: lifecycleBindingRef }
+  -> durable Event Store finalized seal at the exact lifecycle event cursor
+```
+
+Readiness time is derived from the persisted `TASK_END_REQUEST` timestamp.
+Rehydration must never call `now()` to reconstruct a readiness hash.
 
 ## 7. Lifecycle obligation rules
 
@@ -215,6 +232,8 @@ Expected bounded files:
 ```text
 agent_harness/public_plugins/execution_supervisor/src/contracts.ts
 agent_harness/public_plugins/execution_supervisor/src/lifecycle-closure.ts (new)
+agent_harness/public_plugins/execution_supervisor/src/event-store.ts
+agent_harness/public_plugins/execution_supervisor/src/internal/store-format.ts
 agent_harness/public_plugins/execution_supervisor/src/obligation-ledger.ts
 agent_harness/public_plugins/execution_supervisor/src/validation.ts
 agent_harness/public_plugins/execution_supervisor/src/index.ts
@@ -272,6 +291,7 @@ one unique COMPLETE Kernel Closure Receipt remains authoritative
 one unique Supervisor lifecycle binding remains authoritative
 no duplicate Context, Knowledge or candidate write is produced
 newer event cursor rejects an older readiness/Closure binding
+finalized Event Store reopens read-only and rejects every later append
 ```
 
 Runtime in-memory session state or observation text is not completion evidence.
@@ -360,7 +380,11 @@ obligation-gate reconcile currently sees Agent Reflection obligation text
 default Kernel/Manager state paths can fall back to the user home directory
 ```
 
-Each reproduced risk must be fixed or explicitly preserved as a non-PASS blocker.
+The Event Store risk is in scope for a durable finalized seal. This phase does
+not claim general concurrent multi-writer coordination beyond the existing
+Phase 1 authority, but finalization and append must use the same store mutation
+guard so a finalized store cannot accept a later sequential or competing
+append. Each other reproduced risk must be fixed or explicitly preserved as a non-PASS blocker.
 The implementation may not hide it through a weaker assertion or a broader
 allowlist.
 
