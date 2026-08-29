@@ -1,9 +1,9 @@
 # Execution Supervisor Phase 1 Completion Handoff v0.1
 
-> Status: **LOCAL_MECHANICAL_ACCEPTED / HOSTED_CI_NOT_VERIFIED**  
-> Date: 2026-08-29  
-> Branch: `feat/execution-supervisor-phase1-event-store-replay-v0.1`  
-> Implementation commit: `7e8395e52966a361df34245eea8689dc08c2cf14`  
+> Status: **LOCAL_MECHANICAL_ACCEPTED / HOSTED_CI_NOT_VERIFIED**
+> Date: 2026-08-29
+> Branch: `feat/execution-supervisor-phase1-event-store-replay-v0.1`
+> Implementation commit: `7e8395e52966a361df34245eea8689dc08c2cf14`
 > Normative design: `agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md`
 
 ## 1. Outcome
