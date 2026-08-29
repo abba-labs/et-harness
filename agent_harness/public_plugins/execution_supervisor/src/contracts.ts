@@ -224,6 +224,8 @@ export interface ObligationStateRecordV01 {
   readonly obligationId: string
   readonly state: ObligationState
   readonly updatedAt: string
+  readonly accessCount?: number
+  readonly evidenceRefsTruncated?: boolean
   readonly eventRefs: readonly string[]
   readonly evidenceRefs: readonly string[]
   readonly blockerRefs: readonly string[]

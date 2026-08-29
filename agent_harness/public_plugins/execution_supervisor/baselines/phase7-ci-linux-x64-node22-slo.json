@@ -1,0 +1,59 @@
+{
+  "schema": "agent-harness.execution-supervisor-phase7-slo.v0.1",
+  "profileId": "phase7-linux-x64-node22-initial-cross-machine-guard-v0.1",
+  "frozenAt": "2026-08-29T16:37:53.894Z",
+  "environment": {
+    "nodeVersionPrefix": "v22.",
+    "platform": "linux",
+    "architecture": "x64"
+  },
+  "scenario": {
+    "eventCount": 1000,
+    "replayPageLimit": 127
+  },
+  "limits": {
+    "maxEventIngestP95Micros": 100000,
+    "maxLedgerTransitionP95Micros": 10000,
+    "maxReplayMillis": 1000,
+    "maxPersistedBytesPerEvent": 2048,
+    "maxLedgerProjectionBytes": 2048,
+    "maxContextDeltaBytes": 4096
+  },
+  "measurementEvidence": [
+    {
+      "sha256": "c719f4a59aa5e0a82de15e52525db7d6bffdb84671cc3a14b9c71533ab73f95c",
+      "eventIngestP95Micros": 37829.03,
+      "ledgerTransitionP95Micros": 3243.13,
+      "replayMillis": 145.81,
+      "persistedBytesPerEvent": 1158.42,
+      "ledgerProjectionBytes": 1101,
+      "contextDeltaBytes": 1278
+    },
+    {
+      "sha256": "b47f3d304f5a9aeeb79e1ded422d04893a4cd5f32da1590a823ef38010428e12",
+      "eventIngestP95Micros": 40911.57,
+      "ledgerTransitionP95Micros": 3407,
+      "replayMillis": 137.73,
+      "persistedBytesPerEvent": 1158.42,
+      "ledgerProjectionBytes": 1101,
+      "contextDeltaBytes": 1278
+    },
+    {
+      "sha256": "097fa7ccbe1eee279ca31be21115cdee43683dfe99736440786a9651bca11be2",
+      "eventIngestP95Micros": 36984.2,
+      "ledgerTransitionP95Micros": 3246.6,
+      "replayMillis": 133.48,
+      "persistedBytesPerEvent": 1158.42,
+      "ledgerProjectionBytes": 1101,
+      "contextDeltaBytes": 1278
+    }
+  ],
+  "notes": [
+    "This is an initial cross-machine regression guard reviewed from three local WSL Node 22 linux-x64 runs, not a multi-run hosted-CI calibration.",
+    "Ingest and Ledger limits use rounded headroom above twice the observed maximum; replay uses a conservative one-second ceiling for cold filesystem variance.",
+    "Deterministic size limits use the next practical binary boundary above the observed maximum: 2048, 2048 and 4096 bytes.",
+    "The ingest limit includes one durable append and fsync per event; the Ledger transition limit excludes that I/O.",
+    "Correctness invariants and exact replay remain mandatory even when latency is within limits.",
+    "Runtime reroute, semantic-call and Reflection counters are enforced by the real Runtime integration test, not inferred from this Store/Ledger benchmark."
+  ]
+}

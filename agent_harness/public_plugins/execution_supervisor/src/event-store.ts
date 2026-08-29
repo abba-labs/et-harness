@@ -365,6 +365,7 @@ class FileExecutionEventStore implements ExecutionEventStoreV01 {
   readonly #finalizationPath: string
   readonly #mutationLockPath: string
   readonly #records: StoreRecordV01[]
+  readonly #recordsByEventId: Map<string, StoreRecordV01>
   readonly #eventHashesById: Map<string, string>
   #manifestSnapshot: FileSnapshot
   #eventsSnapshot: FileSnapshot
@@ -393,6 +394,9 @@ class FileExecutionEventStore implements ExecutionEventStoreV01 {
     this.#finalizationPath = input.finalizationPath
     this.#mutationLockPath = input.mutationLockPath
     this.#records = [...input.state.records]
+    this.#recordsByEventId = new Map(
+      this.#records.map(record => [record.event.eventId, record]),
+    )
     this.#eventHashesById = new Map(input.state.eventHashesById)
     this.#cursor = { ...input.state.cursor }
     this.#finalization = input.finalization
@@ -542,7 +546,7 @@ class FileExecutionEventStore implements ExecutionEventStoreV01 {
           sequence: validEvent.sequence,
         }])
       }
-      const prior = this.#records.find(record => record.event.eventId === validEvent.eventId)!
+      const prior = this.#recordsByEventId.get(validEvent.eventId)!
       return {
         eventId: validEvent.eventId,
         sequence: prior.event.sequence,
@@ -630,6 +634,7 @@ class FileExecutionEventStore implements ExecutionEventStoreV01 {
       )
     }
     this.#records.push(record)
+    this.#recordsByEventId.set(validEvent.eventId, record)
     this.#eventHashesById.set(validEvent.eventId, envelopeHash)
     this.#cursor = { sequence: validEvent.sequence, stateHash: record.stateHash }
     return {

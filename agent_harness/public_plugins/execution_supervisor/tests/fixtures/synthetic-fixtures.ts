@@ -101,7 +101,10 @@ export const syntheticEvent = (
   return event
 }
 
-const TEMP_ROOT = resolve(import.meta.dirname, '../../../../../.tmp/phase1-event-store')
+const TEMP_ROOT = resolve(
+  process.env.EXECUTION_SUPERVISOR_TEST_TMP_ROOT
+    ?? resolve(import.meta.dirname, '../../../../../.tmp/phase1-event-store'),
+)
 
 export const createSyntheticTempDirectory = async (
   prefix = 'case-',

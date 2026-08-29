@@ -134,3 +134,40 @@ jobs:
             chmod +x "$script"
             bash "$script"
           done
+
+  execution-supervisor-phase7-efficiency:
+    needs: repository-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test, build and enforce the Phase 7 efficiency SLO
+        shell: bash
+        env:
+          NPM_REGISTRY: https://registry.npmjs.org
+          NPM_INSTALL_TIMEOUT_SECONDS: '900'
+          PHASE7_SOURCE_REVISION: ${{ github.sha }}
+          PHASE7_TMP_ROOT: ${{ runner.temp }}/execution-supervisor-phase7
+          PHASE7_REPORT_PATH: ${{ runner.temp }}/execution-supervisor-phase7-report.json
+          EXECUTION_SUPERVISOR_TEST_TMP_ROOT: ${{ runner.temp }}/execution-supervisor-phase7-tests
+        run: |
+          set -euo pipefail
+          source agent_harness/validation/lib/common_runtime.sh
+          package_dir=agent_harness/public_plugins/execution_supervisor
+          npm_install_if_needed "$package_dir" "$NPM_REGISTRY" "$NPM_INSTALL_TIMEOUT_SECONDS"
+          cd "$package_dir"
+          npm test
+          npm run build
+          npm run benchmark:phase7 -- \
+            --slo baselines/phase7-ci-linux-x64-node22-slo.json \
+            --output "$PHASE7_REPORT_PATH"
+      - name: Upload Phase 7 efficiency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-supervisor-phase7-efficiency-${{ github.sha }}
+          path: ${{ runner.temp }}/execution-supervisor-phase7-report.json
+          if-no-files-found: warn

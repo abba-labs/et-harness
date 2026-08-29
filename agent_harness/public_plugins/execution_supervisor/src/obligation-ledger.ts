@@ -61,16 +61,22 @@ import { validateTaskSupervisionContract } from './validation.js'
 import {
   EXTERNAL_AGENT_REQUEST_MANIFEST_SCHEMA,
   EXTERNAL_AGENT_RESPONSE_MANIFEST_SCHEMA,
+  MAX_EXTERNAL_AGENT_BUNDLE_BYTES,
+  MAX_EXTERNAL_AGENT_BUNDLE_EVENTS,
   validatePersistedExternalAgentSpan,
 } from './external-agent-bridge.js'
 
 const LEDGER_GENESIS_TIMESTAMP = '1970-01-01T00:00:00.000Z'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
+const MAX_LEDGER_STATE_EVIDENCE_REFS = 64
+type LedgerProjectionMode = 'COMPACT' | 'LEGACY_READINESS'
 
 interface MutableObligationStateRecord {
   obligationId: string
   state: ObligationState
   updatedAt: string
+  accessCount?: number
+  evidenceRefsTruncated?: boolean
   eventRefs: string[]
   evidenceRefs: string[]
   blockerRefs: string[]
@@ -133,6 +139,23 @@ const exactRecordKeys = (record: JsonRecord, keys: readonly string[]): boolean =
 
 const uniqueAppend = (values: string[], value: string): void => {
   if (!values.includes(value)) values.push(value)
+}
+
+const boundedUniqueAppend = (
+  values: string[],
+  value: string,
+  maxItems: number,
+): boolean => {
+  if (values.includes(value)) return false
+  const truncated = values.length >= maxItems
+  if (truncated) values.splice(0, values.length - maxItems + 1)
+  values.push(value)
+  return truncated
+}
+
+const replaceWithLatest = (values: string[], value: string): void => {
+  if (values.length === 1 && values[0] === value) return
+  values.splice(0, values.length, value)
 }
 
 const validationIdentityKey = (validationId: string, targetIdentity: string): string =>
@@ -891,11 +914,15 @@ const violationFor = (
 class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   readonly #eventStore: ExecutionEventStoreV01
   readonly #lifecycleAuthority: ExecutionLifecycleAuthorityV01 | undefined
+  readonly #projectionMode: LedgerProjectionMode
+  readonly #ignoreFinalization: boolean
   readonly #binding: ExecutionEventStoreBindingV01
   readonly #contractHash: string
   readonly #definitions: readonly ObligationDefinitionV01[]
   readonly #definitionsById: ReadonlyMap<string, ObligationDefinitionV01>
   readonly #dependentsById: ReadonlyMap<string, readonly string[]>
+  readonly #resourceDefinitionsById = new Map<string, ObligationDefinitionV01[]>()
+  readonly #writeScopeDefinitions: ObligationDefinitionV01[] = []
   readonly #evidencePolicyByObligationId: ReadonlyMap<string, EvidencePolicyV01>
   readonly #states: Map<string, MutableObligationStateRecord>
   readonly #violations: ObligationViolationRecordV01[] = []
@@ -910,9 +937,12 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   readonly #trustedFailureObligationIds = new Set<string>()
   readonly #intrinsicallySatisfiedIds = new Set<string>()
   #openExternalSpan: ExecutionEventEnvelopeV01[] | undefined
+  #openExternalSpanBytes = 0
   #cursor: ExecutionReplayCursorV01 | undefined
   #taskEndEvent: ExecutionEventEnvelopeV01 | undefined
   #appliedLifecycleFinalizationHash: string | undefined
+  #readinessReceipt: SupervisionReadinessReceiptV01 | undefined
+  #readinessCursorStateHash: string | undefined
   #completionDecision: CompletionDecisionV01 = {
     status: 'IN_PROGRESS',
     pendingObligationIds: [],
@@ -924,15 +954,28 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   constructor(
     eventStore: ExecutionEventStoreV01,
     lifecycleAuthority?: ExecutionLifecycleAuthorityV01,
+    projectionMode: LedgerProjectionMode = 'COMPACT',
+    ignoreFinalization = false,
   ) {
     this.#eventStore = eventStore
     this.#lifecycleAuthority = lifecycleAuthority
+    this.#projectionMode = projectionMode
+    this.#ignoreFinalization = ignoreFinalization
     this.#binding = immutableSnapshot(eventStore.binding)
     this.#contractHash = hashCanonicalJson(this.#binding.contract)
     this.#definitions = this.#binding.contract.obligations
     this.#definitionsById = new Map(this.#definitions.map(item => [item.id, item]))
     for (const definition of this.#definitions) {
-      if (definition.kind === 'VALIDATION' || definition.kind === 'RULE_COMPLIANCE') {
+      if (definition.kind === 'REQUIRED_RESOURCE' || definition.kind === 'SOURCE_DISPOSITION') {
+        const target = recordOf(definition.target)
+        if (typeof target?.resourceId === 'string') {
+          const values = this.#resourceDefinitionsById.get(target.resourceId) ?? []
+          values.push(definition)
+          this.#resourceDefinitionsById.set(target.resourceId, values)
+        }
+      } else if (definition.kind === 'WRITE_SCOPE') {
+        this.#writeScopeDefinitions.push(definition)
+      } else if (definition.kind === 'VALIDATION' || definition.kind === 'RULE_COMPLIANCE') {
         const target = recordOf(definition.target) as unknown as ValidationTargetV01
         const key = validationIdentityKey(target.validationId, target.targetIdentity)
         const values = this.#validationDefinitionsByKey.get(key) ?? []
@@ -966,6 +1009,10 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
         obligationId: definition.id,
         state: blockers.length === 0 ? 'PENDING' : 'BLOCKED',
         updatedAt: LEDGER_GENESIS_TIMESTAMP,
+        ...(this.#projectionMode === 'COMPACT'
+          && ['REQUIRED_RESOURCE', 'SOURCE_DISPOSITION'].includes(definition.kind)
+          ? { accessCount: 0, evidenceRefsTruncated: false }
+          : {}),
         eventRefs: [],
         evidenceRefs: [],
         blockerRefs: blockers,
@@ -1001,7 +1048,8 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       this.#cursor = page.cursor
       if (!page.hasMore) break
     }
-    if (this.#eventStore.finalization) {
+    if (this.#projectionMode === 'COMPACT') await this.#refreshReadinessReceipt()
+    if (!this.#ignoreFinalization && this.#eventStore.finalization) {
       await this.#applyDurableLifecycleBinding(this.#eventStore.finalization)
     }
   }
@@ -1014,6 +1062,10 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
         obligationId: state.obligationId,
         state: state.state,
         updatedAt: state.updatedAt,
+        ...(state.accessCount === undefined ? {} : { accessCount: state.accessCount }),
+        ...(state.evidenceRefsTruncated === undefined
+          ? {}
+          : { evidenceRefsTruncated: state.evidenceRefsTruncated }),
         eventRefs: [...state.eventRefs],
         evidenceRefs: [...state.evidenceRefs],
         blockerRefs: [...state.blockerRefs],
@@ -1045,6 +1097,7 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     if (!this.#cursor || !this.#taskEndEvent || this.#completionDecision.status !== 'READY_TO_CLOSE') {
       return undefined
     }
+    if (this.#projectionMode === 'COMPACT') return this.#readinessReceipt
     return createSupervisionReadinessReceipt({
       binding: this.#binding,
       cursor: this.#cursor,
@@ -1053,6 +1106,26 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       taskEndEventId: this.#taskEndEvent.eventId,
       taskEndTimestamp: this.#taskEndEvent.timestamp,
     })
+  }
+
+  async #refreshReadinessReceipt(): Promise<void> {
+    if (!this.#cursor || !this.#taskEndEvent || this.#completionDecision.status !== 'READY_TO_CLOSE') {
+      this.#readinessReceipt = undefined
+      this.#readinessCursorStateHash = undefined
+      return
+    }
+    if (this.#readinessCursorStateHash === this.#cursor.stateHash && this.#readinessReceipt) return
+    const legacy = new ExecutionObligationLedger(
+      this.#eventStore,
+      undefined,
+      'LEGACY_READINESS',
+      true,
+    )
+    await legacy.synchronize()
+    const readiness = legacy.getReadinessReceipt()
+    if (!readiness) throw new Error('Legacy readiness projection did not reach READY_TO_CLOSE')
+    this.#readinessReceipt = readiness
+    this.#readinessCursorStateHash = this.#cursor.stateHash
   }
 
   async attachLifecycleClosure(
@@ -1267,15 +1340,30 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
   }
 
   #applyEvent(event: ExecutionEventEnvelopeV01): void {
-    if (startsDurableExternalSpan(event)) {
+    if (startsDurableExternalSpan(event) && this.#openExternalSpan === undefined) {
       this.#openExternalSpan = [event]
+      this.#openExternalSpanBytes = Buffer.byteLength(canonicalJson(event), 'utf8')
+      if (this.#taskEndEvent !== undefined) {
+        this.#completionDecision = this.#evaluateCompletionDecision()
+      }
       return
     }
     if (this.#openExternalSpan !== undefined) {
       this.#openExternalSpan.push(event)
-      if (event.kind !== 'ASSISTANT_MESSAGE') return
+      this.#openExternalSpanBytes += Buffer.byteLength(canonicalJson(event), 'utf8')
+      if (this.#openExternalSpan.length > MAX_EXTERNAL_AGENT_BUNDLE_EVENTS
+          || this.#openExternalSpanBytes > MAX_EXTERNAL_AGENT_BUNDLE_BYTES) {
+        throw new Error('Persisted external Agent span exceeds the frozen Bridge budget')
+      }
+      if (event.kind !== 'ASSISTANT_MESSAGE') {
+        if (this.#taskEndEvent !== undefined) {
+          this.#completionDecision = this.#evaluateCompletionDecision()
+        }
+        return
+      }
       const span = this.#openExternalSpan
       this.#openExternalSpan = undefined
+      this.#openExternalSpanBytes = 0
       const admission = durableExternalSpanAdmission(span, this.#binding)
       if (admission) {
         for (const admitted of admission.events) {
@@ -1315,8 +1403,7 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     event: ExecutionEventEnvelopeV01,
     receipt: ResourceReceiptV01,
   ): void {
-    for (const definition of this.#definitions) {
-      if (!['REQUIRED_RESOURCE', 'SOURCE_DISPOSITION'].includes(definition.kind)) continue
+    for (const definition of this.#resourceDefinitionsById.get(receipt.resourceId) ?? []) {
       const state = this.#states.get(definition.id)!
       const matches = definition.kind === 'REQUIRED_RESOURCE'
         ? readMatches(definition, receipt)
@@ -1325,10 +1412,18 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       this.#intrinsicallySatisfiedIds.add(definition.id)
       state.state = state.blockerRefs.length === 0 ? 'SATISFIED' : 'BLOCKED'
       state.updatedAt = event.timestamp
-      uniqueAppend(state.eventRefs, event.eventId)
-      state.evidenceRefs.push(...receipt.claimRefs.filter(
-        reference => !state.evidenceRefs.includes(reference),
-      ))
+      if (this.#projectionMode === 'LEGACY_READINESS') {
+        uniqueAppend(state.eventRefs, event.eventId)
+        for (const reference of receipt.claimRefs) uniqueAppend(state.evidenceRefs, reference)
+      } else {
+        state.accessCount = (state.accessCount ?? 0) + 1
+        replaceWithLatest(state.eventRefs, event.eventId)
+        for (const reference of receipt.claimRefs) {
+          if (boundedUniqueAppend(state.evidenceRefs, reference, MAX_LEDGER_STATE_EVIDENCE_REFS)) {
+            state.evidenceRefsTruncated = true
+          }
+        }
+      }
       state.reason = definition.kind === 'REQUIRED_RESOURCE'
         ? 'Matching accepted resource receipt'
         : 'Matching accepted source disposition receipt'
@@ -1340,8 +1435,8 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     event: ExecutionEventEnvelopeV01,
     receipt: MutationReceiptV01,
   ): void {
-    for (const definition of this.#definitions) {
-      if (definition.kind !== 'WRITE_SCOPE' || writeAllowed(definition, receipt)) continue
+    for (const definition of this.#writeScopeDefinitions) {
+      if (writeAllowed(definition, receipt)) continue
       const violation = violationFor(definition, event, receipt)
       if (this.#violationIds.has(violation.id)) continue
       this.#violationIds.add(violation.id)
@@ -1744,14 +1839,16 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       this.#trustedFailureObligationIds.has(id))
     const status = trustedFailure
       ? 'FAILED'
-      : pending.length > 0 || violated.length > 0
+      : pending.length > 0 || violated.length > 0 || this.#openExternalSpan !== undefined
         ? 'BLOCKED'
         : 'READY_TO_CLOSE'
     return immutableSnapshot({
       status,
       pendingObligationIds: pending,
       violatedObligationIds: violated,
-      blockerRefs,
+      blockerRefs: this.#openExternalSpan === undefined
+        ? blockerRefs
+        : [...blockerRefs, 'external-agent-span://incomplete'],
       evidenceRefs,
     })
   }
@@ -1834,19 +1931,45 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
         const dependencyState = this.#states.get(dependency)!.state
         return !['SATISFIED', 'NOT_APPLICABLE', 'WAIVED'].includes(dependencyState)
       })
-      state.blockerRefs = blockers
-      state.updatedAt = event.timestamp
-      uniqueAppend(state.eventRefs, event.eventId)
+      if (this.#projectionMode === 'LEGACY_READINESS') {
+        state.blockerRefs = blockers
+        state.updatedAt = event.timestamp
+        uniqueAppend(state.eventRefs, event.eventId)
+        if (state.state !== 'VIOLATED' && blockers.length > 0) {
+          state.state = 'BLOCKED'
+          state.reason = 'One or more declared dependencies are unresolved'
+        } else if (state.state === 'BLOCKED') {
+          state.state = this.#intrinsicallySatisfiedIds.has(definition.id)
+            ? 'SATISFIED'
+            : 'PENDING'
+          state.reason = 'All declared dependencies are satisfied'
+        }
+        queue.push(...(this.#dependentsById.get(obligationId) ?? []))
+        continue
+      }
+      let nextState = state.state
+      let nextReason = state.reason
       if (state.state !== 'VIOLATED' && blockers.length > 0) {
-        state.state = 'BLOCKED'
-        state.reason = 'One or more declared dependencies are unresolved'
+        nextState = 'BLOCKED'
+        nextReason = 'One or more declared dependencies are unresolved'
       } else if (state.state === 'BLOCKED') {
-        state.state = this.#intrinsicallySatisfiedIds.has(definition.id)
+        nextState = this.#intrinsicallySatisfiedIds.has(definition.id)
           ? 'SATISFIED'
           : 'PENDING'
-        state.reason = 'All declared dependencies are satisfied'
+        nextReason = 'All declared dependencies are satisfied'
       }
-      queue.push(...(this.#dependentsById.get(obligationId) ?? []))
+      const changed = nextState !== state.state
+        || nextReason !== state.reason
+        || canonicalJson(blockers) !== canonicalJson(state.blockerRefs)
+      if (changed) {
+        state.state = nextState
+        if (nextReason === undefined) delete state.reason
+        else state.reason = nextReason
+        state.blockerRefs = blockers
+        state.updatedAt = event.timestamp
+        replaceWithLatest(state.eventRefs, event.eventId)
+        queue.push(...(this.#dependentsById.get(obligationId) ?? []))
+      }
     }
   }
 }

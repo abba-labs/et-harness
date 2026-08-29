@@ -53,6 +53,8 @@ interface RuntimeTask {
   applicableGateIds: string[]
   currentPacketIds: string[]
   lastContextStateVersion?: number
+  contextEnvelopeCacheKey?: string
+  contextEnvelope?: AutoGovernanceContextEnvelope
 }
 
 interface PendingReviewRecord extends Omit<AutoGovernancePendingReview, 'decision'> {
@@ -78,6 +80,16 @@ const recordOf = (value: unknown): Record<string, any> | undefined =>
 
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
+
+const deepFreeze = <T>(value: T): T => {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value
+  Object.freeze(value)
+  for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child)
+  return value
+}
+
+const immutableEnvelope = (value: AutoGovernanceContextEnvelope): AutoGovernanceContextEnvelope =>
+  deepFreeze(structuredClone(value))
 
 const contributionReceipts = (
   contributions: readonly NormalizedProjectContextContribution[],
@@ -249,12 +261,24 @@ export class AutoGovernanceEngineService extends Service {
   buildContextEnvelope(actorIdInput: string): AutoGovernanceContextEnvelope {
     const actorId = requireIdentifier('actorId', actorIdInput)
     const runtime = this.requireRuntime(actorId)
-    const frame = this.runtimeContext.contextManager.buildFrame(runtime.projectId, runtime.taskId)
-    runtime.lastContextStateVersion = frame.stateVersion
+    const contextSnapshot = this.runtimeContext.contextManager.getTask(
+      runtime.projectId,
+      runtime.taskId,
+    )
     const pendingReviews = runtime.currentPacketIds
       .map(packetId => this.pendingReviews.get(packetId))
       .filter((item): item is PendingReviewRecord => item !== undefined && item.epoch === runtime.codeChangeEpoch)
-    return {
+    const cacheKey = JSON.stringify([
+      contextSnapshot.stateVersion,
+      runtime.codeChangeEpoch,
+      pendingReviews.map(item => [item.packetId, item.decision]),
+    ])
+    if (runtime.contextEnvelopeCacheKey === cacheKey && runtime.contextEnvelope) {
+      return runtime.contextEnvelope
+    }
+    const frame = this.runtimeContext.contextManager.buildFrame(runtime.projectId, runtime.taskId)
+    runtime.lastContextStateVersion = frame.stateVersion
+    const envelope = immutableEnvelope({
       actorId,
       projectId: runtime.projectId,
       taskId: runtime.taskId,
@@ -265,7 +289,10 @@ export class AutoGovernanceEngineService extends Service {
       applicableGateIds: [...runtime.applicableGateIds],
       pendingReviews,
       text: this.renderGovernanceContext(runtime, frame.pack.text, pendingReviews),
-    }
+    })
+    runtime.contextEnvelopeCacheKey = cacheKey
+    runtime.contextEnvelope = envelope
+    return envelope
   }
 
   observeToolResult(input: AutoGovernanceToolObservation): AutoGovernanceContextEnvelope {

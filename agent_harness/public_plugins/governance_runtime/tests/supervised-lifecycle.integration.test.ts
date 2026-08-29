@@ -38,7 +38,10 @@ const MODULE_IDS = [
   'context-closure', 'knowledge-closure', 'experience-memory-closure', 'architecture-closure',
   'rules-closure', 'evidence-state-closure', 'working-set-closure', 'obligation-gate-reconcile',
 ] as const
-const tempRoot = resolve(import.meta.dirname, '../../../../../.tmp/phase5-runtime-integration')
+const tempRoot = resolve(
+  process.env.GOVERNANCE_RUNTIME_TEST_TMP_ROOT
+    ?? resolve(import.meta.dirname, '../../../../../.tmp/phase5-runtime-integration'),
+)
 const cleanup: string[] = []
 const tick = () => new Promise(resolveTick => setTimeout(resolveTick, 0))
 
@@ -257,6 +260,75 @@ const executionEvent = (
 const none = () => ({ scopeDecision: 'NONE' as const, rationale: 'No durable change.', candidates: [] })
 
 describe('Governance Runtime real supervised lifecycle', () => {
+  it('keeps ordinary reads off real reroute, Context rebuild and semantic Reflection paths', async () => {
+    const caseRoot = resolve(tempRoot, randomUUID())
+    cleanup.push(caseRoot)
+    const projectRoot = resolve(caseRoot, 'project')
+    process.env.AGENT_HARNESS_STATE_ROOT = resolve(caseRoot, 'state')
+    await mkdir(projectRoot, { recursive: true })
+    await writeProject(projectRoot)
+    const harness = await startRuntime(projectRoot)
+    let semanticCalls = 0
+    await harness.runtime.openTurn({
+      runtimeId: 'runtime-efficiency', actorId: 'agent-efficiency', taskId: 'task-efficiency',
+      turnId: 'turn-efficiency', taskText: 'Read the same governed resource repeatedly.',
+      projectId: 'project-1', workspacePath: projectRoot,
+      semanticExecutor: {
+        executorId: 'semantic-efficiency',
+        reflect() {
+          semanticCalls += 1
+          return none()
+        },
+      },
+    })
+    const contextManager = harness.ctx.get('contextManager')!
+    const autoGovernance = harness.ctx.get('autoGovernanceEngine') as any
+    const buildFrame = vi.spyOn(contextManager, 'buildFrame')
+    const routeTask = vi.spyOn(autoGovernance, 'routeTask')
+
+    let firstContext: unknown
+    let firstContextBytes = 0
+    let lastContext: unknown
+    let lastContextBytes = 0
+    // openTurn records the task input, so leave the final slot for the mutation
+    // below; the Runtime intentionally fails closed after 64 observations.
+    for (let index = 0; index < 62; index += 1) {
+      const result = harness.runtime.observeWork({
+        runtimeId: 'runtime-efficiency', turnId: 'turn-efficiency',
+        kind: 'tool-result', name: 'read_file',
+        arguments: { path: 'source/read-only.ts' },
+        summary: `bounded read ${index}`,
+        resourceRefs: ['resource://source/read-only.ts'],
+      })
+      const contextBytes = Buffer.byteLength(JSON.stringify(result.context), 'utf8')
+      if (index === 0) {
+        firstContext = result.context
+        firstContextBytes = contextBytes
+      }
+      lastContext = result.context
+      lastContextBytes = contextBytes
+    }
+    expect(lastContext).toBe(firstContext)
+    expect(lastContextBytes).toBe(firstContextBytes)
+    console.info(`[phase7-efficiency] contextEnvelopeBytes=${lastContextBytes} stateVersions=1`)
+    expect(routeTask).not.toHaveBeenCalled()
+    expect(buildFrame).not.toHaveBeenCalled()
+    expect(semanticCalls).toBe(0)
+    expect(harness.kernel.getReflection('task-efficiency', 'turn-efficiency')).toBeUndefined()
+
+    harness.runtime.observeWork({
+      runtimeId: 'runtime-efficiency', turnId: 'turn-efficiency',
+      kind: 'tool-result', name: 'write_file',
+      arguments: { path: 'source/changed.ts' },
+      summary: 'bounded mutation',
+      resourceRefs: ['resource://source/changed.ts'],
+    })
+    expect(routeTask).toHaveBeenCalledTimes(1)
+    expect(buildFrame).toHaveBeenCalledTimes(1)
+    expect(semanticCalls).toBe(0)
+    await harness.dispose()
+  })
+
   it('runs truthful AUDIT and ENFORCE profiles through the real Runtime, Ledger and Gateway', async () => {
     const caseRoot = resolve(tempRoot, randomUUID())
     cleanup.push(caseRoot)

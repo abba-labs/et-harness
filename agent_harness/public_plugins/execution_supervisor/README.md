@@ -1,8 +1,8 @@
 # Public Execution Supervisor
 
-## Phase 6 status
+## Phase 7 status
 
-This package provides the Phase 0 Host-neutral public contracts and deterministic validators, the bounded Phase 1 durable execution-event boundary, the Phase 2 deterministic Obligation Ledger projection, the merged Phase 3+4 trusted external execution evaluation boundary, Phase 5 lifecycle receipts, and the Phase 6 deterministic mutation preflight used by the public Runtime:
+This package provides the Phase 0 Host-neutral public contracts and deterministic validators, the bounded Phase 1 durable execution-event boundary, the Phase 2 deterministic Obligation Ledger projection, the merged Phase 3+4 trusted external execution evaluation boundary, Phase 5 lifecycle receipts, the Phase 6 deterministic mutation preflight used by the public Runtime, and the Phase 7 bounded/incremental projection plus regression benchmark:
 
 ```text
 Task Supervision Contract
@@ -30,11 +30,21 @@ Trusted Evidence Policy matching with deterministic stale checks
 SOURCE_DISPOSITION / OUTPUT / VALIDATION / CLAIM_EVIDENCE / RULE_COMPLIANCE evaluation
 Unsupported-PASS and trusted-validation-failure violation records
 IN_PROGRESS / BLOCKED / FAILED / READY_TO_CLOSE pre-Closure decisions
+Bounded repeated-resource projections with deterministic access counts
+Incremental Ledger synchronization and indexed duplicate/resource lookup
+Node 22 linux-x64 Phase 7 Store/Ledger SLO profile and CI report
 ```
 
 It intentionally does **not** register a Governance Runtime lifecycle service, call a model or network service, cryptographically authenticate a Host/provider/model or own a Host tool boundary. Runtime lifecycle and mechanical interception remain in the public Governance Runtime and its single Governed Tool Gateway.
 
 The data-only Bridge validates the complete bundle before the first append and calls only the Ledger ingestion API. The Ledger consumes only events accepted by the Phase 1 Event Store. Assistant or user prose cannot set obligation state, rejected events cannot mutate the Ledger and duplicate events are idempotent. Expected and actual provider/model identity must match, but a data-only manifest does not cryptographically prove who emitted it. Mechanical ENFORCE is claimed only when the Runtime binds a capable Host profile and the existing Tool Gateway owns preflight.
+
+Phase 7 compacts only the public status projection used for bounded progress and
+Context deltas. Lifecycle readiness keeps the published Phase 6 authority
+identity: at the close path, the Ledger replays the bounded canonical Event
+Store into the legacy authority projection once and caches that receipt for the
+exact cursor. Compact counters and truncated representative refs therefore do
+not silently invalidate an already persisted Reflection/Closure binding.
 
 Evidence evaluation requires contributed provider, Context, revision, target, result and deterministic timestamp policy matches. `NOT_EXECUTED`, `NOT_VERIFIED` and `HISTORICAL` remain honest visible facts but cannot satisfy required PASS. A structured PASS claim without matching prior trusted Evidence creates a deterministic violation. Free-form text is never parsed into trusted Evidence.
 
@@ -60,6 +70,7 @@ ENFORCE is never claimed when the Host cannot intercept and preflight tools
 Preflight and post-execution evaluation use the same frozen Ledger contract
 COMPLETE is impossible without a Closure Receipt reference
 Numeric performance SLOs remain unfrozen in Phase 0
+Phase 7 SLOs apply only to the exact Node 22 linux-x64 1,000-event profile
 Store size, event count and replay page size are bounded by validated caller configuration
 Corrupt, truncated, non-canonical or wrongly bound stores fail closed
 Required resources are satisfied only by exact, allowlisted `FOUND` receipts
@@ -71,6 +82,7 @@ Evidence freshness uses accepted event time, never wall-clock time
 Provider ID and kind use conjunctive policy matching when both are declared
 Agent claims never become Evidence by self-certification
 Pre-Closure evaluation never returns COMPLETE
+Compact status metadata does not redefine the Phase 6 lifecycle readiness hash
 ```
 
 ## Commands
@@ -82,6 +94,7 @@ npm run build
 npm run test:phase1-process
 npm run benchmark -- --output ./baselines/phase0-performance-baseline.json
 npm run benchmark:phase1
+PHASE7_TMP_ROOT=/absolute/temp/root npm run benchmark:phase7 -- --slo baselines/phase7-ci-linux-x64-node22-slo.json --output /absolute/report.json
 ```
 
-The Phase 0 benchmark publishes deterministic contract-validation measurements. The Phase 1 benchmark measures 1,000 durable appends plus paginated replay. Both are measurement artifacts, not frozen performance thresholds.
+The Phase 0 benchmark publishes deterministic contract-validation measurements. The Phase 1 benchmark measures 1,000 durable appends plus paginated replay. Those two remain measurement artifacts, not frozen performance thresholds. The separate Phase 7 benchmark enforces the exact environment/scenario SLO while preserving canonical events and measuring compact projection size.
