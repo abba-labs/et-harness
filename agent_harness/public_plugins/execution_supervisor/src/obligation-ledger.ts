@@ -1034,7 +1034,10 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     event: ExecutionEventEnvelopeV01,
   ): Promise<ExecutionEventAcceptanceV01> {
     const acceptance = await this.#eventStore.append(event)
-    if (acceptance.status === 'ACCEPTED') await this.synchronize()
+    if (acceptance.status === 'ACCEPTED') {
+      await this.synchronize()
+      if (event.kind === 'TASK_END_REQUEST') await this.#refreshReadinessReceipt()
+    }
     return acceptance
   }
 
@@ -1048,10 +1051,16 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
       this.#cursor = page.cursor
       if (!page.hasMore) break
     }
-    if (this.#projectionMode === 'COMPACT') await this.#refreshReadinessReceipt()
     if (!this.#ignoreFinalization && this.#eventStore.finalization) {
+      if (this.#projectionMode === 'COMPACT') await this.#refreshReadinessReceipt()
       await this.#applyDurableLifecycleBinding(this.#eventStore.finalization)
     }
+  }
+
+  async prepareReadiness(): Promise<SupervisionReadinessReceiptV01 | undefined> {
+    await this.synchronize()
+    if (this.#projectionMode === 'COMPACT') await this.#refreshReadinessReceipt()
+    return this.getReadinessReceipt()
   }
 
   getStatus(): ObligationLedgerStatusV01 {
@@ -1097,7 +1106,11 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     if (!this.#cursor || !this.#taskEndEvent || this.#completionDecision.status !== 'READY_TO_CLOSE') {
       return undefined
     }
-    if (this.#projectionMode === 'COMPACT') return this.#readinessReceipt
+    if (this.#projectionMode === 'COMPACT') {
+      return this.#readinessCursorStateHash === this.#cursor.stateHash
+        ? this.#readinessReceipt
+        : undefined
+    }
     return createSupervisionReadinessReceipt({
       binding: this.#binding,
       cursor: this.#cursor,
@@ -1134,7 +1147,7 @@ class ExecutionObligationLedger implements ExecutionObligationLedgerV01 {
     if (!this.#lifecycleAuthority) {
       throw new Error('Framework lifecycle authority is required to attach Closure')
     }
-    await this.synchronize()
+    await this.prepareReadiness()
     const existingFinalization = this.#eventStore.finalization
     if (existingFinalization) {
       if (existingFinalization.finalizationHash !== hashCanonicalJson(binding)
@@ -1990,5 +2003,9 @@ export const createExecutionObligationLedger = async (
     input.lifecycleAuthority,
   )
   await ledger.synchronize()
+  if (!input.eventStore.finalization
+      && ledger.getCompletionDecision().status === 'READY_TO_CLOSE') {
+    await ledger.prepareReadiness()
+  }
   return ledger
 }

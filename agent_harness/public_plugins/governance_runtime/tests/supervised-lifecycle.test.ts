@@ -159,6 +159,7 @@ describe('Governance Runtime supervised lifecycle', () => {
       getCompletionDecision: vi.fn(() => ({
         status: 'READY_TO_CLOSE', pendingObligationIds: [], violatedObligationIds: [], blockerRefs: [], evidenceRefs: [],
       })),
+      prepareReadiness: vi.fn(async () => receipt),
       getReadinessReceipt: vi.fn(() => receipt),
       attachLifecycleClosure: vi.fn(() => {
         if (eventStore.cursor.sequence !== receipt.cursor.sequence) {
@@ -191,6 +192,8 @@ describe('Governance Runtime supervised lifecycle', () => {
 
     await expect(service.closeTurn({ runtimeId: 'runtime-1', turnId: 'turn-1' }))
       .rejects.toThrow('latest durable cursor changed')
+    expect(ledger.prepareReadiness).toHaveBeenCalledTimes(1)
+    expect(ledger.attachLifecycleClosure).toHaveBeenCalledTimes(1)
     expect(runtimeSession.activeTurnId).toBe('turn-1')
     expect(service.completeTask('runtime-1')).toMatchObject({ status: 'BLOCKED' })
   })

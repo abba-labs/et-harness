@@ -676,12 +676,12 @@ export class GovernanceRuntimeService extends Service {
           || session.supervision.ledger.binding.turnId !== turnId) {
         throw new Error('Supervised Closure identity does not match the active Runtime Turn')
       }
-      await session.supervision.ledger.synchronize()
+      const preparedReadiness = await session.supervision.ledger.prepareReadiness()
       const decision = session.supervision.ledger.getCompletionDecision()
       if (decision.status === 'COMPLETE') {
         readiness = undefined
       } else {
-        readiness = session.supervision.ledger.getReadinessReceipt()
+        readiness = preparedReadiness
         if (!readiness || decision.status !== 'READY_TO_CLOSE') {
           throw new Error(`Execution Supervisor blocks Turn Closure: ${decision.status}`)
         }

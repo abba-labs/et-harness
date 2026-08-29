@@ -586,6 +586,7 @@ export interface ExecutionObligationLedgerV01 {
     event: ExecutionEventEnvelopeV01,
   ): Promise<ExecutionEventAcceptanceV01>
   synchronize(): Promise<void>
+  prepareReadiness(): Promise<SupervisionReadinessReceiptV01 | undefined>
   getStatus(): ObligationLedgerStatusV01
   getCompletionDecision(): CompletionDecisionV01
   getReadinessReceipt(): SupervisionReadinessReceiptV01 | undefined

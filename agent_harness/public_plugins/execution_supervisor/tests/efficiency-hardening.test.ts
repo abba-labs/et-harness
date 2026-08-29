@@ -6,6 +6,7 @@ import {
   createSupervisionReadinessReceipt,
   hashCanonicalJson,
   openFileExecutionEventStore,
+  type ExecutionEventStoreV01,
   type ResourceReceiptV01,
 } from '../src/index.js'
 import {
@@ -165,7 +166,7 @@ describe('Phase 7 bounded incremental Ledger projection', () => {
     const store = await createFileExecutionEventStore({
       directory,
       binding,
-      limits: { maxEvents: 3, maxStoreBytes: 1024 * 1024, maxReplayEvents: 3 },
+      limits: { maxEvents: 4, maxStoreBytes: 1024 * 1024, maxReplayEvents: 4 },
     })
     for (let sequence = 1; sequence <= 2; sequence += 1) {
       await store.append(syntheticEvent(sequence, {
@@ -178,7 +179,22 @@ describe('Phase 7 bounded incremental Ledger projection', () => {
       payload: { requestedBy: 'agent-synthetic' },
     })
     await store.append(taskEnd)
-    const ledger = await createExecutionObligationLedger({ eventStore: store })
+    let replayCalls = 0
+    const countingStore: ExecutionEventStoreV01 = {
+      get binding() { return store.binding },
+      get limits() { return store.limits },
+      get cursor() { return store.cursor },
+      get eventCount() { return store.eventCount },
+      get finalization() { return store.finalization },
+      append: event => store.append(event),
+      replay: request => {
+        replayCalls += 1
+        return store.replay(request)
+      },
+      finalize: finalization => store.finalize(finalization),
+      close: () => store.close(),
+    }
+    const ledger = await createExecutionObligationLedger({ eventStore: countingStore })
     const compactStatus = ledger.getStatus()
     const decision = ledger.getCompletionDecision()
     expect(decision.status).toBe('READY_TO_CLOSE')
@@ -211,6 +227,24 @@ describe('Phase 7 bounded incremental Ledger projection', () => {
     })
     expect(ledger.getReadinessReceipt()).toEqual(expected)
     expect(expected.ledgerStatusHash).not.toBe(hashCanonicalJson(compactStatus))
+
+    replayCalls = 0
+    await ledger.ingest(syntheticEvent(4, {
+      kind: 'TOOL_RESULT',
+      payload: { operation: 'post-task-end-status-observation' },
+    }))
+    expect(replayCalls).toBe(1)
+    expect(ledger.getCompletionDecision().status).toBe('READY_TO_CLOSE')
+    expect(ledger.getReadinessReceipt()).toBeUndefined()
+
+    replayCalls = 0
+    const refreshed = await ledger.prepareReadiness()
+    expect(replayCalls).toBe(2)
+    expect(refreshed?.cursor.sequence).toBe(4)
+
+    replayCalls = 0
+    expect(await ledger.prepareReadiness()).toEqual(refreshed)
+    expect(replayCalls).toBe(1)
     await store.close()
   })
 
