@@ -1,0 +1,47 @@
+{
+  "schema": "agent-harness.execution-supervisor-baseline.v0.1",
+  "baselineId": "phase0-059370706221",
+  "capturedAt": "2026-08-29T01:33:19.803Z",
+  "sourceRevision": "059370706221a5af48686e3e93390c400b9795fa",
+  "environment": {
+    "nodeVersion": "v22.23.2",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "thresholdsFrozen": false,
+  "invariants": {
+    "noSemanticCallOnHotPath": true,
+    "noFullRerouteForOrdinaryRead": true,
+    "maxUnifiedReflectionsPerTurn": 1,
+    "maxEventPayloadBytes": 65536,
+    "maxTaskContractBytes": 524288
+  },
+  "samples": [
+    {
+      "scenario": "task-contract-validation",
+      "warmupIterations": 2000,
+      "sampleIterations": 10000,
+      "inputBytes": 1765,
+      "p50Micros": 42.1,
+      "p95Micros": 93.2,
+      "p99Micros": 177.501,
+      "meanMicros": 50.124,
+      "maxMicros": 750
+    },
+    {
+      "scenario": "execution-event-validation",
+      "warmupIterations": 2000,
+      "sampleIterations": 10000,
+      "inputBytes": 745,
+      "p50Micros": 10.4,
+      "p95Micros": 18.9,
+      "p99Micros": 41.709,
+      "meanMicros": 13.049,
+      "maxMicros": 624.8
+    }
+  ],
+  "notes": [
+    "Phase 0 records measurements only; numeric SLOs remain unfrozen.",
+    "The measured hot path is deterministic contract validation and performs no semantic call, route refresh or Context mutation."
+  ]
+}
