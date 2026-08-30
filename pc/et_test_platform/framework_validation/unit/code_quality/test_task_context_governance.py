@@ -55,6 +55,34 @@ def test_current_task_navigation_governance_is_valid() -> None:
     assert compiler.validate_navigation() == []
 
 
+# 测试Feature：ATP Project Plugin有独立、项目自有且不侵入公共Harness的任务路由。
+#
+# 测试方法：编译Project Plugin集成上下文并检查唯一写入范围与公共层保护范围。
+#
+# 通过条件：只允许修改ATP Project Plugin，公共Runtime、Host Adapter和业务实现保持只读。
+def test_harness_project_plugin_route_is_project_owned_and_isolated() -> None:
+
+    compiler = _load_compiler()
+
+    context = compiler.build_task_context(
+        task_id="ATP-HARNESS-PROJECT-001",
+        intent="接入ATP Project Plugin和Task Context Contributor",
+        modules=["harness-project-plugin"],
+        changes=["integration"],
+        lanes=["tooling"],
+    )
+
+    assert context["write_scope"]["allowed"] == [
+        "agent_harness/projects/automated_testing_platform/**",
+    ]
+    assert "agent_harness/public_plugins/**" in context["write_scope"]["protected"]
+    assert "agent_harness/host_adapters/**" in context["write_scope"]["protected"]
+    assert "pc/et_test_platform/test_cases/**" in context["write_scope"]["protected"]
+    assert context["task"]["matched_changes_by_module"] == {
+        "harness-project-plugin": ["integration"],
+    }
+
+
 # 测试Feature：一个IP Case和Driver任务只加载相关代码入口和规则Owner。
 #
 # 测试方法：为AES公共Case与Driver编译上下文，并检查架构、阅读入口和写入范围。

@@ -30,6 +30,10 @@ modules:
     profile: project-governance/modules/governance.yaml
     aliases: [governance, rule, checker, documentation]
 
+  - id: harness-project-plugin
+    profile: project-governance/modules/harness-project-plugin.yaml
+    aliases: [harness-project, project-plugin, context-contributor]
+
 dependencies:
   - from: ip-package
     to: pc-platform
@@ -43,3 +47,6 @@ dependencies:
   - from: companion-platform
     to: pc-platform
     relation: exposed-through-common-interfaces
+  - from: harness-project-plugin
+    to: governance
+    relation: contributes-project-owned-task-context
