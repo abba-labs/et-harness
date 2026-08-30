@@ -1,0 +1,16 @@
+version: 1
+patches:
+  - id: agent-harness-project-automated-testing-platform
+    lifecycle: ready
+    entry: ./dist/src/index.js
+    description: Automated Testing Platform Project Plugin with project-owned context contribution
+    dependencies:
+      - '@agent-harness/governance-core'
+      - '@agent-harness/auto-governance-engine'
+    permissions:
+      - id: project.assets.read
+        description: Read ATP Project Contract resources, project map, active Rule Owners and source registry
+      - id: project.context.compile
+        description: Invoke the existing project-owned deterministic Task Context compiler
+      - id: project.context.persist
+        description: Persist the ignored current Task Context and scope baseline under project-governance/runtime
