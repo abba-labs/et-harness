@@ -15,8 +15,8 @@ files:
 
 # Project Knowledge Index
 
-> AUTO GENERATED — DO NOT EDIT.
-> Source of Truth: `TAXONOMY.yaml` + `NNN_*.md`
+> AUTO GENERATED — DO NOT EDIT.  
+> Source of Truth: `TAXONOMY.yaml` + `NNN_*.md`  
 > Rebuild: `knowledge reindex <knowledge-root>`
 
 ## Library Summary
