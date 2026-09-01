@@ -133,9 +133,10 @@ def test_mcp_host_adapter_route_is_thin_and_isolated() -> None:
         lanes=["tooling"],
     )
 
-    assert context["write_scope"]["allowed"] == [
+    assert set(context["write_scope"]["allowed"]) == {
         "agent_harness/mcp_gateway_fast_track/**",
-    ]
+        "agent_harness/progress_context/20260901_PURE_MCP_FAST_TRACK_*.json",
+    }
     assert "agent_harness/public_plugins/**" in context["write_scope"]["protected"]
     assert "agent_harness/governance_core/**" in context["write_scope"]["protected"]
     assert "agent_harness/projects/**" in context["write_scope"]["protected"]
