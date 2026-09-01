@@ -34,6 +34,10 @@ modules:
     profile: project-governance/modules/harness-project-plugin.yaml
     aliases: [harness-project, project-plugin, context-contributor]
 
+  - id: public-framework
+    profile: project-governance/modules/public-framework.yaml
+    aliases: [public-harness, governance-runtime, execution-supervisor, gate-manager]
+
 dependencies:
   - from: ip-package
     to: pc-platform
@@ -50,3 +54,9 @@ dependencies:
   - from: harness-project-plugin
     to: governance
     relation: contributes-project-owned-task-context
+  - from: harness-host-adapter
+    to: public-framework
+    relation: invokes-host-neutral-runtime
+  - from: harness-project-plugin
+    to: public-framework
+    relation: contributes-project-owned-capabilities

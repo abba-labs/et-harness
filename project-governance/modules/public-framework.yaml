@@ -1,0 +1,84 @@
+schema: et.module-profile.v1
+id: public-framework
+summary: Host中立的公共Gate、Auto Governance、Execution Supervisor与Governance Runtime；不拥有Host Adapter或项目业务语义。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - Host Adapter -> Governance Runtime -> Auto Governance / Execution Supervisor -> Public Managers
+  - Project Gate Capability -> Governed Provider Execution -> Trusted Evidence -> Closure
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 仓库最高执行契约和冻结公共架构边界
+      required: true
+    - path: agent_harness/design/10_GATE_MANAGER_V0_1.md
+      reason: Gate Manager的稳定Tool Capability与执行边界
+      required: true
+    - path: agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md
+      reason: Host、Project Plugin与公共Runtime的责任边界
+      required: true
+    - path: agent_harness/design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md
+      reason: Execution Supervisor、Evidence、恢复与Closure基线
+      required: true
+  rules:
+    - task_context_navigation
+  protected_scopes:
+    - agent_harness/host_adapters/**
+    - agent_harness/deployments/**
+    - agent_harness/projects/**
+    - plugins/**
+    - pc/et_test_platform/test_cases/**
+    - pc/et_test_platform/drivers/**
+    - firmware/services/**
+    - firmware/wrap/**
+
+changes:
+  gate-stabilization:
+    read:
+      - path: agent_harness/governance_core
+        reason: Capability与Provider公共契约和Catalog
+        required: true
+      - path: agent_harness/public_plugins/gate_manager
+        reason: Gate Step契约、解析、计划与Evidence检查
+        required: true
+      - path: agent_harness/public_plugins/auto_governance_engine
+        reason: Provider readiness、Review与build/test preflight
+        required: true
+      - path: agent_harness/public_plugins/execution_supervisor
+        reason: 可信执行事件、Receipt与Evidence Producer绑定
+        required: true
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - agent_harness/governance_core/**
+      - agent_harness/public_plugins/gate_manager/**
+      - agent_harness/public_plugins/auto_governance_engine/**
+      - agent_harness/public_plugins/execution_supervisor/**
+    validation:
+      - npm test --prefix agent_harness/public_plugins/gate_manager
+      - npm test --prefix agent_harness/public_plugins/auto_governance_engine
+      - npm test --prefix agent_harness/public_plugins/execution_supervisor
+
+  runtime-recovery:
+    read:
+      - path: agent_harness/public_plugins/governance_runtime
+        reason: Turn生命周期、Observation、rehydration与Closure入口
+        required: true
+      - path: agent_harness/public_plugins/auto_governance_engine
+        reason: 跨进程恢复时必须重建的任务与Review状态
+        required: true
+      - path: agent_harness/public_plugins/execution_supervisor
+        reason: 持久Event Store、Ledger replay与Runtime绑定
+        required: true
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - agent_harness/public_plugins/governance_runtime/**
+      - agent_harness/public_plugins/auto_governance_engine/**
+      - agent_harness/public_plugins/execution_supervisor/**
+    validation:
+      - npm test --prefix agent_harness/public_plugins/governance_runtime -- supervised-lifecycle.integration.test.ts
+      - npm test --prefix agent_harness/public_plugins/auto_governance_engine
+      - npm test --prefix agent_harness/public_plugins/execution_supervisor

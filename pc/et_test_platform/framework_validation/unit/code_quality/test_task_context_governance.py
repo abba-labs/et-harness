@@ -83,6 +83,39 @@ def test_harness_project_plugin_route_is_project_owned_and_isolated() -> None:
     }
 
 
+# 测试Feature：公共Framework稳定化有独立路由且不能修改Host Adapter或Project Plugin。
+#
+# 测试方法：同时编译Gate稳定化和Runtime恢复上下文，检查公共写入范围与Host/Project保护范围。
+#
+# 通过条件：只授权目标公共包，Codex、DSH、部署、插件包和ATP项目实现保持只读。
+def test_public_framework_stabilization_route_is_host_and_project_neutral() -> None:
+
+    compiler = _load_compiler()
+
+    context = compiler.build_task_context(
+        task_id="PUBLIC-FRAMEWORK-STABILIZATION-001",
+        intent="修复Gate Provider readiness、Evidence Producer和跨进程Turn恢复",
+        modules=["public-framework"],
+        changes=["gate-stabilization", "runtime-recovery"],
+        lanes=["tooling"],
+    )
+
+    assert set(context["write_scope"]["allowed"]) == {
+        "agent_harness/governance_core/**",
+        "agent_harness/public_plugins/gate_manager/**",
+        "agent_harness/public_plugins/auto_governance_engine/**",
+        "agent_harness/public_plugins/execution_supervisor/**",
+        "agent_harness/public_plugins/governance_runtime/**",
+    }
+    assert "agent_harness/host_adapters/**" in context["write_scope"]["protected"]
+    assert "agent_harness/deployments/**" in context["write_scope"]["protected"]
+    assert "agent_harness/projects/**" in context["write_scope"]["protected"]
+    assert "plugins/**" in context["write_scope"]["protected"]
+    assert context["task"]["matched_changes_by_module"] == {
+        "public-framework": ["gate-stabilization", "runtime-recovery"],
+    }
+
+
 # 测试Feature：一个IP Case和Driver任务只加载相关代码入口和规则Owner。
 #
 # 测试方法：为AES公共Case与Driver编译上下文，并检查架构、阅读入口和写入范围。
