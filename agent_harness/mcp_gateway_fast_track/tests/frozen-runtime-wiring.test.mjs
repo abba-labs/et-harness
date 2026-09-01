@@ -78,7 +78,7 @@ test('real frozen Runtime keeps explicit WRITE_SCOPE preflight truthful under AU
     })
 
     assert.equal(status.supervision.hostProfile.negotiation.effectiveLevel, 'AUDIT')
-    assert.equal(status.supervision.hostProfile.negotiation.claimsMechanicalInterception, false)
+    assert.equal(status.supervision.hostProfile.claimsMechanicalInterception, false)
     assert.deepEqual(allowed, { status: 'ALLOWED', allowed: true })
     assert.equal(forbidden.status, 'BLOCKED')
     assert.equal(forbidden.allowed, false)
