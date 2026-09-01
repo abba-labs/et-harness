@@ -17,6 +17,7 @@ import { AgentGovernanceClosureAdaptersService } from '@agent-harness/agent-gove
 import { AutoGovernanceEngineService } from '@agent-harness/auto-governance-engine'
 import {
   GovernanceRuntimeService,
+  ScopeSafeGovernanceRuntimeService,
   compileGovernanceProjectSupervisionContractV01,
   createGovernanceHostRuntimePortV01,
   type GovernanceHostRuntimePortV01,
@@ -198,7 +199,7 @@ class PureMcpRuntimeOwner {
     await addServices([
       'governanceCatalog', 'agentGovernanceKernel', 'agentGovernanceClosureAdapters',
       'autoGovernanceEngine', 'knowledgeManager', 'knowledgeValidationPolicy',
-    ], [GovernanceRuntimeService])
+    ], [ScopeSafeGovernanceRuntimeService])
 
     for (let attempt = 0; attempt < 40 && !this.context.get('governanceRuntime'); attempt += 1) {
       await tick()
