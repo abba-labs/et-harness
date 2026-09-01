@@ -96,6 +96,7 @@ Service、Wrap和Capability任务会失败关闭。
 | 公共Gate、Provider和Evidence Producer稳定化 | `public-framework/gate-stabilization` | 无 |
 | 公共Runtime跨进程恢复 | `public-framework/runtime-recovery` | 无 |
 | Codex等Host的轻量MCP协议适配 | `harness-host-adapter/mcp-gateway` | 无 |
+| 已批准Harness测试活动的有限证据归档 | `harness-host-adapter/test-campaign-evidence` | 无 |
 
 一次任务跨模块时可以重复传入`--module`和`--change`。每个显式选择的模块都必须实际匹配至少一个change；
 零匹配模块会失败关闭，不能借其他模块的合法匹配扩大读取或写入范围。

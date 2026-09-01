@@ -27,6 +27,18 @@ always:
     - plugins/**
 
 changes:
+  test-campaign-evidence:
+    read:
+      - path: agent_harness/test_campaigns
+        reason: 已批准测试活动的任务书与有限证据目录
+        required: true
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - agent_harness/test_campaigns/**/evidence/**
+    validation:
+      - python tools/governance/compile_task_context.py validate
+
   mcp-gateway:
     read:
       - path: agent_harness/public_plugins/governance_runtime
