@@ -4,7 +4,7 @@
 
 - Required baseline: `bfda688c7609bb730cee8bf22956b3a8afc29355`.
 - Thin wrapper checkpoint: `8a5e2289c4603814341d786472e97b4c1bfda28b`.
-- Final evidence SHA: populated after final commit.
+- Final evidence SHA: the Git commit containing this report; the authoritative value is reported in the Round 3 handoff.
 
 ## 2. Test enablement changes
 
@@ -12,6 +12,7 @@
 - Corrected the reproduced Gateway summary mapping from absent top-level decision to `supervision.decision`.
 - Added focused regression coverage; 18/18 Gateway tests passed.
 - Runtime, Framework, Project Plugin, old Codex Plugin, Hooks, Marketplace and schemas were not changed.
+- The externally owned live Gateway process predated the wrapper checkpoint, so Desktop did not activate the three new wrappers in this run. Independent Runtime-port subtests continued where safe; they are not represented as live MCP-wrapper PASS evidence.
 
 ## 3. Real task
 
@@ -29,7 +30,7 @@ See `MODULE_TRIGGER_MATRIX.md`. Routing, Task Context, rule routing, knowledge c
 - Protected path preflight: FAIL_CRITICAL, returned allowed; forbidden mutation was not executed.
 - Premature closure: PASS, Runtime blocked `IN_PROGRESS`.
 - Unsupported knowledge promotion: PASS, no candidate was promoted.
-- Follow-up without manual injection: not yet established because first Closure failed.
+- Follow-up without manual injection: PASS as a negative control. The follow-up was submitted without a previous-task summary and failed naturally with `CONTEXT_CONTRIBUTOR_UNAVAILABLE`; no result was manufactured.
 
 ## 6. Produced documents
 
@@ -44,7 +45,7 @@ Runtime mechanically returned `consultMode=OPTIONAL` and `captureMode=NONE` with
 
 ## 8. Context persistence / rehydration
 
-No post-Closure context revision exists. Rehydration of completed eTimer work is therefore `EXPECTED_BUT_NOT_TRIGGERED`, not PASS.
+No post-Closure context revision exists. A clean-worktree follow-up without manual summary injection returned `CONTEXT_CONTRIBUTOR_UNAVAILABLE` / `Runtime returned no Project Context contribution`. Rehydration is `TRIGGERED_FAIL`, not PASS.
 
 ## 9. Closure / obligations
 
@@ -57,6 +58,8 @@ Premature closure was correctly blocked. After real reads, writes and passing va
 3. `CONTEXT_PERSISTENCE_GAP`: downstream consequence of missing valid Closure.
 4. `CLOSURE_GAP`: downstream consequence of all obligations remaining PENDING.
 5. `PROJECT_CONTEXT_GAP`: the Charter-mandated campaign evidence directory is outside the eTimer task's compiled write scope; final scope-check correctly reports those evidence files while accepting both requested product documents.
+6. `REHYDRATION_GAP`: a follow-up task using normal project routing received no Project Context contribution; this may be the downstream effect of missing Closure or a separate contributor-routing limitation.
+7. `LIVE_ADAPTER_ACTIVATION_GAP`: focused wrapper tests passed, but the externally owned Gateway was not restarted during the campaign and its Desktop-visible tool list remained the pre-Round-3 three-tool set.
 
 ## 11. Architecture-owner action
 
@@ -70,3 +73,12 @@ Premature closure was correctly blocked. After real reads, writes and passing va
 `ROUND3_CLOSED_LOOP_FAIL`
 
 Reason: one mandatory negative control failed critically and valid Runtime Closure was not reached.
+
+## 13. Final bounded verification
+
+- Focused Gateway tests: 18 PASS, 0 FAIL.
+- Product-document validators: PASS as recorded in `08_validation.md`.
+- `git diff --check`: PASS.
+- Changed-path review: only the minimum Gateway/test files, frozen Task Context, requested eTimer outputs, and Round 3 evidence are present relative to the required baseline.
+- Secret/log pollution scan: PASS; no credential signatures or generated log files are present in the Round 3 changes.
+- Final worktree cleanliness and pushed-head equality are verified after the containing commit and reported in the handoff.

@@ -6,3 +6,5 @@
 - Focused Gateway suite: 18 tests PASS, 0 FAIL, duration about 1.0 s.
 
 The process was the externally started Round 1 Gateway. No Codex Plugin reinstall or cache mutation occurred.
+
+The live PID predated the Round 3 wrapper checkpoint and its Desktop-visible `tools/list` still exposed only `harness_health`, `harness_begin`, and `harness_status`. The new thin wrappers passed direct tests, but were not activated in the externally owned Gateway process during this run. Runtime-port calls used for the remaining independent subtests are identified as such and are not claimed as live MCP-wrapper PASS evidence.

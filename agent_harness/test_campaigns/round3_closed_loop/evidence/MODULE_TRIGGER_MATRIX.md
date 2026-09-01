@@ -3,6 +3,7 @@
 | Module | Result | Enforcement | Evidence |
 |---|---|---|---|
 | Gateway health | TRIGGERED_PASS | MECHANICAL | `01_gateway_health.md` |
+| Thin MCP wrapper live activation | EXPECTED_BUT_NOT_TRIGGERED | MECHANICAL | `01_gateway_health.md` |
 | Project routing | TRIGGERED_PASS | MECHANICAL | `02_begin_and_routing.json` |
 | Invalid workspace rejection | TRIGGERED_PASS | MECHANICAL | `02_begin_and_routing.json` |
 | Task Context compilation | TRIGGERED_PASS | MECHANICAL | `03_context_contract.json`, `08_validation.md` |
@@ -21,7 +22,7 @@
 | Obligation ledger | TRIGGERED_FAIL | MECHANICAL | `12_final_closure.md` |
 | Reflection | EXPECTED_BUT_NOT_TRIGGERED | MECHANICAL | `12_final_closure.md` |
 | Closure | EXPECTED_BUT_NOT_TRIGGERED | MECHANICAL | `12_final_closure.md` |
-| Next-task rehydration | EXPECTED_BUT_NOT_TRIGGERED | WORKFLOW_ENFORCED | `13_rehydration.md` |
+| Next-task rehydration | TRIGGERED_FAIL | WORKFLOW_ENFORCED | `13_rehydration.md` |
 
 ## Mandatory negative controls
 
@@ -31,4 +32,4 @@
 | Protected/out-of-scope preflight rejects without mutation | FAIL_CRITICAL (allowed, no mutation performed) | `06_preflight_negative.md` |
 | Premature completion blocked | PASS | `09_premature_complete.md` |
 | Unsupported knowledge not promoted | PASS | `10_knowledge_capture.md` |
-| Follow-up has no manual previous-task injection | PENDING upstream Closure gap | `13_rehydration.md` |
+| Follow-up has no manual previous-task injection | PASS (follow-up failed naturally; no summary injected) | `13_rehydration.md` |
