@@ -4,7 +4,7 @@ import '@agent-harness/agent-governance-kernel'
 import '@agent-harness/agent-governance-closure-adapters'
 import '@agent-harness/auto-governance-engine'
 import '@agent-harness/knowledge-manager'
-import GovernanceRuntimeService from './service.js'
+import ScopeSafeGovernanceRuntimeService from './scope-safe-service.js'
 
 export * from './contracts.js'
 export * from './turn-observation-store.js'
@@ -13,6 +13,7 @@ export * from './tool-gateway.js'
 export * from './host-runtime-port.js'
 export * from './baseline-supervision-compiler.js'
 export * from './service.js'
+export * from './scope-safe-service.js'
 
 export const name = 'agent-harness-governance-runtime'
 export const inject = [
@@ -85,7 +86,7 @@ export function apply(ctx: Context): void {
           ownsClosureTrigger: true,
         },
       })
-      serviceFiber = ctx.plugin(GovernanceRuntimeService) as DisposableFiber
+      serviceFiber = ctx.plugin(ScopeSafeGovernanceRuntimeService) as DisposableFiber
     } catch (error) {
       disposeProvider?.()
       if (serviceFiber) void serviceFiber.dispose()
