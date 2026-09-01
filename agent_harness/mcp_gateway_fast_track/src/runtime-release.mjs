@@ -106,6 +106,13 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
     async ingest(snapshot, input) {
       return (await portFor(snapshot.workspacePath)).ingestExecutionEvent(input)
     },
+    async ingestTrustedValidationSpan(snapshot, input) {
+      const module = await runtimeModule()
+      if (typeof module.ingestTrustedValidationSpan !== 'function') {
+        throw new Error('Frozen Runtime artifact does not expose trusted validation span ingress')
+      }
+      return module.ingestTrustedValidationSpan({ cwd: snapshot.workspacePath, ...input })
+    },
     async close() {
       if (loaded) await (await loaded).close()
     },
