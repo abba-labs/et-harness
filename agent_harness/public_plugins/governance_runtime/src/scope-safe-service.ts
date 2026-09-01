@@ -16,19 +16,24 @@ export class ScopeSafeGovernanceRuntimeService extends GovernanceRuntimeService 
   override preflightAction(
     input: GovernanceActionPreflightInput,
   ): GovernanceActionPreflightResult {
-    if (input.effect?.kind === 'MUTATION') {
-      const contract = this.getStatus(input.runtimeId)?.supervision?.ledger.binding.contract
-      if (contract) {
-        const scope = evaluateMutationPreflight(contract, input.effect.intent)
-        if (!scope.allowed) {
-          return {
-            allowed: false,
-            reason: scope.reason ?? 'Mutation is outside the governed WRITE_SCOPE.',
-          }
-        }
+    // Preserve the canonical Runtime identity/Turn/policy checks first. Under
+    // ENFORCE this already performs the scope check and also verifies the Host
+    // interception/event-identity contract.
+    const base = super.preflightAction(input)
+    if (!base.allowed || input.effect?.kind !== 'MUTATION') return base
+
+    // AUDIT cannot claim universal Host interception, but an explicit preflight
+    // still has a frozen Task Contract and therefore must answer scope truthfully.
+    const contract = this.getStatus(input.runtimeId)?.supervision?.ledger.binding.contract
+    if (!contract) return base
+    const scope = evaluateMutationPreflight(contract, input.effect.intent)
+    if (!scope.allowed) {
+      return {
+        allowed: false,
+        reason: scope.reason ?? 'Mutation is outside the governed WRITE_SCOPE.',
       }
     }
-    return super.preflightAction(input)
+    return base
   }
 }
 
