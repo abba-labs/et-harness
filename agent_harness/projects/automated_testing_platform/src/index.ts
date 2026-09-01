@@ -9,8 +9,8 @@ import {
   ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
   ATP_CONTEXT_CONTRIBUTOR_SERVICE,
   ATP_PROJECT_ID,
-  AtpContextContributorService,
 } from './context-contributor.js'
+import AtpCheckpointContextContributorService from './checkpoint-context-contributor.js'
 import {
   ATP_CONTEXT_GATE_CAPABILITY,
   ATP_CONTEXT_GATE_PROVIDER_ID,
@@ -20,6 +20,7 @@ import {
   ATP_SOFTWARE_GATE_PROVIDER_ID,
 } from './gate-evidence-provider.js'
 export * from './context-contributor.js'
+export * from './checkpoint-context-contributor.js'
 export * from './contracts.js'
 export * from './gate-evidence-provider.js'
 export * from './root-discovery.js'
@@ -77,7 +78,7 @@ export function apply(ctx: Context): void {
     let serviceFiber: DisposableFiber | undefined
 
     try {
-      serviceFiber = ctx.plugin(AtpContextContributorService) as DisposableFiber
+      serviceFiber = ctx.plugin(AtpCheckpointContextContributorService) as DisposableFiber
       disposeProviders.push(ctx.governanceCatalog.registerProvider({
         providerId: ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
         pluginId: governanceManifest.pluginId,
