@@ -120,7 +120,21 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
       return (await portForSnapshot(snapshot)).preflightAction(input)
     },
     async closeTurn(snapshot, input) {
-      return (await portForSnapshot(snapshot)).closeTurn(input)
+      const port = await portForSnapshot(snapshot)
+      const taskEnd = await port.ingestExecutionEvent({
+        runtimeId: snapshot.runtimeId,
+        turnId: snapshot.turnId,
+        eventId: `mcp-task-end-${createHash('sha256')
+          .update(`${snapshot.runtimeId}\0${snapshot.turnId}`)
+          .digest('hex')
+          .slice(0, 32)}`,
+        kind: 'TASK_END_REQUEST',
+        payload: { requestedBy: 'pure-mcp-gateway' },
+      })
+      if (taskEnd.acceptance.status === 'REJECTED') {
+        throw new Error(`Runtime rejected Gateway Task End request: ${taskEnd.acceptance.reasons.join('; ')}`)
+      }
+      return port.closeTurn(input)
     },
     async ingest(snapshot, input) {
       return (await portForSnapshot(snapshot)).ingestExecutionEvent(input)

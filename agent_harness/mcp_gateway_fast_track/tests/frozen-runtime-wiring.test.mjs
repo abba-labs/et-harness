@@ -57,6 +57,17 @@ const runtimeAccessFor = (runtimeModule, workspaceRoot) => {
     },
     closeTurn: async (snapshot, input) => {
       await ensure(snapshot)
+      const taskEnd = await (await port).ingestExecutionEvent({
+        runtimeId: snapshot.runtimeId,
+        turnId: snapshot.turnId,
+        eventId: `mcp-task-end-${createHash('sha256')
+          .update(`${snapshot.runtimeId}\0${snapshot.turnId}`)
+          .digest('hex')
+          .slice(0, 32)}`,
+        kind: 'TASK_END_REQUEST',
+        payload: { requestedBy: 'pure-mcp-gateway' },
+      })
+      assert.notEqual(taskEnd.acceptance.status, 'REJECTED')
       return (await port).closeTurn(input)
     },
     ingest: async (snapshot, input) => {
@@ -290,6 +301,39 @@ test('real frozen Runtime preserves scope safety and admits only Runtime-owned v
       eventCountBeforeRecovery,
       'rehydration and status queries must not append duplicate execution events',
     )
+
+    const noDurableChange = {
+      scopeDecision: 'NONE',
+      rationale: 'Read-only recovery verification produced no durable knowledge change.',
+      candidates: [],
+    }
+    const completed = await recoveredController.complete({
+      taskId: begun.taskId,
+      semanticReflection: {
+        contractVersion: '0.1',
+        taskId: begun.taskId,
+        turnId: begun.turnId,
+        context: {
+          progress: 'Gateway restart recovery verified',
+          decisions: [],
+          confirmed: [],
+          assumptions: [],
+          openIssues: [],
+          next: [],
+          touchedRefs: [],
+        },
+        knowledge: noDurableChange,
+        experience: noDurableChange,
+        architecture: noDurableChange,
+        rules: noDurableChange,
+        evidence: noDurableChange,
+        workingSet: { keep: [], add: [], remove: [] },
+        obligations: { opened: [], resolved: [], unchanged: [] },
+      },
+    })
+    assert.equal(completed.status, 'COMPLETE')
+    const completedStatus = await recoveredAccess.getStatus(begun)
+    assert.equal(completedStatus.supervision.decision.status, 'COMPLETE')
   } finally {
     if (recoveredAccess) await recoveredAccess.close()
     else if (!runtimeClosed) await runtimeAccess.close()
