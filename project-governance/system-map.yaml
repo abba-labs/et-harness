@@ -38,6 +38,10 @@ modules:
     profile: project-governance/modules/public-framework.yaml
     aliases: [public-harness, governance-runtime, execution-supervisor, gate-manager]
 
+  - id: harness-host-adapter
+    profile: project-governance/modules/harness-host-adapter.yaml
+    aliases: [host-adapter, mcp-gateway]
+
 dependencies:
   - from: ip-package
     to: pc-platform

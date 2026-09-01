@@ -1,0 +1,43 @@
+schema: et.module-profile.v1
+id: harness-host-adapter
+summary: Host专属的轻量协议适配入口；只翻译Host调用，不拥有公共Runtime或项目业务语义。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - Codex MCP Client -> Thin MCP Gateway -> Governance Runtime Port
+  - Governance Runtime -> Project Plugin -> Project Task Context
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 仓库最高执行契约和冻结公共架构边界
+      required: true
+    - path: agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md
+      reason: Host Adapter只翻译Host事件且不得拥有Runtime语义
+      required: true
+  rules:
+    - task_context_navigation
+  protected_scopes:
+    - agent_harness/public_plugins/**
+    - agent_harness/governance_core/**
+    - agent_harness/projects/**
+    - agent_harness/host_adapters/**
+    - agent_harness/deployments/**
+    - plugins/**
+
+changes:
+  mcp-gateway:
+    read:
+      - path: agent_harness/public_plugins/governance_runtime
+        reason: 后续阶段只通过现有Host-neutral Runtime Port接入
+        required: true
+      - path: agent_harness/mcp_gateway_fast_track
+        reason: 纯MCP快速通道的唯一Host适配实现目录
+        required: false
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - agent_harness/mcp_gateway_fast_track/**
+    validation:
+      - npm test --prefix agent_harness/mcp_gateway_fast_track

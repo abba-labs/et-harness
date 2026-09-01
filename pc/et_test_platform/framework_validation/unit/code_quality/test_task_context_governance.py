@@ -116,6 +116,35 @@ def test_public_framework_stabilization_route_is_host_and_project_neutral() -> N
     }
 
 
+# 测试Feature：MCP Host Adapter只有独立、轻量且不侵入公共Runtime或项目插件的任务路由。
+#
+# 测试方法：编译MCP Gateway上下文并检查唯一写入范围和公共层、项目层保护范围。
+#
+# 通过条件：只允许修改快速通道Gateway，既有Runtime、治理核心、项目插件和旧Adapter保持只读。
+def test_mcp_host_adapter_route_is_thin_and_isolated() -> None:
+
+    compiler = _load_compiler()
+
+    context = compiler.build_task_context(
+        task_id="PURE-MCP-GATEWAY-001",
+        intent="通过纯MCP Gateway连接Codex与既有Governance Runtime Port",
+        modules=["harness-host-adapter"],
+        changes=["mcp-gateway"],
+        lanes=["tooling"],
+    )
+
+    assert context["write_scope"]["allowed"] == [
+        "agent_harness/mcp_gateway_fast_track/**",
+    ]
+    assert "agent_harness/public_plugins/**" in context["write_scope"]["protected"]
+    assert "agent_harness/governance_core/**" in context["write_scope"]["protected"]
+    assert "agent_harness/projects/**" in context["write_scope"]["protected"]
+    assert "agent_harness/host_adapters/**" in context["write_scope"]["protected"]
+    assert context["task"]["matched_changes_by_module"] == {
+        "harness-host-adapter": ["mcp-gateway"],
+    }
+
+
 # 测试Feature：一个IP Case和Driver任务只加载相关代码入口和规则Owner。
 #
 # 测试方法：为AES公共Case与Driver编译上下文，并检查架构、阅读入口和写入范围。
