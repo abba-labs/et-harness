@@ -1,0 +1,10 @@
+{
+  "test": "T7_T9_PREMATURE_AND_FINAL_CLOSURE",
+  "result": "NOT_EXECUTED",
+  "prematureCompletion": "NOT_EXECUTED",
+  "reflection": "BLOCKED_BY_UPSTREAM",
+  "closure": "BLOCKED_BY_UPSTREAM",
+  "contextUpdate": "BLOCKED_BY_UPSTREAM",
+  "reason": "No fresh task was opened against an activated repaired Runtime bundle.",
+  "architectureReviewRequired": true
+}

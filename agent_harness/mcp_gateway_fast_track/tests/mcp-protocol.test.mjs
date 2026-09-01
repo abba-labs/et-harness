@@ -81,6 +81,8 @@ test('T4 tools/list exposes the Round 2 tools plus thin Round 3 Runtime wrappers
         'harness_observe',
         'harness_preflight',
         'harness_complete',
+        'harness_read_required',
+        'harness_checkpoint',
       ],
     )
   })

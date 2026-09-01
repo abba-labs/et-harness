@@ -28,7 +28,7 @@ import {
 } from './trusted-checkpoint.mjs'
 
 export const MCP_INSTRUCTIONS =
-  'For every non-trivial task in a configured workspace, call harness_begin before project analysis or modification. Read frozen required mustRead filesystem resources through harness_read_required when eligible. Follow ruleOwners and writeScope, submit semantic work facts through harness_observe, and call harness_preflight before planned mutations. Call harness_checkpoint after meaningful work to let ET Harness run only frozen validations and emit trusted execution evidence. Query harness_status before claiming completion. Call harness_complete; the model must not self-declare PASS or COMPLETE. Do not expose internal Runtime, Ledger, auth, or raw Closure data.'
+  'For governed work, call harness_begin first. Read required filesystem mustRead only with harness_read_required. Follow ruleOwners/writeScope; use harness_observe for facts and harness_preflight before mutations. Use harness_checkpoint to run frozen validations and emit trusted evidence. Query harness_status, then harness_complete with truthful reflection. Never submit PASS, receipts, provider IDs, commands, raw events, or self-declare COMPLETE. Do not expose Runtime, Ledger, auth, or raw Closure data.'
 
 const CONFIG_URL = new URL('../config/gateway.local.json', import.meta.url)
 

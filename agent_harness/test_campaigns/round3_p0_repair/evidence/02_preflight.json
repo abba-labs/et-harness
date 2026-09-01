@@ -1,0 +1,14 @@
+{
+  "test": "T5_WRITE_SCOPE_PROTECTED_PREFLIGHT",
+  "result": "NOT_EXECUTED",
+  "expected": {
+    "allowedProbe": true,
+    "protectedProbe": false,
+    "effectiveCapability": "AUDIT",
+    "claimsMechanicalInterception": false
+  },
+  "actual": "Blocked before task creation because the repaired Runtime bundle could not be refreshed through a committed Pure MCP deployment path.",
+  "forbiddenFileCreated": false,
+  "firstFailingBoundary": "T3_RUNTIME_DEPLOYMENT_ARTIFACT_REFRESH",
+  "architectureReviewRequired": true
+}

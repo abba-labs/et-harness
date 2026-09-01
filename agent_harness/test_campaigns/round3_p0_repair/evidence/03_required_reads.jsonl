@@ -1,0 +1,1 @@
+{"test":"T6_REQUIRED_READ_TRUSTED_EVIDENCE","result":"NOT_EXECUTED","reason":"Blocked by T3 Runtime deployment artifact refresh failure; no fresh governed task was created and no trusted event was fabricated.","architectureReviewRequired":true}

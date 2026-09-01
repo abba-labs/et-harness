@@ -1,0 +1,7 @@
+{
+  "test": "T8_TRUSTED_CHECKPOINT",
+  "result": "NOT_EXECUTED",
+  "actual": "No live repaired Runtime was available. No caller-supplied command, PASS state, provider, receipt, obligation result, or execution event was submitted.",
+  "firstFailingBoundary": "T3_RUNTIME_DEPLOYMENT_ARTIFACT_REFRESH",
+  "architectureReviewRequired": true
+}
