@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { z } from 'zod'
 
 import {
   createGatewayProcessHealth,
@@ -15,6 +16,12 @@ import {
   GATEWAY_VERSION,
 } from './tools/health.mjs'
 import { assertExternalGatewayLauncher } from '../scripts/launcher-policy.mjs'
+import {
+  createBridgeRuntimeAccess,
+  createFileSnapshotStore,
+  createGovernanceController,
+  governanceToolError,
+} from './governance.mjs'
 
 export const MCP_INSTRUCTIONS =
   'For every non-trivial task in a configured workspace, call harness_begin before project analysis or modification. Follow the returned mustRead, ruleOwners, writeScope, validation, and knownConflicts. Submit material source facts and conflicts through harness_observe. Query harness_status before claiming completion. Call harness_complete; the model must not self-declare PASS or COMPLETE. Do not expose internal Runtime, Ledger, auth, or raw Closure data.'
@@ -65,7 +72,13 @@ const readBoundedJson = async (request, response, maxRequestBytes) => {
   }
 }
 
-const createProtocolServer = () => {
+const toolResult = (value, isError = false) => ({
+  ...(isError ? { isError: true } : {}),
+  content: [{ type: 'text', text: JSON.stringify(value) }],
+  structuredContent: value,
+})
+
+const createProtocolServer = (governance) => {
   const server = new McpServer(
     {
       name: 'et-harness-mcp-fast-track',
@@ -90,10 +103,56 @@ const createProtocolServer = () => {
       },
     },
     async () => {
-      const result = createHealthResult()
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        structuredContent: result,
+      return toolResult(createHealthResult(governance.health()))
+    },
+  )
+
+  server.registerTool(
+    'harness_begin',
+    {
+      title: 'Begin an ET Harness governed task',
+      description:
+        'Resolve workspacePath to a configured project, open one existing Runtime Turn, invoke the existing Project Context Contributor, and return bounded structured Task Context.',
+      inputSchema: {
+        workspacePath: z.string().min(1).max(1024),
+        intent: z.string().min(1).max(8000),
+        requestedTaskId: z.string().min(1).max(160).optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      try {
+        return toolResult(await governance.begin(input))
+      } catch (error) {
+        return toolResult(governanceToolError(error), true)
+      }
+    },
+  )
+
+  server.registerTool(
+    'harness_status',
+    {
+      title: 'Read ET Harness governed task status',
+      description:
+        'Return a bounded status summary for a task previously opened with harness_begin. Does not expose raw Runtime or Ledger state.',
+      inputSchema: { taskId: z.string().min(1).max(160) },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      try {
+        return toolResult(await governance.status(input))
+      } catch (error) {
+        return toolResult(governanceToolError(error), true)
       }
     },
   )
@@ -117,12 +176,29 @@ const normalizeOptions = async (overrides) => {
   if (!Number.isInteger(options.maxRequestBytes) || options.maxRequestBytes < 1024) {
     throw new Error('Gateway request limit must be a bounded positive integer')
   }
+  for (const field of ['runtimeBridgeClientPath', 'runtimeDeploymentConfigPath', 'taskSnapshotRoot']) {
+    if (typeof options[field] !== 'string' || !isAbsolute(options[field])) {
+      throw new Error(`${field} must be an absolute path`)
+    }
+  }
+  if (!Array.isArray(options.projects) || options.projects.some((item) => typeof item !== 'string')) {
+    throw new Error('projects must be an array of project ids')
+  }
 
   return Object.freeze(options)
 }
 
 export const createGatewayServer = async (overrides = {}) => {
-  const options = await normalizeOptions(overrides)
+  const { governanceController, ...optionOverrides } = overrides
+  const options = await normalizeOptions(optionOverrides)
+  const governance = governanceController ?? createGovernanceController({
+    runtimeAccess: createBridgeRuntimeAccess({
+      bridgeClientPath: options.runtimeBridgeClientPath,
+      deploymentConfigPath: options.runtimeDeploymentConfigPath,
+    }),
+    snapshotStore: createFileSnapshotStore(options.taskSnapshotRoot),
+    projects: options.projects,
+  })
   const transports = new Map()
   const protocolServers = new Map()
 
@@ -150,7 +226,7 @@ export const createGatewayServer = async (overrides = {}) => {
     let transport = sessionId ? transports.get(sessionId) : undefined
 
     if (!transport && request.method === 'POST' && !sessionId && isInitializeRequest(body)) {
-      const protocolServer = createProtocolServer()
+      const protocolServer = createProtocolServer(governance)
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: randomUUID,
         enableJsonResponse: true,

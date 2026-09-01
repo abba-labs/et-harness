@@ -10,11 +10,11 @@ export const createGatewayProcessHealth = () => ({
   uptimeSeconds: Math.floor(process.uptime()),
 })
 
-export const createHealthResult = () => ({
+export const createHealthResult = ({ runtimeConnected = false, projects = [] } = {}) => ({
   status: 'READY',
   gatewayVersion: GATEWAY_VERSION,
   gatewayApi: GATEWAY_API,
   runtimePortVersion: '0.1',
-  runtimeConnected: false,
-  projects: [],
+  runtimeConnected,
+  projects,
 })

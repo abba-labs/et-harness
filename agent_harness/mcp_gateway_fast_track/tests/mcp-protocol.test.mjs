@@ -69,12 +69,12 @@ test('T2-T3 initialize exposes fixed identity and self-contained instructions', 
   })
 })
 
-test('T4 tools/list exposes only the implemented frozen health tool', async () => {
+test('T4 tools/list exposes the frozen Round 2 tool set', async () => {
   await withGatewayClient(async ({ client }) => {
     const listed = await client.listTools()
     assert.deepEqual(
       listed.tools.map((tool) => tool.name),
-      ['harness_health'],
+      ['harness_health', 'harness_begin', 'harness_status'],
     )
   })
 })
@@ -88,7 +88,7 @@ test('T5 harness_health returns an honest bounded Round 1 result', async () => {
       gatewayApi: 'et-harness-mcp-fast-track.v1',
       runtimePortVersion: '0.1',
       runtimeConnected: false,
-      projects: [],
+      projects: ['et-automated-testing-platform'],
     })
   })
 })
