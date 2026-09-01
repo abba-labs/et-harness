@@ -1,22 +1,21 @@
 {
-  "test": "T5_WRITE_SCOPE_PROTECTED_PREFLIGHT",
+  "test": "PROTECTED_PREFLIGHT_AND_AUDIT",
   "result": "PASS",
-  "taskId": "round3-p0-live-full-20260901-1312",
-  "runtimeId": "codex-runtime-bc7daaf7-ece0-4fc0-92cc-35e6687a2c78",
-  "turnId": "codex-turn-74f95a00-b106-4394-95a9-fbf9cac84776",
+  "taskId": "round3-p0-trusted-validation-repair-20260901-2221",
+  "runtimeId": "codex-runtime-8aa695d2-89ed-49ee-8b3e-a65f53957495",
+  "turnId": "codex-turn-18a49445-2d33-4ce3-8668-8cfbbedf4cbe",
   "supervisionLevel": "AUDIT",
   "claimsMechanicalInterception": false,
   "allowedProbe": {
-    "action": "CREATE",
     "path": "test_case_doc/etimer/round3_p0_probe.md",
+    "status": "ALLOWED",
     "allowed": true
   },
   "protectedProbe": {
-    "action": "CREATE",
     "path": "pc/et_test_platform/core/forbidden_round3_p0.py",
+    "status": "BLOCKED",
     "allowed": false,
     "reason": "Mutation is outside WRITE_SCOPE obligation OBL-ATP-WRITE-SCOPE."
   },
-  "forbiddenFileExistedBefore": false,
-  "forbiddenFileExistsAfter": false
+  "forbiddenFileCreated": false
 }

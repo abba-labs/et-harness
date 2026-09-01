@@ -1,17 +1,19 @@
-# Round 3 P0 Repair - Environment
+# Round 3 P0 Trusted Validation Repair - Environment
 
+- Repair baseline: `ef31b59637937b96d4c3a152f650aa7de999b2f3`
+- Tested HEAD: `40b469d950959259a574e2952659e6c76eb0608e`
 - Branch: `codex/fast-track-pure-mcp-atp-v0.1`
-- Required starting HEAD: `4ac10c470c1b240e9e1ebb12970661a3be9ee2b8`
-- Test Executor worktree: `D:\lihuan\vibe_code\codex\et_harness_env\workspaces\pure_mcp_atp_fast_track`
+- Worktree was clean before testing.
+- Worktree: `D:\lihuan\vibe_code\codex\et_harness_env\workspaces\pure_mcp_atp_fast_track`
 - Node: `D:\lihuan\vibe_code\codex\et_harness_env\runtimes\node-v22.23.2-win-x64\node.exe`
-- npm cache, temporary state, Runtime releases and logs remained on `D:`.
-- Codex MCP `required`: `false`
-- Gateway PID after external refresh: `42504`
-- Gateway start: `2026-09-01T21:08:55.7615519+08:00`
-- Listener: `127.0.0.1:8765`
-- `GET /health`: HTTP 200, `status=UP`, `processId=42504`
-- Active release: `D:\lihuan\vibe_code\codex\et_harness_env\state\pure-mcp-fast-track\releases\03ede4b7821ffad8b5f8`
-- Frozen source signature: `09c2cc560236ff1dc277608616c21156a5884384c49ba58fffa8039417267b34`
-- Frozen source revision: `d2b416919d7a1b66b44a44b40c3bd7cd623515a0`
+- No npm install or environment preparation was performed.
+- MCP URL: `http://127.0.0.1:8765/mcp`
+- Codex MCP `required = false`.
+- Frozen source signature: `cb6ac8b195a40138c7bba091fac3c6df7bffe935380cd02f30b2be8b3ae50bd9`
+- Frozen release: `D:\lihuan\vibe_code\codex\et_harness_env\state\pure-mcp-fast-track\releases\caf849efa14ae436812b`
+- Source revision in release: `40b469d950959259a574e2952659e6c76eb0608e`
+- First externally launched Gateway PID: `31328`.
+- Replay restart Gateway PID: `3064`.
+- Both Gateway processes used the pinned D-drive Node 22; `/health` returned HTTP 200 / `UP`.
 
-Result: `PASS`.
+Deterministic environment result: `PASS`.

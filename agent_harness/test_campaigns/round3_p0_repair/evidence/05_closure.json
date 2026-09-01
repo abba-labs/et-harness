@@ -1,14 +1,14 @@
 {
-  "test": "T7_T9_PREMATURE_AND_FINAL_CLOSURE",
+  "test": "PREMATURE_AND_FINAL_CLOSURE",
   "prematureCompletion": {
     "result": "PASS",
-    "requestAccepted": false,
-    "runtimeMessage": "Execution Supervisor blocks Turn Closure: IN_PROGRESS",
+    "isError": true,
+    "message": "Execution Supervisor blocks Turn Closure: IN_PROGRESS",
     "statusAfter": "IN_PROGRESS"
   },
-  "finalReflection": "BLOCKED_BY_UPSTREAM",
-  "finalClosure": "BLOCKED_BY_UPSTREAM",
+  "reflection": "BLOCKED_BY_UPSTREAM",
+  "closure": "BLOCKED_BY_UPSTREAM",
   "contextUpdate": "BLOCKED_BY_UPSTREAM",
-  "reason": "Five trusted validation events were accepted but their VALIDATION obligations remained PENDING; the Charter requires stopping at this first semantic boundary.",
+  "reason": "Gateway restart exposed loss of the rehydrated Ledger projection. The verification charter requires stopping before final Closure and Desktop black-box.",
   "architectureReviewRequired": true
 }

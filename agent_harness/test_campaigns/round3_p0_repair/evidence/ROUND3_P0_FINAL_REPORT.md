@@ -1,49 +1,65 @@
-# Round 3 P0 Repair Verification Final Report
+# Round 3 P0 Trusted Validation Repair Verification
 
-## Runtime wiring review
+## Baseline
 
-- Hypothesis: `CONFIRMED`.
-- Wiring modified: `YES`, only in the authorized Gateway Runtime owner.
-- Repair: install the existing `ScopeSafeGovernanceRuntimeService` instead of the base service.
-- Real frozen Runtime + real ATP Project Plugin regression: `PASS`.
-- Effective capability remained `AUDIT`; no ENFORCE or mechanical interception claim was introduced.
+- Repair baseline: `ef31b59637937b96d4c3a152f650aa7de999b2f3`
+- Verification charter HEAD: `40b469d950959259a574e2952659e6c76eb0608e`
+- Role: Test Executor
+- Architecture redesign: `NO`
+- Product/runtime repair during verification: `NO`
 
 ## Result matrix
 
 | Check | Result | Evidence |
 |---|---|---|
-| FROZEN_RUNTIME_WIRING | PASS | `01_build_and_focused_tests.md` |
+| STATIC_TRUST_BOUNDARY_REVIEW | PASS | `01_build_and_focused_tests.md` |
+| DETERMINISTIC_FREEZE_RUNTIME | PASS | `00_environment.md`, `01_build_and_focused_tests.md` |
+| VERIFY_ENVIRONMENT_22_OF_22 | PASS | `01_build_and_focused_tests.md` |
+| DIRECT_VALIDATION_STILL_UNTRUSTED | PASS | `01_build_and_focused_tests.md`, `04_checkpoint.json` |
+| SUPERVISOR_SAFETY_REGRESSIONS | PASS | `01_build_and_focused_tests.md` |
+| LIVE_MCP_EIGHT_TOOLS | PASS | `06_live_mcp.md` |
+| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | PASS | `02_preflight.json` |
 | PROTECTED_PREFLIGHT_BLOCKS | PASS | `02_preflight.json` |
-| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | PASS | `01_build_and_focused_tests.md`, `02_preflight.json` |
-| LIVE_MCP_NEW_TOOLS_ACTIVE | PASS | `06_live_mcp.md` |
 | CHECKPOINT_REJECTS_PENDING_READS | PASS | `04_checkpoint.json` |
 | REQUIRED_READ_TRUSTED_EVENTS | PASS | `03_required_reads.jsonl` |
 | REQUIRED_READ_OBLIGATIONS_ADVANCE | PASS | `03_required_reads.jsonl` |
 | AGENT_CANNOT_FORGE_TRUSTED_RESULT | PASS | `04_checkpoint.json` |
 | PREMATURE_COMPLETE_STILL_BLOCKED | PASS | `05_closure.json` |
 | CHECKPOINT_TRUSTED_VALIDATION_EVENTS | PASS | `04_checkpoint.json` |
-| VALIDATION_OBLIGATIONS_ADVANCE | FAIL | `04_checkpoint.json` |
+| VALIDATION_OBLIGATIONS_ADVANCE | PASS | `04_checkpoint.json` |
+| REPLAY_PRESERVES_VALIDATION_STATE | FAIL | `06_live_mcp.md` |
 | REFLECTION_TRIGGERED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
 | CLOSURE_REACHED_COMPLETE | BLOCKED_BY_UPSTREAM | `05_closure.json` |
 | CONTEXT_UPDATE_REACHED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
-| GATEWAY_SURVIVES_CODEX_RESTART | NOT_EXECUTED | `07_black_box.md` |
-| REAL_DESKTOP_BLACK_BOX | NOT_EXECUTED | `07_black_box.md` |
+| REAL_DESKTOP_BLACK_BOX | BLOCKED_BY_UPSTREAM | `07_black_box.md` |
 
-## Confirmed first failing boundary
+## Repair result
 
-`ExecutionObligationLedgerV01.ingest` direct trusted-event routing.
+The trusted Validation admission repair works before restart:
 
-Expected: a Runtime-ingested, Event Store-accepted `VALIDATION_RESULT` matching frozen Evidence Policy advances the corresponding VALIDATION obligation.
+```text
+real frozen command PASS
+-> Runtime-owned durable trusted span admitted
+-> matching Validation obligation SATISFIED
+```
 
-Actual: all five commands exited 0, all five receipts used accepted provider `et-harness`, exact context and target identities, and all five events were durably accepted. Nevertheless, all five obligations stayed `PENDING`.
+Ordinary direct `VALIDATION_RESULT` remains untrusted and cannot satisfy the obligation.
 
-Source boundary: `runtime-execution-ingress.ts` calls `ledger.ingest(event)` directly. `obligation-ledger.ts` applies `VALIDATION_RESULT` only while admitting an external Agent span; its direct trusted-event branch handles resource read, resource write and task-end events but omits validation results.
+## New first failing boundary
 
-No Supervisor, Ledger, Event Store, ATP Project Plugin, Closure or contract change was made after discovery. This result requires Architecture Owner review under the Charter.
+After external Gateway restart, the Event Store still contained all 27 accepted events and the Kernel Turn remained OPEN. The same task/runtime/turn could be queried, but the returned supervision projection contained no pending, satisfied, or violated obligations.
+
+The first failing boundary is the Gateway frozen recovery/status path: it queries a new in-memory Runtime through `getStatus()` before binding the existing Event Store and invoking the Runtime's existing supervised-Turn rehydration capability. This is outside the trusted Validation repair boundary.
+
+Per the charter, no Supervisor, Ledger, ATP, Closure, environment, or recovery code was modified. Final Closure and Desktop black-box were not executed.
 
 ## Overall
 
-- Overall status: `ROUND3_P0_REPAIR_FAIL`
-- Failed check: `VALIDATION_OBLIGATIONS_ADVANCE`
+- Deterministic environment: `PASS`
+- Direct Validation still untrusted: `PASS`
+- Trusted checkpoint Validation advances: `PASS`
+- Replay preserves Validation state: `FAIL`
+- Overall Round 3 P0 status: `FAIL`
+- Failed check: `REPLAY_PRESERVES_VALIDATION_STATE`
 - Architecture review required: `YES`
-- Round 4: `NOT_STARTED`
+- Architecture Owner final acceptance: `NOT_DECLARED`

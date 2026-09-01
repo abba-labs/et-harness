@@ -1,43 +1,57 @@
 {
-  "test": "T8_TRUSTED_CHECKPOINT",
-  "overall": "FAIL",
+  "test": "TRUSTED_CHECKPOINT_VALIDATION_ADMISSION",
+  "result": "PASS_BEFORE_RESTART",
   "pendingReadCheckpoint": {
-    "result": "PASS",
     "status": "BLOCKED",
     "reason": "REQUIRED_READS_PENDING",
-    "pendingRequiredReadCount": 7
+    "pendingCount": 7
   },
   "negativeControls": {
-    "checkpointAcceptsOnlyTaskId": true,
-    "injectedCommandPassProviderReceiptAndEventIgnored": true,
-    "unrequiredReadIdsRejected": ["README.md", "../AGENTS.md", "arbitrary-source-uri"]
+    "checkpointPublicSchemaAcceptsOnlyTaskId": true,
+    "injectedCommandPassProviderReceiptAndEventDidNotAdvance": true,
+    "ordinaryDirectValidationStillUntrustedFrozenRegression": "PASS",
+    "ordinaryDirectValidationStillUntrustedSupervisorRegression": "PASS"
   },
-  "trustedCheckpoint": {
+  "checkpoint": {
     "status": "CHECKPOINTED",
-    "executed": 5,
-    "exitCodes": [0, 0, 0, 0, 0],
-    "resultStatuses": ["PASS", "PASS", "PASS", "PASS", "PASS"],
-    "validationEventRefs": [
-      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-1",
-      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-2",
-      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-3",
-      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-4",
-      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-5"
-    ],
-    "eventStoreAcceptance": "ACCEPTED"
-  },
-  "validationObligations": {
-    "expected": "SATISFIED",
-    "actual": "PENDING",
-    "failedIds": [
-      "OBL-ATP-VALIDATION-TASK-CONTEXT-CURRENT",
-      "OBL-ATP-VALIDATION-TASK-WRITE-SCOPE",
-      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-01",
-      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-02",
-      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-03"
+    "validationExitCodes": [0, 0, 0, 0, 0],
+    "validationResultStatuses": ["PASS", "PASS", "PASS", "PASS", "PASS"],
+    "spans": [
+      {
+        "obligationId": "OBL-ATP-VALIDATION-TASK-CONTEXT-CURRENT",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-36982b79-b97f-47c3-b4f5-8bae87b6f33f-1",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-36982b79-b97f-47c3-b4f5-8bae87b6f33f-1",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-36982b79-b97f-47c3-b4f5-8bae87b6f33f-1"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-TASK-WRITE-SCOPE",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-36982b79-b97f-47c3-b4f5-8bae87b6f33f-2",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-36982b79-b97f-47c3-b4f5-8bae87b6f33f-2",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-36982b79-b97f-47c3-b4f5-8bae87b6f33f-2"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-01",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-36982b79-b97f-47c3-b4f5-8bae87b6f33f-3",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-36982b79-b97f-47c3-b4f5-8bae87b6f33f-3",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-36982b79-b97f-47c3-b4f5-8bae87b6f33f-3"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-02",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-36982b79-b97f-47c3-b4f5-8bae87b6f33f-4",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-36982b79-b97f-47c3-b4f5-8bae87b6f33f-4",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-36982b79-b97f-47c3-b4f5-8bae87b6f33f-4"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-03",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-36982b79-b97f-47c3-b4f5-8bae87b6f33f-5",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-36982b79-b97f-47c3-b4f5-8bae87b6f33f-5",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-36982b79-b97f-47c3-b4f5-8bae87b6f33f-5"
+      }
     ]
   },
-  "firstFailingBoundary": "ExecutionObligationLedgerV01.ingest direct trusted-event routing",
-  "rootCause": "Direct VALIDATION_RESULT events are persisted and accepted by runtime-execution-ingress, but obligation-ledger processes VALIDATION_RESULT only inside an external Agent span; the direct-event branch omits it.",
-  "architectureReviewRequired": true
+  "validationStateBeforeRestart": {
+    "expected": "SATISFIED",
+    "actual": "SATISFIED",
+    "satisfiedCount": 5
+  }
 }
