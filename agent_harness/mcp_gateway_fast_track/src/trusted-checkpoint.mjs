@@ -8,6 +8,10 @@ import { z } from 'zod'
 import { GatewayGovernanceError } from './governance.mjs'
 
 const TRUSTED_PROVIDER_ID = 'et-harness'
+const TRUSTED_HOST_ID = 'pure-mcp-local'
+const TRUSTED_MODEL_ID = 'runtime-checkpoint'
+const EXTERNAL_REQUEST_SCHEMA = 'agent-harness.external-agent-request.v0.1'
+const EXTERNAL_RESPONSE_SCHEMA = 'agent-harness.external-agent-response.v0.1'
 const MAX_TASK_ID_CHARS = 160
 const MAX_RESOURCE_REF_CHARS = 2_048
 const MAX_REQUIRED_READ_BYTES = 256 * 1024
@@ -18,6 +22,43 @@ const COMMAND_TIMEOUT_MS = 5 * 60 * 1_000
 
 const hash = (value) => createHash('sha256').update(value).digest('hex')
 const slash = (value) => value.replaceAll('\\', '/')
+
+const unsupportedCanonicalValue = (value) => {
+  const tag = Object.prototype.toString.call(value)
+  throw new TypeError(`Value is not canonical JSON: ${tag}`)
+}
+
+const canonicalize = (value, active) => {
+  if (value === null) return 'null'
+  if (typeof value === 'string') return JSON.stringify(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return unsupportedCanonicalValue(value)
+    return Object.is(value, -0) ? '0' : JSON.stringify(value)
+  }
+  if (typeof value !== 'object') return unsupportedCanonicalValue(value)
+  if (active.has(value)) throw new TypeError('Value is not canonical JSON: cycle')
+  active.add(value)
+  try {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => canonicalize(item, active)).join(',')}]`
+    }
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) {
+      return unsupportedCanonicalValue(value)
+    }
+    const keys = Object.keys(value).sort()
+    return `{${keys.map((key) => {
+      const item = value[key]
+      if (item === undefined) return unsupportedCanonicalValue(item)
+      return `${JSON.stringify(key)}:${canonicalize(item, active)}`
+    }).join(',')}}`
+  } finally {
+    active.delete(value)
+  }
+}
+
+const hashCanonical = (value) => hash(canonicalize(value, new Set()))
 
 const requireString = (label, value, maxChars) => {
   if (typeof value !== 'string' || !value.trim()) {
@@ -152,6 +193,109 @@ const ingestTrustedEvent = async (runtimeAccess, snapshot, input) => {
     )
   }
   return result
+}
+
+const ingestTrustedValidationSpan = async (
+  runtimeAccess,
+  snapshot,
+  ledger,
+  contract,
+  checkpointId,
+  ordinal,
+  receipt,
+) => {
+  if (typeof runtimeAccess.ingestTrustedValidationSpan !== 'function') {
+    throw new GatewayGovernanceError(
+      'TRUSTED_VALIDATION_INGRESS_UNAVAILABLE',
+      'Frozen Runtime does not expose the internal trusted validation span ingress',
+    )
+  }
+  const requestId = ledger?.binding?.requestId
+  if (typeof requestId !== 'string' || !requestId) {
+    throw new GatewayGovernanceError(
+      'SUPERVISION_BINDING_INVALID',
+      'Execution Supervisor binding has no requestId',
+    )
+  }
+
+  const token = `${checkpointId}-${ordinal}`
+  const requestEventId = `mcp-checkpoint-span-request-${token}`
+  const validationEventId = `mcp-checkpoint-validation-${token}`
+  const responseEventId = `mcp-checkpoint-span-response-${token}`
+  const emptyContentHash = hash('')
+  const requestManifest = {
+    schema: EXTERNAL_REQUEST_SCHEMA,
+    requestId,
+    runtimeId: snapshot.runtimeId,
+    projectId: contract.projectId,
+    taskId: contract.taskId,
+    turnId: snapshot.turnId,
+    agentId: contract.agentId,
+    contextHash: contract.contextHash,
+    contractHash: hashCanonical(contract),
+    expectedHostId: TRUSTED_HOST_ID,
+    expectedProviderId: TRUSTED_PROVIDER_ID,
+    expectedModelId: TRUSTED_MODEL_ID,
+    userMessage: {
+      messageId: requestEventId,
+      content: '',
+      contentHash: emptyContentHash,
+    },
+    issuedAt: receipt.timestamp,
+  }
+  const validationPayload = { receipt }
+  const requestManifestHash = hashCanonical(requestManifest)
+  const responseManifest = {
+    schema: EXTERNAL_RESPONSE_SCHEMA,
+    requestManifestHash,
+    requestId,
+    runtimeId: snapshot.runtimeId,
+    projectId: contract.projectId,
+    taskId: contract.taskId,
+    turnId: snapshot.turnId,
+    agentId: contract.agentId,
+    contextHash: contract.contextHash,
+    responseId: `mcp-checkpoint-response-${token}`,
+    actualHostId: TRUSTED_HOST_ID,
+    actualProviderId: TRUSTED_PROVIDER_ID,
+    actualModelId: TRUSTED_MODEL_ID,
+    actualAgentId: contract.agentId,
+    assistantMessage: {
+      messageId: responseEventId,
+      content: '',
+      contentHash: emptyContentHash,
+    },
+    claims: [],
+    receiptRefs: [{
+      eventId: validationEventId,
+      payloadHash: hashCanonical(validationPayload),
+    }],
+    completedAt: receipt.timestamp,
+  }
+
+  const span = await runtimeAccess.ingestTrustedValidationSpan(snapshot, {
+    runtimeId: snapshot.runtimeId,
+    turnId: snapshot.turnId,
+    requestEventId,
+    requestManifest,
+    validationEventId,
+    validationReceipt: receipt,
+    responseEventId,
+    responseManifest,
+  })
+  for (const [label, result] of [
+    ['request', span?.request],
+    ['validation', span?.validation],
+    ['response', span?.response],
+  ]) {
+    if (!result || result.acceptance?.status === 'REJECTED') {
+      throw new GatewayGovernanceError(
+        'EXECUTION_EVENT_REJECTED',
+        `Runtime did not accept trusted validation ${label} event`,
+      )
+    }
+  }
+  return span
 }
 
 const executeCommand = (command, workspacePath) => {
@@ -332,18 +476,24 @@ export const createTrustedCheckpointController = ({
           claimRefs: [],
           timestamp: execution.completedAt,
         }
-        const validationEvent = await ingestTrustedEvent(runtimeAccess, snapshot, {
-          eventId: `mcp-checkpoint-validation-${checkpointId}-${validations.length + 1}`,
-          kind: 'VALIDATION_RESULT',
-          payload: { receipt },
-        })
+        const span = await ingestTrustedValidationSpan(
+          runtimeAccess,
+          snapshot,
+          ledger,
+          contract,
+          checkpointId,
+          validations.length + 1,
+          receipt,
+        )
         validations.push({
           obligationId: obligation.id,
           validationId,
           exitCode: execution.exitCode,
           resultStatus: receipt.resultStatus,
           toolEventRef: toolEvent.eventRef,
-          validationEventRef: validationEvent.eventRef,
+          requestEventRef: span.request.eventRef,
+          validationEventRef: span.validation.eventRef,
+          responseEventRef: span.response.eventRef,
           outputHash: `sha256:${outputHash}`,
         })
         if (execution.exitCode !== 0) break
