@@ -80,7 +80,7 @@ const memoryStore = () => {
 }
 
 const fakeRuntime = (overrides = {}) => {
-  const calls = { openTurn: 0, getStatus: 0 }
+  const calls = { openTurn: 0, getStatus: 0, observeWork: 0, preflightAction: 0, closeTurn: 0 }
   return {
     calls,
     resolveProject: async (workspacePath) => ({
@@ -95,13 +95,50 @@ const fakeRuntime = (overrides = {}) => {
       calls.getStatus += 1
       return {
         supervision: {
+          decision: { status: 'READY_TO_CLOSE' },
           ledger: {
             pendingObligationIds: ['OBL-ATP-READ-001'],
             satisfiedObligationIds: [],
             violatedObligationIds: [],
           },
         },
-        decision: { status: 'IN_PROGRESS' },
+      }
+    },
+    observeWork: async (_snapshot, input) => {
+      calls.observeWork += 1
+      return {
+        observation: { observationId: 'observation-01', kind: input.kind.toUpperCase() },
+        journal: { status: 'OPEN' },
+        knowledgeDecision: { captureMode: 'OPTIONAL', consultationMode: 'NONE' },
+      }
+    },
+    preflightAction: async (_snapshot, input) => {
+      calls.preflightAction += 1
+      return input.effect.kind === 'MUTATION' && input.effect.intent.resourceId === 'resource-protected'
+        ? { allowed: false, reason: 'protected resource' }
+        : { allowed: true }
+    },
+    closeTurn: async (_snapshot, input) => {
+      calls.closeTurn += 1
+      return {
+        runtimeId: input.runtimeId,
+        taskId: 'task-01',
+        turnId: input.turnId,
+        reflection: { providerId: 'host-proposal', createdAt: '2026-09-01T00:00:00.000Z' },
+        closure: { status: 'COMPLETE', attemptId: 'closure-01' },
+        knowledgeDecision: { captureMode: 'OPTIONAL', consultationMode: 'NONE' },
+        knowledgeVerifications: [],
+        knowledgeVerificationWarnings: [],
+        knowledgePromotions: [],
+        knowledgePromotionWarnings: [],
+        supervision: {
+          decision: { status: 'COMPLETE' },
+          ledger: {
+            pendingObligationIds: [],
+            satisfiedObligationIds: ['OBL-BASELINE-REFLECTION'],
+            violatedObligationIds: [],
+          },
+        },
       }
     },
   }
@@ -179,12 +216,59 @@ test('T9 status reads the existing Runtime state through the saved binding', asy
   const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: memoryStore() })
   await controller.begin({ workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-status' })
   const status = await controller.status({ taskId: 'xbar-status' })
-  assert.equal(status.runtimeDecision, 'IN_PROGRESS')
+  assert.equal(status.runtimeDecision, 'READY_TO_CLOSE')
   assert.deepEqual(status.pendingObligationIds, ['OBL-ATP-READ-001'])
   assert.equal(runtime.calls.getStatus, 1)
 })
 
-test('T10 requestedTaskId is idempotent for equal input and conflicts for changed input', async () => {
+test('T10 thin wrappers bind task identity and preserve Runtime authority', async () => {
+  const runtime = fakeRuntime()
+  const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: memoryStore() })
+  await controller.begin({ workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-closed-loop' })
+
+  const observed = await controller.observe({
+    taskId: 'xbar-closed-loop',
+    kind: 'resource-touch',
+    resourceRefs: ['source://xbar/registers'],
+    summary: 'Material XBAR source fact.',
+  })
+  assert.deepEqual(observed, {
+    status: 'OBSERVED',
+    observationId: 'observation-01',
+    observationKind: 'RESOURCE-TOUCH',
+    journalStatus: 'OPEN',
+    knowledgeCaptureMode: 'OPTIONAL',
+    knowledgeConsultationMode: 'NONE',
+  })
+
+  const blocked = await controller.preflight({
+    taskId: 'xbar-closed-loop',
+    name: 'write_file',
+    eventRef: 'host-event-01',
+    effect: {
+      kind: 'MUTATION',
+      intent: { resourceId: 'resource-protected', path: 'pc/core.py', action: 'UPDATE' },
+    },
+  })
+  assert.deepEqual(blocked, { status: 'BLOCKED', allowed: false, reason: 'protected resource' })
+
+  const completed = await controller.complete({
+    taskId: 'xbar-closed-loop',
+    semanticReflection: { contractVersion: '0.1' },
+  })
+  assert.equal(completed.status, 'COMPLETE')
+  assert.equal(completed.supervision.decision, 'COMPLETE')
+  assert.deepEqual(completed.supervision.satisfiedObligationIds, ['OBL-BASELINE-REFLECTION'])
+  assert.deepEqual(runtime.calls, {
+    openTurn: 1,
+    getStatus: 0,
+    observeWork: 1,
+    preflightAction: 1,
+    closeTurn: 1,
+  })
+})
+
+test('T11 requestedTaskId is idempotent for equal input and conflicts for changed input', async () => {
   const runtime = fakeRuntime()
   const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: memoryStore() })
   const input = { workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-idempotent' }

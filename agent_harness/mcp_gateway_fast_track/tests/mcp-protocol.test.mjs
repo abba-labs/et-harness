@@ -69,12 +69,19 @@ test('T2-T3 initialize exposes fixed identity and self-contained instructions', 
   })
 })
 
-test('T4 tools/list exposes the frozen Round 2 tool set', async () => {
+test('T4 tools/list exposes the Round 2 tools plus thin Round 3 Runtime wrappers', async () => {
   await withGatewayClient(async ({ client }) => {
     const listed = await client.listTools()
     assert.deepEqual(
       listed.tools.map((tool) => tool.name),
-      ['harness_health', 'harness_begin', 'harness_status'],
+      [
+        'harness_health',
+        'harness_begin',
+        'harness_status',
+        'harness_observe',
+        'harness_preflight',
+        'harness_complete',
+      ],
     )
   })
 })

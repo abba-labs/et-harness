@@ -6,6 +6,9 @@ import { pathToFileURL } from 'node:url'
 const MAX_INTENT_CHARS = 8_000
 const MAX_PATH_CHARS = 1_024
 const MAX_ERROR_CHARS = 500
+const MAX_TEXT_CHARS = 8_000
+const MAX_REF_CHARS = 2_048
+const MAX_REFS = 64
 
 export class GatewayGovernanceError extends Error {
   constructor(code, message) {
@@ -57,6 +60,28 @@ const requireString = (label, value, maxChars) => {
     throw new GatewayGovernanceError('INVALID_ARGUMENT', `${label} exceeds ${maxChars} characters`)
   }
   return normalized
+}
+
+const optionalString = (label, value, maxChars) => value === undefined
+  ? undefined
+  : requireString(label, value, maxChars)
+
+const stringArray = (label, value, { required = false } = {}) => {
+  if (value === undefined && !required) return undefined
+  if (!Array.isArray(value) || (required && value.length === 0) || value.length > MAX_REFS) {
+    throw new GatewayGovernanceError(
+      'INVALID_ARGUMENT',
+      `${label} must contain ${required ? '1-' : '0-'}${MAX_REFS} strings`,
+    )
+  }
+  return value.map((item, index) => requireString(`${label}[${index}]`, item, MAX_REF_CHARS))
+}
+
+const requireRecord = (label, value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new GatewayGovernanceError('INVALID_ARGUMENT', `${label} must be an object`)
+  }
+  return value
 }
 
 const parseJsonItem = (item, label) => {
@@ -258,12 +283,21 @@ export const createBridgeRuntimeAccess = ({ bridgeClientPath, deploymentConfigPa
     async getStatus(snapshot) {
       return (await portFor(snapshot.workspacePath)).getStatus(snapshot.runtimeId)
     },
+    async observeWork(snapshot, input) {
+      return (await portFor(snapshot.workspacePath)).observeWork(input)
+    },
+    async preflightAction(snapshot, input) {
+      return (await portFor(snapshot.workspacePath)).preflightAction(input)
+    },
+    async closeTurn(snapshot, input) {
+      return (await portFor(snapshot.workspacePath)).closeTurn(input)
+    },
   })
 }
 
 const statusSummary = (snapshot, runtimeStatus) => {
   const ledger = runtimeStatus?.supervision?.ledger
-  const decision = runtimeStatus?.decision
+  const decision = runtimeStatus?.supervision?.decision
   return {
     status: 'ACTIVE',
     taskId: snapshot.taskId,
@@ -278,6 +312,146 @@ const statusSummary = (snapshot, runtimeStatus) => {
     violatedObligationIds: ledger?.violatedObligationIds ?? [],
   }
 }
+
+const requireSnapshot = async (snapshotStore, input) => {
+  const taskId = requireString('taskId', input.taskId, 160)
+  const snapshot = await snapshotStore.get(taskId)
+  if (!snapshot) throw new GatewayGovernanceError('TASK_NOT_FOUND', 'No Gateway task snapshot matches taskId')
+  return snapshot
+}
+
+const workObservation = (snapshot, input) => {
+  const kind = requireString('kind', input.kind, 40)
+  const common = {
+    kind,
+    runtimeId: snapshot.runtimeId,
+    turnId: snapshot.turnId,
+  }
+  if (kind === 'tool-result') {
+    return {
+      ...common,
+      name: requireString('name', input.name, 256),
+      ...(input.arguments === undefined ? {} : { arguments: input.arguments }),
+      ...(input.isError === undefined ? {} : { isError: Boolean(input.isError) }),
+      ...(optionalString('eventRef', input.eventRef, MAX_REF_CHARS) === undefined
+        ? {}
+        : { eventRef: optionalString('eventRef', input.eventRef, MAX_REF_CHARS) }),
+      ...(stringArray('resourceRefs', input.resourceRefs) === undefined
+        ? {}
+        : { resourceRefs: stringArray('resourceRefs', input.resourceRefs) }),
+      ...(optionalString('summary', input.summary, MAX_TEXT_CHARS) === undefined
+        ? {}
+        : { summary: optionalString('summary', input.summary, MAX_TEXT_CHARS) }),
+    }
+  }
+  if (kind === 'resource-touch') {
+    return {
+      ...common,
+      resourceRefs: stringArray('resourceRefs', input.resourceRefs, { required: true }),
+      ...(optionalString('summary', input.summary, MAX_TEXT_CHARS) === undefined
+        ? {}
+        : { summary: optionalString('summary', input.summary, MAX_TEXT_CHARS) }),
+    }
+  }
+  if (kind === 'assistant-message' || kind === 'user-message') {
+    return {
+      ...common,
+      messageRefs: stringArray('messageRefs', input.messageRefs, { required: true }),
+      ...(optionalString('text', input.text, MAX_TEXT_CHARS) === undefined
+        ? {}
+        : { text: optionalString('text', input.text, MAX_TEXT_CHARS) }),
+    }
+  }
+  throw new GatewayGovernanceError('INVALID_ARGUMENT', 'kind is not a supported Runtime observation kind')
+}
+
+const observationSummary = (result) => ({
+  status: 'OBSERVED',
+  observationId: result?.observation?.observationId,
+  observationKind: result?.observation?.kind,
+  journalStatus: result?.journal?.status,
+  knowledgeCaptureMode: result?.knowledgeDecision?.captureMode,
+  knowledgeConsultationMode: result?.knowledgeDecision?.consultationMode,
+})
+
+const actionPreflight = (snapshot, input) => {
+  const effect = requireRecord('effect', input.effect)
+  if (effect.kind !== 'READ_ONLY' && effect.kind !== 'MUTATION') {
+    throw new GatewayGovernanceError('INVALID_ARGUMENT', 'effect.kind must be READ_ONLY or MUTATION')
+  }
+  let normalizedEffect = { kind: 'READ_ONLY' }
+  if (effect.kind === 'MUTATION') {
+    const intent = requireRecord('effect.intent', effect.intent)
+    normalizedEffect = {
+      kind: 'MUTATION',
+      intent: {
+        resourceId: requireString('effect.intent.resourceId', intent.resourceId, MAX_REF_CHARS),
+        ...(optionalString('effect.intent.path', intent.path, MAX_PATH_CHARS) === undefined
+          ? {}
+          : { path: optionalString('effect.intent.path', intent.path, MAX_PATH_CHARS) }),
+        action: requireString('effect.intent.action', intent.action, 40),
+      },
+    }
+  }
+  return {
+    runtimeId: snapshot.runtimeId,
+    turnId: snapshot.turnId,
+    name: requireString('name', input.name, 256),
+    ...(input.arguments === undefined ? {} : { arguments: input.arguments }),
+    ...(optionalString('eventRef', input.eventRef, MAX_REF_CHARS) === undefined
+      ? {}
+      : { eventRef: optionalString('eventRef', input.eventRef, MAX_REF_CHARS) }),
+    effect: normalizedEffect,
+  }
+}
+
+const closeInput = (snapshot, input) => ({
+  runtimeId: snapshot.runtimeId,
+  turnId: snapshot.turnId,
+  ...(stringArray('assistantMessageRefs', input.assistantMessageRefs) === undefined
+    ? {}
+    : { assistantMessageRefs: stringArray('assistantMessageRefs', input.assistantMessageRefs) }),
+  ...(stringArray('publicCandidateRefs', input.publicCandidateRefs) === undefined
+    ? {}
+    : { publicCandidateRefs: stringArray('publicCandidateRefs', input.publicCandidateRefs) }),
+  ...(stringArray('projectCandidateRefs', input.projectCandidateRefs) === undefined
+    ? {}
+    : { projectCandidateRefs: stringArray('projectCandidateRefs', input.projectCandidateRefs) }),
+  ...(input.semanticReflection === undefined
+    ? {}
+    : { semanticReflection: requireRecord('semanticReflection', input.semanticReflection) }),
+})
+
+const closeSummary = (result) => ({
+  status: result?.closure?.status ?? 'UNKNOWN',
+  runtimeId: result?.runtimeId,
+  taskId: result?.taskId,
+  turnId: result?.turnId,
+  reflection: {
+    providerId: result?.reflection?.providerId,
+    createdAt: result?.reflection?.createdAt,
+    journalRef: result?.reflection?.journalRef,
+  },
+  closure: {
+    status: result?.closure?.status,
+    attemptId: result?.closure?.attemptId,
+    receiptRef: result?.closure?.receiptRef,
+  },
+  knowledge: {
+    captureMode: result?.knowledgeDecision?.captureMode,
+    consultationMode: result?.knowledgeDecision?.consultationMode,
+    verificationCount: result?.knowledgeVerifications?.length ?? 0,
+    promotionCount: result?.knowledgePromotions?.length ?? 0,
+    verificationWarnings: result?.knowledgeVerificationWarnings ?? [],
+    promotionWarnings: result?.knowledgePromotionWarnings ?? [],
+  },
+  supervision: {
+    decision: result?.supervision?.decision?.status,
+    pendingObligationIds: result?.supervision?.ledger?.pendingObligationIds ?? [],
+    satisfiedObligationIds: result?.supervision?.ledger?.satisfiedObligationIds ?? [],
+    violatedObligationIds: result?.supervision?.ledger?.violatedObligationIds ?? [],
+  },
+})
 
 export const createGovernanceController = ({ runtimeAccess, snapshotStore, projects = [] }) => {
   let runtimeConnected = false
@@ -337,12 +511,32 @@ export const createGovernanceController = ({ runtimeAccess, snapshotStore, proje
       return { ...snapshot, idempotentReplay: false }
     },
     async status(input) {
-      const taskId = requireString('taskId', input.taskId, 160)
-      const snapshot = await snapshotStore.get(taskId)
-      if (!snapshot) throw new GatewayGovernanceError('TASK_NOT_FOUND', 'No Gateway task snapshot matches taskId')
+      const snapshot = await requireSnapshot(snapshotStore, input)
       const runtimeStatus = await runtimeAccess.getStatus(snapshot)
       runtimeConnected = true
       return statusSummary(snapshot, runtimeStatus)
+    },
+    async observe(input) {
+      const snapshot = await requireSnapshot(snapshotStore, input)
+      const result = await runtimeAccess.observeWork(snapshot, workObservation(snapshot, input))
+      runtimeConnected = true
+      return observationSummary(result)
+    },
+    async preflight(input) {
+      const snapshot = await requireSnapshot(snapshotStore, input)
+      const result = await runtimeAccess.preflightAction(snapshot, actionPreflight(snapshot, input))
+      runtimeConnected = true
+      return {
+        status: result.allowed ? 'ALLOWED' : 'BLOCKED',
+        allowed: result.allowed,
+        ...(result.reason ? { reason: result.reason.slice(0, MAX_ERROR_CHARS) } : {}),
+      }
+    },
+    async complete(input) {
+      const snapshot = await requireSnapshot(snapshotStore, input)
+      const result = await runtimeAccess.closeTurn(snapshot, closeInput(snapshot, input))
+      runtimeConnected = true
+      return closeSummary(result)
     },
   })
 }

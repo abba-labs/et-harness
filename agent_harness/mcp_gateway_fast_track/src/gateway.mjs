@@ -157,6 +157,108 @@ const createProtocolServer = (governance) => {
     },
   )
 
+  server.registerTool(
+    'harness_observe',
+    {
+      title: 'Submit governed work observation',
+      description:
+        'Forward one bounded, source-backed work observation to the existing Governance Runtime for a task opened with harness_begin.',
+      inputSchema: {
+        taskId: z.string().min(1).max(160),
+        kind: z.enum(['tool-result', 'resource-touch', 'assistant-message', 'user-message']),
+        name: z.string().min(1).max(256).optional(),
+        arguments: z.unknown().optional(),
+        isError: z.boolean().optional(),
+        eventRef: z.string().min(1).max(2048).optional(),
+        resourceRefs: z.array(z.string().min(1).max(2048)).max(64).optional(),
+        summary: z.string().min(1).max(8000).optional(),
+        messageRefs: z.array(z.string().min(1).max(2048)).max(64).optional(),
+        text: z.string().min(1).max(8000).optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      try {
+        return toolResult(await governance.observe(input))
+      } catch (error) {
+        return toolResult(governanceToolError(error), true)
+      }
+    },
+  )
+
+  server.registerTool(
+    'harness_preflight',
+    {
+      title: 'Preflight a governed action',
+      description:
+        'Ask the existing Governance Runtime whether one read-only or mutating action is allowed before executing it.',
+      inputSchema: {
+        taskId: z.string().min(1).max(160),
+        name: z.string().min(1).max(256),
+        arguments: z.unknown().optional(),
+        eventRef: z.string().min(1).max(2048).optional(),
+        effect: z.union([
+          z.object({ kind: z.literal('READ_ONLY') }),
+          z.object({
+            kind: z.literal('MUTATION'),
+            intent: z.object({
+              resourceId: z.string().min(1).max(2048),
+              path: z.string().min(1).max(1024).optional(),
+              action: z.enum(['CREATE', 'UPDATE', 'DELETE', 'MOVE', 'COPY']),
+            }),
+          }),
+        ]),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      try {
+        return toolResult(await governance.preflight(input))
+      } catch (error) {
+        return toolResult(governanceToolError(error), true)
+      }
+    },
+  )
+
+  server.registerTool(
+    'harness_complete',
+    {
+      title: 'Request governed Turn closure',
+      description:
+        'Forward a bounded Reflection proposal and candidate references through the existing Runtime closure path. Runtime remains the only completion authority.',
+      inputSchema: {
+        taskId: z.string().min(1).max(160),
+        assistantMessageRefs: z.array(z.string().min(1).max(2048)).max(64).optional(),
+        publicCandidateRefs: z.array(z.string().min(1).max(2048)).max(64).optional(),
+        projectCandidateRefs: z.array(z.string().min(1).max(2048)).max(64).optional(),
+        semanticReflection: z.record(z.string(), z.unknown()).optional(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (input) => {
+      try {
+        return toolResult(await governance.complete(input))
+      } catch (error) {
+        return toolResult(governanceToolError(error), true)
+      }
+    },
+  )
+
   return server
 }
 
