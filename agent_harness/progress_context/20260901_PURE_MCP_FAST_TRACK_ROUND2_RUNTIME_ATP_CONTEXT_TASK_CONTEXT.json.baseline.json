@@ -1,0 +1,25 @@
+{
+  "schema": "et.task-scope-baseline.v1",
+  "repository": {
+    "available": true,
+    "branch": "codex/fast-track-pure-mcp-atp-v0.1",
+    "head": "9255c3c8ee796b25185f5c415ba888d5d978a7b4",
+    "dirty": false
+  },
+  "context_integrity_fingerprint": "64b14acf79a77232533f6203a083f3b7768506e95f48eef7744d5a1493272081",
+  "write_scope": {
+    "allowed": [
+      "agent_harness/mcp_gateway_fast_track/**",
+      "agent_harness/progress_context/20260901_PURE_MCP_FAST_TRACK_*.json"
+    ],
+    "protected": [
+      "agent_harness/public_plugins/**",
+      "agent_harness/governance_core/**",
+      "agent_harness/projects/**",
+      "agent_harness/host_adapters/**",
+      "agent_harness/deployments/**",
+      "plugins/**"
+    ]
+  },
+  "worktree": {}
+}
