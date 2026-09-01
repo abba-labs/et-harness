@@ -83,6 +83,21 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
   }
   const portFor = async (workspacePath) =>
     (await runtimeModule()).createGovernanceHostRuntimePort({ cwd: workspacePath })
+  const portForSnapshot = async (snapshot) => {
+    const module = await runtimeModule()
+    if (typeof module.ensureSupervisedTurn !== 'function') {
+      throw new Error('Frozen Runtime artifact does not expose supervised Turn recovery')
+    }
+    await module.ensureSupervisedTurn({
+      cwd: snapshot.workspacePath,
+      runtimeId: snapshot.runtimeId,
+      turnId: snapshot.turnId,
+      taskId: snapshot.taskId,
+      projectId: snapshot.projectId,
+      projectRevision: snapshot.projectRevision,
+    })
+    return module.createGovernanceHostRuntimePort({ cwd: snapshot.workspacePath })
+  }
 
   return Object.freeze({
     async resolveProject(workspacePath) {
@@ -92,25 +107,37 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
       return (await portFor(input.workspacePath)).openTurn(input)
     },
     async getStatus(snapshot) {
-      return (await portFor(snapshot.workspacePath)).getStatus(snapshot.runtimeId)
+      const status = await (await portForSnapshot(snapshot)).getStatus(snapshot.runtimeId)
+      if (!status?.supervision) {
+        throw new Error('Recovered Runtime Turn has no supervised status')
+      }
+      return status
     },
     async observeWork(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).observeWork(input)
+      return (await portForSnapshot(snapshot)).observeWork(input)
     },
     async preflightAction(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).preflightAction(input)
+      return (await portForSnapshot(snapshot)).preflightAction(input)
     },
     async closeTurn(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).closeTurn(input)
+      return (await portForSnapshot(snapshot)).closeTurn(input)
     },
     async ingest(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).ingestExecutionEvent(input)
+      return (await portForSnapshot(snapshot)).ingestExecutionEvent(input)
     },
     async ingestTrustedValidationSpan(snapshot, input) {
       const module = await runtimeModule()
       if (typeof module.ingestTrustedValidationSpan !== 'function') {
         throw new Error('Frozen Runtime artifact does not expose trusted validation span ingress')
       }
+      await module.ensureSupervisedTurn({
+        cwd: snapshot.workspacePath,
+        runtimeId: snapshot.runtimeId,
+        turnId: snapshot.turnId,
+        taskId: snapshot.taskId,
+        projectId: snapshot.projectId,
+        projectRevision: snapshot.projectRevision,
+      })
       return module.ingestTrustedValidationSpan({ cwd: snapshot.workspacePath, ...input })
     },
     async close() {

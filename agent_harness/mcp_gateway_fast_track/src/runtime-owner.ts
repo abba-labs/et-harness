@@ -26,6 +26,8 @@ import {
 import {
   HOST_CAPABILITY_CONTRACT_SCHEMA,
   createFileExecutionEventStore,
+  openFileExecutionEventStore,
+  type ExecutionEventStoreBindingV01,
   type ExecutionEventStoreV01,
   type HostCapabilityContractV01,
 } from '@agent-harness/execution-supervisor'
@@ -61,9 +63,19 @@ interface TrustedValidationSpanInput {
   responseManifest: Record<string, unknown>
 }
 
+interface SupervisedTurnSnapshotInput {
+  cwd: string
+  runtimeId: string
+  turnId: string
+  taskId: string
+  projectId: string
+  projectRevision?: string
+}
+
 const tick = (): Promise<void> => new Promise(resolveTick => setTimeout(resolveTick, 0))
 const storeToken = (runtimeId: string, turnId: string): string =>
   createHash('sha256').update(`${runtimeId}\0${turnId}`).digest('hex')
+const MAX_STORE_MANIFEST_BYTES = 2 * 1024 * 1024
 
 const PURE_MCP_AUDIT_CAPABILITIES: HostCapabilityContractV01 = Object.freeze({
   schema: HOST_CAPABILITY_CONTRACT_SCHEMA,
@@ -148,6 +160,7 @@ class PureMcpRuntimeOwner {
   private readonly fibers: DisposableFiber[] = []
   private readonly stores = new Map<string, ExecutionEventStoreV01>()
   private readonly opened = new Map<string, GovernanceOpenTurnResult>()
+  private readonly recoveryJobs = new Map<string, Promise<void>>()
   private runtime?: GovernanceRuntimeService
   private port?: GovernanceHostRuntimePortV01
 
@@ -213,7 +226,29 @@ class PureMcpRuntimeOwner {
     }
   }
 
+  async ensureSupervisedTurn(input: SupervisedTurnSnapshotInput): Promise<void> {
+    if (!this.runtime) throw new Error('Pure MCP Runtime owner is not ready')
+    const selected = await selectProjectBinding(this.config, input.cwd)
+    if (selected.projectId !== input.projectId) {
+      throw new Error('Persisted Gateway task projectId does not match the configured workspace')
+    }
+    const key = `${input.runtimeId}::${input.turnId}`
+    if (this.stores.has(key)) return
+    const existing = this.recoveryJobs.get(key)
+    if (existing) return existing
+
+    const recovery = this.recoverSupervisedTurn(input, selected.projectId, key)
+    this.recoveryJobs.set(key, recovery)
+    try {
+      await recovery
+    } finally {
+      this.recoveryJobs.delete(key)
+    }
+  }
+
   async stop(): Promise<void> {
+    await Promise.allSettled(this.recoveryJobs.values())
+    this.recoveryJobs.clear()
     for (const store of this.stores.values()) await store.close()
     this.stores.clear()
     this.opened.clear()
@@ -345,9 +380,61 @@ class PureMcpRuntimeOwner {
       eventStore: store,
       hostCapabilities: PURE_MCP_AUDIT_CAPABILITIES,
     })
+    const taskInput = await this.runtime.ingestExecutionEvent({
+      runtimeId: input.runtimeId,
+      turnId: input.turnId,
+      eventId: `mcp-task-input-${createHash('sha256').update(input.taskText).digest('hex').slice(0, 32)}`,
+      kind: 'USER_MESSAGE',
+      payload: { text: input.taskText },
+    })
+    if (taskInput.acceptance.status === 'REJECTED') {
+      await store.close()
+      throw new Error(`Durable task input was rejected: ${taskInput.acceptance.reasons.join('; ')}`)
+    }
     this.stores.set(key, store)
     this.opened.set(key, opened)
     return opened
+  }
+
+  private async recoverSupervisedTurn(
+    input: SupervisedTurnSnapshotInput,
+    selectedProjectId: string,
+    key: string,
+  ): Promise<void> {
+    if (!this.runtime) throw new Error('Pure MCP Runtime owner is not ready')
+    const directory = resolve(this.config.eventStoreRoot, storeToken(input.runtimeId, input.turnId))
+    const manifestPath = resolve(directory, 'manifest.json')
+    const details = await stat(manifestPath)
+    if (!details.isFile() || details.size > MAX_STORE_MANIFEST_BYTES) {
+      throw new Error('Execution Event Store manifest is not a bounded file')
+    }
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+      binding?: ExecutionEventStoreBindingV01
+    }
+    const binding = manifest.binding
+    if (!binding || binding.runtimeId !== input.runtimeId || binding.turnId !== input.turnId) {
+      throw new Error('Execution Event Store identity does not match the persisted Gateway task')
+    }
+    if (binding.contract.projectId !== selectedProjectId
+        || binding.contract.projectId !== input.projectId
+        || binding.contract.taskId !== input.taskId
+        || binding.contract.agentId !== input.runtimeId
+        || binding.contract.projectRevision !== input.projectRevision) {
+      throw new Error('Execution Event Store contract does not match the persisted Gateway task')
+    }
+
+    const store = await openFileExecutionEventStore({ directory, binding })
+    try {
+      await this.runtime.rehydrateSupervisedTurn({
+        runtimeId: input.runtimeId,
+        eventStore: store,
+        hostCapabilities: PURE_MCP_AUDIT_CAPABILITIES,
+      })
+      this.stores.set(key, store)
+    } catch (error) {
+      await store.close()
+      throw error
+    }
   }
 }
 
@@ -373,6 +460,10 @@ export const createPureMcpRuntimeModule = (deploymentConfigPath: string) => {
     async ingestTrustedValidationSpan(input: TrustedValidationSpanInput) {
       await selectProjectBinding(await config(), input.cwd)
       return (await owner()).ingestTrustedValidationSpan(input)
+    },
+    async ensureSupervisedTurn(input: SupervisedTurnSnapshotInput) {
+      await selectProjectBinding(await config(), input.cwd)
+      return (await owner()).ensureSupervisedTurn(input)
     },
     async close() {
       if (ownerPromise) await (await ownerPromise).stop()

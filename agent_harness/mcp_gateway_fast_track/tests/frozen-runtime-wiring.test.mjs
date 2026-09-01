@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { after, test } from 'node:test'
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -26,6 +27,49 @@ after(async () => rm(stateRoot, { recursive: true, force: true }))
 
 const ATP_PROJECT_ID = 'et-automated-testing-platform'
 const TASK_INTENT = '分析6801芯片etimer这个IP，复核现有两份文档是否仍符合当前项目规则；不要修改PC、Firmware或Harness框架代码。'
+const storeToken = (runtimeId, turnId) =>
+  createHash('sha256').update(`${runtimeId}\0${turnId}`).digest('hex')
+
+const runtimeAccessFor = (runtimeModule, workspaceRoot) => {
+  const port = runtimeModule.createGovernanceHostRuntimePort({ cwd: workspaceRoot })
+  const ensure = async (snapshot) => runtimeModule.ensureSupervisedTurn({
+    cwd: snapshot.workspacePath,
+    runtimeId: snapshot.runtimeId,
+    turnId: snapshot.turnId,
+    taskId: snapshot.taskId,
+    projectId: snapshot.projectId,
+    projectRevision: snapshot.projectRevision,
+  })
+  return Object.freeze({
+    resolveProject: workspacePath => runtimeModule.resolveProject(workspacePath),
+    openTurn: async input => (await port).openTurn(input),
+    getStatus: async snapshot => {
+      await ensure(snapshot)
+      return (await port).getStatus(snapshot.runtimeId)
+    },
+    observeWork: async (snapshot, input) => {
+      await ensure(snapshot)
+      return (await port).observeWork(input)
+    },
+    preflightAction: async (snapshot, input) => {
+      await ensure(snapshot)
+      return (await port).preflightAction(input)
+    },
+    closeTurn: async (snapshot, input) => {
+      await ensure(snapshot)
+      return (await port).closeTurn(input)
+    },
+    ingest: async (snapshot, input) => {
+      await ensure(snapshot)
+      return (await port).ingestExecutionEvent(input)
+    },
+    ingestTrustedValidationSpan: async (snapshot, input) => {
+      await ensure(snapshot)
+      return runtimeModule.ingestTrustedValidationSpan({ cwd: snapshot.workspacePath, ...input })
+    },
+    close: () => runtimeModule.close(),
+  })
+}
 
 test('real frozen Runtime preserves scope safety and admits only Runtime-owned validation evidence', async () => {
   const release = await verifyActiveRuntimeRelease(resolve(
@@ -56,21 +100,7 @@ test('real frozen Runtime preserves scope safety and admits only Runtime-owned v
 
   const namespace = await import(pathToFileURL(release.runtimeArtifactPath).href)
   const runtimeModule = namespace.createPureMcpRuntimeModule(deploymentPath)
-  const port = await runtimeModule.createGovernanceHostRuntimePort({ cwd: workspaceRoot })
-  const runtimeAccess = Object.freeze({
-    resolveProject: workspacePath => runtimeModule.resolveProject(workspacePath),
-    openTurn: input => port.openTurn(input),
-    getStatus: snapshot => port.getStatus(snapshot.runtimeId),
-    observeWork: (snapshot, input) => port.observeWork(input),
-    preflightAction: (snapshot, input) => port.preflightAction(input),
-    closeTurn: (snapshot, input) => port.closeTurn(input),
-    ingest: (snapshot, input) => port.ingestExecutionEvent(input),
-    ingestTrustedValidationSpan: (snapshot, input) => runtimeModule.ingestTrustedValidationSpan({
-      cwd: snapshot.workspacePath,
-      ...input,
-    }),
-    close: () => runtimeModule.close(),
-  })
+  const runtimeAccess = runtimeAccessFor(runtimeModule, workspaceRoot)
   const snapshotRoot = resolve(stateRoot, 'snapshots')
   const controller = createGovernanceController({
     runtimeAccess,
@@ -82,6 +112,8 @@ test('real frozen Runtime preserves scope safety and admits only Runtime-owned v
     taskSnapshotRoot: snapshotRoot,
   })
 
+  let runtimeClosed = false
+  let recoveredAccess
   try {
     const begun = await controller.begin({
       workspacePath: workspaceRoot,
@@ -201,9 +233,65 @@ test('real frozen Runtime preserves scope safety and admits only Runtime-owned v
         status.supervision.ledger.satisfiedObligationIds.includes(obligation.id),
         `trusted checkpoint must satisfy ${obligation.id}`,
       )
-      assert.equal(status.supervision.ledger.pendingObligationIds.includes(obligation.id), false)
-    }
-  } finally {
+        assert.equal(status.supervision.ledger.pendingObligationIds.includes(obligation.id), false)
+      }
+
+    const eventStorePath = resolve(
+      stateRoot,
+      'execution-events',
+      storeToken(begun.runtimeId, begun.turnId),
+      'events.jsonl',
+    )
+    const eventCountBeforeRecovery = (await readFile(eventStorePath, 'utf8')).trim().split('\n').length
     await runtimeAccess.close()
+    runtimeClosed = true
+
+    const recoveredModule = namespace.createPureMcpRuntimeModule(deploymentPath)
+    recoveredAccess = runtimeAccessFor(recoveredModule, workspaceRoot)
+    const [recoveredStatus, concurrentStatus] = await Promise.all([
+      recoveredAccess.getStatus(begun),
+      recoveredAccess.getStatus(begun),
+    ])
+    assert.equal(recoveredStatus.supervision.hostProfile.negotiation.effectiveLevel, 'AUDIT')
+    assert.equal(recoveredStatus.supervision.hostProfile.claimsMechanicalInterception, false)
+    assert.deepEqual(
+      concurrentStatus.supervision.ledger.satisfiedObligationIds,
+      recoveredStatus.supervision.ledger.satisfiedObligationIds,
+    )
+    for (const obligation of [...requiredResources, ...validationObligations]) {
+      assert.ok(
+        recoveredStatus.supervision.ledger.satisfiedObligationIds.includes(obligation.id),
+        `replayed Runtime must preserve satisfied obligation ${obligation.id}`,
+      )
+    }
+
+    const recoveredController = createGovernanceController({
+      runtimeAccess: recoveredAccess,
+      snapshotStore: createFileSnapshotStore(snapshotRoot),
+      projects: [ATP_PROJECT_ID],
+    })
+    const forbiddenAfterRecovery = await recoveredController.preflight({
+      taskId: begun.taskId,
+      name: 'filesystem.create',
+      effect: {
+        kind: 'MUTATION',
+        intent: {
+          resourceId: 'pc/et_test_platform/core/forbidden_round3_p0.py',
+          path: 'pc/et_test_platform/core/forbidden_round3_p0.py',
+          action: 'CREATE',
+        },
+      },
+    })
+    assert.equal(forbiddenAfterRecovery.status, 'BLOCKED')
+    assert.match(forbiddenAfterRecovery.reason, /WRITE_SCOPE/)
+    const eventCountAfterRecovery = (await readFile(eventStorePath, 'utf8')).trim().split('\n').length
+    assert.equal(
+      eventCountAfterRecovery,
+      eventCountBeforeRecovery,
+      'rehydration and status queries must not append duplicate execution events',
+    )
+  } finally {
+    if (recoveredAccess) await recoveredAccess.close()
+    else if (!runtimeClosed) await runtimeAccess.close()
   }
 })
