@@ -1,0 +1,104 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: stimer
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  stimer0:
+    svd_name: STIMER0
+  stimer1:
+    svd_name: STIMER1
+  stimer2:
+    svd_name: STIMER2
+  stimer3:
+    svd_name: STIMER3
+  stimer4:
+    svd_name: STIMER4
+  stimer5:
+    svd_name: STIMER5
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      stimer0:
+        svd_name: STIMER0
+        irqn: 161
+      stimer1:
+        svd_name: STIMER1
+        irqn: 162
+      stimer2:
+        svd_name: STIMER2
+        irqn: 163
+      stimer3:
+        svd_name: STIMER3
+        irqn: 164
+      stimer4:
+        svd_name: STIMER4
+        irqn: 165
+      stimer5:
+        svd_name: STIMER5
+        irqn: 166
+  identities:
+    base_address:
+      stimer0: '0x40406000'
+      stimer1: '0x40407000'
+      stimer2: '0x40408000'
+      stimer3: '0x40409000'
+      stimer4: '0x4040A000'
+      stimer5: '0x4040B000'
+evidence:
+  stimer.identity.base_address:
+  - instance: stimer0
+    kind: peripheral
+    path: STIMER0.baseAddress
+    rule: direct
+  - instance: stimer1
+    kind: peripheral
+    path: STIMER1.baseAddress
+    rule: direct
+  - instance: stimer2
+    kind: peripheral
+    path: STIMER2.baseAddress
+    rule: direct
+  - instance: stimer3
+    kind: peripheral
+    path: STIMER3.baseAddress
+    rule: direct
+  - instance: stimer4
+    kind: peripheral
+    path: STIMER4.baseAddress
+    rule: direct
+  - instance: stimer5
+    kind: peripheral
+    path: STIMER5.baseAddress
+    rule: direct
+  stimer.interrupt.irq:
+  - instance: stimer0
+    kind: interrupt
+    path: STIMER0.interrupt.STIMER0
+    rule: direct
+  - instance: stimer1
+    kind: interrupt
+    path: STIMER1.interrupt.STIMER1
+    rule: direct
+  - instance: stimer2
+    kind: interrupt
+    path: STIMER2.interrupt.STIMER2
+    rule: direct
+  - instance: stimer3
+    kind: interrupt
+    path: STIMER3.interrupt.STIMER3
+    rule: direct
+  - instance: stimer4
+    kind: interrupt
+    path: STIMER4.interrupt.STIMER4
+    rule: direct
+  - instance: stimer5
+    kind: interrupt
+    path: STIMER5.interrupt.STIMER5
+    rule: direct

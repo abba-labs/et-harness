@@ -1,0 +1,138 @@
+schema: et-run-config-gui/v1
+
+# GUI只描述运行环境字段，不管理IP、P等级或Case；测试集合仍由代码注册表决定。
+# 快捷动作只选择现有Pipeline阶段或固定门禁类型；不得在Schema中携带任意命令。
+quick_actions:
+  - {id: environment_check, label: 环境检查, check_only: true, select: [], preserve_selection: true}
+  - {id: software_quality_gate, label: 软件质量门禁, check_only: false, gate: software_quality, select: [], preserve_selection: true}
+  - {id: full_gate, label: 全量门禁, check_only: false, gate: full, select: [], preserve_selection: true}
+  - {id: build_firmware, label: 编译固件, check_only: false, select: [build.firmware]}
+  - {id: deploy_firmware, label: 烧录固件, check_only: false, select: [deploy.firmware]}
+  - {id: deploy_bitfile, label: 烧录 bitfile, check_only: false, select: [deploy.bitfile]}
+  - {id: deploy_bootrom, label: 加载 BootROM, check_only: false, select: [deploy.bootrom]}
+  - {id: run_tests, label: 运行 PC 测试用例, check_only: false, select: [execute.run_tests, execute.generate_report]}
+
+tabs:
+  - id: identity
+    label: 目标与配置
+    groups:
+      - label: 配置身份
+        fields:
+          - {path: config.name, label: 配置名称, type: text, required: true}
+          - {path: config.description, label: 配置说明, type: text}
+      - label: 测试目标
+        fields:
+          - {path: target.kind, label: 目标形态, type: choice, choices: [fpga, silicon, renode], required: true}
+          - {path: target.logical_name, label: DUT逻辑名称, type: text, required: true}
+          - {path: target.pipeline_profile, label: 流水线Profile, type: pipeline_profile, required: true}
+          - {path: target.bench_profile, label: Bench Profile, type: bench_profile, required: true}
+
+  - id: pipeline
+    label: 执行流程
+    groups:
+      - label: 基础检查
+        fields:
+          - {path: pipeline.environment_check, label: 检查本机与设备环境, type: bool}
+          - {path: pipeline.code_check, label: 执行完整代码质量门禁, type: bool}
+          - {path: pipeline.confirm_hardware_actions, label: 已确认本次真实硬件动作, type: bool}
+      - label: 编译
+        fields:
+          - {path: pipeline.build.bootrom, label: 编译BootROM, type: bool}
+          - {path: pipeline.build.firmware, label: 编译测试固件, type: bool}
+      - label: 部署
+        fields:
+          - {path: pipeline.deploy.bitfile, label: 配置FPGA bitfile, type: bool}
+          - {path: pipeline.deploy.bootrom, label: 加载BootROM, type: bool}
+          - {path: pipeline.deploy.firmware, label: 烧录测试固件, type: bool}
+      - label: 执行
+        fields:
+          - {path: pipeline.execute.start_target, label: 启动目标程序, type: bool}
+          - {path: pipeline.execute.run_tests, label: 运行注册的Formal Case, type: bool}
+          - {path: pipeline.execute.generate_report, label: 生成Excel测试报告, type: bool}
+
+  - id: tools
+    label: 工具环境
+    groups:
+      - label: Python
+        fields:
+          - {path: environment.tools.python.executable, label: Python解释器, type: text, required: true}
+      - label: Keil
+        fields:
+          - {path: environment.tools.keil.executable, label: UV4可执行文件, type: file}
+          - {path: environment.tools.keil.pack_root, label: Keil Pack根目录, type: directory}
+      - label: Vivado
+        fields:
+          - {path: environment.tools.vivado.root, label: Vivado安装根目录, type: directory}
+      - label: J-Link
+        fields:
+          - {path: environment.tools.jlink.executable, label: JLink可执行文件, type: file}
+
+  - id: dut
+    label: DUT
+    groups:
+      - label: BootROM源码
+        fields:
+          - {path: dut.sources.bootrom_project, label: BootROM工程文件, type: file}
+      - label: 镜像
+        fields:
+          - {path: dut.images.bitfile.source, label: bitfile来源, type: choice, choices: [file, build_output], required: true}
+          - {path: dut.images.bitfile.path, label: bitfile路径, type: file}
+          - {path: dut.images.bootrom.source, label: BootROM来源, type: choice, choices: [file, build_output], required: true}
+          - {path: dut.images.bootrom.path, label: BootROM镜像路径, type: file}
+          - {path: dut.images.firmware.source, label: 固件来源, type: choice, choices: [file, build_output], required: true}
+          - {path: dut.images.firmware.path, label: 固件镜像路径, type: file}
+      - label: 调试连接
+        fields:
+          - {path: dut.debug.kind, label: 调试方式, type: choice, choices: [jlink, daplink, openocd, pyocd]}
+          - {path: dut.debug.probe_serial, label: 调试器序列号, type: text}
+      - label: 控制通道
+        fields:
+          - {path: dut.control.kind, label: 控制方式, type: choice, choices: [serial, tcpip], required: true}
+          - {path: dut.control.port, label: DUT串口, type: serial}
+          - {path: dut.control.baudrate, label: DUT波特率, type: integer}
+          - {path: dut.expected.firmware_build_id, label: 期望固件Build ID, type: text}
+
+  - id: companions
+    label: 配测设备
+    groups:
+      - label: 通用波形FPGA
+        fields:
+          - {path: companions.waveform_fpga.enabled, label: 启用波形FPGA, type: bool}
+          - {path: companions.waveform_fpga.profile, label: 设备Profile, type: text}
+          - {path: companions.waveform_fpga.connection.kind, label: 连接方式, type: choice, choices: [xilinx_jtag, jtag, usb, tcpip]}
+          - {path: companions.waveform_fpga.connection.probe_serial, label: JTAG序列号, type: text}
+          - {path: companions.waveform_fpga.control.kind, label: 控制方式, type: choice, choices: [jtag, serial, tcpip]}
+      - label: 对测开发板
+        fields:
+          - {path: companions.peer_board.enabled, label: 启用对测开发板, type: bool}
+          - {path: companions.peer_board.profile, label: 开发板Profile, type: text}
+          - {path: companions.peer_board.connection.kind, label: 连接方式, type: choice, choices: [serial, tcpip, usb]}
+          - {path: companions.peer_board.connection.port, label: 开发板串口, type: serial}
+          - {path: companions.peer_board.connection.baudrate, label: 开发板波特率, type: integer}
+
+  - id: instruments
+    label: 外部仪器
+    groups:
+      - label: 示波器
+        fields:
+          - {path: instruments.scope.enabled, label: 启用示波器, type: bool}
+          - {path: instruments.scope.driver, label: 仪器Driver, type: text}
+          - {path: instruments.scope.connection.kind, label: 连接方式, type: choice, choices: [visa, tcpip, usb]}
+          - {path: instruments.scope.connection.resource, label: VISA/网络资源, type: text}
+      - label: 电源
+        fields:
+          - {path: instruments.power_supply.enabled, label: 启用电源, type: bool}
+          - {path: instruments.power_supply.driver, label: 仪器Driver, type: text}
+          - {path: instruments.power_supply.connection.kind, label: 连接方式, type: choice, choices: [visa, tcpip, usb]}
+          - {path: instruments.power_supply.connection.resource, label: VISA/网络资源, type: text}
+
+  - id: execution
+    label: 运行与输出
+    groups:
+      - label: 执行策略
+        fields:
+          - {path: test.repeat, label: 全部已注册Case重复轮数, type: integer, required: true}
+          - {path: test.stop_on_failure, label: 遇到失败立即停止, type: bool}
+      - label: 产物
+        fields:
+          - {path: output.root, label: 产物目录（auto或artifacts/runs子目录）, type: directory_or_auto, required: true}

@@ -1,0 +1,105 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: spinlock
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  spinlock0:
+    svd_name: SPINLOCK
+capabilities:
+  features:
+    batch_release:
+    - spinlock0
+    clear_key_protection:
+    - spinlock0
+    global_release:
+    - spinlock0
+    module_enable:
+    - spinlock0
+    one_step_mode:
+    - spinlock0
+    resource_lock_state:
+    - spinlock0
+    sl_two_step_mode:
+    - spinlock0
+  limits:
+    process_id_count:
+      spinlock0: 16
+    resource_count:
+      spinlock0: 64
+  options:
+    modes:
+      spinlock0:
+      - one_step
+      - two_step
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      spinlock0: '0x40209000'
+evidence:
+  spinlock.feature.batch_release:
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_BATCH_LOCK_CLR
+    rule: spinlock_register_role
+  spinlock.feature.clear_key_protection:
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_BATCH_LOCK_CLR
+    rule: spinlock_clear_key_register
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_GLOBAL_LOCK_CLR
+    rule: spinlock_clear_key_register
+  spinlock.feature.global_release:
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_GLOBAL_LOCK_CLR
+    rule: spinlock_register_role
+  spinlock.feature.module_enable:
+  - instance: spinlock0
+    kind: field
+    path: SPINLOCK.SL_LOCK_EN.SL_LOCK_EN
+    rule: boolean_enable_field
+  spinlock.feature.one_step_mode:
+  - instance: spinlock0
+    kind: field
+    path: SPINLOCK.SL_LOCK_EN.SL_TWO_STEP_MODE_EN
+    rule: inverse_mode_field
+  spinlock.feature.resource_lock_state:
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_LOCK_FLAG_RPT1
+    rule: spinlock_flag_bank
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_LOCK_FLAG_RPT2
+    rule: spinlock_flag_bank
+  spinlock.feature.sl_two_step_mode:
+  - instance: spinlock0
+    kind: field
+    path: SPINLOCK.SL_LOCK_EN.SL_TWO_STEP_MODE_EN
+    rule: boolean_enable_field
+  spinlock.identity.base_address:
+  - instance: spinlock0
+    kind: peripheral
+    path: SPINLOCK.baseAddress
+    rule: direct
+  spinlock.limit.process_id_count:
+  - instance: spinlock0
+    kind: field
+    path: SPINLOCK.SL_LOCK_INFO[].SL_LOCK_INFO_PROCESS_ID
+    rule: unsigned_field_cardinality
+  spinlock.limit.resource_count:
+  - instance: spinlock0
+    kind: register
+    path: SPINLOCK.SL_LOCK_INFO_ARRAY
+    rule: array_element_count
+  spinlock.option.modes:
+  - instance: spinlock0
+    kind: field
+    path: SPINLOCK.SL_LOCK_EN.SL_TWO_STEP_MODE_EN
+    rule: binary_mode_field

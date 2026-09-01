@@ -1,0 +1,3652 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: srpwm
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  srpwm0:
+    svd_name: SRPWM0
+  srpwm1:
+    svd_name: SRPWM1
+  srpwm2:
+    svd_name: SRPWM2
+  srpwm3:
+    svd_name: SRPWM3
+  srpwm4:
+    svd_name: SRPWM4
+  srpwm5:
+    svd_name: SRPWM5
+  srpwm6:
+    svd_name: SRPWM6
+  srpwm7:
+    svd_name: SRPWM7
+  srpwm8:
+    svd_name: SRPWM8
+  srpwm9:
+    svd_name: SRPWM9
+  srpwm10:
+    svd_name: SRPWM10
+  srpwm11:
+    svd_name: SRPWM11
+  srpwm12:
+    svd_name: SRPWM12
+  srpwm13:
+    svd_name: SRPWM13
+  srpwm14:
+    svd_name: SRPWM14
+  srpwm15:
+    svd_name: SRPWM15
+  srpwm16:
+    svd_name: SRPWM16
+  srpwm17:
+    svd_name: SRPWM17
+capabilities:
+  features:
+    aq_control_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    burst:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    burst_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    cmp_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    dbsel_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_dma_div:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_dma_multi:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_evtint_div:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_evtint_multi:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_sadc0_div:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_sadc0_multi:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_sadc1_div:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    epwm_sadc1_multi:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    fpp_block_dly:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    fpp_flt:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    fpp_fpt_count:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    pstp_exc:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    pstp_glb_force:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    pstp_swap_sync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    rsntpl_dly:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    scmp_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    shd_multicfg_align:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    tb_prd_ldsync:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    tcnt_capture:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+    vsw:
+    - srpwm0
+    - srpwm1
+    - srpwm2
+    - srpwm3
+    - srpwm4
+    - srpwm5
+    - srpwm6
+    - srpwm7
+    - srpwm8
+    - srpwm9
+    - srpwm10
+    - srpwm11
+    - srpwm12
+    - srpwm13
+    - srpwm14
+    - srpwm15
+    - srpwm16
+    - srpwm17
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      srpwm0:
+        svd_name: SRPWM0
+        irqn: 179
+      srpwm1:
+        svd_name: SRPWM1
+        irqn: 180
+      srpwm2:
+        svd_name: SRPWM2
+        irqn: 181
+      srpwm3:
+        svd_name: SRPWM3
+        irqn: 182
+      srpwm4:
+        svd_name: SRPWM4
+        irqn: 183
+      srpwm5:
+        svd_name: SRPWM5
+        irqn: 184
+      srpwm6:
+        svd_name: SRPWM6
+        irqn: 185
+      srpwm7:
+        svd_name: SRPWM7
+        irqn: 186
+      srpwm8:
+        svd_name: SRPWM8
+        irqn: 187
+      srpwm9:
+        svd_name: SRPWM9
+        irqn: 188
+      srpwm10:
+        svd_name: SRPWM10
+        irqn: 189
+      srpwm11:
+        svd_name: SRPWM11
+        irqn: 190
+      srpwm12:
+        svd_name: SRPWM12
+        irqn: 191
+      srpwm13:
+        svd_name: SRPWM13
+        irqn: 192
+      srpwm14:
+        svd_name: SRPWM14
+        irqn: 193
+      srpwm15:
+        svd_name: SRPWM15
+        irqn: 194
+      srpwm16:
+        svd_name: SRPWM16
+        irqn: 195
+      srpwm17:
+        svd_name: SRPWM17
+        irqn: 196
+  identities:
+    base_address:
+      srpwm0: '0x40002000'
+      srpwm1: '0x40003000'
+      srpwm2: '0x40004000'
+      srpwm3: '0x40005000'
+      srpwm4: '0x40006000'
+      srpwm5: '0x40007000'
+      srpwm6: '0x40008000'
+      srpwm7: '0x40009000'
+      srpwm8: '0x4000A000'
+      srpwm9: '0x4000B000'
+      srpwm10: '0x4000C000'
+      srpwm11: '0x4000D000'
+      srpwm12: '0x4000E000'
+      srpwm13: '0x4000F000'
+      srpwm14: '0x40010000'
+      srpwm15: '0x40011000'
+      srpwm16: '0x40012000'
+      srpwm17: '0x40013000'
+evidence:
+  srpwm.feature.aq_control_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.AQ_LDSYNC.AQ_CTL_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.burst:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.BURST_CRL.BURST_EN
+    rule: boolean_enable_field
+  srpwm.feature.burst_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.BURST_LDSYNC.BURST_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.cmp_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.CPM_LDSYNC.CMP_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.dbsel_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.DBSEL_LDSYNC.DBSEL_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_dma_div:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_DMA_DIV.EPWM_DMA_DIV_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_dma_multi:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_DMA_MULTI.EPWM_DMA_MULTI_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_evtint_div:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_EVTINT_DIV.EPWM_EVTINT_DIV_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_evtint_multi:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_EVTINT_MULTI.EPWM_EVTINT_MULTI_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_sadc0_div:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_SADC0_DIV.EPWM_SADC0_DIV_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_sadc0_multi:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_SADC0_MULTI.EPWM_SADC0_MULTI_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_sadc1_div:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_SADC1_DIV.EPWM_SADC1_DIV_EN
+    rule: boolean_enable_field
+  srpwm.feature.epwm_sadc1_multi:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.EPWM_SADC1_MULTI.EPWM_SADC1_MULTI_EN
+    rule: boolean_enable_field
+  srpwm.feature.fpp_block_dly:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[0].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[1].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[2].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[3].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[4].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[5].FPP_CTL.FPP_BLK_DLY_EN
+    rule: boolean_enable_field
+  srpwm.feature.fpp_flt:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[0].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[1].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[2].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[3].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[4].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[5].FPP_FLT.FPP_FLT_EN
+    rule: boolean_enable_field
+  srpwm.feature.fpp_fpt_count:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[0].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[1].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[2].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[3].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[4].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.FPP[5].FPP_CNT.FPP_FPT_CNT_EN
+    rule: boolean_enable_field
+  srpwm.feature.pstp_exc:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.PSTP_CTL.PSTP_EXC_EN
+    rule: boolean_enable_field
+  srpwm.feature.pstp_glb_force:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.PSTP_SFT_FORCE.PSTP_GLB_FORCE_EN
+    rule: boolean_enable_field
+  srpwm.feature.pstp_swap_sync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.PSTP_CTL.PSTP_SWAP_SYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.rsntpl_dly:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.VALLEY_SW_CTRL.RSNTPL_DLY_EN
+    rule: boolean_enable_field
+  srpwm.feature.scmp_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.SCPM_LDSYNC.SCMP_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.shd_multicfg_align:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.PSTP_MULTICFG.SHD_MULTICFG_ALIGN_EN
+    rule: boolean_enable_field
+  srpwm.feature.tb_prd_ldsync:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.TB_PRD_LDSYNC.TB_PRD_LDSYNC_EN
+    rule: boolean_enable_field
+  srpwm.feature.tcnt_capture:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.CAP_TBCNT_CTRL.TCNT_CAPTURE_EN
+    rule: boolean_enable_field
+  srpwm.feature.vsw:
+  - instance: srpwm0
+    kind: field
+    path: SRPWM0.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm1
+    kind: field
+    path: SRPWM1.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm10
+    kind: field
+    path: SRPWM10.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm11
+    kind: field
+    path: SRPWM11.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm12
+    kind: field
+    path: SRPWM12.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm13
+    kind: field
+    path: SRPWM13.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm14
+    kind: field
+    path: SRPWM14.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm15
+    kind: field
+    path: SRPWM15.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm16
+    kind: field
+    path: SRPWM16.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm17
+    kind: field
+    path: SRPWM17.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm2
+    kind: field
+    path: SRPWM2.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm3
+    kind: field
+    path: SRPWM3.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm4
+    kind: field
+    path: SRPWM4.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm5
+    kind: field
+    path: SRPWM5.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm6
+    kind: field
+    path: SRPWM6.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm7
+    kind: field
+    path: SRPWM7.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm8
+    kind: field
+    path: SRPWM8.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  - instance: srpwm9
+    kind: field
+    path: SRPWM9.VALLEY_SW_CTRL.VSW_EN
+    rule: boolean_enable_field
+  srpwm.identity.base_address:
+  - instance: srpwm0
+    kind: peripheral
+    path: SRPWM0.baseAddress
+    rule: direct
+  - instance: srpwm1
+    kind: peripheral
+    path: SRPWM1.baseAddress
+    rule: direct
+  - instance: srpwm10
+    kind: peripheral
+    path: SRPWM10.baseAddress
+    rule: direct
+  - instance: srpwm11
+    kind: peripheral
+    path: SRPWM11.baseAddress
+    rule: direct
+  - instance: srpwm12
+    kind: peripheral
+    path: SRPWM12.baseAddress
+    rule: direct
+  - instance: srpwm13
+    kind: peripheral
+    path: SRPWM13.baseAddress
+    rule: direct
+  - instance: srpwm14
+    kind: peripheral
+    path: SRPWM14.baseAddress
+    rule: direct
+  - instance: srpwm15
+    kind: peripheral
+    path: SRPWM15.baseAddress
+    rule: direct
+  - instance: srpwm16
+    kind: peripheral
+    path: SRPWM16.baseAddress
+    rule: direct
+  - instance: srpwm17
+    kind: peripheral
+    path: SRPWM17.baseAddress
+    rule: direct
+  - instance: srpwm2
+    kind: peripheral
+    path: SRPWM2.baseAddress
+    rule: direct
+  - instance: srpwm3
+    kind: peripheral
+    path: SRPWM3.baseAddress
+    rule: direct
+  - instance: srpwm4
+    kind: peripheral
+    path: SRPWM4.baseAddress
+    rule: direct
+  - instance: srpwm5
+    kind: peripheral
+    path: SRPWM5.baseAddress
+    rule: direct
+  - instance: srpwm6
+    kind: peripheral
+    path: SRPWM6.baseAddress
+    rule: direct
+  - instance: srpwm7
+    kind: peripheral
+    path: SRPWM7.baseAddress
+    rule: direct
+  - instance: srpwm8
+    kind: peripheral
+    path: SRPWM8.baseAddress
+    rule: direct
+  - instance: srpwm9
+    kind: peripheral
+    path: SRPWM9.baseAddress
+    rule: direct
+  srpwm.interrupt.irq:
+  - instance: srpwm0
+    kind: interrupt
+    path: SRPWM0.interrupt.SRPWM0
+    rule: direct
+  - instance: srpwm1
+    kind: interrupt
+    path: SRPWM1.interrupt.SRPWM1
+    rule: direct
+  - instance: srpwm10
+    kind: interrupt
+    path: SRPWM10.interrupt.SRPWM10
+    rule: direct
+  - instance: srpwm11
+    kind: interrupt
+    path: SRPWM11.interrupt.SRPWM11
+    rule: direct
+  - instance: srpwm12
+    kind: interrupt
+    path: SRPWM12.interrupt.SRPWM12
+    rule: direct
+  - instance: srpwm13
+    kind: interrupt
+    path: SRPWM13.interrupt.SRPWM13
+    rule: direct
+  - instance: srpwm14
+    kind: interrupt
+    path: SRPWM14.interrupt.SRPWM14
+    rule: direct
+  - instance: srpwm15
+    kind: interrupt
+    path: SRPWM15.interrupt.SRPWM15
+    rule: direct
+  - instance: srpwm16
+    kind: interrupt
+    path: SRPWM16.interrupt.SRPWM16
+    rule: direct
+  - instance: srpwm17
+    kind: interrupt
+    path: SRPWM17.interrupt.SRPWM17
+    rule: direct
+  - instance: srpwm2
+    kind: interrupt
+    path: SRPWM2.interrupt.SRPWM2
+    rule: direct
+  - instance: srpwm3
+    kind: interrupt
+    path: SRPWM3.interrupt.SRPWM3
+    rule: direct
+  - instance: srpwm4
+    kind: interrupt
+    path: SRPWM4.interrupt.SRPWM4
+    rule: direct
+  - instance: srpwm5
+    kind: interrupt
+    path: SRPWM5.interrupt.SRPWM5
+    rule: direct
+  - instance: srpwm6
+    kind: interrupt
+    path: SRPWM6.interrupt.SRPWM6
+    rule: direct
+  - instance: srpwm7
+    kind: interrupt
+    path: SRPWM7.interrupt.SRPWM7
+    rule: direct
+  - instance: srpwm8
+    kind: interrupt
+    path: SRPWM8.interrupt.SRPWM8
+    rule: direct
+  - instance: srpwm9
+    kind: interrupt
+    path: SRPWM9.interrupt.SRPWM9
+    rule: direct

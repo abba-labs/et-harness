@@ -1,0 +1,60 @@
+schema: et-ip-capability/v2
+chip: et_contract_test
+ip: dma
+
+source:
+  file: contract_test.svd
+  sha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  generator_version: 2
+
+instances:
+  dma0:
+    svd_name: DMA0
+  dma1:
+    svd_name: DMA1
+
+capabilities:
+  features:
+    linked_list: [dma0, dma1]
+  limits:
+    max_block_transfers:
+      dma0: 4095
+      dma1: 4095
+  options:
+    transfer_types:
+      dma0: [memory_to_memory, memory_to_peripheral, peripheral_to_memory]
+      dma1: [memory_to_memory, memory_to_peripheral, peripheral_to_memory]
+  parameters:
+    fifo_depth:
+      dma0: {channel_0: 16, channel_1: 32}
+      dma1: {channel_0: 16, channel_1: 32}
+  interrupts:
+    transfer_done:
+      dma0: {svd_name: DMA0_TFR, irqn: 6}
+      dma1: {svd_name: DMA1_TFR, irqn: 12}
+  identities:
+    base_address:
+      dma0: "0x40200000"
+      dma1: "0x40201000"
+
+evidence:
+  dma.feature.linked_list:
+    - {instance: dma0, kind: field, path: DMA0.CH0_CTL.LLP_SRC_EN, rule: field_presence}
+    - {instance: dma1, kind: field, path: DMA1.CH0_CTL.LLP_SRC_EN, rule: field_presence}
+  dma.limit.max_block_transfers:
+    - {instance: dma0, kind: field, path: DMA0.CH0_BLOCK_TS.BLOCK_TS, rule: bit_width_pow2_minus_1}
+    - {instance: dma1, kind: field, path: DMA1.CH0_BLOCK_TS.BLOCK_TS, rule: bit_width_pow2_minus_1}
+  dma.option.transfer_types:
+    - {instance: dma0, kind: field, path: DMA0.CH0_CTL.TT_FC, rule: inline_values}
+    - {instance: dma1, kind: field, path: DMA1.CH0_CTL.TT_FC, rule: inline_values}
+  dma.parameter.fifo_depth:
+    - {instance: dma0, member: channel_0, kind: field, path: DMA0.COMP.CH0_FIFO_DEPTH, rule: readonly_component_parameter}
+    - {instance: dma0, member: channel_1, kind: field, path: DMA0.COMP.CH1_FIFO_DEPTH, rule: readonly_component_parameter}
+    - {instance: dma1, member: channel_0, kind: field, path: DMA1.COMP.CH0_FIFO_DEPTH, rule: readonly_component_parameter}
+    - {instance: dma1, member: channel_1, kind: field, path: DMA1.COMP.CH1_FIFO_DEPTH, rule: readonly_component_parameter}
+  dma.interrupt.transfer_done:
+    - {instance: dma0, kind: interrupt, path: DMA0.interrupt.DMA0_TFR, rule: direct}
+    - {instance: dma1, kind: interrupt, path: DMA1.interrupt.DMA1_TFR, rule: direct}
+  dma.identity.base_address:
+    - {instance: dma0, kind: peripheral, path: DMA0.baseAddress, rule: direct}
+    - {instance: dma1, kind: peripheral, path: DMA1.baseAddress, rule: direct}

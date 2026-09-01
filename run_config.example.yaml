@@ -1,0 +1,113 @@
+schema: et-run-config/v1
+
+# 1. 配置身份：只描述这一次运行配置，不保存测试Feature参数。
+config:
+  name: et6801_fpga_default
+  description: ET6801 FPGA原型自动化测试模板
+
+# 2. 目标形态：切换硅前/硅后时只更换kind和Pipeline Profile。
+target:
+  kind: fpga                  # fpga / silicon / renode
+  logical_name: dut
+  pipeline_profile: tools/profiles/pipeline/et6801_fpga.yaml
+  bench_profile: pc/et_test_platform/profiles/bench_topologies/et6801_uart_template.yaml
+
+# 3. 执行流水线：可独立组合环境检查、代码检查、编译、部署、运行、测试和报告。
+pipeline:
+  environment_check: true
+  code_check: false
+  confirm_hardware_actions: false  # 任何真实硬件动作前必须人工明确改为true
+  build:
+    bootrom: false
+    firmware: false
+  deploy:
+    bitfile: false
+    bootrom: false
+    firmware: false
+  execute:
+    start_target: false
+    run_tests: false
+    generate_report: false
+
+# 4. 本机工具环境：只填写启用步骤真正依赖的工具；禁用步骤允许留空。
+environment:
+  tools:
+    python:
+      executable: auto
+    keil:
+      executable: ""
+      pack_root: ""
+    vivado:
+      root: ""
+    jlink:
+      executable: ""
+
+# 5. DUT基础环境：镜像、调试连接和PC控制通道属于运行环境，不属于Case参数。
+dut:
+  sources:
+    bootrom_project: ""
+  images:
+    bitfile:
+      source: file
+      path: ""
+    bootrom:
+      source: build_output
+      path: ""
+    firmware:
+      source: build_output
+      path: ""
+  debug:
+    kind: jlink
+    probe_serial: ""
+  control:
+    kind: serial
+    port: ""
+    baudrate: 115200
+  expected:
+    firmware_build_id: et6801-fpga-common-v0.1
+
+# 6. 配测设备：这里只声明设备及连接方式；具体TX/RX、引脚和拓扑仍由Bench Profile管理。
+companions:
+  waveform_fpga:
+    enabled: false
+    type: fpga
+    profile: xc7z045_waveform_platform
+    connection:
+      kind: xilinx_jtag
+      probe_serial: ""
+    control:
+      kind: jtag
+  peer_board:
+    enabled: false
+    type: development_board
+    profile: ""
+    connection:
+      kind: serial
+      port: ""
+      baudrate: 115200
+
+# 7. 外部仪器：公共配置只保存驱动选择和物理连接，不保存单个Case的量程或触发参数。
+instruments:
+  scope:
+    enabled: false
+    type: oscilloscope
+    driver: ""
+    connection:
+      kind: visa
+      resource: ""
+  power_supply:
+    enabled: false
+    type: power_supply
+    driver: ""
+    connection:
+      kind: visa
+      resource: ""
+
+# 8. 测试执行：运行集合完全由IP注册表和各IP Case注册表决定，本配置不重复管理Case。
+test:
+  repeat: 1
+  stop_on_failure: true
+
+# 9. 产物策略：auto固定写入仓库内artifacts/runs；自定义路径也必须位于artifacts内。
+output:
+  root: auto

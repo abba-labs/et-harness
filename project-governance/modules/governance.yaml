@@ -1,0 +1,103 @@
+schema: et.module-profile.v1
+id: governance
+summary: 仓库宪法、规则Owner、规则文档生命周期、机器门禁和任务导航链路。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - Constitution -> Rule Owner Catalog -> Canonical Rule -> Checker/Test
+  - Task -> System Map -> Module Profile -> Task Context -> Read/Write/Validate
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 仓库最高执行契约
+      required: true
+    - path: report/design/rules/R001_agent_rule_governance.md
+      reason: Owner、诊断和文档生命周期治理
+      required: true
+    - path: report/design/rule_owner_catalog.yaml
+      reason: 活动规则唯一Owner目录
+      required: true
+    - path: project-governance/README.md
+      reason: 任务导航链路和轻量化边界
+      required: true
+  rules:
+    - agent_rule_governance
+    - task_context_navigation
+  protected_scopes:
+    - pc/et_test_platform/test_cases/**
+    - pc/et_test_platform/drivers/**
+    - firmware/services/**
+    - firmware/wrap/**
+
+changes:
+  weekly-report:
+    read:
+      - path: report/design/rules/R003_weekly_report_authoring.md
+        reason: 周报事实口径、结构、异常项和归档规则
+        required: true
+      - path: report/README.md
+        reason: 正式报告唯一索引和目录职责
+        required: true
+    rules:
+      - weekly_report_authoring
+    write_scopes:
+      - report/Weekly_report/**
+      - report/README.md
+    validation:
+      - python tools/quality/validate_rule_governance.py
+
+  bug-remediation:
+    read:
+      - path: report/design/rules/R004_bug_batch_remediation.md
+        reason: 批量Bug修复的范围冻结、分层定位、验证节奏和停止条件
+        required: true
+    rules:
+      - bug_batch_remediation
+    write_scopes:
+      - report/plans/**
+    validation:
+      - python tools/quality/validate_rule_governance.py
+
+  rule:
+    read:
+      - path: report/design/rules
+        reason: 活动规则正文全集，用于跨规则冲突、重复和生命周期审查
+        required: true
+      - path: tools/quality/validate_rule_governance.py
+        reason: Owner、诊断和文档Inventory门禁
+        required: true
+    rules:
+      - agent_rule_governance
+    write_scopes:
+      - AGENTS.md
+      - report/design/**
+      - report/README.md
+      - tools/quality/**
+      - tools/validate_pc.py
+      - pc/et_test_platform/framework_validation/unit/code_quality/**
+    validation:
+      - python tools/quality/validate_rule_governance.py
+
+  navigation:
+    read:
+      - path: project-governance
+        reason: 工程地图、模块画像和Task Context契约
+        required: true
+      - path: tools/governance
+        reason: Task Context编译与校验工具
+        required: false
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - project-governance/**
+      - tools/governance/**
+      - pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py
+      - AGENTS.md
+      - tools/README.md
+      - tools/validate_pc.py
+      - .gitignore
+    validation:
+      - python tools/governance/compile_task_context.py validate
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/code_quality/test_task_context_governance.py

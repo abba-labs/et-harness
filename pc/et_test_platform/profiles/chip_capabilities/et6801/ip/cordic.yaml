@@ -1,0 +1,301 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: cordic
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 9
+instances:
+  cordic0:
+    svd_name: CORDIC
+capabilities:
+  features:
+    arg_overflow_status:
+    - cordic0
+    argument_width:
+    - cordic0
+    calculation_engine:
+    - cordic0
+    complete_status:
+    - cordic0
+    float_conversion_status:
+    - cordic0
+    input_range:
+    - cordic0
+    interrupts:
+    - cordic0
+    pm_arg2_error_status:
+    - cordic0
+    precision_cycles:
+    - cordic0
+    result_count:
+    - cordic0
+    result_width:
+    - cordic0
+    scale:
+    - cordic0
+    work_mode:
+    - cordic0
+  limits: {}
+  options:
+    argument_widths:
+      cordic0: &id001
+      - 16
+      - 32
+    input_ranges:
+      cordic0:
+      - normalized
+      - direct_angle
+    irq_sources:
+      cordic0:
+      - arg_overflow
+      - calculation_complete
+      - pm_arg2_error
+    math_functions:
+      cordic0:
+      - sincos
+      - phase_modulus
+      - arctan
+      - hsincos
+      - atanh
+      - exp
+      - ln
+      - sqrt
+      - tan
+    numeric_modes:
+      cordic0:
+      - fixed
+      - float32
+    result_counts:
+      cordic0:
+      - 1
+      - 2
+    result_widths:
+      cordic0: *id001
+    work_modes:
+      cordic0:
+      - interrupt
+      - polling
+      - zero_overhead
+      - dma
+  parameters: {}
+  interrupts:
+    irq:
+      cordic0:
+        svd_name: CORDIC
+        irqn: 5
+  identities:
+    base_address:
+      cordic0: '0x50000000'
+evidence:
+  cordic.feature.arg_overflow_status:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.STATUS_RPT.WR_NARGS_OVF_RPT
+    rule: cordic_status_path
+  cordic.feature.argument_width:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_ARGSIZE
+    rule: cordic_argument_width
+  cordic.feature.calculation_engine:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.ARCTAN_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.EX_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.HARCTAN_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.HSINCOS_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.LN_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.PM_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.SINCOS_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.SQRT_CAL.DATA
+    rule: cordic_function_input_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.TAN_CAL.DATA
+    rule: cordic_function_input_path
+  cordic.feature.complete_status:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.STATUS_RPT.RRDY_FLG_RPT
+    rule: cordic_status_path
+  cordic.feature.float_conversion_status:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.RPT_CORDIC_FLOAT2FIXED.OVF
+    rule: cordic_conversion_status_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.RPT_CORDIC_FLOAT2FIXED.UDF
+    rule: cordic_conversion_status_path
+  cordic.feature.input_range:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_DMODE
+    rule: cordic_input_range
+  cordic.feature.interrupts:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.INT_CLR.CORDIC_INT_CLR
+    rule: cordic_interrupt_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.INT_EN.CORDIC_INT_EN
+    rule: cordic_interrupt_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.INT_FORCE_IND.CORDIC_INT_FORCE_IND
+    rule: cordic_interrupt_path
+  - instance: cordic0
+    kind: field
+    path: CORDIC.INT_MASK.CORDIC_INT_MASK
+    rule: cordic_interrupt_path
+  cordic.feature.pm_arg2_error_status:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.STATUS_RPT.WR_ARG2_ERROR_RPT
+    rule: cordic_status_path
+  cordic.feature.precision_cycles:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_NOI
+    rule: cordic_iteration_field
+  cordic.feature.result_count:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_HSINCOS_NRES
+    rule: cordic_result_count
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_PM_NRES
+    rule: cordic_result_count
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_SINCOS_NRES
+    rule: cordic_result_count
+  cordic.feature.result_width:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_RESSIZE
+    rule: cordic_result_width
+  cordic.feature.scale:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_SCALE
+    rule: cordic_scale_field
+  cordic.feature.work_mode:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_WORK_MODE
+    rule: cordic_work_mode
+  cordic.identity.base_address:
+  - instance: cordic0
+    kind: peripheral
+    path: CORDIC.baseAddress
+    rule: direct
+  cordic.interrupt.irq:
+  - instance: cordic0
+    kind: interrupt
+    path: CORDIC.interrupt.CORDIC
+    rule: direct
+  cordic.option.argument_widths:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_ARGSIZE
+    rule: cordic_field_encoding
+  cordic.option.input_ranges:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_DMODE
+    rule: cordic_field_encoding
+  cordic.option.irq_sources:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.INT_EN.CORDIC_INT_EN
+    rule: cordic_field_encoding
+  cordic.option.math_functions:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.ARCTAN_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.EX_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.HARCTAN_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.HSINCOS_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.LN_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.PM_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.SINCOS_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.SQRT_CAL.DATA
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.TAN_CAL.DATA
+    rule: cordic_field_encoding
+  cordic.option.numeric_modes:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_FMODE
+    rule: cordic_field_encoding
+  cordic.option.result_counts:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_HSINCOS_NRES
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_PM_NRES
+    rule: cordic_field_encoding
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_SINCOS_NRES
+    rule: cordic_field_encoding
+  cordic.option.result_widths:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_RESSIZE
+    rule: cordic_field_encoding
+  cordic.option.work_modes:
+  - instance: cordic0
+    kind: field
+    path: CORDIC.CTRL0.CORDIC_WORK_MODE
+    rule: cordic_field_encoding

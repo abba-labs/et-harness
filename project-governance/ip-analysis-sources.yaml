@@ -1,0 +1,86 @@
+# 只保存IP分析资料定位；category用于导航，不限制Evidence用途。
+schema: et.ip-analysis-sources.v1
+
+roots:
+  codex_local: "G:/我的云端硬盘/ET_FILE/CODE/sdk"
+  chatgpt_google_drive:
+    folder_id: "1dMyOSUaTzjlTXIhM5q5xzAqQHg1mVZ14"
+    path_hint: "ET_FILE/CODE/sdk"
+
+requirements:
+  test_case:
+    category: requirement
+    local_relative: "test_case"
+    drive_id: "1RrkQ-Tc2uGMszYbSnovdhH1N5cyQTVw9"
+
+chips:
+  et3101:
+    sources:
+      svd:
+        category: svd
+        local_relative: "3101/et3101-verification/Tools/RegGen/svd"
+        drive_id: "1JxdvbRAl63mEhH0oWS9r1gXjnVbNZbuH"
+      drivers:
+        category: driver
+        roots:
+          - local_relative: "3101/et3101-sdk/DFP/Drivers"
+            drive_id: "1zJ6nJx-tqejf9ct81ZN_EM_vG9RKFNlZ"
+          - local_relative: "3101/et3101-verification/DFP/Drivers"
+            drive_id: "1_XYaPk7nhZB7YpcrJIWXW0E0tH2G1R6w"
+      fpga_verification:
+        category: fpga_verification
+        local_relative: "3101/et3101-verification"
+        drive_id: "1r7hW4mgXOPoOiLKvrndy9ob8C2GIKEF6"
+      tests:
+        category: test
+        roots:
+          - local_relative: "3101/et3101-sdk/DFP/Test"
+            drive_id: "1cBbUixPIcTSJIN_jNkyghFR3pD4kbd9c"
+          - local_relative: "3101/et3101-verification/DFP/Test"
+            drive_id: "1o92-FUR8ISa-lwVFqHDcc0YyTVSnpV-T"
+
+  et6003:
+    sources:
+      svd:
+        category: svd
+        local_relative: "6003/et6003-verification/Tools/RegGen/svd"
+        drive_id: "1Xus4MFSF-uVw5cXCBVEybgRdbE4RhQ57"
+      drivers:
+        category: driver
+        roots:
+          - local_relative: "6003/6003_sdk/et6003-sdk/DFP/Drivers"
+            drive_id: "13r4PywFV_z9jMttRuZBxsXVZ8KrMcoQy"
+          - local_relative: "6003/et6003-verification/DFP/Drivers"
+            drive_id: "1w8NCOXSbBHWzIU-DQFM2BADvoR9ET0A0"
+      fpga_verification:
+        category: fpga_verification
+        local_relative: "6003/et6003-verification"
+        drive_id: "145tZT7xZnKse0o8J2mn4W61Y328Nl38R"
+      tests:
+        category: test
+        roots:
+          - local_relative: "6003/6003_sdk/et6003-sdk/DFP/Test"
+            drive_id: "1ymCMrpQEQWMKd4ttQVoVcpNNHuZDCgiD"
+          - local_relative: "6003/et6003-verification/DFP/Test"
+            drive_id: "1XUS9HFbv00WXQZokRr3B5QKYn34MfPCk"
+
+  et6801:
+    sources:
+      svd:
+        category: svd
+        local_relative: "6801/et6801-verification/Tools/RegGen/svd"
+        drive_id: "1WNBK0Pxt8KFCwFQTiQRnJWHR3An_PQrp"
+      drivers:
+        category: driver
+        roots:
+          - local_relative: "6801/et6801-verification/DFP/Drivers"
+            drive_id: "1umT9DaXv9MieLQwRugvXLfFxFkQodWgI"
+      fpga_verification:
+        category: fpga_verification
+        local_relative: "6801/et6801-verification"
+        drive_id: "160tw1UYl-FHWB57EvPa6_5bUhtEkbHcH"
+      tests:
+        category: test
+        roots:
+          - local_relative: "6801/et6801-verification/DFP/Test"
+            drive_id: "1Gc-kWlEbQC-V-ik6MPWTlTrhniHaugbd"

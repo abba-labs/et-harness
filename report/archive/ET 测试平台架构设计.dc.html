@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#E9E5DB;}
+  *{box-sizing:border-box;}
+  ::selection{background:#1F6E68;color:#F3F0E9;}
+  .doc h3{scroll-margin-top:20px;}
+</style>
+</helmet>
+
+<div class="doc" style="width:1512px;margin:0 auto;background:#F3F0E9;color:#1A1A18;font-family:'Noto Sans SC',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.75;box-shadow:0 40px 120px rgba(0,0,0,0.18);">
+
+  <!-- ================= 封面 ================= -->
+  <section data-screen-label="封面" style="background:#15201F;color:#EDE9DE;padding:96px 104px 84px;position:relative;overflow:hidden;min-height:760px;display:flex;flex-direction:column;justify-content:space-between;">
+    <div style="position:absolute;top:-100px;right:-80px;width:480px;height:480px;border:1px solid rgba(120,180,172,0.16);border-radius:50%;"></div>
+    <div style="position:absolute;top:20px;right:80px;width:320px;height:320px;border:1px solid rgba(120,180,172,0.10);border-radius:50%;"></div>
+    <div style="position:absolute;bottom:-120px;left:-60px;width:360px;height:360px;border:1px solid rgba(217,138,84,0.10);border-radius:50%;"></div>
+    <div>
+      <div style="display:flex;align-items:center;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.2em;color:#7FB3AB;text-transform:uppercase;">
+        <span style="width:40px;height:1px;background:#7FB3AB;display:inline-block;"></span>
+        Architecture Design Document
+      </div>
+    </div>
+    <div>
+      <h1 style="font-size:66px;line-height:1.1;font-weight:900;margin:0;letter-spacing:-0.015em;max-width:1160px;">
+        ET 系列 MCU<br>全 IP 自动化测试平台<br><span style="color:#7FB3AB;">架构设计</span>
+      </h1>
+      <p style="font-size:21px;font-weight:300;color:#B8C4C0;margin:32px 0 0;max-width:940px;line-height:1.62;">
+        一套面向 SIL / FPGA / HIL 的统一自动化测试平台。以<b style="color:#EDE9DE;font-weight:500;">分层解耦 + 插件化</b>为核心,让测试用例与测试固件不随芯片变化,并使新增芯片、新增 IP、新增测试类型(功能 / 老化 / 高低温 / 筛片)的边际成本趋近于零。
+      </p>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:24px;">
+      <div style="display:flex;gap:44px;flex-wrap:wrap;">
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6E827E;letter-spacing:0.08em;">版本</div><div style="font-family:'Space Grotesk';font-size:18px;font-weight:600;color:#EDE9DE;margin-top:3px;">v1.0</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6E827E;letter-spacing:0.08em;">状态</div><div style="font-family:'Space Grotesk';font-size:18px;font-weight:600;color:#EDE9DE;margin-top:3px;">团队评审稿</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6E827E;letter-spacing:0.08em;">适用芯片</div><div style="font-family:'Space Grotesk';font-size:18px;font-weight:600;color:#EDE9DE;margin-top:3px;">ET3101 / 6002 / 6003 / 6801 / …</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6E827E;letter-spacing:0.08em;">日期</div><div style="font-family:'Space Grotesk';font-size:18px;font-weight:600;color:#EDE9DE;margin-top:3px;">2026-07-03</div></div>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#6E827E;text-align:right;line-height:1.7;">ET Automated Testing Platform<br>Confidential · Internal</div>
+    </div>
+  </section>
+
+  <!-- ================= 目录 ================= -->
+  <section data-screen-label="目录" style="padding:70px 104px 64px;">
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:34px;">
+      <h2 style="font-size:30px;font-weight:900;margin:0;letter-spacing:-0.01em;">目录</h2>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#8A867C;">Table of Contents · 12 章</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;">
+      <a href="#ch1" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">01</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">背景与目标</span><br><span style="font-size:13px;color:#8A867C;">现状 · 痛点 · 设计目标 · 原则 · 范围</span></span>
+      </a>
+      <a href="#ch2" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">02</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">总体架构</span><br><span style="font-size:13px;color:#8A867C;">三面模型 · 三正交轴 · 分层图 · 数据流</span></span>
+      </a>
+      <a href="#ch3" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">03</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">控制面</span><br><span style="font-size:13px;color:#8A867C;">用例层 · IP 契约 · 能力模型</span></span>
+      </a>
+      <a href="#ch4" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">04</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">执行脊柱</span><br><span style="font-size:13px;color:#8A867C;">Target API · Transport · Agent · 适配层</span></span>
+      </a>
+      <a href="#ch5" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">05</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">观测面与环境面</span><br><span style="font-size:13px;color:#8A867C;">观测策略 · 仪器 · 环境控制</span></span>
+      </a>
+      <a href="#ch6" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">06</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">编排层与报告治理</span><br><span style="font-size:13px;color:#8A867C;">Campaign · 数据点 · 报告 · 归档</span></span>
+      </a>
+      <a href="#ch7" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">07</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">插件机制与扩展性</span><br><span style="font-size:13px;color:#8A867C;">五类插口 · 自注册 · 开闭原则</span></span>
+      </a>
+      <a href="#ch8" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">08</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">可靠性 · 治理 · 版本</span><br><span style="font-size:13px;color:#8A867C;">容错契约 · CI 执法 · 兼容策略</span></span>
+      </a>
+      <a href="#ch9host" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">09</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">脚本端软件设计</span><br><span style="font-size:13px;color:#8A867C;">分层 · 各层规则 · 调用链实例</span></span>
+      </a>
+      <a href="#ch10fw" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">10</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">固件端软件设计</span><br><span style="font-size:13px;color:#8A867C;">Agent 分层 · 实现规则 · 真实驱动实例</span></span>
+      </a>
+      <a href="#ch11io" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">11</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">脚本与固件交互</span><br><span style="font-size:13px;color:#8A867C;">协议 · 字节级往返 · 容错交互</span></span>
+      </a>
+      <a href="#ch9" style="text-decoration:none;color:inherit;display:flex;align-items:baseline;gap:16px;padding:14px 20px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;">
+        <span style="font-family:'Space Grotesk';font-size:20px;font-weight:700;color:#1F6E68;flex:0 0 34px;">12</span>
+        <span style="flex:1;"><span style="font-size:16.5px;font-weight:700;">仓库布局 · 工具链 · 路线图</span><br><span style="font-size:13px;color:#8A867C;">目录 · capgen · 里程碑</span></span>
+      </a>
+    </div>
+
+    <!-- 术语表 -->
+    <div style="margin-top:34px;background:#EFEBE1;border-radius:11px;padding:26px 30px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1F6E68;font-weight:600;letter-spacing:0.06em;margin-bottom:16px;">术语表 · GLOSSARY</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 40px;">
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Feature / 契约</span><span style="font-size:13.5px;color:#55524B;">一个可被验证的 IP 行为的稳定标识,如 uart.internal_loopback。全系列统一。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Capability</span><span style="font-size:13.5px;color:#55524B;">某颗芯片/板/后端声明"有没有、几路、参数范围、走哪个变体"的数据。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Agent</span><span style="font-size:13.5px;color:#55524B;">常驻芯片内的测试代理固件,执行操作、回传原始观测量,不做判定。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Adapter / cdrv</span><span style="font-size:13.5px;color:#55524B;">每芯片一份的适配层,把契约动作映射到本芯片 SDK 驱动。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Backend</span><span style="font-size:13.5px;color:#55524B;">执行环境:Renode(SIL)/ FPGA / Hardware(HIL),负责烧录、复位、通信。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Observer</span><span style="font-size:13.5px;color:#55524B;">观测手段:self(片内自读)/ clb(片内逻辑捕获)/ scope(外部仪器)。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Environment</span><span style="font-size:13.5px;color:#55524B;">环境控制:温箱、拉偏电源、老化台,提供 set / wait_stable / hold。</span></div>
+        <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:600;flex:0 0 130px;">Campaign</span><span style="font-size:13.5px;color:#55524B;">测试活动:选一组用例 × 条件 × 重复/时长 × 归档策略。老化/温循/筛片的载体。</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第1章 背景与目标 ================= -->
+  <section id="ch1" data-screen-label="第1章 背景与目标" style="padding:66px 104px 60px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:28px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">01</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">背景与目标</h2>
+    </div>
+
+    <!-- 1.1 现状 -->
+    <h3 style="font-size:21px;font-weight:700;margin:12px 0 14px;color:#15201F;">1.1　现状:手工测试 + 每 IP 一份用例</h3>
+    <p style="font-size:16px;color:#33322D;margin:0 0 18px;max-width:1140px;">当前 ET 系列 MCU 的 IP 验证以<b>人工手动测试</b>为主,尚未建立自动化体系。每个 IP 由工程师针对某颗具体芯片编写一份测试代码/固件,验证时人工烧录、人工观察串口日志或示波器,人工判断通过与否。随着芯片款数(ET3101 / 6002 / 6003 / 6801 …)和 IP 数量(已盘点 27 个)持续增长,这种模式的成本与风险呈相乘放大。</p>
+
+    <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:11px;padding:22px 26px;margin-bottom:26px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#8A867C;letter-spacing:0.05em;margin-bottom:14px;">现状证据 · 取自 code/boot_rom 现有测试固件</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 30px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;"><span style="color:#B25A2B;font-family:'IBM Plex Mono',monospace;font-weight:600;flex:0 0 24px;">A</span><div style="font-size:14.5px;color:#44423B;"><b>编译期挑用例</b>:靠 <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">#define UNIT_TEST_EN / NVR_SECTOR_TEST_EN</span> + 手工注释切换,换芯片要改宏、改工程。</div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><span style="color:#B25A2B;font-family:'IBM Plex Mono',monospace;font-weight:600;flex:0 0 24px;">B</span><div style="font-size:14.5px;color:#44423B;"><b>golden 值焊死在固件</b>:如 CRC 期望值 <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">except=0x40EFAB9E</span>、内存基址混在测试逻辑中。</div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><span style="color:#B25A2B;font-family:'IBM Plex Mono',monospace;font-weight:600;flex:0 0 24px;">C</span><div style="font-size:14.5px;color:#44423B;"><b>只有自由文本日志</b>:靠 <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">DPrintf("...fail")</span> 输出,无机器可解析的 PASS/FAIL 协议。</div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><span style="color:#B25A2B;font-family:'IBM Plex Mono',monospace;font-weight:600;flex:0 0 24px;">D</span><div style="font-size:14.5px;color:#44423B;"><b>ASIC 禁调试输出</b>:<span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">#error DEBUG_OUTPUT not allowed on ROM_ASIC</span> —— 真芯片上常无输出通道。</div></div>
+      </div>
+    </div>
+
+    <!-- 1.2 痛点 -->
+    <h3 style="font-size:21px;font-weight:700;margin:12px 0 14px;color:#15201F;">1.2　核心痛点</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px;">
+      <div style="background:#F7EDE6;border:1px solid #E3C4AC;border-radius:10px;padding:18px 20px;">
+        <div style="font-size:15.5px;font-weight:700;color:#B25A2B;">用例随芯片相乘</div>
+        <div style="font-size:14px;color:#7a5a44;margin-top:6px;">N 芯片 × M 个 IP = N×M 份拷贝,人力线性甚至超线性膨胀。</div>
+      </div>
+      <div style="background:#F7EDE6;border:1px solid #E3C4AC;border-radius:10px;padding:18px 20px;">
+        <div style="font-size:15.5px;font-weight:700;color:#B25A2B;">无法回归、不可追溯</div>
+        <div style="font-size:14px;color:#7a5a44;margin-top:6px;">人工判读无结构化结果,改一版芯片无法快速回归,历史结果难对比。</div>
+      </div>
+      <div style="background:#F7EDE6;border:1px solid #E3C4AC;border-radius:10px;padding:18px 20px;">
+        <div style="font-size:15.5px;font-weight:700;color:#B25A2B;">扩展即重构</div>
+        <div style="font-size:14px;color:#7a5a44;margin-top:6px;">要做老化/高低温/筛片,现有模式只能另起炉灶,无法复用功能测试资产。</div>
+      </div>
+    </div>
+
+    <!-- 1.3 设计目标 -->
+    <h3 style="font-size:21px;font-weight:700;margin:12px 0 14px;color:#15201F;">1.3　设计目标</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:26px;">
+      <div style="display:flex;align-items:center;gap:16px;background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 22px;">
+        <span style="font-family:'Space Grotesk';font-weight:700;color:#1F6E68;font-size:15px;flex:0 0 60px;">G1</span>
+        <span style="flex:1;font-size:15px;color:#33322D;"><b>用例与固件不随芯片变</b> —— 同一套测试意图跑遍全系列,芯片差异被数据吸收。</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 22px;">
+        <span style="font-family:'Space Grotesk';font-weight:700;color:#1F6E68;font-size:15px;flex:0 0 60px;">G2</span>
+        <span style="flex:1;font-size:15px;color:#33322D;"><b>一套用例三处执行</b> —— SIL(Renode)/ FPGA / HIL(真芯片)后端可插拔,用例无感。</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 22px;">
+        <span style="font-family:'Space Grotesk';font-weight:700;color:#1F6E68;font-size:15px;flex:0 0 60px;">G3</span>
+        <span style="flex:1;font-size:15px;color:#33322D;"><b>新增边际成本 O(1)</b> —— 加芯片=2 文件,加 feature=3 文件,不改任何已有用例。</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 22px;">
+        <span style="font-family:'Space Grotesk';font-weight:700;color:#1F6E68;font-size:15px;flex:0 0 60px;">G4</span>
+        <span style="flex:1;font-size:15px;color:#33322D;"><b>可长期迭代</b> —— 功能测试之外,老化/压力/高低温/筛片以插件方式接入,不动核心。</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 22px;">
+        <span style="font-family:'Space Grotesk';font-weight:700;color:#1F6E68;font-size:15px;flex:0 0 60px;">G5</span>
+        <span style="flex:1;font-size:15px;color:#33322D;"><b>轻量可靠</b> —— 第一版最小承重核心即可跑通,容错机制内建,维护成本可控。</span>
+      </div>
+    </div>
+
+    <!-- 1.4 设计原则 + 1.5 范围 -->
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:22px;">
+      <div>
+        <h3 style="font-size:21px;font-weight:700;margin:12px 0 14px;color:#15201F;">1.4　设计原则</h3>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #1F6E68;border-radius:0 8px 8px 0;padding:12px 18px;"><b style="font-size:14.5px;">分层解耦</b><span style="font-size:13.5px;color:#55524B;"> —— 意图 / 契约 / 执行 / 适配 / 观测各司其职,依赖单向向下。</span></div>
+          <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #1F6E68;border-radius:0 8px 8px 0;padding:12px 18px;"><b style="font-size:14.5px;">开闭原则</b><span style="font-size:13.5px;color:#55524B;"> —— 对扩展开放、对修改关闭:新增=建文件,不改老文件。</span></div>
+          <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #1F6E68;border-radius:0 8px 8px 0;padding:12px 18px;"><b style="font-size:14.5px;">数据驱动差异</b><span style="font-size:13.5px;color:#55524B;"> —— 芯片差异是数据(能力表),不是代码分支。</span></div>
+          <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #1F6E68;border-radius:0 8px 8px 0;padding:12px 18px;"><b style="font-size:14.5px;">判定权归主机</b><span style="font-size:13.5px;color:#55524B;"> —— 固件只执行、只回原始量;PASS/FAIL 在主机,改判据不重烧。</span></div>
+          <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #1F6E68;border-radius:0 8px 8px 0;padding:12px 18px;"><b style="font-size:14.5px;">正交可组合</b><span style="font-size:13.5px;color:#55524B;"> —— 测什么 / 怎么编排 / 什么条件三轴独立,自由组合不相乘。</span></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:21px;font-weight:700;margin:12px 0 14px;color:#15201F;">1.5　范围与非目标</h3>
+        <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:16px 20px;margin-bottom:12px;">
+          <div style="font-size:13.5px;color:#1F6E68;font-weight:700;font-family:'IBM Plex Mono',monospace;">✓ 在范围内</div>
+          <div style="font-size:14px;color:#3f6b64;margin-top:7px;line-height:1.7;">IP 功能自动化测试;SIL/FPGA/HIL 统一;能力驱动裁剪;可靠性/温度/筛片的扩展接口;结果治理与回归。</div>
+        </div>
+        <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:9px;padding:16px 20px;">
+          <div style="font-size:13.5px;color:#B25A2B;font-weight:700;font-family:'IBM Plex Mono',monospace;">✗ 非目标(本平台不承担)</div>
+          <div style="font-size:14px;color:#8a5a3a;margin-top:7px;line-height:1.7;">BootROM 下载协议测试(另有体系);量产 ATE 测试程序;形式化验证 / DV 仿真签核;器件建模本身。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第2章 总体架构 ================= -->
+  <section id="ch2" data-screen-label="第2章 总体架构" style="padding:66px 104px 62px;background:#EFEBE1;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:26px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">02</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">总体架构</h2>
+    </div>
+
+    <!-- 2.1 三面模型 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 6px;color:#15201F;">2.1　三面模型:控制面 · 执行脊柱 · 观测/环境面</h3>
+    <p style="font-size:16px;color:#33322D;margin:0 0 22px;max-width:1140px;">平台不是简单的线性分层,而是<b>一条执行脊柱 + 两侧正交的面</b>。控制面在主机做决策(测什么、跑不跑、判据),执行脊柱把请求从主机送达硅片,观测/环境面在硅片两端读结果、写条件。三者职责互不重叠。</p>
+
+    <div style="background:#FBFAF6;border:1.5px solid #D8D2C4;border-radius:14px;padding:28px 32px;margin-bottom:16px;">
+      <div style="display:flex;gap:16px;align-items:stretch;">
+        <!-- 控制面 -->
+        <div style="flex:0 0 250px;background:#15201F;color:#EDE9DE;border-radius:11px;padding:20px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;letter-spacing:0.08em;">控制面 · CONTROL PLANE</div>
+          <div style="font-size:16px;font-weight:700;margin:6px 0 12px;">主机决策(第 3 章)</div>
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="background:rgba(127,179,171,0.14);border-radius:6px;padding:8px 11px;font-size:13px;">测试用例(意图 + 判据)</div>
+            <div style="background:rgba(127,179,171,0.14);border-radius:6px;padding:8px 11px;font-size:13px;">IP 契约(feature 词典)</div>
+            <div style="background:rgba(127,179,171,0.14);border-radius:6px;padding:8px 11px;font-size:13px;">能力模型(裁剪/参数/变体)</div>
+          </div>
+        </div>
+
+        <!-- 脊柱 -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;letter-spacing:0.08em;margin-bottom:8px;">执行脊柱 · EXECUTION SPINE(第 4 章)</div>
+          <div style="flex:1;display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;background:#1F6E68;color:#fff;border-radius:8px;padding:12px 8px;text-align:center;font-size:13px;font-weight:600;">Target<br>API</div>
+            <span style="color:#1F6E68;font-size:18px;">→</span>
+            <div style="flex:1;background:#1F6E68;color:#fff;border-radius:8px;padding:12px 8px;text-align:center;font-size:13px;font-weight:600;">Trans<br>port</div>
+            <span style="color:#1F6E68;font-size:18px;">→</span>
+            <div style="flex:1;background:#1F6E68;color:#fff;border-radius:8px;padding:12px 8px;text-align:center;font-size:13px;font-weight:600;">Agent<br>核心</div>
+            <span style="color:#1F6E68;font-size:18px;">→</span>
+            <div style="flex:1;background:#1F6E68;color:#fff;border-radius:8px;padding:12px 8px;text-align:center;font-size:13px;font-weight:600;">适配<br>cdrv</div>
+            <span style="color:#1F6E68;font-size:18px;">→</span>
+            <div style="flex:1;background:#15201F;color:#EDE9DE;border-radius:8px;padding:12px 8px;text-align:center;font-size:13px;font-weight:600;">IP<br>硅片</div>
+          </div>
+          <div style="text-align:center;font-size:12px;color:#8A867C;margin-top:8px;font-family:'IBM Plex Mono',monospace;">承载于 Backend:Renode / FPGA / Hardware(第 4.5 节)</div>
+        </div>
+
+        <!-- 观测环境面 -->
+        <div style="flex:0 0 230px;background:#B25A2B;color:#F7EDE6;border-radius:11px;padding:20px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#F0C8A8;letter-spacing:0.08em;">观测 / 环境面</div>
+          <div style="font-size:16px;font-weight:700;margin:6px 0 12px;">硅片两端(第 5 章)</div>
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="background:rgba(255,255,255,0.16);border-radius:6px;padding:8px 11px;font-size:13px;">观测:self / clb / scope</div>
+            <div style="background:rgba(255,255,255,0.16);border-radius:6px;padding:8px 11px;font-size:13px;">环境:温箱 / 拉偏 / 老化台</div>
+            <div style="font-size:12px;color:#F3D8C4;margin-top:2px;">读结果 · 写条件,与脊柱正交</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;background:#EEF4F2;border-left:3px solid #1F6E68;padding:12px 18px;border-radius:0 6px 6px 0;font-size:14.5px;color:#33322D;">
+        <b>编排层(第 6 章)骑在最上层</b>:Campaign 选取一组用例,叠加环境条件与重复策略,复用整条脊柱产生带条件标签的数据点。
+      </div>
+    </div>
+
+    <!-- 2.2 三正交轴 -->
+    <h3 style="font-size:21px;font-weight:700;margin:24px 0 6px;color:#15201F;">2.2　三正交轴:任意一次测试 = 从三轴各取一点</h3>
+    <p style="font-size:16px;color:#33322D;margin:0 0 20px;max-width:1140px;">全平台只有三个正交维度,互不相乘。用例只依赖"测什么",看不见另外两轴 —— 这是"测试再多也不爆炸"的根本。</p>
+
+    <div style="display:grid;grid-template-columns:130px repeat(3,1fr);gap:1px;background:#DAD4C6;border:1px solid #DAD4C6;border-radius:9px;overflow:hidden;font-size:13.5px;margin-bottom:14px;">
+      <div style="background:#15201F;color:#7FB3AB;padding:11px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;">测试类型</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:11px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;">轴 X · 测什么</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:11px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;">轴 Y · 怎么编排</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:11px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;">轴 Z · 什么条件</div>
+
+      <div style="background:#FBFAF6;padding:11px 14px;font-weight:700;color:#1F6E68;">IP 功能</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#55524B;">一组 IP 用例</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#55524B;">跑一次</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#55524B;">常温 · self 观测</div>
+
+      <div style="background:#fff;padding:11px 14px;font-weight:700;color:#B25A2B;">老化 Burn-in</div>
+      <div style="background:#fff;padding:11px 14px;color:#8A867C;">同一组用例 ↩</div>
+      <div style="background:#fff;padding:11px 14px;color:#55524B;">重复 1000 次 / 48h</div>
+      <div style="background:#fff;padding:11px 14px;color:#55524B;">高温 125℃ · 趋势归档</div>
+
+      <div style="background:#FBFAF6;padding:11px 14px;font-weight:700;color:#B25A2B;">高低温</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#8A867C;">同一组用例 ↩</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#55524B;">每温度点各一次</div>
+      <div style="background:#FBFAF6;padding:11px 14px;color:#55524B;">[-40,25,85,125]℃ · 温箱</div>
+
+      <div style="background:#fff;padding:11px 14px;font-weight:700;color:#B25A2B;">筛片 Sort</div>
+      <div style="background:#fff;padding:11px 14px;color:#8A867C;">一批用例 ↩</div>
+      <div style="background:#fff;padding:11px 14px;color:#55524B;">跑一次 + 分档规则</div>
+      <div style="background:#fff;padding:11px 14px;color:#55524B;">常温 · 按结果归 bin</div>
+    </div>
+    <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:14px 20px;font-size:14.5px;color:#3f6b64;"><b>↩ 关键复用:</b>"测什么"这一列永远复用同一批 IP 用例。老化 / 高低温 / 筛片<b>不重写任何 IP 用例</b>,只换 Y 轴(编排)和 Z 轴(条件)。写一次功能用例,被所有测试类型复用。</div>
+
+    <!-- 2.3 完整分层 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 6px;color:#15201F;">2.3　完整分层视图</h3>
+    <p style="font-size:16px;color:#33322D;margin:0 0 20px;max-width:1140px;">竖看是一次请求的完整路径。右侧标注每层"变还是不变、由谁负责",与后续章节一一对应。</p>
+
+    <div style="display:flex;gap:20px;align-items:stretch;">
+      <div style="flex:1;display:flex;flex-direction:column;gap:0;">
+        <!-- L0 编排 -->
+        <div style="background:#EDE7F2;border:1.5px solid #C9B8D8;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E4A8A;">编排 · 第 6 章</div><div style="font-size:16px;font-weight:700;color:#5a4470;">Campaign 层</div></div>
+          <div style="flex:1;font-size:13.5px;color:#5a4470;">功能 / 老化 / 温循 / 筛片:选用例 × 条件 × 重复策略</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:5px 0;"><div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #B7B1A3;"></div></div>
+        <!-- L1 -->
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;border:2px solid #1F6E68;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">控制面 · 第 3 章</div><div style="font-size:16px;font-weight:700;">测试用例层</div></div>
+          <div style="flex:1;font-size:13.5px;color:#C6D3CF;">pytest;声明依赖、发起 run、持有判据。零芯片身份。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:5px 0;"><div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #B7B1A3;"></div></div>
+        <!-- L2 -->
+        <div style="background:#1F6E68;color:#EDF4F2;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#BEE3DD;">控制面 · 第 3 章</div><div style="font-size:16px;font-weight:700;">契约 + 能力层</div></div>
+          <div style="flex:1;font-size:13.5px;color:#DCEEEB;">归一命名、能力裁剪、参数/变体注入。芯片差异在此变数据。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:5px 0;"><div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #B7B1A3;"></div></div>
+        <!-- L3 -->
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">脊柱 · 第 4 章</div><div style="font-size:16px;font-weight:700;color:#15201F;">Target API + Transport</div></div>
+          <div style="flex:1;font-size:13.5px;color:#55524B;">统一调用面 + 抽象往返(op+参数 ⇄ 观测量),协议编解码归此。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:5px 0;"><div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #B7B1A3;"></div></div>
+        <!-- L4 -->
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">脊柱 · 第 4 章</div><div style="font-size:16px;font-weight:700;color:#15201F;">Agent 核心 + 适配层</div></div>
+          <div style="flex:1;font-size:13.5px;color:#55524B;">共享调度核心(不判定)+ 每芯片薄适配(吸收差异)。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:5px 0;"><div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #B7B1A3;"></div></div>
+        <!-- L5 -->
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:14px 22px;display:flex;align-items:center;gap:20px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">被测 · 第 5 章</div><div style="font-size:16px;font-weight:700;">IP / 硅片 + 观测/环境</div></div>
+          <div style="flex:1;font-size:13.5px;color:#C6D3CF;">被测外设本体,两端接观测手段与环境控制,承载于三种 Backend。</div>
+        </div>
+      </div>
+
+      <div style="flex:0 0 180px;display:flex;flex-direction:column;gap:9px;">
+        <div style="background:#EDE7F2;border-radius:7px;padding:11px 14px;text-align:center;"><div style="font-size:13.5px;font-weight:700;color:#6E4A8A;">插件·骑上层</div><div style="font-size:11px;color:#7a6690;margin-top:2px;">复用用例</div></div>
+        <div style="background:#E3EFED;border-radius:7px;padding:11px 14px;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:13.5px;font-weight:700;color:#1F6E68;">共享·不变</div><div style="font-size:11px;color:#4b6b65;margin-top:2px;">全芯片一致<br>只增不删</div></div>
+        <div style="background:#E3EFED;border-radius:7px;padding:11px 14px;text-align:center;"><div style="font-size:13.5px;font-weight:700;color:#1F6E68;">共享核心</div></div>
+        <div style="background:#F6E9DD;border-radius:7px;padding:11px 14px;text-align:center;"><div style="font-size:13.5px;font-weight:700;color:#B25A2B;">每芯片一份</div><div style="font-size:11px;color:#8a5a3a;margin-top:2px;">薄适配</div></div>
+        <div style="background:#EDEAE0;border-radius:7px;padding:11px 14px;text-align:center;"><div style="font-size:13.5px;font-weight:700;color:#55524B;">物理层</div></div>
+      </div>
+    </div>
+
+    <!-- 2.4 数据流 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 6px;color:#15201F;">2.4　一次请求的数据流(端到端)</h3>
+    <div style="background:#1B1B17;border-radius:11px;overflow:hidden;">
+      <pre style="margin:0;padding:22px 26px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:2.0;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#7FB3AB">用例</span>     require(F) → run(F, args) ─────────────────────┐ 持有判据
+   <span style="color:#8fa39e">↓ 只说"测什么能力"</span>                                  │
+<span style="color:#7FB3AB">契约+能力</span> 归一 F、查能力表、注入参数/变体、决定跑不跑     │
+   <span style="color:#8fa39e">↓ 芯片差异 → 数据</span>                                   │
+<span style="color:#7FB3AB">TargetAPI</span> 组织成抽象操作                                 │
+   <span style="color:#8fa39e">↓</span>                                                  │
+<span style="color:#7FB3AB">Transport</span> 编码为线格式,经 Backend 送达 ── 可靠/幂等/重试  │
+   <span style="color:#8fa39e">↓</span>                                                  │
+<span style="color:#7FB3AB">Agent</span>    查注册表 → 编排「激励 + 观测」                    │
+   <span style="color:#8fa39e">↓ 契约动作</span>                                          │
+<span style="color:#7FB3AB">适配层</span>   cdrv_* → 本芯片 SDK 驱动                          │
+   <span style="color:#8fa39e">↓</span>                                                  │
+<span style="color:#7FB3AB">IP+观测</span>  外设动作 → 观测手段取物理量(带来源标签)         │
+   <span style="color:#F0A868">↑ 原路返回:只回原始观测量,不含判定</span>                 │
+<span style="color:#7FB3AB">用例</span>     assert(观测量 vs 判据) ◄────────────────────────┘ → PASS / FAIL</pre>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第3章 控制面 ================= -->
+  <section id="ch3" data-screen-label="第3章 控制面" style="padding:66px 104px 62px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">03</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">控制面 · 用例 / 契约 / 能力</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">控制面全部运行在主机(PC)侧,是平台"做决策"的地方:决定测什么、这颗芯片跑不跑、参数多少、走哪个变体、以及最终判定。它由三个协作组件构成 —— 用例层、IP 契约、能力模型。</p>
+
+    <!-- 3.1 用例层 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">3.1　测试用例层</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;">
+          <div style="font-size:13px;font-weight:700;color:#1F6E68;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">职责</div>
+          <div style="font-size:14.5px;color:#33322D;margin-top:5px;">用领域语言描述"一个可被验证的行为",<b>不含芯片型号、寄存器、通信细节</b>。① 声明能力依赖;② 调用 Target API 激励+取观测量;③ 持有判据(golden / 容差)做断言。</div>
+        </div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;">
+          <div style="font-size:13px;font-weight:700;color:#1F6E68;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">参数化展开</div>
+          <div style="font-size:14.5px;color:#33322D;margin-top:5px;">用例函数按能力表在运行时展开:<span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">@each_instance("uart")</span> 在有 4 路的芯片上自动生成 4 条,2 路则 2 条 —— 同一个函数,不同数量。</div>
+        </div>
+        <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:9px;padding:16px 20px;">
+          <div style="font-size:13px;font-weight:700;color:#B25A2B;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">铁律</div>
+          <div style="font-size:14.5px;color:#8a5a3a;margin-top:5px;">用例中<b>禁止出现芯片名分支</b>(if chip==)。差异一律经能力表(数据)或变体标签处理。此规则由 CI lint 强制(第 8 章)。</div>
+        </div>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">tests/test_uart.py</div>
+        <pre style="margin:0;padding:16px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.85;color:#D6D2C6;white-space:pre-wrap;">@requires("uart.internal_loopback")
+@each_instance("uart", exclude="console")
+def test_uart_loopback(target, inst):
+    r = target.run("uart.internal_loopback",
+                   inst=inst, data=0x55AA)
+    assert r.rx == 0x55AA      <span style="color:#8fa39e"># 判据在主机</span>
+    assert r.errors == 0
+
+@requires("adc.single")
+def test_adc_single(target, caps):
+    raw = target.run("adc.single", ch=0)
+    v = decode(raw, caps.adc.result_format) <span style="color:#8fa39e"># 变体分支</span>
+    assert 0.995 &lt;= v &lt;= 1.005</pre>
+      </div>
+    </div>
+
+    <!-- 3.2 IP 契约 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">3.2　IP 契约(Contract)—— 唯一真相源</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">契约是全系列共享的"功能词典":定义每个 feature id 叫什么、要哪些参数、回哪些观测量、默认容差、观测优先级。它<b>只增不删、语义冻结</b>——已发布的 feature 语义永不改,要改就发新版本(见 3.4 变体)。</p>
+    <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">contracts/pwm.yaml</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.78;color:#D6D2C6;white-space:pre-wrap;">schema: 1
+pwm.deadband:
+  desc:    死区插入后 A/B 互补,间隔 ≥ 设定值
+  args:    { inst: int, dt_ns: int }
+  returns: { a2b_ns: int, b2a_ns: int }
+  observe: [self, clb, scope]   <span style="color:#8fa39e"># 观测优先级</span>
+  default_tolerance: { unit: ns, abs: 20 }
+pwm.adc_soc_trigger:
+  desc:    PWM 事件触发 ADC SOC 采样
+  args:    { inst: int, event: enum }
+  returns: { latency_cyc: int }</pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">字段规范</div><div style="font-size:13.5px;color:#55524B;margin-top:5px;line-height:1.7;"><b>args/returns</b> 强类型;<b>observe</b> 声明可用观测手段的优先序(auto 时从前往后选可用者);<b>default_tolerance</b> 带单位,避免百分比/绝对值歧义。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">命名归一</div><div style="font-size:13.5px;color:#55524B;margin-top:5px;line-height:1.7;">契约名以<b>行为</b>为准,不照抄任何芯片 SDK。CAN/FDCAN → <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">can.classic / can.fd</span>;EQEP/QEP → <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">qep.*</span>。同物异名在此收敛。</div></div>
+        <div style="background:#EEF4F2;border-left:3px solid #1F6E68;border-radius:0 7px 7px 0;padding:13px 18px;"><div style="font-size:13.5px;color:#33322D;">契约由 <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">validate_contracts.py</span> 做 schema 校验并纳入 CI:字段缺失、类型错误、引用未定义 feature 均挂红。</div></div>
+      </div>
+    </div>
+
+    <!-- 3.3 能力模型 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">3.3　能力模型(Capability)—— 四层来源 + 四态裁决</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">能力回答"这个 feature 到底跑不跑、怎么跑"。关键在于区分<b>四层能力来源</b>,避免把"平台没做"误报成"芯片没有"。运行时对四层求交(MVP 阶段仅芯片一层即可,其余留接口)。</p>
+    <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:16px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#E6B088;">capabilities/et6003.yaml</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#D6D2C6;white-space:pre-wrap;">chip: ET6003
+schema: 1
+console: { uart_inst: 0, baud: 115200 }
+ip:
+  uart: { present: true, instances: 4,
+          internal_loopback: true, dut_insts: [1,2,3] }
+  pwm:  { present: true, instances: 8, hrpwm: true,
+          capture_via: clb }
+  qep:  { present: true, driver_symbol: QEP }
+  adc:  { present: true, instances: 3,
+          preprocess_fir: true, result_format: v2,
+          tolerance: { single: {abs: 0.005} } }  <span style="color:#8fa39e"># per-chip 容差覆盖</span>
+  sdfm: { present: false }         <span style="color:#F0A868"># 硅片无 → skip</span>
+  clb:  { present: true, tiles: 4 }</pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;">
+          <div style="font-size:14px;font-weight:700;color:#1A1A18;margin-bottom:8px;">四层能力来源(合成 = 求交)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 62px;">Chip</span><span style="color:#55524B;">硅片有没有这个 IP / feature</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 62px;">Board</span><span style="color:#55524B;">引脚是否引出 / 有无回环夹具</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 62px;">Lab</span><span style="color:#55524B;">是否具备所需仪器(示波器/温箱)</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 62px;">Backend</span><span style="color:#55524B;">该后端是否建模(Renode 未必有)</span></div>
+          </div>
+        </div>
+        <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:9px;padding:14px 18px;">
+          <div style="font-size:14px;font-weight:700;color:#B25A2B;margin-bottom:8px;">四态裁决(缺失 → 结果)</div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;">
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#B25A2B;flex:0 0 130px;">absent(芯片无)</span><span style="color:#8a5a3a;">skip · 不算失败</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#B25A2B;flex:0 0 130px;">board/lab 缺</span><span style="color:#8a5a3a;">skip · 记录原因</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#B25A2B;flex:0 0 130px;">target 未建模</span><span style="color:#8a5a3a;">xfail · 真机仍测</span></div>
+            <div style="display:flex;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;color:#B25A2B;flex:0 0 130px;">not_implemented</span><span style="color:#8a5a3a;"><b>fail · 平台欠账,刺眼</b></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#EEF4F2;border-left:3px solid #1F6E68;padding:12px 18px;border-radius:0 6px 6px 0;font-size:14px;color:#33322D;"><b>为何区分 absent 与 not_implemented:</b> 前者是芯片客观没有(合理跳过),后者是平台还没实现(欠账)。若都静默 skip,覆盖率会虚高、欠账被隐藏。not_implemented 必须报 fail,逼迫补齐。</div>
+
+    <!-- 3.4 变体 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">3.4　变体 / 版本机制 —— 防用例膨胀的关键</h3>
+    <div style="display:grid;grid-template-columns:1fr 1.1fr;gap:16px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;">
+        <div style="font-size:14.5px;color:#33322D;line-height:1.75;">最棘手的差异:同一 feature <b>功能没增减,但可观测行为变了</b>(如 ADC 结果编码 v1→v2)。既不能加新用例(重复),也不能按芯片名分支(爆炸)。<br><br><b>解法:</b>给 feature 加变体标签,能力表声明走哪个变体,用例<b>按标签分支而非按芯片名</b>。以后任何芯片只要声明同标签,零代码复用。分支数跟"行为变体数"(极少)走,不跟芯片数走。</div>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">变体按标签分支,不认芯片名</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.85;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e"># 能力表声明变体(数据)</span>
+adc: { result_format: <span style="color:#F0A868">v2</span> }   <span style="color:#8fa39e"># 3101/6002=v1</span>
+
+<span style="color:#8fa39e"># 用例按标签分支(唯一分支点)</span>
+def decode(raw, fmt):
+    if fmt == "v2": return decode_v2(raw)
+    return decode_v1(raw)
+<span style="color:#8fa39e"># 第 5、第 8 颗芯片若也是 v2 → 改能力表一行,
+# 用例零改动即复用</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第4章 执行脊柱 ================= -->
+  <section id="ch4" data-screen-label="第4章 执行脊柱" style="padding:66px 104px 62px;background:#EFEBE1;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">04</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">执行脊柱 · 把请求送达硅片</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">执行脊柱负责把控制面产生的"抽象操作"可靠地送到芯片、执行、并把观测量带回。五个环节:Target API → Transport → Backend → Agent 核心 → 适配层。它们的边界都是稳定接口,内部实现可插拔。</p>
+
+    <!-- 4.1 Target API -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">4.1　Target API —— 用例唯一的把手</h3>
+    <div style="display:grid;grid-template-columns:1fr 1.05fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;">
+        <div style="font-size:14.5px;color:#33322D;line-height:1.75;">一个 Python 抽象基类,方法签名固定。用例只依赖它,<b>看不见通信、后端、芯片</b>。任何后端(Renode/FPGA/HW)都实现同一套接口 → 三处执行,用例无感。</div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:13px;">
+          <div style="display:flex;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 120px;">require(f)</span><span style="color:#55524B;">查能力,决定 skip/xfail/run</span></div>
+          <div style="display:flex;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 120px;">run(op, **kw)</span><span style="color:#55524B;">执行契约操作,返回观测量对象</span></div>
+          <div style="display:flex;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 120px;">reset(scope)</span><span style="color:#55524B;">复位外设/芯片到已知态</span></div>
+          <div style="display:flex;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;color:#1F6E68;font-weight:600;flex:0 0 120px;">measure(...)</span><span style="color:#55524B;">经观测面取物理量(第 5 章)</span></div>
+        </div>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">host/targetlib/target.py</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.8;color:#D6D2C6;white-space:pre-wrap;">class Target(ABC):
+    @abstractmethod
+    def run(self, op: str, **kw) -> Result: ...
+    @abstractmethod
+    def reset(self, scope="chip"): ...
+    def require(self, feat) -> Verdict:  <span style="color:#8fa39e"># 查能力表</span>
+        ...
+<span style="color:#8fa39e"># 三个后端各自实现 run/reset:</span>
+<span style="color:#8fa39e"># RenodeTarget / FpgaTarget / HardwareTarget</span></pre>
+      </div>
+    </div>
+
+    <!-- 4.2 Transport -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">4.2　Transport —— 抽象往返 + 协议编解码归属</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">Transport 定义"一次操作请求 → 一组观测量"的抽象往返,并<b>明确承担 test_item/args ↔ 线格式的编解码</b>(修正 v0.2 中 backend↔agent 的协议缝)。主机端与固件端<b>共用同一份协议定义</b>,杜绝各写各的。载体本身可插拔:同一 op 在仿真里是函数直调,在真芯片上是串口一问一答。</p>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-bottom:6px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">串口文本行协议(MVP 载体)· proto/wire.md</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.78;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e"># 请求  host → agent</span>
+#&lt;seq&gt; RUN &lt;op&gt; &lt;k=v ...&gt; *&lt;crc8&gt;
+<span style="color:#8fa39e"># 应答  agent → host(可多行,END 收尾)</span>
+#&lt;seq&gt; OK  &lt;k=v ...&gt; *&lt;crc8&gt;
+#&lt;seq&gt; ERR reason=... *&lt;crc8&gt;
+#&lt;seq&gt; NA  reason=absent *&lt;crc8&gt;
+
+<span style="color:#9FD0C8">#0012 RUN uart.internal_loopback inst=1 data=0x55AA *3A</span>
+<span style="color:#F0A868">#0012 OK  rx=0x55AA errors=0 *C1</span></pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">动词集</div><div style="font-size:13px;color:#55524B;margin-top:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">PING</span> 握手/回报版本+caps_hash · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">RUN</span> 执行操作 · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">GET/SET</span> 读写命名资源 · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">RST</span> 复位</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">状态</div><div style="font-size:13px;color:#55524B;margin-top:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">OK</span> 带观测量 · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">ERR</span> 执行错 · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">NA</span> 该芯片无此能力(固件兜底)· <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">LOG</span> 诊断行</div></div>
+        <div style="background:#EEF4F2;border-left:3px solid #1F6E68;border-radius:0 7px 7px 0;padding:12px 18px;"><div style="font-size:13px;color:#33322D;">大块二进制(内存 dump / 波形)走 base64 内联或分块;控制通道与被测 UART 物理分离(见 4.4)。</div></div>
+      </div>
+    </div>
+
+    <!-- 4.3 Backend -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">4.3　Backend —— 执行环境生命周期(不含观测)</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 14px;max-width:1140px;">Backend 只负责<b>执行环境的生命周期</b>:烧录 agent、复位、建立/持有 transport、与 agent 通信。<b>它不再挂 measure()</b>(修正 v0.2:观测是被组合的独立能力,不是 backend 的方法)。三种后端实现同一接口。</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:18px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">RenodeBackend · SIL</div>
+        <div style="font-size:13.5px;color:#55524B;margin-top:7px;line-height:1.7;">.repl 平台描述 + Python/C# 外设模型。无硬件、分钟级冒烟,跑 CI。局限:控制类 IP(ePWM/CLB)需自建模型,先覆盖数字基础 IP。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:18px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">FpgaBackend · 原型</div>
+        <div style="font-size:13.5px;color:#55524B;margin-top:7px;line-height:1.7;">流片前在 FPGA 原型上跑真实数字逻辑与 IO,覆盖仿真难建模的控制 IP。夜批全量回归。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:18px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">HardwareBackend · HIL</div>
+        <div style="font-size:13.5px;color:#55524B;margin-top:7px;line-height:1.7;">真芯片 + 板卡农场(labgrid)+ 仪器。承载模拟精度、波形、温度、老化。签核级。</div>
+      </div>
+    </div>
+
+    <!-- 4.4 Agent -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">4.4　Agent 核心 —— 片内工头(共享,不判定)</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 14px;max-width:1140px;">Agent 是烧在芯片里的常驻固件,内含<b>自注册的 handler 表</b>(feature id → 操作函数)。它接收请求、按表调度、驱动外设干活、回传原始观测量,<b>绝不判 PASS/FAIL</b>。核心与 handler 跨芯片共享源码。</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">agent/handlers/uart.c(自注册,共享)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#D6D2C6;white-space:pre-wrap;">static agent_rc op_uart_lb(const kv_t*in,resp_t*out){
+  int inst = kv_int(in,"inst");
+  u16 tx   = kv_hex(in,"data");
+  cdrv_uart_enable_loopback(inst);  <span style="color:#8fa39e">// 契约动作</span>
+  cdrv_uart_write(inst, tx);
+  u16 rx = cdrv_uart_read(inst);
+  resp_set_hex(out,"rx",rx);        <span style="color:#8fa39e">// 只报原始量</span>
+  resp_set_int(out,"errors",cdrv_uart_errflags(inst));
+  return AGENT_OK;
+}
+REGISTER_HANDLER("uart.internal_loopback", op_uart_lb);</pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">主循环</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">收帧 → 校验 CRC/seq → 查注册表 → 调 handler → 回帧 → 喂看门狗。幂等:同 seq 重发重放缓存应答,不重复副作用。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">控制通道分离</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">保留一路 console UART(如 UART0)专做通道、永不被测;其余实例才是 DUT。测 UART 时被测口≠通道口。单口芯片降级为需外部回环夹具。</div></div>
+        <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:9px;padding:14px 18px;"><div style="font-size:13.5px;color:#8a5a3a;">不依赖被禁的 debug printf —— 结构化协议在 ASIC 上照跑;caps_hash 启动校验固件与能力表一致。</div></div>
+      </div>
+    </div>
+
+    <!-- 4.5 适配层 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">4.5　适配层 cdrv —— 每芯片唯一要写的代码</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">agent/adapters/common/cdrv.h(契约动作,共享签名)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e">// 与芯片无关的动作词汇,签名恒定</span>
+void cdrv_uart_enable_loopback(int inst);
+void cdrv_uart_write(int inst, u16 v);
+u16  cdrv_uart_read (int inst);
+void cdrv_pwm_config_deadband(int inst,int dt_ns);
+u64  cdrv_pwm_capture_edge(int inst, edge_t e);
+<span style="color:#8fa39e">// common/ 只放签名,绝不放实现</span></pre>
+      </div>
+      <div style="background:#241c16;border-radius:9px;overflow:hidden;">
+        <div style="background:#3a2a1c;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#E6B088;">agent/adapters/et6003/cdrv.c(仅此芯片,薄)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#E4C4A6;white-space:pre-wrap;"><span style="color:#8fa39e">// 契约动作 → ET6003 的 ET6x_Driver 调用</span>
+void cdrv_uart_enable_loopback(int i){
+  UART_enableLoopback(UARTx(i));      <span style="color:#8fa39e">// SDK 原样</span>
+}
+<span style="color:#8fa39e">// 命名漂移在此吸收:et6002 版改 EQEP_init</span>
+void cdrv_qep_init(int i){ QEP_init(i); }
+<span style="color:#8fa39e">// 位宽差异、多一步校准等,全部就地消化</span></pre>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#EEF4F2;border-left:3px solid #1F6E68;padding:13px 18px;border-radius:0 6px 6px 0;font-size:14.5px;color:#33322D;"><b>职责边界:</b> handler = "测什么、回什么"(共享)| cdrv.h = "契约动作词汇"(共享签名)| adapters/&lt;chip&gt;/cdrv.c = "本芯片怎么做"(唯一每芯片文件)。<b>命名 alias 只在此处</b>(修正 v0.2:不放能力表)。换芯片 = 复制一份 cdrv.c 填实现,上面全部不动 = O(1) 成本来源。</div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第5章 观测面与环境面 ================= -->
+  <section id="ch5" data-screen-label="第5章 观测与环境" style="padding:66px 104px 62px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">05</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">观测面与环境面 · 硅片两端</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">这两个面与执行脊柱<b>正交</b>:观测面负责"读结果"、环境面负责"写条件"。它们不属于 backend、不属于 agent,而是独立的可插拔能力,由 Target 在执行时组合调用。这是让功能测试平滑长成可靠性/温度测试的关键接缝。</p>
+
+    <!-- 5.1 观测面 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">5.1　观测面(Observation)—— 量的定义不变,读它的手段可换</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">观测面规定"一个被观测物理量的定义与单位",并附<b>来源标签</b>。同一个量在不同阶段可用不同手段读取,而<b>用例与判据完全不变</b>。三种观测手段实现同一 Observer 接口,自注册。</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+      <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:10px;padding:18px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#1F6E68;font-weight:700;">self</span><span style="font-size:11px;color:#3f6b64;">最省事</span></div>
+        <div style="font-size:13.5px;color:#3f6b64;margin-top:8px;line-height:1.7;">芯片自读(回收字节、错误标志、寄存器计数)。数字 IP 首选,无需任何外部设备。</div>
+      </div>
+      <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:10px;padding:18px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#1F6E68;font-weight:700;">clb</span><span style="font-size:11px;color:#3f6b64;">片内仪器</span></div>
+        <div style="font-size:13.5px;color:#3f6b64;margin-top:8px;line-height:1.7;">用 CLB(可编程逻辑)+ XBAR 在片内捕获边沿、测脉宽/间隔。<b>大量 PWM/QEP 时序测试免示波器</b>。</div>
+      </div>
+      <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:10px;padding:18px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#B25A2B;font-weight:700;">scope</span><span style="font-size:11px;color:#8a5a3a;">外部仪器</span></div>
+        <div style="font-size:13.5px;color:#8a5a3a;margin-top:8px;line-height:1.7;">示波器/数字表/功率计,经 SCPI 读。模拟精度、真实波形、功耗的最终依据。需 Lab 能力。</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:17px;font-weight:700;margin:18px 0 10px;color:#15201F;">5.1.1　观测策略(observation_policy)—— 按阶段自动选择</h3>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">用例 observe=auto,由策略解析(修正 v0.2 写死 scope)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.75;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e"># policy/observation.yaml</span>
+bringup:  prefer=[scope, clb]   cross_check=on
+ci:       prefer=[self, clb]    <span style="color:#8fa39e"># 无仪器也能跑</span>
+release:  require=[scope]        <span style="color:#8fa39e"># 强制仪器签核</span>
+
+<span style="color:#8fa39e"># 解析规则:取 contract.observe ∩ 可用手段,
+# 按 policy 优先级选第一个;require 缺失 → skip/fail</span></pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">决策链</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">契约声明可用手段 → 能力表/Lab 声明现场具备哪些 → policy 定阶段优先级 → 三者求交后自动选。用例不写死。</div></div>
+        <div style="background:#F6EFE4;border:1px solid #E3C4AC;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#B25A2B;">cross_check 裁决规则</div><div style="font-size:13px;color:#8a5a3a;margin-top:5px;line-height:1.7;">两源同测时:以 <b>require 级(scope)为基准</b>,另一源作参考;两者偏差超容差 → 报 warning 并记录,不静默,避免 flaky 掩盖问题。</div></div>
+      </div>
+    </div>
+
+    <!-- 5.2 环境面 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">5.2　环境面(Environment)—— 与观测对称的"写"侧</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">观测是"读",环境是"写外部世界":温箱设温、拉偏电源调压、老化台加载。它无法用 observe 表达(观测不改变被测条件),因此独立成面。所有环境设备实现同一 EnvDriver 接口,自注册,由 Campaign(第 6 章)驱动。<b>MVP 不实现,但接口先留好</b>。</p>
+    <div style="display:grid;grid-template-columns:1fr 1.05fr;gap:16px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">env/base.py + env/thermotron.py(自注册)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#D6D2C6;white-space:pre-wrap;">class EnvDriver(ABC):
+    def set(self, param, value): ...
+    def wait_stable(self, timeout): ...   <span style="color:#8fa39e"># 等到稳</span>
+    def hold(self): ...
+    def release(self): ...
+
+@register_env("thermotron")
+class Thermotron(EnvDriver):
+    def set(self, temp_c): ...            <span style="color:#8fa39e"># 温箱设温</span>
+    def wait_stable(self, t): ...         <span style="color:#8fa39e"># 等温度到位</span></pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">典型设备</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">温箱(高低温/温循)· 可编程电源(电压拉偏/掉电)· 老化台(长时加载)· 分选机(筛片归 bin)。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">生命周期语义</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">set → wait_stable → hold</span>(测试期间保持)<span style="font-family:'IBM Plex Mono',monospace;font-size:12px;"> → release</span>。wait_stable 是关键:温度未稳不得开测。</div></div>
+      </div>
+    </div>
+
+    <!-- 5.3 仪器同步 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">5.3　仪器同步时序 —— HIL 最易翻车处,单列说明</h3>
+    <p style="font-size:15.5px;color:#33322D;margin:0 0 16px;max-width:1140px;">当观测用外部仪器(scope)时,芯片激励与仪器采集必须严格同步,否则采空或采错。这里定义标准握手,避免各用例各写一套。</p>
+    <div style="background:#FBFAF6;border:1.5px solid #D8D2C4;border-radius:12px;padding:22px 26px;">
+      <div style="display:flex;align-items:stretch;gap:10px;">
+        <div style="flex:1;background:#EEF4F2;border:1px solid #A9CFC7;border-radius:9px;padding:14px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#1F6E68;font-weight:600;">① PREPARE</div>
+          <div style="font-size:13px;color:#3f6b64;margin-top:5px;">主机配置仪器触发条件(边沿/电平/超时),芯片配置好待发激励但未启动。</div>
+        </div>
+        <div style="display:flex;align-items:center;color:#1F6E68;font-size:18px;">→</div>
+        <div style="flex:1;background:#EEF4F2;border:1px solid #A9CFC7;border-radius:9px;padding:14px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#1F6E68;font-weight:600;">② ARM</div>
+          <div style="font-size:13px;color:#3f6b64;margin-top:5px;">仪器进入 armed 等待触发。<b>必须先 arm 再 start</b>,窗口内芯片不得发信号。</div>
+        </div>
+        <div style="display:flex;align-items:center;color:#1F6E68;font-size:18px;">→</div>
+        <div style="flex:1;background:#EEF4F2;border:1px solid #A9CFC7;border-radius:9px;padding:14px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#1F6E68;font-weight:600;">③ START</div>
+          <div style="font-size:13px;color:#3f6b64;margin-top:5px;">主机令 agent 启动激励(芯片是 trigger master),仪器被触发捕获。</div>
+        </div>
+        <div style="display:flex;align-items:center;color:#1F6E68;font-size:18px;">→</div>
+        <div style="flex:1;background:#EEF4F2;border:1px solid #A9CFC7;border-radius:9px;padding:14px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#1F6E68;font-weight:600;">④ COLLECT</div>
+          <div style="font-size:13px;color:#3f6b64;margin-top:5px;">主机读波形/测量值,带 collect 超时兜底;未触发→重试或判 no-trigger。</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:#8a5a3a;">
+        <div><b style="color:#B25A2B;">竞态要点:</b> arm→start 之间的时间窗必须由主机顺序保证(先确认 armed 再放行 start)。</div>
+        <div><b style="color:#B25A2B;">超时:</b> collect 设上限,单次/连续采集模式由契约声明。</div>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第6章 编排层与报告治理 ================= -->
+  <section id="ch6" data-screen-label="第6章 编排与报告" style="padding:66px 104px 62px;background:#EFEBE1;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">06</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">编排层与报告治理</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">编排层(Campaign)骑在用例层之上,把"一组用例 × 条件 × 重复策略 × 归档"打包成一次测试活动 —— 这是老化/高低温/筛片的统一载体。报告治理则把"一次断言"升级为"可长期积累、可回归对比的数据资产"。</p>
+
+    <!-- 6.1 Campaign 模型 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">6.1　Campaign 模型 —— 四要素定义任意测试活动</h3>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+      <div style="background:#EDE7F2;border:1px solid #C9B8D8;border-radius:9px;padding:15px 18px;"><div style="font-size:14.5px;font-weight:700;color:#5a4470;">① 选用例</div><div style="font-size:13px;color:#7a6690;margin-top:5px;">reuse_tests:复用已有 IP 用例(glob 选取),不重写</div></div>
+      <div style="background:#EDE7F2;border:1px solid #C9B8D8;border-radius:9px;padding:15px 18px;"><div style="font-size:14.5px;font-weight:700;color:#5a4470;">② 条件</div><div style="font-size:13px;color:#7a6690;margin-top:5px;">environment:温度/电压等环境轴取值(可多点)</div></div>
+      <div style="background:#EDE7F2;border:1px solid #C9B8D8;border-radius:9px;padding:15px 18px;"><div style="font-size:14.5px;font-weight:700;color:#5a4470;">③ 重复策略</div><div style="font-size:13px;color:#7a6690;margin-top:5px;">schedule:一次/N 次/持续 T 小时/温度扫描</div></div>
+      <div style="background:#EDE7F2;border:1px solid #C9B8D8;border-radius:9px;padding:15px 18px;"><div style="font-size:14.5px;font-weight:700;color:#5a4470;">④ 归档判据</div><div style="font-size:13px;color:#7a6690;margin-top:5px;">collect + verdict:数据点采集 + 趋势/分档规则</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#2a2436;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C9B8D8;">campaigns/functional.yaml(功能测试也是 campaign)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.75;color:#D6D2C6;white-space:pre-wrap;">campaign: functional
+reuse_tests: [ "*" ]        <span style="color:#8fa39e"># 全部功能用例</span>
+environment: { none }        <span style="color:#8fa39e"># 常温</span>
+schedule:    { repeat: 1 }
+collect:     verdict_only
+verdict:     per_case</pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#2a2436;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C9B8D8;">campaigns/burnin_48h.yaml(老化:复用 + 加条件)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.75;color:#D6D2C6;white-space:pre-wrap;">campaign: burnin_48h
+reuse_tests: [ uart.*, gpio.*, adc.* ]  <span style="color:#8fa39e"># 复用!</span>
+environment: { driver: thermotron, temp_c: 125 }
+schedule:    { repeat: until, duration_h: 48,
+               interval_min: 30 }
+collect:     timeseries       <span style="color:#8fa39e"># 每轮存数据点</span>
+verdict:     { rule: no_degradation,
+               compare: first_vs_last }</pre>
+      </div>
+    </div>
+
+    <!-- 6.2 四种测试如何映射 -->
+    <h3 style="font-size:21px;font-weight:700;margin:22px 0 10px;color:#15201F;">6.2　四种测试到 Campaign 的映射</h3>
+    <div style="display:grid;grid-template-columns:150px repeat(4,1fr);gap:1px;background:#DAD4C6;border:1px solid #DAD4C6;border-radius:9px;overflow:hidden;font-size:13px;margin-bottom:14px;">
+      <div style="background:#15201F;color:#7FB3AB;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">测试类型</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">reuse_tests</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">environment</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">schedule</div>
+      <div style="background:#15201F;color:#7FB3AB;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">verdict</div>
+
+      <div style="background:#FBFAF6;padding:10px 14px;font-weight:700;color:#1F6E68;">功能</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#8A867C;">全部 ↩</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">常温</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">1 次</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">逐例 pass/fail</div>
+
+      <div style="background:#fff;padding:10px 14px;font-weight:700;color:#B25A2B;">老化</div>
+      <div style="background:#fff;padding:10px 14px;color:#8A867C;">子集 ↩</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">高温保持</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">重复 48h</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">无退化(首末对比)</div>
+
+      <div style="background:#FBFAF6;padding:10px 14px;font-weight:700;color:#B25A2B;">高低温</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#8A867C;">全部 ↩</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">温度扫描</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">每点各 1 次</div>
+      <div style="background:#FBFAF6;padding:10px 14px;color:#55524B;">各温度点全过</div>
+
+      <div style="background:#fff;padding:10px 14px;font-weight:700;color:#B25A2B;">筛片</div>
+      <div style="background:#fff;padding:10px 14px;color:#8A867C;">批次 ↩</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">常温</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">1 次/片</div>
+      <div style="background:#fff;padding:10px 14px;color:#55524B;">按结果归 bin</div>
+    </div>
+    <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:13px 20px;font-size:14px;color:#3f6b64;"><b>↩ 复用铁证:</b>四种测试的"选用例"一列都指向同一批 IP 功能用例。你为一个 IP 写一次功能测试,老化/高低温/筛片全部白嫖,零重写。</div>
+
+    <!-- 6.3 报告治理 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">6.3　报告治理 —— 从"一次断言"到"数据资产"</h3>
+    <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:16px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">统一结果数据点(带条件标签)</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.72;color:#D6D2C6;white-space:pre-wrap;">DataPoint:
+  feature:   pwm.deadband       <span style="color:#8fa39e"># 关联 feature id</span>
+  chip:      ET6003  inst: 0
+  campaign:  burnin_48h
+  condition: { temp_c: 125, cycle: 96, t: 48h }
+  observed:  { a2b_ns: 511, b2a_ns: 507 }
+  source:    clb                <span style="color:#8fa39e"># 观测来源标签</span>
+  verdict:   pass
+  artifacts: [ wave_0096.bin ]  <span style="color:#8fa39e"># 波形留存</span>
+  ts:        2026-07-03T12:30Z</pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">字段标准</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">每个结果自带 feature + chip + 条件 + 观测量 + 来源 + verdict + artifact。<b>结果与 feature id 强关联</b>,天然支持按 IP / 芯片 / 温度切片。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">用途分化</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">功能→看 verdict;老化→同 feature 按时间连趋势看退化;高低温→按温度看边界;筛片→按规则归 bin。同一份数据,多种视图。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">留存与回归</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">artifact(波形/日志)按 campaign+条件命名归档;跨版本芯片可做趋势/回归对比,覆盖矩阵按 feature×chip 生成。</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第7章 插件机制与扩展性 ================= -->
+  <section id="ch7" data-screen-label="第7章 插件与扩展" style="padding:66px 104px 62px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">07</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">插件机制与扩展性</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">这是平台"可长期迭代"的技术基石。核心遵循<b>开闭原则</b>:对扩展开放、对修改关闭。判据只有一条 —— <b>加新东西时,手指不落在任何旧文件上</b>。全部通过"约定式发现 + 自注册 + 依赖倒置"实现。</p>
+
+    <!-- 7.1 判据 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">7.1　真插件 vs 假插件</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;">
+      <div style="background:#F7EDE6;border:1.5px solid #E3C4AC;border-radius:11px;padding:20px 24px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#B25A2B;letter-spacing:0.06em;font-weight:600;">✗ 假插件 · 会反噬</div>
+        <div style="font-size:15px;font-weight:700;color:#B25A2B;margin:6px 0 12px;">新增 = 回去改老文件</div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;">
+          <div style="background:#fff;border:1px dashed #E3C4AC;border-radius:6px;padding:8px 12px;color:#8a4a22;">加 IP → 回 op_table[] 加一行</div>
+          <div style="background:#fff;border:1px dashed #E3C4AC;border-radius:6px;padding:8px 12px;color:#8a4a22;">加芯片 → resolve() 里加 elif</div>
+          <div style="background:#fff;border:1px dashed #E3C4AC;border-radius:6px;padding:8px 12px;color:#8a4a22;">加仪器 → 改 backend 接口</div>
+        </div>
+        <div style="font-size:12.5px;color:#7a5a44;margin-top:11px;">每次"回去改"都可能碰坏老功能。</div>
+      </div>
+      <div style="background:#EAF3F0;border:1.5px solid #A9CFC7;border-radius:11px;padding:20px 24px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1F6E68;letter-spacing:0.06em;font-weight:600;">✓ 真插件 · 可持续</div>
+        <div style="font-size:15px;font-weight:700;color:#1F6E68;margin:6px 0 12px;">新增 = 丢一个文件,自动发现</div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;">
+          <div style="background:#fff;border:1px solid #A9CFC7;border-radius:6px;padding:8px 12px;color:#2f6b62;">加 IP → 扔 handlers/spi.c,宏自注册</div>
+          <div style="background:#fff;border:1px solid #A9CFC7;border-radius:6px;padding:8px 12px;color:#2f6b62;">加芯片 → 扔 capabilities/et6100.yaml</div>
+          <div style="background:#fff;border:1px solid #A9CFC7;border-radius:6px;padding:8px 12px;color:#2f6b62;">加仪器 → 扔 env/thermotron.py</div>
+        </div>
+        <div style="font-size:12.5px;color:#3f6b64;margin-top:11px;">核心永远不 import 插件,只认接口。</div>
+      </div>
+    </div>
+
+    <!-- 7.2 五类插口总图 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">7.2　一根主干 + 五类插口</h3>
+    <div style="background:#FBFAF6;border:1.5px solid #D8D2C4;border-radius:13px;padding:26px 30px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:1fr 300px 1fr;gap:16px;align-items:stretch;">
+        <div style="display:flex;flex-direction:column;gap:12px;justify-content:center;">
+          <div style="background:#FBFAF6;border:1.5px solid #A9CFC7;border-radius:10px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:14.5px;font-weight:700;color:#1F6E68;">① IP 契约插口</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A867C;">轴 X</span></div>
+            <div style="font-size:12px;color:#55524B;margin-top:4px;font-family:'IBM Plex Mono',monospace;">contracts/*.yaml · tests/*.py · handlers/*.c</div>
+          </div>
+          <div style="background:#FBFAF6;border:1.5px solid #A9CFC7;border-radius:10px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:14.5px;font-weight:700;color:#1F6E68;">② 芯片适配插口</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A867C;">轴 X</span></div>
+            <div style="font-size:12px;color:#55524B;margin-top:4px;font-family:'IBM Plex Mono',monospace;">capabilities/&lt;chip&gt;.yaml · adapters/&lt;chip&gt;/</div>
+          </div>
+        </div>
+        <div style="background:#15201F;color:#EDE9DE;border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:center;">
+          <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;letter-spacing:0.08em;margin-bottom:12px;">永不改动的主干</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="background:rgba(127,179,171,0.16);border-radius:7px;padding:9px;text-align:center;font-size:13px;font-weight:700;">插件注册中枢</div>
+            <div style="background:rgba(127,179,171,0.10);border-radius:7px;padding:8px;text-align:center;font-size:12px;color:#C6D3CF;">Target API · Transport</div>
+            <div style="background:rgba(127,179,171,0.10);border-radius:7px;padding:8px;text-align:center;font-size:12px;color:#C6D3CF;">Agent 调度核心</div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:#7a8a86;margin-top:12px;">只认接口 · 从不 import 插件</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;justify-content:center;">
+          <div style="background:#FBFAF6;border:1.5px solid #E3C4AC;border-radius:10px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:14.5px;font-weight:700;color:#B25A2B;">③ 观测插口</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A867C;">轴 Z</span></div>
+            <div style="font-size:12px;color:#55524B;margin-top:4px;font-family:'IBM Plex Mono',monospace;">observers/self · clb · scope</div>
+          </div>
+          <div style="background:#FBFAF6;border:1.5px solid #E3C4AC;border-radius:10px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:14.5px;font-weight:700;color:#B25A2B;">④ 环境插口</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A867C;">轴 Z</span></div>
+            <div style="font-size:12px;color:#55524B;margin-top:4px;font-family:'IBM Plex Mono',monospace;">env/thermo · bias · aging</div>
+          </div>
+          <div style="background:#FBFAF6;border:1.5px solid #C9B8D8;border-radius:10px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:14.5px;font-weight:700;color:#6E4A8A;">⑤ 编排插口</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A867C;">轴 Y</span></div>
+            <div style="font-size:12px;color:#55524B;margin-top:4px;font-family:'IBM Plex Mono',monospace;">campaigns/*.yaml</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7.3 自注册实现 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">7.3　自注册的两种实现(固件 C / 主机 Python)</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">固件端:链接期 section 自注册</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.75;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e">// 宏把条目塞进专用链接段</span>
+#define REGISTER_HANDLER(op, fn) \
+  static const op_entry_t _e_##fn \
+  __attribute__((section(".handlers"))) \
+  = { op, fn };
+<span style="color:#8fa39e">// 核心遍历 .handlers 段即得全表,
+// 无中央清单,加文件即生效</span></pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">主机端:装饰器 + 目录扫描</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.75;color:#D6D2C6;white-space:pre-wrap;">@register_env("thermotron")     <span style="color:#8fa39e"># 装饰器登记</span>
+class Thermotron(EnvDriver): ...
+
+<span style="color:#8fa39e"># 启动时扫 env/ observers/ backends/ 目录,
+# 自动 import 并填注册表。
+# capability 里写 env: thermotron 即可用</span></pre>
+      </div>
+    </div>
+
+    <!-- 7.4 五种新增动作 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">7.4　五种"新增"分别怎么做、动几个文件</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">加一个 IP feature</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">contract 一条 + test 一个 + handler 一个。<b>已有用例不动。</b></div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">加一颗芯片</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">capability YAML 一份 + adapter 一份。<b>pytest/contract 一行不动。</b></div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#B25A2B;">加一种观测手段</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">observers/ 下加一个 Observer。<b>核心/用例无感。</b></div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#B25A2B;">加一台仪器/温箱</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">env/ 下加一个 EnvDriver。<b>脊柱不动。</b></div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#6E4A8A;">加一种测试类型</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">campaigns/ 下加一个 YAML,复用已有用例。<b>零代码。</b></div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#8A867C;">加一个后端</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;">实现 Target/Backend 接口一份。<b>用例/契约无感。</b></div></div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第8章 可靠性·治理·版本 ================= -->
+  <section id="ch8" data-screen-label="第8章 可靠性与治理" style="padding:66px 104px 62px;background:#EFEBE1;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">08</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">可靠性 · 治理 · 版本兼容</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">架构再优雅,没有容错就无法长期运营,没有执法机制则纪律必被赶工破坏。本章定义"跑得稳"的可靠性契约、"新增不坏老功能"的治理规则、以及多版本并存的兼容策略。</p>
+
+    <!-- 8.1 可靠性契约 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">8.1　可靠性契约 —— 串口丢字节、IP 挂死是常态</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">用例间复位隔离</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">每个用例前置 <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">RST</span> 把外设/芯片带回已知态,避免前一个用例的残留影响后一个。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">命令幂等 + 序号重试</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">每帧带 seq;同 seq 重发不重复副作用,agent 重放缓存应答。串口丢字节可安全重试 N 次。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">每帧超时兜底</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">主机每帧设超时,超时→重试;仍无响应→判 agent 宕,转 SWD 抓现场(仅调试用途)。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">Agent 看门狗</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">主循环喂狗;被测 IP 挂死 → WDG 复位 → 下条 PING 重建会话,不拖垮整轮测试。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">caps_hash 启动校验</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">PING 时 agent 回报 caps_hash,主机与本地能力表比对;不符 fail-fast,防固件/能力表漂移。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-size:14.5px;font-weight:700;color:#1A1A18;">cross_check 裁决</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">双观测源偏差超容差 → warning + 记录,不静默(见 5.1.1),避免 flaky 掩盖真实问题。</div>
+      </div>
+    </div>
+
+    <!-- 8.2 治理 CI -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">8.2　治理与执法 —— 规则不进 CI 等于没有</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #B25A2B;border-radius:0 8px 8px 0;padding:13px 18px;"><b style="font-size:14px;">禁芯片名分支</b><div style="font-size:13px;color:#55524B;margin-top:3px;">CI lint 扫 tests/,出现 <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">if chip== / "et6003"</span> 直接挂红。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #B25A2B;border-radius:0 8px 8px 0;padding:13px 18px;"><b style="font-size:14px;">契约/能力过 schema</b><div style="font-size:13px;color:#55524B;margin-top:3px;">validate_contracts / validate_caps 校验字段与引用,非法挂红。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #B25A2B;border-radius:0 8px 8px 0;padding:13px 18px;"><b style="font-size:14px;">新插件跑全量回归</b><div style="font-size:13px;color:#55524B;margin-top:3px;">证明新增没碰坏任何老插件,红了进不来。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-left:3px solid #B25A2B;border-radius:0 8px 8px 0;padding:13px 18px;"><b style="font-size:14px;">变体注册需审批</b><div style="font-size:13px;color:#55524B;margin-top:3px;">新变体标签(result_format: v3)入库需 review,防变体沦为垃圾桶。</div></div>
+      </div>
+      <div style="background:#15201F;border-radius:10px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">CI 三级门禁</div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:11px;">
+          <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9FD0C8;font-weight:600;flex:0 0 78px;">每次 PR</span><span style="font-size:13px;color:#C6D3CF;">lint + schema 校验 + Renode 冒烟(A 类)· 分钟级</span></div>
+          <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#E6B088;font-weight:600;flex:0 0 78px;">每夜</span><span style="font-size:13px;color:#C6D3CF;">FPGA + 真芯片全量(含控制类)· 生成覆盖矩阵</span></div>
+          <div style="display:flex;gap:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#F0A868;font-weight:600;flex:0 0 78px;">流片前</span><span style="font-size:13px;color:#C6D3CF;">HIL + 仪器(C 类:精度/波形/温度)· 签核报告</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8.3 版本兼容 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">8.3　版本与兼容策略 —— 多芯片多版本并存不乱</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">契约 schema 版本</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">feature 语义冻结、只增不删;需变行为则发新变体 <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">@v2</span>,老的保留 → 老用例永远有依赖。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">协议版本</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">PING 交换协议版本号;主机与 agent 不兼容时明确报错,不静默误解析。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#1F6E68;font-weight:600;">能力 schema 版本</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">每份 capability 带 schema 号;升级 schema 时旧表可迁移或并存,capgen 辅助升级。</div>
+      </div>
+    </div>
+    <div style="background:#EEF4F2;border-left:3px solid #1F6E68;padding:13px 18px;border-radius:0 6px 6px 0;font-size:14.5px;color:#33322D;"><b>兼容底线:</b> 三个版本号(契约 schema / 协议 / 能力 schema)各自独立演进,任意两端不匹配都要显式报错而非猜测。这保证不同芯片、不同代固件、不同版本平台可安全并存于同一仓库。</div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第9章 脚本端软件设计 ================= -->
+  <section id="ch9host" data-screen-label="第9章 脚本端软件设计" style="padding:66px 104px 62px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">09</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">脚本端软件设计(主机 / Python)</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">脚本端运行在 PC 上,是"决策 + 编排 + 判定"的大脑。本章给出其内部分层、每层的软件设计规则、以及一个从用例到串口的<b>完整调用链实例</b>(以 <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;">uart.internal_loopback</span> 为例)。</p>
+
+    <!-- 9.1 分层 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 12px;color:#15201F;">9.1　脚本端分层</h3>
+    <div style="display:flex;gap:20px;align-items:stretch;margin-bottom:16px;">
+      <div style="flex:1;display:flex;flex-direction:column;gap:0;">
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;border:2px solid #1F6E68;">
+          <div style="flex:0 0 168px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">L1 · tests/</div><div style="font-size:15.5px;font-weight:700;">用例层</div></div>
+          <div style="flex:1;font-size:13px;color:#C6D3CF;">pytest 函数;声明依赖、发起 run、持有判据。纯业务意图。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#1F6E68;color:#EDF4F2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 168px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#BEE3DD;">L2 · targetlib/target</div><div style="font-size:15.5px;font-weight:700;">Target API</div></div>
+          <div style="flex:1;font-size:13px;color:#DCEEEB;">抽象基类:require / run / reset / measure。用例唯一入口,屏蔽下层。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 168px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">L3 · resolver</div><div style="font-size:15.5px;font-weight:700;color:#15201F;">契约 + 能力解析</div></div>
+          <div style="flex:1;font-size:13px;color:#55524B;">加载契约、查能力表、裁决 skip/xfail/run、参数化展开、注入变体。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 168px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">L4 · proto client</div><div style="font-size:15.5px;font-weight:700;color:#15201F;">协议客户端</div></div>
+          <div style="flex:1;font-size:13px;color:#55524B;">把 op+参数编码为线格式帧、加 seq/CRC、解析应答、重试/超时。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 168px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">L5 · backends/</div><div style="font-size:15.5px;font-weight:700;">后端驱动</div></div>
+          <div style="flex:1;font-size:13px;color:#C6D3CF;">Renode / FPGA / Hardware:烧录、复位、持有物理链路(串口句柄)。</div>
+        </div>
+      </div>
+      <div style="flex:0 0 300px;background:#EFEBE1;border-radius:10px;padding:18px 20px;">
+        <div style="font-size:14px;font-weight:700;color:#15201F;margin-bottom:10px;">依赖规则(单向向下)</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:#55524B;">
+          <div>· 上层<b>只</b>依赖直接下层的接口,不跨层、不反向。</div>
+          <div>· L1 只 import L2(Target),永不 import 串口/backend。</div>
+          <div>· L2 是抽象类,L5 各后端实现它 → 用例换后端零改动。</div>
+          <div>· L3 是纯函数式解析,输入契约+能力+policy,输出"跑不跑/参数/观测手段"。</div>
+          <div>· L4 与固件端<b>共用</b> proto 定义(单一真相源)。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9.2 各层设计规则 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 12px;color:#15201F;">9.2　各层软件设计规则</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">用例层规则</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">① 只用 Target API 和 caps;② 判据(golden/容差)写在此层;③ 禁芯片名分支;④ 参数化交给装饰器,不手写循环;⑤ 不做 I/O、不碰串口。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">Target API 规则</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">① 方法签名冻结,是稳定契约;② 只做"翻译成抽象操作 + 委托下层",无业务逻辑;③ 返回强类型 Result 对象;④ 任何后端实现同一套抽象方法。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">解析层规则</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">① 无副作用纯函数;② 契约/能力/policy 三输入求交;③ 四态裁决(absent/board/target/impl);④ 命名归一在契约,不在此;⑤ 结果可缓存。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">协议客户端规则</div><div style="font-size:13px;color:#55524B;margin-top:5px;line-height:1.7;">① 编解码与固件共用同一 proto;② 幂等重试(同 seq);③ 每帧超时;④ 不理解语义(只搬运 op/kv);⑤ 大块走 base64/分块。</div></div>
+    </div>
+
+    <!-- 9.3 实例 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 12px;color:#15201F;">9.3　实例:uart.internal_loopback 的脚本端调用链</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">L1 tests/test_uart.py</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.4px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">@requires("uart.internal_loopback")
+@each_instance("uart", exclude="console")
+def test_uart_loopback(target, inst):
+    r = target.run("uart.internal_loopback",
+                   inst=inst, data=0x55AA, baud=115200)
+    assert r.rx == 0x55AA        <span style="color:#8fa39e"># 判据</span>
+    assert r.errors == 0</pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">L2 targetlib/target.py</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.4px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">class HardwareTarget(Target):
+    def run(self, op, **kw) -> Result:
+        self._resolver.check(op, kw)   <span style="color:#8fa39e"># L3</span>
+        frame = self._proto.encode(op, kw) <span style="color:#8fa39e"># L4</span>
+        raw   = self._link.xfer(frame)      <span style="color:#8fa39e"># L5</span>
+        return self._proto.decode(raw)  <span style="color:#8fa39e"># →Result</span></pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">L3 resolver.py(纯裁决)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.4px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">def check(op, kw):
+  feat = contract[op]                <span style="color:#8fa39e"># 契约</span>
+  cap  = caps.ip["uart"]
+  if not cap.present:      pytest.skip("absent")
+  if kw["inst"] == cap.console_inst:
+      pytest.skip("console reserved") <span style="color:#8fa39e"># 通道口</span>
+  <span style="color:#8fa39e"># 参数校验 + 变体注入</span></pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">L4 proto/client.py(编解码)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.4px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">def encode(op, kw):
+  seq = next_seq()
+  body = f"{seq} RUN {op} " + kvfmt(kw)
+  return f"#{body} *{crc8(body):02X}\n"
+<span style="color:#8fa39e"># decode: 解析 "#seq OK rx=.. errors=.." → Result
+#         校验 crc/seq;NA→skip;ERR→raise;超时→重试</span></pre>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#EEF4F2;border-left:3px solid #1F6E68;padding:12px 18px;border-radius:0 6px 6px 0;font-size:14px;color:#33322D;"><b>一句话:</b> 用例说"测什么"→ Target 委托 → 解析层裁决"跑不跑/参数"→ 协议客户端编码成一行帧 → 后端经串口发出。golden 与断言始终在 L1,芯片差异始终在 L3 数据里。</div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第10章 固件端软件设计 ================= -->
+  <section id="ch10fw" data-screen-label="第10章 固件端软件设计" style="padding:66px 104px 62px;background:#EFEBE1;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">10</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">固件端软件设计(Agent / C)</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">固件端是烧在芯片里的测试代理(Agent)。它是主机的"手脚":收帧、调度、驱动外设、回原始量,<b>绝不判定</b>。本章给出其分层、每层实现规则、以及基于真实 <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;">ET6x_Driver</span> 的完整实例。</p>
+
+    <!-- 10.1 分层 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 12px;color:#15201F;">10.1　固件端分层</h3>
+    <div style="display:flex;gap:20px;align-items:stretch;margin-bottom:16px;">
+      <div style="flex:1;display:flex;flex-direction:column;gap:0;">
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;border:2px solid #1F6E68;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">F1 · proto/</div><div style="font-size:15.5px;font-weight:700;">协议解析层</div></div>
+          <div style="flex:1;font-size:13px;color:#C6D3CF;">从 console UART 收字节、组帧、校验 CRC/seq、解析 verb+op+kv;幂等重放。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#1F6E68;color:#EDF4F2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#BEE3DD;">F2 · core/</div><div style="font-size:15.5px;font-weight:700;">调度核心</div></div>
+          <div style="flex:1;font-size:13px;color:#DCEEEB;">按 op 查自注册 handler 表,分发;组织应答帧;喂看门狗。共享,不含 IP 逻辑。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">F3 · handlers/</div><div style="font-size:15.5px;font-weight:700;color:#15201F;">操作实现层</div></div>
+          <div style="flex:1;font-size:13px;color:#55524B;">每 feature 一个 op 函数:激励+观测,只调 cdrv_*,填原始量。共享源码。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#FBFAF6;border:1.5px solid #C9C2B2;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A867C;">F4 · adapters/common</div><div style="font-size:15.5px;font-weight:700;color:#15201F;">契约动作接口</div></div>
+          <div style="flex:1;font-size:13px;color:#55524B;">cdrv.h:与芯片无关的动作词汇,签名恒定。handler 只认这层。</div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#F6E9DD;border:1.5px dashed #D98A54;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B25A2B;">F5 · adapters/&lt;chip&gt;</div><div style="font-size:15.5px;font-weight:700;color:#B25A2B;">芯片适配层</div></div>
+          <div style="flex:1;font-size:13px;color:#8a5a3a;">实现 cdrv_*,映射到本芯片 ET6x_Driver;吸收命名/位宽差异。<b>每芯片唯一变量。</b></div>
+        </div>
+        <div style="display:flex;justify-content:center;padding:4px 0;"><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #B7B1A3;"></div></div>
+        <div style="background:#15201F;color:#EDE9DE;border-radius:9px;padding:13px 20px;display:flex;align-items:center;gap:18px;">
+          <div style="flex:0 0 180px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;">F6 · SDK</div><div style="font-size:15.5px;font-weight:700;">ET6x_Driver</div></div>
+          <div style="flex:1;font-size:13px;color:#C6D3CF;">芯片原厂驱动,原样引入,不修改。被测对象本体。</div>
+        </div>
+      </div>
+      <div style="flex:0 0 300px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:18px 20px;">
+        <div style="font-size:14px;font-weight:700;color:#15201F;margin-bottom:10px;">固件端硬性规则</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:#55524B;">
+          <div>· <b>无动态内存</b>:全静态缓冲,收发帧定长上限,杜绝堆碎片。</div>
+          <div>· <b>不判定</b>:handler 只回原始量,PASS/FAIL 归主机。</div>
+          <div>· <b>不打印</b>:不依赖 DPrintf,ASIC 上照跑;仅结构化协议。</div>
+          <div>· <b>golden 不入固件</b>:期望值/容差不写死在此(对比旧 driver_test)。</div>
+          <div>· <b>看门狗常喂</b>:被测 IP 挂死可自愈复位。</div>
+          <div>· <b>F2/F3/F4 跨芯片共享源码</b>,仅 F5 每芯片一份。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10.2 实例 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 12px;color:#15201F;">10.2　实例:uart 回环的固件端实现(真实 ET6x_Driver API)</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">F3 handlers/uart.c(共享,自注册)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.3px;line-height:1.68;color:#D6D2C6;white-space:pre-wrap;">static agent_rc op_uart_lb(const kv_t*in,resp_t*out){
+  int inst = kv_int(in,"inst");
+  u16 tx   = kv_hex(in,"data");
+  u32 baud = kv_int(in,"baud");
+  cdrv_uart_config(inst, baud);        <span style="color:#8fa39e">// 契约动作</span>
+  cdrv_uart_loopback(inst, true);
+  u16 rx=0; u16 err=0;
+  cdrv_uart_xfer(inst,&amp;tx,&amp;rx,&amp;err);    <span style="color:#8fa39e">// 收发一体</span>
+  cdrv_uart_loopback(inst, false);
+  resp_set_hex(out,"rx", rx);          <span style="color:#8fa39e">// 只回原始量</span>
+  resp_set_int(out,"errors", err);
+  return AGENT_OK;                      <span style="color:#8fa39e">// 不判定</span>
+}
+REGISTER_HANDLER("uart.internal_loopback", op_uart_lb);</pre>
+      </div>
+      <div style="background:#241c16;border-radius:9px;overflow:hidden;">
+        <div style="background:#3a2a1c;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#E6B088;">F5 adapters/et6003/cdrv_uart.c(仅此芯片)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.3px;line-height:1.68;color:#E4C4A6;white-space:pre-wrap;"><span style="color:#8fa39e">// 契约动作 → ET6003 真实 SDK 调用</span>
+void cdrv_uart_config(int i,u32 baud){
+  UART_setConfig(UARTx(i), baud,
+     UART_CONFIG_WLEN_8|UART_CONFIG_STOP_ONE);
+}
+void cdrv_uart_loopback(int i,bool en){
+  en ? UART_enableLoopback(UARTx(i))
+     : UART_disableLoopback(UARTx(i));
+}
+void cdrv_uart_xfer(int i,u16*tx,u16*rx,u16*err){
+  UART_writeCharArray(UARTx(i),(u8*)tx,2);
+  UART_readCharArray (UARTx(i),(u8*)rx,2);
+  *err = UART_getRxStatus(UARTx(i))       <span style="color:#8fa39e">// 错误标志</span>
+       &amp; (UART_RXSTATUS_PARITY|UART_RXSTATUS_FRAMING);
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:14px 18px;">
+      <div style="font-size:13.5px;color:#33322D;"><b>换芯片时只改右边:</b> ET6002 的 <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">UART_setConfig/enableLoopback/writeCharArray/readCharArray/getRxStatus</span> 经核对与 ET6003 <b>逐函数同名同参</b>,故 cdrv_uart.c 几乎可直接复用;若某芯片 UART 改了名或位宽,差异<b>只在这一份文件</b>消化,handler 与上面全部不动。</div>
+    </div>
+
+    <!-- 10.3 主循环 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 12px;color:#15201F;">10.3　Agent 主循环与自注册</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">F2 core/agent.c(共享调度)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.3px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">for(;;){
+  WDG_feed();                     <span style="color:#8fa39e">// 看门狗</span>
+  if(!proto_recv(&amp;req)) continue;  <span style="color:#8fa39e">// F1 收帧</span>
+  if(req.seq==last.seq){           <span style="color:#8fa39e">// 幂等重放</span>
+    proto_send(&amp;last_resp); continue; }
+  const op_entry_t*e = op_find(req.op); <span style="color:#8fa39e">// 查段</span>
+  resp_t r = {0};
+  r.rc = e ? e->fn(&amp;req.kv,&amp;r)
+           : agent_na("unknown_op");
+  proto_send_result(req.seq,&amp;r);   <span style="color:#8fa39e">// 应答</span>
+}</pre>
+      </div>
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:8px 15px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7FB3AB;">链接期自注册(加 IP 不碰老文件)</div>
+        <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.3px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">#define REGISTER_HANDLER(op,fn) \
+  static const op_entry_t _e_##fn \
+    __attribute__((used,section(".handlers"))) \
+    = { op, fn };
+<span style="color:#8fa39e">// op_find() 遍历 .handlers 段线性/散列查找。
+// 新增 handlers/spi.c 里写一行 REGISTER_HANDLER,
+// 无需改 agent.c、无中央表 → 真插件</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第11章 脚本与固件交互 ================= -->
+  <section id="ch11io" data-screen-label="第11章 脚本与固件交互" style="padding:66px 104px 62px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">11</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">脚本与固件的交互</h2>
+    </div>
+    <p style="font-size:16px;color:#33322D;margin:0 0 26px;max-width:1140px;">脚本端(第 9 章)与固件端(第 10 章)通过 console UART 上的<b>请求-应答行协议</b>交互。两端<b>共用同一份 proto 定义</b>,一端编码、一端解码,语义对称。本章给出交互模型、真实字节级样例、和一次完整往返的端到端时序。</p>
+
+    <!-- 11.1 交互模型 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 12px;color:#15201F;">11.1　交互模型</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">请求-应答,主机主导</div><div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">主机发一帧请求,固件回一帧(或多帧 + END)应答。固件不主动发起,只被动响应。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">通道分离</div><div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">交互走 console UART(如 UART0),被测 IP 用其它实例 → 测 UART 时通道口≠被测口,互不干扰。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:16px 20px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">共用协议定义</div><div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">帧格式、verb、状态码在 <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">proto/</span> 单一定义,主机 Python 与固件 C 各按它编解码,杜绝漂移。</div></div>
+    </div>
+
+    <!-- 11.2 帧结构对照 -->
+    <h3 style="font-size:21px;font-weight:700;margin:22px 0 12px;color:#15201F;">11.2　帧结构(两端一致)</h3>
+    <div style="background:#1B1B17;border-radius:9px;overflow:hidden;margin-bottom:16px;">
+      <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">wire 格式 · 请求 / 应答</div>
+      <pre style="margin:0;padding:16px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.9;color:#D6D2C6;white-space:pre-wrap;"><span style="color:#8fa39e"># 请求  host → agent</span>
+#&lt;seq&gt; &lt;VERB&gt; &lt;op&gt; &lt;k=v&gt; &lt;k=v&gt; ... *&lt;crc8&gt;\n     VERB∈{PING,RUN,GET,SET,RST}
+<span style="color:#8fa39e"># 应答  agent → host(LOG 可多行,OK/ERR/NA 收尾)</span>
+#&lt;seq&gt; &lt;STATUS&gt; &lt;k=v&gt; ... *&lt;crc8&gt;\n              STATUS∈{OK,ERR,NA,LOG}
+<span style="color:#8fa39e">字段: seq 幂等序号 · crc8 抗丢字节 · kv 扁平键值(hex/int/enum/b64)</span></pre>
+    </div>
+
+    <!-- 11.3 完整往返实例 -->
+    <h3 style="font-size:21px;font-weight:700;margin:22px 0 12px;color:#15201F;">11.3　完整往返:uart.internal_loopback @ ET6003 inst=1</h3>
+    <div style="background:#FBFAF6;border:1.5px solid #D8D2C4;border-radius:12px;padding:24px 28px;margin-bottom:14px;">
+      <div style="display:flex;flex-direction:column;gap:0;font-family:'IBM Plex Mono',monospace;font-size:12.5px;">
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:9px 0;">
+          <span style="flex:0 0 150px;color:#1F6E68;font-weight:600;">① 主机 L1→L4</span>
+          <span style="flex:1;color:#55524B;">用例 run("uart.internal_loopback", inst=1, data=0x55AA, baud=115200) → 解析层放行(inst=1≠console 0)→ 协议客户端编码</span>
+        </div>
+        <div style="background:#15201F;border-radius:7px;padding:10px 14px;color:#9FD0C8;">主机发出 → &nbsp;<span style="color:#EDE9DE;">#0042 RUN uart.internal_loopback inst=1 data=0x55AA baud=115200 *7B\n</span></div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:9px 0;">
+          <span style="flex:0 0 150px;color:#1F6E68;font-weight:600;">② 固件 F1→F2</span>
+          <span style="flex:1;color:#55524B;">Agent 收帧、校验 crc8=7B、seq=0042 非重复 → op_find("uart.internal_loopback") 命中 → 调 op_uart_lb</span>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:9px 0;">
+          <span style="flex:0 0 150px;color:#1F6E68;font-weight:600;">③ 固件 F3→F6</span>
+          <span style="flex:1;color:#55524B;">op_uart_lb → cdrv_uart_config(1,115200) → cdrv_uart_loopback(1,true) → 写 0x55AA/读回 → 读 UART_getRxStatus → err=0</span>
+        </div>
+        <div style="background:#3a2a1c;border-radius:7px;padding:10px 14px;color:#E6B088;">↓ 实际 SDK: UART_setConfig · UART_enableLoopback · UART_writeCharArray · UART_readCharArray · UART_getRxStatus</div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:9px 0;">
+          <span style="flex:0 0 150px;color:#B25A2B;font-weight:600;">④ 固件回应答</span>
+          <span style="flex:1;color:#55524B;">core 组帧,回原始观测量(不判定),同 seq</span>
+        </div>
+        <div style="background:#15201F;border-radius:7px;padding:10px 14px;color:#F0A868;">固件返回 → &nbsp;<span style="color:#EDE9DE;">#0042 OK rx=0x55AA errors=0 *C1\n</span></div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:9px 0;">
+          <span style="flex:0 0 150px;color:#1F6E68;font-weight:600;">⑤ 主机 L4→L1</span>
+          <span style="flex:1;color:#55524B;">协议客户端校验 crc/seq → decode 成 Result(rx=0x55AA, errors=0) → 用例断言 rx==0x55AA ✓ errors==0 ✓ → <b style="color:#1F6E68;">PASS</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11.4 异常路径 -->
+    <h3 style="font-size:21px;font-weight:700;margin:22px 0 12px;color:#15201F;">11.4　异常与容错交互</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:13.5px;font-weight:700;color:#B25A2B;">串口丢字节</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;line-height:1.7;">主机超时未收完整帧 → 重发同 seq;固件若已执行则重放缓存应答,不重复副作用。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:13.5px;font-weight:700;color:#B25A2B;">芯片无此能力</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;line-height:1.7;">op_find 未命中 → 固件回 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">#seq NA reason=absent</span> → 主机 skip,不算失败。</div></div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:13.5px;font-weight:700;color:#B25A2B;">IP 挂死</div><div style="font-size:12.5px;color:#55524B;margin-top:5px;line-height:1.7;">handler 卡住 → 看门狗复位 → 主机超时重试 N 次仍无 → 判 agent 宕,PING 重建会话。</div></div>
+    </div>
+  </section>
+
+  <div style="height:8px;background:#15201F;margin:0;"></div>
+
+  <!-- ================= 第9章 仓库·工具链·路线图 ================= -->
+  <section id="ch9" data-screen-label="第9章 仓库与路线图" style="padding:66px 104px 56px;">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;">
+      <span style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#fff;background:#1F6E68;border-radius:12px;padding:8px 20px;">12</span>
+      <h2 style="font-size:34px;font-weight:900;margin:0;letter-spacing:-0.01em;">仓库布局 · 工具链 · 路线图</h2>
+    </div>
+
+    <!-- 9.1 仓库布局 -->
+    <h3 style="font-size:21px;font-weight:700;margin:8px 0 10px;color:#15201F;">9.1　仓库布局 —— 目录即插口</h3>
+    <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:16px;margin-bottom:14px;">
+      <div style="background:#1B1B17;border-radius:9px;overflow:hidden;">
+        <div style="background:#242420;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7FB3AB;">platform/</div>
+        <pre style="margin:0;padding:15px 18px;font-family:'IBM Plex Mono',monospace;font-size:11.6px;line-height:1.7;color:#D6D2C6;white-space:pre-wrap;">contracts/          <span style="color:#8fa39e"># ① feature 词典(共享)</span>
+  gpio.yaml uart.yaml pwm.yaml ...
+capabilities/       <span style="color:#8fa39e"># ② 每芯片花名册</span>
+  et3101.yaml et6002.yaml et6003.yaml
+tests/              <span style="color:#8fa39e"># ① 每 feature 一个用例</span>
+  test_gpio.py test_uart.py ...
+agent/
+  core/             <span style="color:#8fa39e"># 调度核心 + 注册中枢(共享)</span>
+  proto/            <span style="color:#8fa39e"># 协议编解码(主机固件共用)</span>
+  handlers/         <span style="color:#8fa39e"># ① 操作实现(自注册,共享)</span>
+  adapters/
+    common/cdrv.h   <span style="color:#8fa39e"># ② 契约动作签名(只签名)</span>
+    et6003/cdrv.c   <span style="color:#8fa39e"># ② 每芯片实现</span>
+host/
+  targetlib/        <span style="color:#8fa39e"># Target API + transport</span>
+  observers/        <span style="color:#8fa39e"># ③ self/clb/scope(自注册)</span>
+  env/              <span style="color:#8fa39e"># ④ 温箱/拉偏(自注册)</span>
+  conftest.py       <span style="color:#8fa39e"># 能力门禁/复位 fixture</span>
+campaigns/          <span style="color:#8fa39e"># ⑤ 功能/老化/温循/筛片</span>
+backends/ renode/ fpga/ hil/
+policy/ observation.yaml
+tools/ capgen.py linter.py validate_*.py
+reports/</pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#EAF3F0;border:1px solid #A9CFC7;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1F6E68;">目录 ↔ 五类插口对应</div><div style="font-size:13px;color:#3f6b64;margin-top:6px;line-height:1.7;">①②③④⑤ 标注即第 7 章五类插口。<b>丢文件进对应目录即扩展</b>,无中央清单。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">命名纪律</div><div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">adapters/common/</span> 只放签名不放实现;<span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">handlers/</span> ≠ <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">contracts/</span>(前者 C 实现,后者 YAML 定义)。</div></div>
+        <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:9px;padding:15px 18px;"><div style="font-size:14px;font-weight:700;color:#1A1A18;">主机固件共用协议</div><div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">agent/proto/</span> 是单一协议真相源,主机 targetlib 与固件都引用,杜绝漂移。</div></div>
+      </div>
+    </div>
+
+    <!-- 9.2 工具链 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">9.2　工具链</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;">
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1F6E68;font-weight:600;">capgen.py</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">扫 <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">ET6x_Driver/Inc/*.h</span> 存在性 + pinmap/instance 宏 → 生成能力表 80% 字段 + 适配 stub + diff 报告(缺 sdfm.h→false)。新芯片 SDK 一到即出骨架。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1F6E68;font-weight:600;">linter.py</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">扫用例禁芯片名分支、禁固件端判定、禁 golden 焊死;CI 挂红。纪律的执法者。</div>
+      </div>
+      <div style="background:#FBFAF6;border:1px solid #E2DCCF;border-radius:10px;padding:16px 20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#1F6E68;font-weight:600;">validate_*.py + doctor</div>
+        <div style="font-size:13px;color:#55524B;margin-top:6px;line-height:1.7;">契约/能力 schema 校验;doctor 校验现场(串口/固件/caps_hash/仪器)是否就绪,一键体检。</div>
+      </div>
+    </div>
+
+    <!-- 9.3 路线图 -->
+    <h3 style="font-size:21px;font-weight:700;margin:26px 0 10px;color:#15201F;">9.3　路线图 —— 先啃软骨头,逐步长出扩展</h3>
+    <div style="display:flex;gap:0;align-items:stretch;background:#FBFAF6;border:1px solid #E2DCCF;border-radius:11px;overflow:hidden;margin-bottom:14px;">
+      <div style="flex:0 0 130px;background:#15201F;color:#EDE9DE;padding:18px 20px;display:flex;flex-direction:column;justify-content:center;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7FB3AB;letter-spacing:0.1em;">ROADMAP</div>
+        <div style="font-size:15px;font-weight:700;margin-top:4px;">M0→M3</div>
+      </div>
+      <div style="flex:1;display:flex;">
+        <div style="flex:1;padding:15px 16px;border-right:1px solid #EAE4D7;">
+          <div style="font-family:'Space Grotesk';font-size:14px;font-weight:700;color:#1F6E68;">M0a</div>
+          <div style="font-size:12.5px;color:#33322D;margin-top:4px;font-weight:600;">纯 self 闭环</div>
+          <div style="font-size:11.5px;color:#7a7568;margin-top:3px;">uart/gpio/crc · ET6003 真板 · 承重核心 5 件跑通</div>
+        </div>
+        <div style="flex:1;padding:15px 16px;border-right:1px solid #EAE4D7;">
+          <div style="font-family:'Space Grotesk';font-size:14px;font-weight:700;color:#1F6E68;">M0b</div>
+          <div style="font-size:12.5px;color:#33322D;margin-top:4px;font-weight:600;">加第 2 颗芯片</div>
+          <div style="font-size:11.5px;color:#7a7568;margin-top:3px;">6002/3101 适配 · 实战 eqep 改名 · 证明 O(1)</div>
+        </div>
+        <div style="flex:1;padding:15px 16px;border-right:1px solid #EAE4D7;">
+          <div style="font-family:'Space Grotesk';font-size:14px;font-weight:700;color:#B25A2B;">M1</div>
+          <div style="font-size:12.5px;color:#33322D;margin-top:4px;font-weight:600;">控制类 + 片内观测</div>
+          <div style="font-size:11.5px;color:#7a7568;margin-top:3px;">pwm · CLB 捕获插件 · scope 同步时序</div>
+        </div>
+        <div style="flex:1;padding:15px 16px;border-right:1px solid #EAE4D7;">
+          <div style="font-family:'Space Grotesk';font-size:14px;font-weight:700;color:#8A867C;">M2</div>
+          <div style="font-size:12.5px;color:#33322D;margin-top:4px;font-weight:600;">后端 + 接入</div>
+          <div style="font-size:11.5px;color:#7a7568;margin-top:3px;">Renode SIL · CI 门禁 · CLI/AI</div>
+        </div>
+        <div style="flex:1;padding:15px 16px;">
+          <div style="font-family:'Space Grotesk';font-size:14px;font-weight:700;color:#6E4A8A;">M3</div>
+          <div style="font-size:12.5px;color:#33322D;margin-top:4px;font-weight:600;">编排轴上线</div>
+          <div style="font-size:11.5px;color:#7a7568;margin-top:3px;">Campaign + Environment · 老化/高低温/筛片 · labgrid</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#15201F;color:#EDE9DE;border-radius:11px;padding:22px 28px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <span style="font-family:'Space Grotesk';font-size:16px;font-weight:700;color:#7FB3AB;flex-shrink:0;">总结</span>
+      <span style="font-size:15px;color:#DCEEEB;flex:1;min-width:440px;line-height:1.7;">本平台 = <b style="color:#fff;">分层解耦的执行脊柱 + 三正交轴 + 五类自注册插口 + 两道治理锁</b>。第一版只建最小承重核心即可把手工测试变为自动化;此后加芯片(2 文件)、加 feature(3 文件)、加测试类型(1 个 campaign)都是往插口里插,主干永不改动 —— 可靠、稳定、可长期迭代,边际成本趋近于零。</span>
+    </div>
+
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid #DAD4C6;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A867C;line-height:1.7;">
+        ET 系列 MCU 全 IP 自动化测试平台 · 架构设计 v1.0 · 团队评审稿<br>
+        证据来源 · code/SDK/{3101,6002,6003} 逐头文件盘点 · code/boot_rom 现有测试固件
+      </div>
+      <div style="font-family:'Space Grotesk';font-size:13px;color:#B7B1A3;">END · 全 12 章</div>
+    </div>
+  </section>
+
+</div>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#15201F"/><rect x="42" y="42" width="16" height="16" rx="2" fill="#7FB3AB"/><g fill="none" stroke="#D98A54" stroke-width="2.5"><rect x="20" y="20" width="14" height="14" rx="2"/><rect x="66" y="20" width="14" height="14" rx="2"/><rect x="20" y="66" width="14" height="14" rx="2"/><rect x="66" y="66" width="14" height="14" rx="2"/></g><g stroke="#4a5a58" stroke-width="1.5"><line x1="34" y1="27" x2="42" y2="45"/><line x1="66" y1="27" x2="58" y2="45"/><line x1="34" y1="73" x2="42" y2="55"/><line x1="66" y1="73" x2="58" y2="55"/></g></svg>
+</template>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,16 @@
+schema: et-capability-audit/v1
+chip: et6801
+ip: syscnt_ro
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+unclassified:
+- instance: syscnt_ro0
+  kind: field
+  path: SYSCNT_RO.CNTCVL.CNTCVL_L
+  reason: no_semantic_mapping
+- instance: syscnt_ro0
+  kind: field
+  path: SYSCNT_RO.CNTCVU.CNTCVU_U
+  reason: no_semantic_mapping

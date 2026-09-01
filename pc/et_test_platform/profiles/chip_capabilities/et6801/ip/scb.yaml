@@ -1,0 +1,25 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: scb
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  scb0:
+    svd_name: SCB
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      scb0: '0xE000ED00'
+evidence:
+  scb.identity.base_address:
+  - instance: scb0
+    kind: peripheral
+    path: SCB.baseAddress
+    rule: direct

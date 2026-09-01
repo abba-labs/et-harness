@@ -1,0 +1,18 @@
+schema: et-capability-audit/v1
+chip: et_contract_test
+ip: dma
+
+source:
+  file: contract_test.svd
+  sha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  generator_version: 2
+
+unclassified:
+  - instance: dma0
+    kind: field
+    path: DMA0.TEST.TEST_MODE
+    reason: no_semantic_mapping
+  - instance: dma1
+    kind: field
+    path: DMA1.TEST.TEST_MODE
+    reason: no_semantic_mapping

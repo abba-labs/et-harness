@@ -1,0 +1,27 @@
+schema: et-pipeline-profile/v1
+name: et6801_silicon_dualcore
+target_kind: silicon
+
+# 与FPGA Profile调用同一脚本，仅部署清单和烧录所需参数不同。
+# 首板Core1释放及双探针条件确认前，Silicon清单会拒绝真实部署。
+steps:
+  build.firmware:
+    script: tools/firmware/deploy_dualcore_firmware.ps1
+    hardware_action: false
+    arguments:
+      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_silicon_flash.json}
+      - {option: -Action, value: Build}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -RtePath, from: environment.tools.keil.pack_root, kind: directory}
+
+  deploy.firmware:
+    script: tools/firmware/deploy_dualcore_firmware.ps1
+    hardware_action: true
+    arguments:
+      - {option: -Manifest, value: firmware/chips/et6801/core1_peer/deploy/et6801_silicon_flash.json}
+      - {option: -Action, value: Deploy}
+      - {option: -Keil, from: environment.tools.keil.executable, kind: file}
+      - {option: -JLink, from: environment.tools.jlink.executable, kind: file}
+      - {option: -JLinkSerial, from: dut.debug.probe_serial, optional: true}
+      - {option: -SerialPort, from: dut.control.port}
+      - {flag: -ConfirmHardware}

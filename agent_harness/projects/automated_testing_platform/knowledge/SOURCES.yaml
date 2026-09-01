@@ -1,0 +1,82 @@
+standard: knowledge-source-registry-v0.1
+sources:
+  - sourceId: SRC000001
+    kind: DOCUMENT
+    title: Repository Constitution
+    location: AGENTS.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Highest ATP project execution contract and Agent entry.
+  - sourceId: SRC000002
+    kind: SPEC
+    title: Project System Map
+    location: project-governance/system-map.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Stable project module map and dependency projection.
+  - sourceId: SRC000003
+    kind: SPEC
+    title: Governance Module Profile
+    location: project-governance/modules/governance.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Governance module read, write and validation boundaries.
+  - sourceId: SRC000004
+    kind: DOCUMENT
+    title: Project Governance Navigation
+    location: project-governance/README.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Existing deterministic navigation system and non-duplication boundary.
+  - sourceId: SRC000005
+    kind: SPEC
+    title: Rule Owner Catalog
+    location: report/design/rule_owner_catalog.yaml
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Machine index of active rule Owners and canonical sources.
+  - sourceId: SRC000006
+    kind: DOCUMENT
+    title: Task Context Navigation Rule
+    location: report/design/rules/R002_task_context_navigation.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Mandatory Task Context lifecycle and fail-closed routing.
+  - sourceId: SRC000007
+    kind: DOCUMENT
+    title: Canonical Result And Evidence Rule
+    location: report/design/rules/R130_canonical_result_evidence.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Result, Observation and Evidence semantic boundaries.
+  - sourceId: SRC000008
+    kind: DOCUMENT
+    title: Operator Pipeline Rule
+    location: report/design/rules/R500_operator_pipeline.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Operator, run configuration, artifact and pipeline contract.
+  - sourceId: SRC000009
+    kind: SPEC
+    title: ATP ET Harness Project Plugin Contract
+    location: agent_harness/projects/automated_testing_platform/README.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: plugin-v0.1
+    note: Data-only public plugin projection and project knowledge scope.
+  - sourceId: SRC000010
+    kind: DOCUMENT
+    title: ET Harness Repository Branch Boundary
+    location: MIGRATION_BOUNDARY.md
+    status: ACTIVE
+    registeredAt: 2026-08-27T00:00:00.000Z
+    revision: e9e3affb537113b43d15fbe71b222b213f4410d9
+    note: Public main and project branch ownership boundary.

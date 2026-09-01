@@ -1,0 +1,128 @@
+#ifndef ET_STIMER_SERVICE_H
+#define ET_STIMER_SERVICE_H
+
+/**
+ * @file et_stimer_service.h
+ * @brief STIMER Wire contract and bounded firmware runtime state.
+ */
+
+#include <stdint.h>
+
+#include "et_irq_manager.h"
+#include "et_service_factory.h"
+#include "et_service_router.h"
+#include "et_stimer_wrap.h"
+
+#define ET_STIMER_SERVICE_ID 0x0106u
+#define ET_STIMER_SERVICE_API_VERSION 3u
+#define ET_STIMER_SERVICE_WIRE_BYTE_MASK 0xffu
+
+#define ET_STIMER_SERVICE_CAPABILITIES_SIZE 20u
+#define ET_STIMER_SERVICE_CONFIG_SIZE 12u
+#define ET_STIMER_SERVICE_COUNT_SIZE 4u
+#define ET_STIMER_SERVICE_STATUS_SIZE 4u
+#define ET_STIMER_SERVICE_COMPARE_SIZE 8u
+#define ET_STIMER_SERVICE_EVENT_PULSE_WIDTH_SIZE 8u
+#define ET_STIMER_SERVICE_DMA_REQUEST_SIZE 4u
+#define ET_STIMER_SERVICE_DEBUG_HALT_POLICY_SIZE 4u
+#define ET_STIMER_SERVICE_MASK_SIZE 4u
+#define ET_STIMER_SERVICE_IRQ_SNAPSHOT_SIZE 24u
+#define ET_STIMER_SERVICE_EMERGENCY_ROUTE_SIZE 4u
+#define ET_STIMER_SERVICE_EMERGENCY_COUNT_SIZE 4u
+
+#define ET_STIMER_SERVICE_CAPS_API_VERSION_OFFSET 0u
+#define ET_STIMER_SERVICE_CAPS_STRUCT_SIZE_OFFSET 2u
+#define ET_STIMER_SERVICE_CAPS_FEATURES_OFFSET 4u
+#define ET_STIMER_SERVICE_CAPS_MAX_PERIOD_OFFSET 8u
+#define ET_STIMER_SERVICE_CAPS_MAX_PRESCALER_OFFSET 12u
+#define ET_STIMER_SERVICE_CAPS_COMPARE_CHANNELS_OFFSET 14u
+#define ET_STIMER_SERVICE_CAPS_INSTANCE_COUNT_OFFSET 15u
+#define ET_STIMER_SERVICE_CAPS_IRQ_SOURCES_OFFSET 16u
+
+#define ET_STIMER_SERVICE_CONFIG_PERIOD_OFFSET 0u
+#define ET_STIMER_SERVICE_CONFIG_PRESCALER_OFFSET 4u
+#define ET_STIMER_SERVICE_CONFIG_MODE_OFFSET 6u
+#define ET_STIMER_SERVICE_CONFIG_LOAD_MODE_OFFSET 7u
+#define ET_STIMER_SERVICE_CONFIG_RESERVED_OFFSET 8u
+#define ET_STIMER_SERVICE_CONFIG_RESERVED_SIZE 4u
+
+#define ET_STIMER_SERVICE_COMPARE_CHANNEL_OFFSET 0u
+#define ET_STIMER_SERVICE_COMPARE_RESERVED_OFFSET 1u
+#define ET_STIMER_SERVICE_COMPARE_RESERVED_SIZE 3u
+#define ET_STIMER_SERVICE_COMPARE_THRESHOLD_OFFSET 4u
+
+#define ET_STIMER_SERVICE_EVENT_PULSE_SOURCE_OFFSET 0u
+#define ET_STIMER_SERVICE_EVENT_PULSE_WIDTH_OFFSET 4u
+#define ET_STIMER_SERVICE_EVENT_PULSE_RESERVED_OFFSET 6u
+#define ET_STIMER_SERVICE_EVENT_PULSE_RESERVED_SIZE 2u
+
+#define ET_STIMER_SERVICE_DEBUG_HALT_POLICY_OFFSET 0u
+#define ET_STIMER_SERVICE_DEBUG_HALT_POLICY_RESERVED_OFFSET 1u
+#define ET_STIMER_SERVICE_DEBUG_HALT_POLICY_RESERVED_SIZE 3u
+
+#define ET_STIMER_SERVICE_EMERGENCY_SOURCE_OFFSET 0u
+#define ET_STIMER_SERVICE_EMERGENCY_GROUP_OFFSET 1u
+#define ET_STIMER_SERVICE_EMERGENCY_RESERVED_OFFSET 2u
+#define ET_STIMER_SERVICE_EMERGENCY_RESERVED_SIZE 2u
+
+#define ET_STIMER_SERVICE_IRQ_RAW_OFFSET 0u
+#define ET_STIMER_SERVICE_IRQ_STATUS_OFFSET 4u
+#define ET_STIMER_SERVICE_IRQ_LATCHED_OFFSET 8u
+#define ET_STIMER_SERVICE_IRQ_EVENT_COUNT_OFFSET 12u
+#define ET_STIMER_SERVICE_IRQ_LAST_RAW_OFFSET 16u
+#define ET_STIMER_SERVICE_IRQ_LAST_EVENT_OFFSET 20u
+
+typedef enum
+{
+    ET_STIMER_COMMAND_CAPABILITIES_GET = 0x0001u,
+    ET_STIMER_COMMAND_CONFIGURE = 0x0002u,
+    ET_STIMER_COMMAND_START = 0x0003u,
+    ET_STIMER_COMMAND_STOP = 0x0004u,
+    ET_STIMER_COMMAND_PAUSE = 0x0005u,
+    ET_STIMER_COMMAND_RESUME = 0x0006u,
+    ET_STIMER_COMMAND_CLEAR = 0x0007u,
+    ET_STIMER_COMMAND_RELOAD = 0x0008u,
+    ET_STIMER_COMMAND_LIVE_COUNT_GET = 0x0009u,
+    ET_STIMER_COMMAND_LATCHED_COUNT_GET = 0x000au,
+    ET_STIMER_COMMAND_STATUS_GET = 0x000bu,
+    ET_STIMER_COMMAND_COMPARE_SET = 0x000cu,
+    ET_STIMER_COMMAND_IRQ_ENABLE = 0x000du,
+    ET_STIMER_COMMAND_IRQ_DISABLE = 0x000eu,
+    ET_STIMER_COMMAND_IRQ_MASK = 0x000fu,
+    ET_STIMER_COMMAND_IRQ_UNMASK = 0x0010u,
+    ET_STIMER_COMMAND_IRQ_FORCE = 0x0011u,
+    ET_STIMER_COMMAND_IRQ_CLEAR = 0x0012u,
+    ET_STIMER_COMMAND_IRQ_SNAPSHOT_GET = 0x0013u,
+    ET_STIMER_COMMAND_EVENT_PULSE_WIDTH_SET = 0x0014u,
+    ET_STIMER_COMMAND_DMA_REQUEST_SELECT = 0x0015u,
+    ET_STIMER_COMMAND_DEBUG_HALT_POLICY_SET = 0x0016u,
+    ET_STIMER_COMMAND_EMERGENCY_CAPTURE_CONFIGURE = 0x0017u,
+    ET_STIMER_COMMAND_EMERGENCY_CAPTURE_GET = 0x0018u,
+    ET_STIMER_COMMAND_EMERGENCY_CAPTURE_CLEAR = 0x0019u
+} et_stimer_command_t;
+
+typedef struct
+{
+    et_stimer_id_t stimer_id;
+    uint8_t configured;
+    uint8_t irq_bound;
+    uint8_t irq_priority;
+    uint8_t reserved8;
+    uint32_t irq_enabled_sources;
+    volatile uint32_t irq_event_count;
+    volatile uint32_t irq_latched_sources;
+    volatile uint32_t irq_last_raw;
+    volatile uint32_t irq_last_event;
+    et_irq_manager_t *irq_manager;
+    et_irq_route_t irq_route;
+    et_service_descriptor_t descriptor;
+} et_stimer_service_t;
+
+int et_stimer_service_init(et_stimer_service_t *service, et_stimer_id_t stimer_id,
+                           et_irq_manager_t *irq_manager, uint8_t irq_priority);
+const et_service_descriptor_t *et_stimer_service_descriptor(const et_stimer_service_t *service);
+int et_stimer_service_create(void *storage, uint16_t instance_id,
+                             const et_service_factory_context_t *context,
+                             const et_service_descriptor_t **descriptor);
+
+#endif

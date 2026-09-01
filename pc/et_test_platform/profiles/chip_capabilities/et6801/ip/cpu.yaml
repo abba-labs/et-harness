@@ -1,0 +1,90 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: cpu
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  cpu0:
+    svd_name: CPU0
+  cpu1:
+    svd_name: CPU1
+capabilities:
+  features:
+    m7_dtcm_ecc:
+    - cpu0
+    - cpu1
+    m7_itcm_ecc:
+    - cpu0
+    - cpu1
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    core2_peri_timeout:
+      cpu0:
+        svd_name: CORE2PERI_TIMEOUT
+        irqn: 103
+    misc:
+      cpu0:
+        svd_name: CPU0_MISC
+        irqn: 105
+      cpu1:
+        svd_name: CPU1_MISC
+        irqn: 106
+    peri2_core_timeout:
+      cpu0:
+        svd_name: PERI2CORE_TIMEOUT
+        irqn: 104
+  identities:
+    base_address:
+      cpu0: '0x40600000'
+      cpu1: '0x40601000'
+evidence:
+  cpu.feature.m7_dtcm_ecc:
+  - instance: cpu0
+    kind: field
+    path: CPU0.CTRL1.M7_DTCM_ECC_EN
+    rule: boolean_enable_field
+  - instance: cpu1
+    kind: field
+    path: CPU1.CTRL1.M7_DTCM_ECC_EN
+    rule: boolean_enable_field
+  cpu.feature.m7_itcm_ecc:
+  - instance: cpu0
+    kind: field
+    path: CPU0.CTRL1.M7_ITCM_ECC_EN
+    rule: boolean_enable_field
+  - instance: cpu1
+    kind: field
+    path: CPU1.CTRL1.M7_ITCM_ECC_EN
+    rule: boolean_enable_field
+  cpu.identity.base_address:
+  - instance: cpu0
+    kind: peripheral
+    path: CPU0.baseAddress
+    rule: direct
+  - instance: cpu1
+    kind: peripheral
+    path: CPU1.baseAddress
+    rule: direct
+  cpu.interrupt.core2_peri_timeout:
+  - instance: cpu0
+    kind: interrupt
+    path: CPU0.interrupt.CORE2PERI_TIMEOUT
+    rule: direct
+  cpu.interrupt.misc:
+  - instance: cpu0
+    kind: interrupt
+    path: CPU0.interrupt.CPU0_MISC
+    rule: direct
+  - instance: cpu1
+    kind: interrupt
+    path: CPU1.interrupt.CPU1_MISC
+    rule: direct
+  cpu.interrupt.peri2_core_timeout:
+  - instance: cpu0
+    kind: interrupt
+    path: CPU0.interrupt.PERI2CORE_TIMEOUT
+    rule: direct

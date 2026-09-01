@@ -1,0 +1,39 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: emif
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  emif0:
+    svd_name: EMIF0
+  emif1:
+    svd_name: EMIF1
+capabilities:
+  features:
+    config_sdr:
+    - emif0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      emif0: '0x40605000'
+      emif1: '0x40606000'
+evidence:
+  emif.feature.config_sdr:
+  - instance: emif0
+    kind: field
+    path: EMIF0.CFG_DMC_CR.cfg_sdr_en
+    rule: boolean_enable_field
+  emif.identity.base_address:
+  - instance: emif0
+    kind: peripheral
+    path: EMIF0.baseAddress
+    rule: direct
+  - instance: emif1
+    kind: peripheral
+    path: EMIF1.baseAddress
+    rule: direct

@@ -1,0 +1,96 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: wdg
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  wdg0:
+    svd_name: WDG0
+  wdg1:
+    svd_name: WDG1
+capabilities:
+  features:
+    halt:
+    - wdg0
+    - wdg1
+    rst:
+    - wdg0
+    - wdg1
+    wwdg:
+    - wdg0
+    - wdg1
+    wwdg_interrupt:
+    - wdg0
+    - wdg1
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      wdg0:
+        svd_name: WDG0
+        irqn: 18
+      wdg1:
+        svd_name: WDG1
+        irqn: 19
+  identities:
+    base_address:
+      wdg0: '0x40402000'
+      wdg1: '0x40403000'
+evidence:
+  wdg.feature.halt:
+  - instance: wdg0
+    kind: field
+    path: WDG0.CTRL.HALT_EN
+    rule: boolean_enable_field
+  - instance: wdg1
+    kind: field
+    path: WDG1.CTRL.HALT_EN
+    rule: boolean_enable_field
+  wdg.feature.rst:
+  - instance: wdg0
+    kind: field
+    path: WDG0.CTRL.RST_EN
+    rule: boolean_enable_field
+  - instance: wdg1
+    kind: field
+    path: WDG1.CTRL.RST_EN
+    rule: boolean_enable_field
+  wdg.feature.wwdg:
+  - instance: wdg0
+    kind: field
+    path: WDG0.EN.WWDG_EN
+    rule: boolean_enable_field
+  - instance: wdg1
+    kind: field
+    path: WDG1.EN.WWDG_EN
+    rule: boolean_enable_field
+  wdg.feature.wwdg_interrupt:
+  - instance: wdg0
+    kind: field
+    path: WDG0.INT_EN.WWDG_INT_EN
+    rule: boolean_enable_field
+  - instance: wdg1
+    kind: field
+    path: WDG1.INT_EN.WWDG_INT_EN
+    rule: boolean_enable_field
+  wdg.identity.base_address:
+  - instance: wdg0
+    kind: peripheral
+    path: WDG0.baseAddress
+    rule: direct
+  - instance: wdg1
+    kind: peripheral
+    path: WDG1.baseAddress
+    rule: direct
+  wdg.interrupt.irq:
+  - instance: wdg0
+    kind: interrupt
+    path: WDG0.interrupt.WDG0
+    rule: direct
+  - instance: wdg1
+    kind: interrupt
+    path: WDG1.interrupt.WDG1
+    rule: direct

@@ -1,0 +1,14 @@
+LR_CORE1_PFLASH1 0x08080000 0x00080000
+{
+    ER_CORE1_PFLASH1 0x08080000 0x00080000
+    {
+        startup_et6801.o (RESET, +First)
+        *(InRoot$$Sections)
+        .ANY (+RO)
+    }
+
+    RW_CORE1_DTCM 0x20000000 0x00020000
+    {
+        .ANY (+RW +ZI)
+    }
+}

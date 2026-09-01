@@ -1,0 +1,90 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: qspi
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  qspi0:
+    svd_name: QSPI
+capabilities:
+  features:
+    clk_stretch:
+    - qspi0
+    spi_dws:
+    - qspi0
+    spi_xip_tpm:
+    - qspi0
+    ssic:
+    - qspi0
+    ssic_xip_cont_xfer:
+    - qspi0
+    xip_inst:
+    - qspi0
+    xip_md_bit:
+    - qspi0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      qspi0:
+        svd_name: QSPI
+        irqn: 98
+  identities:
+    base_address:
+      qspi0: '0x4020A000'
+    ssic_comp_version:
+      qspi0: 842019114
+evidence:
+  qspi.feature.clk_stretch:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SPI_CTRLR0.CLK_STRETCH_EN
+    rule: boolean_enable_field
+  qspi.feature.spi_dws:
+  - instance: qspi0
+    kind: field
+    path: QSPI.CTRLR0.SPI_DWS_EN
+    rule: boolean_enable_field
+  qspi.feature.spi_xip_tpm:
+  - instance: qspi0
+    kind: field
+    path: QSPI.CTRLR0.SPI_XIP_TPM_EN
+    rule: boolean_enable_field
+  qspi.feature.ssic:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SSIENR.SSIC_EN
+    rule: boolean_enable_field
+  qspi.feature.ssic_xip_cont_xfer:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SPI_CTRLR0.SSIC_XIP_CONT_XFER_EN
+    rule: boolean_enable_field
+  qspi.feature.xip_inst:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SPI_CTRLR0.XIP_INST_EN
+    rule: boolean_enable_field
+  qspi.feature.xip_md_bit:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SPI_CTRLR0.XIP_MD_BIT_EN
+    rule: boolean_enable_field
+  qspi.identity.base_address:
+  - instance: qspi0
+    kind: peripheral
+    path: QSPI.baseAddress
+    rule: direct
+  qspi.identity.ssic_comp_version:
+  - instance: qspi0
+    kind: field
+    path: QSPI.SSIC_VERSION_ID.SSIC_COMP_VERSION
+    rule: readonly_reset_identity
+  qspi.interrupt.irq:
+  - instance: qspi0
+    kind: interrupt
+    path: QSPI.interrupt.QSPI
+    rule: direct

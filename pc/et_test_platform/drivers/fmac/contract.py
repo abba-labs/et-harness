@@ -1,0 +1,42 @@
+# FMAC PC Driver Package 的 contract 层。
+#
+# 职责：定义 FMAC 已发布的 Service、Command 和 Wire 常量。
+# 边界：不发送请求、不解析响应、不承载运行时或测试策略。
+# 依赖：仅依赖标准库枚举类型。
+
+from enum import IntEnum
+
+FMAC_SERVICE_ID = 0x0107
+FMAC_SERVICE_API_VERSION = 1
+FMAC_CAPABILITIES_SIZE = 20
+FMAC_SHIFT_ENCODING_COUNT = 16
+
+
+# FMAC Firmware Service 已发布命令编号。
+class FmacCommand(IntEnum):
+    CAPABILITIES_GET = 0x0001
+    CONFIGURE = 0x0002
+    CONFIG_SNAPSHOT_GET = 0x0003
+    START = 0x0004
+    STOP = 0x0005
+    CLEAR = 0x0006
+    X1_PRELOAD = 0x0007
+    COEFFICIENTS_LOAD = 0x0008
+    Y_PRELOAD = 0x0009
+    STREAM_WRITE = 0x000A
+    STREAM_READ = 0x000B
+    DATA_WRITE_ONE_UNCHECKED = 0x000C
+    DATA_READ_ONE_UNCHECKED = 0x000D
+    PROCESS = 0x000E
+    STATUS_GET = 0x000F
+    IRQ_ENABLE = 0x0010
+    IRQ_DISABLE = 0x0011
+    IRQ_MASK = 0x0012
+    IRQ_UNMASK = 0x0013
+    IRQ_FORCE = 0x0014
+    IRQ_CLEAR = 0x0015
+    IRQ_SNAPSHOT_GET = 0x0016
+    DMA_REQUEST_SET = 0x0017
+    PROCESS_TIMED = 0x0018
+    START_UNCHECKED = 0x0019
+    STATE_RESET = 0x001A

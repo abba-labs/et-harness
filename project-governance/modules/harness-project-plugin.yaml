@@ -1,0 +1,47 @@
+schema: et.module-profile.v1
+id: harness-project-plugin
+summary: ATP项目自有的Harness身份、A/R/K/G资源和Task Context贡献器；不拥有公共Runtime或Host Adapter。
+parameters:
+  required: []
+  optional: []
+architecture_chain:
+  - Host Adapter -> Public Harness Runtime -> ATP Project Plugin -> Project Task Context
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 仓库最高执行契约和冻结公共架构边界
+      required: true
+    - path: agent_harness/project_contract
+      reason: Project Manifest和项目资源的公共接口契约
+      required: true
+    - path: project-governance
+      reason: ATP工程地图、模块画像和Task Context编译输入
+      required: true
+  rules:
+    - agent_rule_governance
+    - task_context_navigation
+  protected_scopes:
+    - agent_harness/public_plugins/**
+    - agent_harness/host_adapters/**
+    - pc/et_test_platform/test_cases/**
+    - pc/et_test_platform/drivers/**
+    - firmware/services/**
+    - firmware/wrap/**
+
+changes:
+  integration:
+    read:
+      - path: agent_harness/projects/automated_testing_platform
+        reason: ATP Project Plugin的身份、资源、Contributor实现和专项测试
+        required: false
+      - path: tools/governance
+        reason: Contributor复用的项目Task Context编译器
+        required: true
+    rules:
+      - task_context_navigation
+    write_scopes:
+      - agent_harness/projects/automated_testing_platform/**
+    validation:
+      - npm test --prefix agent_harness/projects/automated_testing_platform
+      - npm run build --prefix agent_harness/projects/automated_testing_platform

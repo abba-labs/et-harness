@@ -1,0 +1,32 @@
+schema: et-capability-audit/v1
+chip: et6801
+ip: crc
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+unclassified:
+- instance: crc0
+  kind: field
+  path: CRC.CHECK.CRC_CHECK
+  reason: no_semantic_mapping
+- instance: crc0
+  kind: field
+  path: CRC.ET_HEAD.HEAD_SW_RO
+  reason: no_semantic_mapping
+- instance: crc0
+  kind: field
+  path: CRC.ET_HEAD.HEAD_SW_WR
+  reason: no_semantic_mapping
+- instance: crc0
+  kind: field
+  path: CRC.ET_TAIL.TAIL_SW_RO
+  reason: no_semantic_mapping
+- instance: crc0
+  kind: field
+  path: CRC.ET_TAIL.TAIL_SW_WR
+  reason: no_semantic_mapping
+- instance: crc0
+  kind: field
+  path: CRC.IR.CRC_IR
+  reason: no_semantic_mapping

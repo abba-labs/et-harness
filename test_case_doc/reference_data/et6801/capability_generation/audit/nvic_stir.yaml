@@ -1,0 +1,12 @@
+schema: et-capability-audit/v1
+chip: et6801
+ip: nvic_stir
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+unclassified:
+- instance: nvic_stir0
+  kind: field
+  path: NVIC_STIR.STIR.INTID
+  reason: no_semantic_mapping

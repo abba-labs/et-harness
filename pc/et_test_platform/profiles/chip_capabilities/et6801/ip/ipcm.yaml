@@ -1,0 +1,169 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: ipcm
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  ipcm0:
+    svd_name: IPCM
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    ipcm1:
+      ipcm0:
+        svd_name: IPCM1
+        irqn: 50
+    ipcm10:
+      ipcm0:
+        svd_name: IPCM10
+        irqn: 59
+    ipcm11:
+      ipcm0:
+        svd_name: IPCM11
+        irqn: 60
+    ipcm12:
+      ipcm0:
+        svd_name: IPCM12
+        irqn: 61
+    ipcm13:
+      ipcm0:
+        svd_name: IPCM13
+        irqn: 62
+    ipcm14:
+      ipcm0:
+        svd_name: IPCM14
+        irqn: 63
+    ipcm15:
+      ipcm0:
+        svd_name: IPCM15
+        irqn: 64
+    ipcm2:
+      ipcm0:
+        svd_name: IPCM2
+        irqn: 51
+    ipcm3:
+      ipcm0:
+        svd_name: IPCM3
+        irqn: 52
+    ipcm4:
+      ipcm0:
+        svd_name: IPCM4
+        irqn: 53
+    ipcm5:
+      ipcm0:
+        svd_name: IPCM5
+        irqn: 54
+    ipcm6:
+      ipcm0:
+        svd_name: IPCM6
+        irqn: 55
+    ipcm7:
+      ipcm0:
+        svd_name: IPCM7
+        irqn: 56
+    ipcm8:
+      ipcm0:
+        svd_name: IPCM8
+        irqn: 57
+    ipcm9:
+      ipcm0:
+        svd_name: IPCM9
+        irqn: 58
+    irq:
+      ipcm0:
+        svd_name: IPCM0
+        irqn: 49
+  identities:
+    base_address:
+      ipcm0: '0x40208000'
+evidence:
+  ipcm.identity.base_address:
+  - instance: ipcm0
+    kind: peripheral
+    path: IPCM.baseAddress
+    rule: direct
+  ipcm.interrupt.ipcm1:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM1
+    rule: direct
+  ipcm.interrupt.ipcm10:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM10
+    rule: direct
+  ipcm.interrupt.ipcm11:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM11
+    rule: direct
+  ipcm.interrupt.ipcm12:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM12
+    rule: direct
+  ipcm.interrupt.ipcm13:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM13
+    rule: direct
+  ipcm.interrupt.ipcm14:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM14
+    rule: direct
+  ipcm.interrupt.ipcm15:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM15
+    rule: direct
+  ipcm.interrupt.ipcm2:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM2
+    rule: direct
+  ipcm.interrupt.ipcm3:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM3
+    rule: direct
+  ipcm.interrupt.ipcm4:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM4
+    rule: direct
+  ipcm.interrupt.ipcm5:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM5
+    rule: direct
+  ipcm.interrupt.ipcm6:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM6
+    rule: direct
+  ipcm.interrupt.ipcm7:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM7
+    rule: direct
+  ipcm.interrupt.ipcm8:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM8
+    rule: direct
+  ipcm.interrupt.ipcm9:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM9
+    rule: direct
+  ipcm.interrupt.irq:
+  - instance: ipcm0
+    kind: interrupt
+    path: IPCM.interrupt.IPCM0
+    rule: direct

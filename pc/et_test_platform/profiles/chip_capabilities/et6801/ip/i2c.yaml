@@ -1,0 +1,300 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: i2c
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  i2c0:
+    svd_name: I2C0
+  i2c1:
+    svd_name: I2C1
+  i2c2:
+    svd_name: I2C2
+capabilities:
+  features:
+    ic_sar2_smbus_arp:
+    - i2c0
+    - i2c1
+    - i2c2
+    ic_sar3_smbus_arp:
+    - i2c0
+    - i2c1
+    - i2c2
+    ic_sar4_smbus_arp:
+    - i2c0
+    - i2c1
+    - i2c2
+    sda_stuck_recovery:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_alert:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_arp:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_persistent_slv_addr:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_persistent_slv_addr2:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_persistent_slv_addr3:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_persistent_slv_addr4:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_slave_quick:
+    - i2c0
+    - i2c1
+    - i2c2
+    smbus_suspend:
+    - i2c0
+    - i2c1
+    - i2c2
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      i2c0:
+        svd_name: I2C0
+        irqn: 32
+      i2c1:
+        svd_name: I2C1
+        irqn: 33
+      i2c2:
+        svd_name: I2C2
+        irqn: 34
+  identities:
+    base_address:
+      i2c0: '0x40508000'
+      i2c1: '0x40509000'
+      i2c2: '0x4050A000'
+    ic_comp_type:
+      i2c0: 0
+      i2c1: 0
+      i2c2: 0
+    ic_comp_version:
+      i2c0: 0
+      i2c1: 0
+      i2c2: 0
+evidence:
+  i2c.feature.ic_sar2_smbus_arp:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.IC_SAR2_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.IC_SAR2_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.IC_SAR2_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  i2c.feature.ic_sar3_smbus_arp:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.IC_SAR3_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.IC_SAR3_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.IC_SAR3_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  i2c.feature.ic_sar4_smbus_arp:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.IC_SAR4_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.IC_SAR4_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.IC_SAR4_SMBUS_ARP_EN
+    rule: boolean_enable_field
+  i2c.feature.sda_stuck_recovery:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_ENABLE.SDA_STUCK_RECOVERY_ENABLE
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_ENABLE.SDA_STUCK_RECOVERY_ENABLE
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_ENABLE.SDA_STUCK_RECOVERY_ENABLE
+    rule: boolean_enable_field
+  i2c.feature.smbus_alert:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_ENABLE.SMBUS_ALERT_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_ENABLE.SMBUS_ALERT_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_ENABLE.SMBUS_ALERT_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_arp:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_ARP_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_ARP_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_persistent_slv_addr:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_PERSISTENT_SLV_ADDR_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_PERSISTENT_SLV_ADDR_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_PERSISTENT_SLV_ADDR_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_persistent_slv_addr2:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_PERSISTENT_SLV_ADDR2_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_PERSISTENT_SLV_ADDR2_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_PERSISTENT_SLV_ADDR2_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_persistent_slv_addr3:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_PERSISTENT_SLV_ADDR3_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_PERSISTENT_SLV_ADDR3_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_PERSISTENT_SLV_ADDR3_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_persistent_slv_addr4:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_PERSISTENT_SLV_ADDR4_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_PERSISTENT_SLV_ADDR4_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_PERSISTENT_SLV_ADDR4_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_slave_quick:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_CON.SMBUS_SLAVE_QUICK_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_CON.SMBUS_SLAVE_QUICK_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_CON.SMBUS_SLAVE_QUICK_EN
+    rule: boolean_enable_field
+  i2c.feature.smbus_suspend:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_ENABLE.SMBUS_SUSPEND_EN
+    rule: boolean_enable_field
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_ENABLE.SMBUS_SUSPEND_EN
+    rule: boolean_enable_field
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_ENABLE.SMBUS_SUSPEND_EN
+    rule: boolean_enable_field
+  i2c.identity.base_address:
+  - instance: i2c0
+    kind: peripheral
+    path: I2C0.baseAddress
+    rule: direct
+  - instance: i2c1
+    kind: peripheral
+    path: I2C1.baseAddress
+    rule: direct
+  - instance: i2c2
+    kind: peripheral
+    path: I2C2.baseAddress
+    rule: direct
+  i2c.identity.ic_comp_type:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_COMP_TYPE.IC_COMP_TYPE
+    rule: readonly_reset_identity
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_COMP_TYPE.IC_COMP_TYPE
+    rule: readonly_reset_identity
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_COMP_TYPE.IC_COMP_TYPE
+    rule: readonly_reset_identity
+  i2c.identity.ic_comp_version:
+  - instance: i2c0
+    kind: field
+    path: I2C0.IC_COMP_VERSION.IC_COMP_VERSION
+    rule: readonly_reset_identity
+  - instance: i2c1
+    kind: field
+    path: I2C1.IC_COMP_VERSION.IC_COMP_VERSION
+    rule: readonly_reset_identity
+  - instance: i2c2
+    kind: field
+    path: I2C2.IC_COMP_VERSION.IC_COMP_VERSION
+    rule: readonly_reset_identity
+  i2c.interrupt.irq:
+  - instance: i2c0
+    kind: interrupt
+    path: I2C0.interrupt.I2C0
+    rule: direct
+  - instance: i2c1
+    kind: interrupt
+    path: I2C1.interrupt.I2C1
+    rule: direct
+  - instance: i2c2
+    kind: interrupt
+    path: I2C2.interrupt.I2C2
+    rule: direct

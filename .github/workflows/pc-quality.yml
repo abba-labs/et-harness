@@ -1,0 +1,88 @@
+name: Software Quality Gate
+
+on:
+  push:
+    branches:
+      - review_code
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - ".clang-format"
+      - "pc/**"
+      - "firmware/**"
+      - "tools/**"
+      - "test_case_doc/**"
+      - "report/design/**"
+      - "project-governance/**"
+      - "artifacts/README.md"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "run_test.bat"
+      - "run_config.example.yaml"
+      - "run_config_gui.bat"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: software-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-software:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install software test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[test]"
+      - name: Run unified software validation
+        env:
+          ET_CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if git cat-file -e "$ET_CHANGE_BASE^{commit}" 2>/dev/null; then
+            python tools/validate_pc.py --change-base "$ET_CHANGE_BASE"
+          else
+            python tools/validate_pc.py
+          fi
+      - name: Require validation to leave the repository clean
+        run: |
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "software validation mutated the working tree:"
+            echo "$status"
+            exit 1
+          fi
+      - name: Show Ruff repair diff on failure
+        if: failure()
+        run: |
+          python -m ruff check --fix \
+            tools/runner/bootstrap.py \
+            tools/runner/artifact_layout.py \
+            tools/runner/run_config_gui.py \
+            tools/runner/run_pipeline.py \
+            tools/runner/run_ip_tests.py \
+            tools/quality/check_case_orchestration_rules.py \
+            tools/quality/check_case_spec_implementation.py \
+            tools/quality/check_firmware_architecture_rules.py \
+            tools/quality/check_ip_change_rules.py \
+            tools/quality/check_public_ip_contracts.py \
+            tools/quality/check_pc_code_rules.py \
+            tools/quality/check_pc_documentation_rules.py \
+            tools/reporting/generate_case_report.py \
+            tools/quality/validate_case_docs.py \
+            tools/quality/validate_case_plans.py \
+            tools/quality/validate_chip_ip_docs.py \
+            tools/validate_pc.py \
+            pc/et_test_platform || true
+          git diff -- . ':(exclude)uv.lock'

@@ -1,0 +1,72 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: dac
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  dac0:
+    svd_name: DAC0
+  dac1:
+    svd_name: DAC1
+capabilities:
+  features:
+    dac_hdsk:
+    - dac0
+    - dac1
+    dac_interrupt:
+    - dac0
+    - dac1
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    irq:
+      dac0:
+        svd_name: DAC0
+        irqn: 118
+      dac1:
+        svd_name: DAC1
+        irqn: 119
+  identities:
+    base_address:
+      dac0: '0x40100000'
+      dac1: '0x40101000'
+evidence:
+  dac.feature.dac_hdsk:
+  - instance: dac0
+    kind: field
+    path: DAC0.HDSK_EN.DAC_HDSK_EN
+    rule: boolean_enable_field
+  - instance: dac1
+    kind: field
+    path: DAC1.HDSK_EN.DAC_HDSK_EN
+    rule: boolean_enable_field
+  dac.feature.dac_interrupt:
+  - instance: dac0
+    kind: field
+    path: DAC0.INT_EN.DAC_INT_EN
+    rule: boolean_enable_field
+  - instance: dac1
+    kind: field
+    path: DAC1.INT_EN.DAC_INT_EN
+    rule: boolean_enable_field
+  dac.identity.base_address:
+  - instance: dac0
+    kind: peripheral
+    path: DAC0.baseAddress
+    rule: direct
+  - instance: dac1
+    kind: peripheral
+    path: DAC1.baseAddress
+    rule: direct
+  dac.interrupt.irq:
+  - instance: dac0
+    kind: interrupt
+    path: DAC0.interrupt.DAC0
+    rule: direct
+  - instance: dac1
+    kind: interrupt
+    path: DAC1.interrupt.DAC1
+    rule: direct

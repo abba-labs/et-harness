@@ -1,0 +1,376 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: clb
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  clb0:
+    svd_name: CLB
+capabilities:
+  features:
+    cnt1_lfsr:
+    - clb0
+    cnt1_match_o_tap:
+    - clb0
+    cnt1_match_t_tap:
+    - clb0
+    cnt2_lfsr:
+    - clb0
+    cnt2_match_o_tap:
+    - clb0
+    cnt2_match_t_tap:
+    - clb0
+    cnt3_lfsr:
+    - clb0
+    cnt3_match_o_tap:
+    - clb0
+    cnt3_match_t_tap:
+    - clb0
+    load:
+    - clb0
+    pipeline:
+    - clb0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    int0:
+      clb0:
+        svd_name: CLB_INT0
+        irqn: 205
+    int1:
+      clb0:
+        svd_name: CLB_INT1
+        irqn: 206
+    int2:
+      clb0:
+        svd_name: CLB_INT2
+        irqn: 207
+    int3:
+      clb0:
+        svd_name: CLB_INT3
+        irqn: 208
+    int4:
+      clb0:
+        svd_name: CLB_INT4
+        irqn: 209
+    int5:
+      clb0:
+        svd_name: CLB_INT5
+        irqn: 210
+  identities:
+    base_address:
+      clb0: '0x40022000'
+evidence:
+  clb.feature.cnt1_lfsr:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT1_LFSR_EN
+    rule: boolean_enable_field
+  clb.feature.cnt1_match_o_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT1_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.cnt1_match_t_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT1_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.cnt2_lfsr:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT2_LFSR_EN
+    rule: boolean_enable_field
+  clb.feature.cnt2_match_o_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT2_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.cnt2_match_t_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT2_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.cnt3_lfsr:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT3_LFSR_EN
+    rule: boolean_enable_field
+  clb.feature.cnt3_match_o_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT3_MATCH_O_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.cnt3_match_t_tap:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].MISC_CTRL.CNT3_MATCH_T_TAP_EN
+    rule: boolean_enable_field
+  clb.feature.load:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].LOAD_EN.LOAD_EN
+    rule: boolean_enable_field
+  clb.feature.pipeline:
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[0].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[1].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[2].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[3].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[4].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  - instance: clb0
+    kind: field
+    path: CLB.TILE_GRP[5].LOAD_EN.PIPELINE_EN
+    rule: boolean_enable_field
+  clb.identity.base_address:
+  - instance: clb0
+    kind: peripheral
+    path: CLB.baseAddress
+    rule: direct
+  clb.interrupt.int0:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT0
+    rule: direct
+  clb.interrupt.int1:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT1
+    rule: direct
+  clb.interrupt.int2:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT2
+    rule: direct
+  clb.interrupt.int3:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT3
+    rule: direct
+  clb.interrupt.int4:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT4
+    rule: direct
+  clb.interrupt.int5:
+  - instance: clb0
+    kind: interrupt
+    path: CLB.interrupt.CLB_INT5
+    rule: direct

@@ -1,0 +1,181 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: sysc
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  sysc0:
+    svd_name: SYSC
+capabilities:
+  features:
+    aes_work_hard:
+    - sysc0
+    d2_a_pmu_borh_warn:
+    - sysc0
+    d2_a_pmu_borl_warn:
+    - sysc0
+    d2_a_pmu_sysldo_ocp:
+    - sysc0
+    emif0:
+    - sysc0
+    emif1:
+    - sysc0
+    halt_mode:
+    - sysc0
+    iptest_adc_dac_mode:
+    - sysc0
+    mttcan_ecc:
+    - sysc0
+    wave_gen:
+    - sysc0
+    wdg0_halt_mode:
+    - sysc0
+    wdg1_halt_mode:
+    - sysc0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    core2_core:
+      sysc0:
+        svd_name: CORE2CORE
+        irqn: 198
+    hbus1_timeout:
+      sysc0:
+        svd_name: HBUS1_TIMEOUT
+        irqn: 76
+    hbus2_timeout:
+      sysc0:
+        svd_name: HBUS2_TIMEOUT
+        irqn: 77
+    hbus3_timeout:
+      sysc0:
+        svd_name: HBUS3_TIMEOUT
+        irqn: 78
+    irq:
+      sysc0:
+        svd_name: SYSC
+        irqn: 197
+    pbus1_timeout:
+      sysc0:
+        svd_name: PBUS1_TIMEOUT
+        irqn: 74
+    pbus2_timeout:
+      sysc0:
+        svd_name: PBUS2_TIMEOUT
+        irqn: 75
+    pbus3_timeout:
+      sysc0:
+        svd_name: PBUS3_TIMEOUT
+        irqn: 97
+  identities:
+    base_address:
+      sysc0: '0x40400000'
+evidence:
+  sysc.feature.aes_work_hard:
+  - instance: sysc0
+    kind: field
+    path: SYSC.SEC.AES_WORK_HARD_EN
+    rule: boolean_enable_field
+  sysc.feature.d2_a_pmu_borh_warn:
+  - instance: sysc0
+    kind: field
+    path: SYSC.PMU_POR_HV.D2A_PMU_BORH_WARN_EN
+    rule: boolean_enable_field
+  sysc.feature.d2_a_pmu_borl_warn:
+  - instance: sysc0
+    kind: field
+    path: SYSC.PMU_POR_LV.D2A_PMU_BORL_WARN_EN
+    rule: boolean_enable_field
+  sysc.feature.d2_a_pmu_sysldo_ocp:
+  - instance: sysc0
+    kind: field
+    path: SYSC.PMU_SYSLDO.D2A_PMU_SYSLDO_OCP_EN
+    rule: boolean_enable_field
+  sysc.feature.emif0:
+  - instance: sysc0
+    kind: field
+    path: SYSC.EMIF_2.SYSC_EMIF0_EN
+    rule: boolean_enable_field
+  sysc.feature.emif1:
+  - instance: sysc0
+    kind: field
+    path: SYSC.EMIF_2.SYSC_EMIF1_EN
+    rule: boolean_enable_field
+  sysc.feature.halt_mode:
+  - instance: sysc0
+    kind: field
+    path: SYSC.SCNT.HALT_MODE_EN
+    rule: boolean_enable_field
+  sysc.feature.iptest_adc_dac_mode:
+  - instance: sysc0
+    kind: field
+    path: SYSC.IPTEST1.IPTEST_ADC_DAC_MODE_EN
+    rule: boolean_enable_field
+  sysc.feature.mttcan_ecc:
+  - instance: sysc0
+    kind: field
+    path: SYSC.ECCEN.SYSC_MTTCAN_ECC_EN
+    rule: boolean_enable_field
+  sysc.feature.wave_gen:
+  - instance: sysc0
+    kind: field
+    path: SYSC.SYSC2DLL.WAVE_GEN_EN
+    rule: boolean_enable_field
+  sysc.feature.wdg0_halt_mode:
+  - instance: sysc0
+    kind: field
+    path: SYSC.CTRL.WDG0_HALT_MODE_EN
+    rule: boolean_enable_field
+  sysc.feature.wdg1_halt_mode:
+  - instance: sysc0
+    kind: field
+    path: SYSC.CTRL.WDG1_HALT_MODE_EN
+    rule: boolean_enable_field
+  sysc.identity.base_address:
+  - instance: sysc0
+    kind: peripheral
+    path: SYSC.baseAddress
+    rule: direct
+  sysc.interrupt.core2_core:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.CORE2CORE
+    rule: direct
+  sysc.interrupt.hbus1_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.HBUS1_TIMEOUT
+    rule: direct
+  sysc.interrupt.hbus2_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.HBUS2_TIMEOUT
+    rule: direct
+  sysc.interrupt.hbus3_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.HBUS3_TIMEOUT
+    rule: direct
+  sysc.interrupt.irq:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.SYSC
+    rule: direct
+  sysc.interrupt.pbus1_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.PBUS1_TIMEOUT
+    rule: direct
+  sysc.interrupt.pbus2_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.PBUS2_TIMEOUT
+    rule: direct
+  sysc.interrupt.pbus3_timeout:
+  - instance: sysc0
+    kind: interrupt
+    path: SYSC.interrupt.PBUS3_TIMEOUT
+    rule: direct

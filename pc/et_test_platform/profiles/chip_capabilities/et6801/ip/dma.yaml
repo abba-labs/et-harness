@@ -1,0 +1,4010 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: dma
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  dma0:
+    svd_name: AHBDMA0
+  dma1:
+    svd_name: AHBDMA1
+capabilities:
+  features:
+    control_writeback:
+    - dma0
+    - dma1
+    destination_scatter:
+    - dma0
+    - dma1
+    destination_status_update:
+    - dma0
+    - dma1
+    linked_list_destination:
+    - dma0
+    - dma1
+    linked_list_source:
+    - dma0
+    - dma1
+    multi_block:
+    - dma0
+    - dma1
+    source_gather:
+    - dma0
+    - dma1
+    source_status_update:
+    - dma0
+    - dma1
+  limits:
+    max_dest_msize:
+      dma0: 256
+      dma1: 256
+    max_source_msize:
+      dma0: 256
+      dma1: 256
+  options:
+    bus_lock:
+      dma0:
+      - disabled
+      - enabled
+      dma1:
+      - disabled
+      - enabled
+    bus_lock_level:
+      dma0:
+      - lock_b_l_0
+      - lock_b_l_1
+      - lock_b_l_2
+      - lock_b_l_3
+      dma1:
+      - lock_b_l_0
+      - lock_b_l_1
+      - lock_b_l_2
+      - lock_b_l_3
+    channel_enable:
+      dma0:
+      - disabled
+      - enabled
+      dma1:
+      - disabled
+      - enabled
+    channel_lock:
+      dma0:
+      - disabled
+      - enabled
+      dma1:
+      - disabled
+      - enabled
+    dest_msize:
+      dma0:
+      - 1
+      - 4
+      - 8
+      - 16
+      - 32
+      - 64
+      - 128
+      - 256
+      dma1:
+      - 1
+      - 4
+      - 8
+      - 16
+      - 32
+      - 64
+      - 128
+      - 256
+    destination_hs_pol:
+      dma0:
+      - active_high
+      - active_low
+      dma1:
+      - active_high
+      - active_low
+    destination_master_select:
+      dma0:
+      - accessed_from_ahb_master_1
+      dma1:
+      - accessed_from_ahb_master_1
+    dinc:
+      dma0:
+      - dinc_0
+      - dinc_1
+      - dinc_2
+      - dinc_3
+      dma1:
+      - dinc_0
+      - dinc_1
+      - dinc_2
+      - dinc_3
+    dma_enable:
+      dma0:
+      - disabled
+      - enabled
+      dma1:
+      - disabled
+      - enabled
+    done:
+      dma0:
+      - disabled
+      - enabled
+      dma1:
+      - disabled
+      - enabled
+    fcmode:
+      dma0:
+      - enabled
+      - fcmode_1
+      dma1:
+      - enabled
+      - fcmode_1
+    fifo_mode:
+      dma0:
+      - fifo_mode_0
+      - fifo_mode_1
+      dma1:
+      - fifo_mode_0
+      - fifo_mode_1
+    hs_sel_destination:
+      dma0:
+      - hardware_hs
+      - software_hs
+      dma1:
+      - hardware_hs
+      - software_hs
+    hs_sel_source:
+      dma0:
+      - hardware_hs
+      - software_hs
+      dma1:
+      - hardware_hs
+      - software_hs
+    interrupt_enable:
+      dma0:
+      - interrupt_disable
+      - interrupt_enable
+      dma1:
+      - interrupt_disable
+      - interrupt_enable
+    linked_list_master_select:
+      dma0:
+      - list_master_select_1
+      dma1:
+      - list_master_select_1
+    protctl:
+      dma0:
+      - prot_0
+      - prot_1
+      - prot_2
+      - prot_3
+      - prot_4
+      - prot_5
+      - prot_6
+      - prot_7
+      dma1:
+      - prot_0
+      - prot_1
+      - prot_2
+      - prot_3
+      - prot_4
+      - prot_5
+      - prot_6
+      - prot_7
+    reload_destination:
+      dma0:
+      - disable
+      - enable
+      dma1:
+      - disable
+      - enable
+    reload_source:
+      dma0:
+      - disable
+      - enable
+      dma1:
+      - disable
+      - enable
+    sinc:
+      dma0:
+      - sinc_0
+      - sinc_1
+      - sinc_2
+      - sinc_3
+      dma1:
+      - sinc_0
+      - sinc_1
+      - sinc_2
+      - sinc_3
+    source_hs_pol:
+      dma0:
+      - active_high
+      - active_low
+      dma1:
+      - active_high
+      - active_low
+    source_master_select:
+      dma0:
+      - accessed_from_ahb_master_1
+      dma1:
+      - accessed_from_ahb_master_1
+    source_msize:
+      dma0:
+      - 1
+      - 4
+      - 8
+      - 16
+      - 32
+      - 64
+      - 128
+      - 256
+      dma1:
+      - 1
+      - 4
+      - 8
+      - 16
+      - 32
+      - 64
+      - 128
+      - 256
+    transfer_type_and_flow_control:
+      dma0:
+      - memory_to_memory
+      - memory_to_peripheral
+      - peripheral_to_memory
+      - peripheral_to_peripheral
+      dma1:
+      - memory_to_memory
+      - memory_to_peripheral
+      - peripheral_to_memory
+      - peripheral_to_peripheral
+  parameters:
+    control_writeback:
+      dma0:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+      dma1:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+    destination_master_select:
+      dma0:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+      dma1:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+    destination_scatter:
+      dma0:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+      dma1:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+    fifo_depth:
+      dma0:
+        channel_0: 64
+        channel_1: 64
+        channel_2: 16
+        channel_3: 16
+        channel_4: 16
+        channel_5: 16
+        channel_6: 16
+        channel_7: 16
+      dma1:
+        channel_0: 64
+        channel_1: 64
+        channel_2: 16
+        channel_3: 16
+        channel_4: 16
+        channel_5: 16
+        channel_6: 16
+        channel_7: 16
+    linked_list_master_select:
+      dma0:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+      dma1:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+    lock:
+      dma0:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+      dma1:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+    max_block_size:
+      dma0:
+        channel_0: 4095
+        channel_1: 4095
+        channel_2: 4095
+        channel_3: 4095
+        channel_4: 4095
+        channel_5: 4095
+        channel_6: 4095
+        channel_7: 4095
+      dma1:
+        channel_0: 4095
+        channel_1: 4095
+        channel_2: 4095
+        channel_3: 4095
+        channel_4: 4095
+        channel_5: 4095
+        channel_6: 4095
+        channel_7: 4095
+    max_mult_size:
+      dma0:
+        channel_0: 8
+        channel_1: 8
+        channel_2: 8
+        channel_3: 8
+        channel_4: 8
+        channel_5: 8
+        channel_6: 8
+        channel_7: 8
+      dma1:
+        channel_0: 8
+        channel_1: 8
+        channel_2: 8
+        channel_3: 8
+        channel_4: 8
+        channel_5: 8
+        channel_6: 8
+        channel_7: 8
+    multi_block:
+      dma0:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+      dma1:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+    multi_block_type:
+      dma0:
+        channel_0: programmable
+        channel_1: programmable
+        channel_2: programmable
+        channel_3: programmable
+        channel_4: programmable
+        channel_5: programmable
+        channel_6: programmable
+        channel_7: programmable
+      dma1:
+        channel_0: programmable
+        channel_1: programmable
+        channel_2: programmable
+        channel_3: programmable
+        channel_4: programmable
+        channel_5: programmable
+        channel_6: programmable
+        channel_7: programmable
+    source_gather:
+      dma0:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+      dma1:
+        channel_0: true
+        channel_1: true
+        channel_2: true
+        channel_3: true
+        channel_4: true
+        channel_5: true
+        channel_6: true
+        channel_7: true
+    source_master_select:
+      dma0:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+      dma1:
+        channel_0: master_1
+        channel_1: master_1
+        channel_2: master_1
+        channel_3: master_1
+        channel_4: master_1
+        channel_5: master_1
+        channel_6: master_1
+        channel_7: master_1
+    status_destination:
+      dma0:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+      dma1:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+    status_source:
+      dma0:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+      dma1:
+        channel_0: false
+        channel_1: false
+        channel_2: false
+        channel_3: false
+        channel_4: false
+        channel_5: false
+        channel_6: false
+        channel_7: false
+  interrupts:
+    block:
+      dma0:
+        svd_name: DMA0_BLOCK
+        irqn: 7
+      dma1:
+        svd_name: DMA1_BLOCK
+        irqn: 13
+    combined:
+      dma0:
+        svd_name: DMA0_COMBINED
+        irqn: 11
+      dma1:
+        svd_name: DMA1_COMBINED
+        irqn: 17
+    destination_transaction:
+      dma0:
+        svd_name: DMA0_DSTTRAN
+        irqn: 9
+      dma1:
+        svd_name: DMA1_DSTTRAN
+        irqn: 15
+    error:
+      dma0:
+        svd_name: DMA0_ERROR
+        irqn: 10
+      dma1:
+        svd_name: DMA1_ERROR
+        irqn: 16
+    source_transaction:
+      dma0:
+        svd_name: DMA0_SRCTRAN
+        irqn: 8
+      dma1:
+        svd_name: DMA1_SRCTRAN
+        irqn: 14
+    transfer_done:
+      dma0:
+        svd_name: DMA0_TFR
+        irqn: 6
+      dma1:
+        svd_name: DMA1_TFR
+        irqn: 12
+  identities:
+    base_address:
+      dma0: '0x40200000'
+      dma1: '0x40201000'
+    dma_comp_type:
+      dma0: 1146556688
+      dma1: 1146556688
+evidence:
+  dma.feature.control_writeback:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_CTL_WB_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_CTL_WB_EN
+    rule: boolean_enable_field
+  dma.feature.destination_scatter:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.DST_SCATTER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_DST_SCA_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_DST_SCA_EN
+    rule: boolean_enable_field
+  dma.feature.destination_status_update:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_H32.DS_UPD_EN
+    rule: boolean_enable_field
+  dma.feature.linked_list_destination:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.LLP_DST_EN
+    rule: boolean_enable_field
+  dma.feature.linked_list_source:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.LLP_SRC_EN
+    rule: boolean_enable_field
+  dma.feature.multi_block:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_MULTI_BLK_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_MULTI_BLK_EN
+    rule: boolean_enable_field
+  dma.feature.source_gather:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_GATHER_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_SRC_GAT_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_SRC_GAT_EN
+    rule: boolean_enable_field
+  dma.feature.source_status_update:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_H32.SS_UPD_EN
+    rule: boolean_enable_field
+  dma.identity.base_address:
+  - instance: dma0
+    kind: peripheral
+    path: AHBDMA0.baseAddress
+    rule: direct
+  - instance: dma1
+    kind: peripheral
+    path: AHBDMA1.baseAddress
+    rule: direct
+  dma.identity.dma_comp_type:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMACOMPSID.DMA_COMP_TYPE
+    rule: readonly_reset_identity
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMACOMPSID.DMA_COMP_TYPE
+    rule: readonly_reset_identity
+  dma.interrupt.block:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_BLOCK
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_BLOCK
+    rule: direct
+  dma.interrupt.combined:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_COMBINED
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_COMBINED
+    rule: direct
+  dma.interrupt.destination_transaction:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_DSTTRAN
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_DSTTRAN
+    rule: direct
+  dma.interrupt.error:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_ERROR
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_ERROR
+    rule: direct
+  dma.interrupt.source_transaction:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_SRCTRAN
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_SRCTRAN
+    rule: direct
+  dma.interrupt.transfer_done:
+  - instance: dma0
+    kind: interrupt
+    path: AHBDMA0.interrupt.DMA0_TFR
+    rule: direct
+  - instance: dma1
+    kind: interrupt
+    path: AHBDMA1.interrupt.DMA1_TFR
+    rule: direct
+  dma.limit.max_dest_msize:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.DEST_MSIZE
+    rule: explicit_numeric_options_max
+  dma.limit.max_source_msize:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_MSIZE
+    rule: explicit_numeric_options_max
+  dma.option.bus_lock:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_B
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_B
+    rule: inline_values
+  dma.option.bus_lock_level:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_B_L
+    rule: inline_values
+  dma.option.channel_enable:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHENREG.CH_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHENREG.CH_EN
+    rule: inline_values
+  dma.option.channel_lock:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.LOCK_CH
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.LOCK_CH
+    rule: inline_values
+  dma.option.dest_msize:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.DEST_MSIZE
+    rule: inline_values
+  dma.option.destination_hs_pol:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.DST_HS_POL
+    rule: inline_values
+  dma.option.destination_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.DMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.DMS
+    rule: inline_values
+  dma.option.dinc:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.DINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.DINC
+    rule: inline_values
+  dma.option.dma_enable:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMACFGREG.DMA_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMACFGREG.DMA_EN
+    rule: inline_values
+  dma.option.done:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_H32.DONE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_H32.DONE
+    rule: inline_values
+  dma.option.fcmode:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_H32.FCMODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_H32.FCMODE
+    rule: inline_values
+  dma.option.fifo_mode:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_H32.FIFO_MODE
+    rule: inline_values
+  dma.option.hs_sel_destination:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.HS_SEL_DST
+    rule: inline_values
+  dma.option.hs_sel_source:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.HS_SEL_SRC
+    rule: inline_values
+  dma.option.interrupt_enable:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.INT_EN
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.INT_EN
+    rule: inline_values
+  dma.option.linked_list_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.LLPX.LMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.LLPX.LMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.LLPX.LMS
+    rule: inline_values
+  dma.option.protctl:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_H32.PROTCTL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_H32.PROTCTL
+    rule: inline_values
+  dma.option.reload_destination:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.RELOAD_DST
+    rule: inline_values
+  dma.option.reload_source:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.RELOAD_SRC
+    rule: inline_values
+  dma.option.sinc:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.SINC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.SINC
+    rule: inline_values
+  dma.option.source_hs_pol:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CFGX_L32.SRC_HS_POL
+    rule: inline_values
+  dma.option.source_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.SMS
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.SMS
+    rule: inline_values
+  dma.option.source_msize:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.SRC_MSIZE
+    rule: inline_values
+  dma.option.transfer_type_and_flow_control:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH0.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH1.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH2.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH3.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH4.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH5.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH6.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.CHANNELX_CONFIG_CH7.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH0.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH1.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH2.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH3.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH4.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH5.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH6.CTLX_L32.TT_FC
+    rule: inline_values
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.CHANNELX_CONFIG_CH7.CTLX_L32.TT_FC
+    rule: inline_values
+  dma.parameter.control_writeback:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_CTL_WB_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.destination_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_DMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_DMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_DMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_DMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_DMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_DMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_DMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_DMS
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_DMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_DMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_DMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_DMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_DMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_DMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_DMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_DMS
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.destination_scatter:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_DST_SCA_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.fifo_depth:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_FIFO_DEPTH
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.linked_list_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_LMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_LMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_LMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_LMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_LMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_LMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_LMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_LMS
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_LMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_LMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_LMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_LMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_LMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_LMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_LMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_LMS
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.lock:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_LOCK_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.max_block_size:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH0_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH1_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH2_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH3_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH4_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH5_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH6_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH7_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH0_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH1_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH2_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH3_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH4_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH5_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH6_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MAX_BLOCK_SIZE.CH7_MAX_BLK_SIZE
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.max_mult_size:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_MAX_MULT_SIZE
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.multi_block:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_MULTI_BLK_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.multi_block_type:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH0_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH1_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH2_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH3_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH4_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH5_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH6_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_MULTI_BLK.CH7_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH0_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH1_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH2_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH3_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH4_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH5_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH6_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_MULTI_BLK.CH7_MULTI_BLK_TYPE
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.source_gather:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_SRC_GAT_EN
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.source_master_select:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_SMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_SMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_SMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_SMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_SMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_SMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_SMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_SMS
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_SMS
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_SMS
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_SMS
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_SMS
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_SMS
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_SMS
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_SMS
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_SMS
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.status_destination:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_STAT_DST
+    rule: readonly_component_parameter
+    member: channel_7
+  dma.parameter.status_source:
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH0.CH0_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH1.CH1_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH2.CH2_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH3.CH3_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH4.CH4_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH5.CH5_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH6.CH6_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma0
+    kind: field
+    path: AHBDMA0.DMA_COMP_PARAMS_CH7.CH7_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_7
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH0.CH0_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_0
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH1.CH1_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_1
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH2.CH2_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_2
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH3.CH3_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_3
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH4.CH4_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_4
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH5.CH5_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_5
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH6.CH6_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_6
+  - instance: dma1
+    kind: field
+    path: AHBDMA1.DMA_COMP_PARAMS_CH7.CH7_STAT_SRC
+    rule: readonly_component_parameter
+    member: channel_7

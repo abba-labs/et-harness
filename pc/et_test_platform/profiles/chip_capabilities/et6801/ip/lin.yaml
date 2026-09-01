@@ -1,0 +1,548 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: lin
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  lin0:
+    svd_name: LIN0
+  lin1:
+    svd_name: LIN1
+capabilities:
+  features:
+    abort_flag_interrupt:
+    - lin0
+    - lin1
+    autobaud:
+    - lin0
+    - lin1
+    checksum_error_interrupt:
+    - lin0
+    - lin1
+    checksum_warn_interrupt:
+    - lin0
+    - lin1
+    collision_error_interrupt:
+    - lin0
+    - lin1
+    collision_warn_interrupt:
+    - lin0
+    - lin1
+    fusa_parity_error_inject:
+    - lin0
+    - lin1
+    head_error_interrupt:
+    - lin0
+    - lin1
+    head_receive_done_interrupt:
+    - lin0
+    - lin1
+    head_transmit_done_interrupt:
+    - lin0
+    - lin1
+    head_warn_interrupt:
+    - lin0
+    - lin1
+    id_parity_error_interrupt:
+    - lin0
+    - lin1
+    id_parity_warn_interrupt:
+    - lin0
+    - lin1
+    loop_test:
+    - lin0
+    - lin1
+    oversample_error_interrupt:
+    - lin0
+    - lin1
+    oversample_warn_interrupt:
+    - lin0
+    - lin1
+    parity_error_interrupt:
+    - lin0
+    - lin1
+    parity_warn_interrupt:
+    - lin0
+    - lin1
+    perror2_bus_error:
+    - lin0
+    - lin1
+    perror_interrupt:
+    - lin0
+    - lin1
+    perror_warn_interrupt:
+    - lin0
+    - lin1
+    rsp_error_interrupt:
+    - lin0
+    - lin1
+    rsp_receive_done_interrupt:
+    - lin0
+    - lin1
+    rsp_transmit_done_interrupt:
+    - lin0
+    - lin1
+    rsp_warn_interrupt:
+    - lin0
+    - lin1
+    sleep:
+    - lin0
+    - lin1
+    sleep_flag_interrupt:
+    - lin0
+    - lin1
+    stuck_error_interrupt:
+    - lin0
+    - lin1
+    stuck_warn_interrupt:
+    - lin0
+    - lin1
+    sync_done_interrupt:
+    - lin0
+    - lin1
+    timeout:
+    - lin0
+    - lin1
+    timeout_error_interrupt:
+    - lin0
+    - lin1
+    timeout_warn_interrupt:
+    - lin0
+    - lin1
+    wakeup:
+    - lin0
+    - lin1
+    wakeup_flag_interrupt:
+    - lin0
+    - lin1
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    error:
+      lin0:
+        svd_name: LIN0_ERR
+        irqn: 21
+      lin1:
+        svd_name: LIN1_ERR
+        irqn: 23
+    func:
+      lin0:
+        svd_name: LIN0_FUNC
+        irqn: 20
+      lin1:
+        svd_name: LIN1_FUNC
+        irqn: 22
+  identities:
+    base_address:
+      lin0: '0x40510000'
+      lin1: '0x40511000'
+evidence:
+  lin.feature.abort_flag_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.ABORT_FLAG_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.ABORT_FLAG_INT_EN
+    rule: boolean_enable_field
+  lin.feature.autobaud:
+  - instance: lin0
+    kind: field
+    path: LIN0.AUTOBAUD_EN.AUTOBAUD_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.AUTOBAUD_EN.AUTOBAUD_EN
+    rule: boolean_enable_field
+  lin.feature.checksum_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.CHECKSUM_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.CHECKSUM_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.CHECKSUM_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.CHECKSUM_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.checksum_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.CHECKSUM_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.CHECKSUM_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.collision_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.COLLISION_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.COLLISION_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.COLLISION_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.COLLISION_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.collision_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.COLLISION_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.COLLISION_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.fusa_parity_error_inject:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_PARITY_ERR_INJECT_EN.FUSA_PARITY_ERR_INJECT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_PARITY_ERR_INJECT_EN.FUSA_PARITY_ERR_INJECT_EN
+    rule: boolean_enable_field
+  lin.feature.head_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.HEAD_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.HEAD_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.HEAD_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.HEAD_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.head_receive_done_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.HEAD_RX_DONE_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.HEAD_RX_DONE_INT_EN
+    rule: boolean_enable_field
+  lin.feature.head_transmit_done_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.HEAD_TX_DONE_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.HEAD_TX_DONE_INT_EN
+    rule: boolean_enable_field
+  lin.feature.head_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.HEAD_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.HEAD_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.id_parity_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.ID_PARITY_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.ID_PARITY_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.ID_PARITY_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.ID_PARITY_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.id_parity_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.ID_PARITY_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.ID_PARITY_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.loop_test:
+  - instance: lin0
+    kind: field
+    path: LIN0.LOOP_TEST.LOOP_TEST_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.LOOP_TEST.LOOP_TEST_EN
+    rule: boolean_enable_field
+  lin.feature.oversample_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.OVERSAMPLE_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.OVERSAMPLE_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.OVERSAMPLE_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.OVERSAMPLE_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.oversample_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.OVERSAMPLE_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.OVERSAMPLE_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.parity_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.PARITY_ERROR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.PARITY_ERROR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.parity_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.PARITY_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.PARITY_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.perror2_bus_error:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_PERROR2BUS_ERR.PERROR2BUS_ERR_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_PERROR2BUS_ERR.PERROR2BUS_ERR_EN
+    rule: boolean_enable_field
+  lin.feature.perror_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.PERROR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.PERROR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.perror_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.PERROR_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.PERROR_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.rsp_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.RSP_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.RSP_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.RSP_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.RSP_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.rsp_receive_done_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.RSP_RX_DONE_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.RSP_RX_DONE_INT_EN
+    rule: boolean_enable_field
+  lin.feature.rsp_transmit_done_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.RSP_TX_DONE_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.RSP_TX_DONE_INT_EN
+    rule: boolean_enable_field
+  lin.feature.rsp_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.RSP_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.RSP_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.sleep:
+  - instance: lin0
+    kind: field
+    path: LIN0.SLEEP.SLEEP_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.SLEEP.SLEEP_EN
+    rule: boolean_enable_field
+  lin.feature.sleep_flag_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.SLEEP_FLAG_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.SLEEP_FLAG_INT_EN
+    rule: boolean_enable_field
+  lin.feature.stuck_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.STUCK_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.STUCK_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.STUCK_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.STUCK_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.stuck_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.STUCK_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.STUCK_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.sync_done_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.SYNC_DONE_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.SYNC_DONE_INT_EN
+    rule: boolean_enable_field
+  lin.feature.timeout:
+  - instance: lin0
+    kind: field
+    path: LIN0.TIMEOUT.TIMEOUT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.TIMEOUT.TIMEOUT_EN
+    rule: boolean_enable_field
+  lin.feature.timeout_error_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.ERROR_INT_EN.TIMEOUT_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_ERROR_EN.TIMEOUT_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.ERROR_INT_EN.TIMEOUT_ERR_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_ERROR_EN.TIMEOUT_ERR_INT_EN
+    rule: boolean_enable_field
+  lin.feature.timeout_warn_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUSA_WARN_EN.TIMEOUT_WARN_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUSA_WARN_EN.TIMEOUT_WARN_INT_EN
+    rule: boolean_enable_field
+  lin.feature.wakeup:
+  - instance: lin0
+    kind: field
+    path: LIN0.WAKEUP.WAKEUP_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.WAKEUP.WAKEUP_EN
+    rule: boolean_enable_field
+  lin.feature.wakeup_flag_interrupt:
+  - instance: lin0
+    kind: field
+    path: LIN0.FUNCTION_INT_EN.WAKEUP_FLAG_INT_EN
+    rule: boolean_enable_field
+  - instance: lin1
+    kind: field
+    path: LIN1.FUNCTION_INT_EN.WAKEUP_FLAG_INT_EN
+    rule: boolean_enable_field
+  lin.identity.base_address:
+  - instance: lin0
+    kind: peripheral
+    path: LIN0.baseAddress
+    rule: direct
+  - instance: lin1
+    kind: peripheral
+    path: LIN1.baseAddress
+    rule: direct
+  lin.interrupt.error:
+  - instance: lin0
+    kind: interrupt
+    path: LIN0.interrupt.LIN0_ERR
+    rule: direct
+  - instance: lin1
+    kind: interrupt
+    path: LIN1.interrupt.LIN1_ERR
+    rule: direct
+  lin.interrupt.func:
+  - instance: lin0
+    kind: interrupt
+    path: LIN0.interrupt.LIN0_FUNC
+    rule: direct
+  - instance: lin1
+    kind: interrupt
+    path: LIN1.interrupt.LIN1_FUNC
+    rule: direct

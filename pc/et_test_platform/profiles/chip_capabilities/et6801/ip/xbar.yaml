@@ -1,0 +1,79 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: xbar
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  xbar0:
+    svd_name: XBAR
+capabilities:
+  features: {}
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    int0:
+      xbar0:
+        svd_name: XBAR_INT0
+        irqn: 199
+    int1:
+      xbar0:
+        svd_name: XBAR_INT1
+        irqn: 200
+    int2:
+      xbar0:
+        svd_name: XBAR_INT2
+        irqn: 201
+    int3:
+      xbar0:
+        svd_name: XBAR_INT3
+        irqn: 202
+    int4:
+      xbar0:
+        svd_name: XBAR_INT4
+        irqn: 203
+    int5:
+      xbar0:
+        svd_name: XBAR_INT5
+        irqn: 204
+  identities:
+    base_address:
+      xbar0: '0x40020000'
+evidence:
+  xbar.identity.base_address:
+  - instance: xbar0
+    kind: peripheral
+    path: XBAR.baseAddress
+    rule: direct
+  xbar.interrupt.int0:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT0
+    rule: direct
+  xbar.interrupt.int1:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT1
+    rule: direct
+  xbar.interrupt.int2:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT2
+    rule: direct
+  xbar.interrupt.int3:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT3
+    rule: direct
+  xbar.interrupt.int4:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT4
+    rule: direct
+  xbar.interrupt.int5:
+  - instance: xbar0
+    kind: interrupt
+    path: XBAR.interrupt.XBAR_INT5
+    rule: direct

@@ -1,0 +1,242 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: etimer
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  etimer0:
+    svd_name: ETIMER
+capabilities:
+  features:
+    cap_load:
+    - etimer0
+    fault:
+    - etimer0
+    sync_out_event:
+    - etimer0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts:
+    etimer1:
+      etimer0:
+        svd_name: ETIMER1
+        irqn: 168
+    etimer10:
+      etimer0:
+        svd_name: ETIMER10
+        irqn: 177
+    etimer11:
+      etimer0:
+        svd_name: ETIMER11
+        irqn: 178
+    etimer2:
+      etimer0:
+        svd_name: ETIMER2
+        irqn: 169
+    etimer3:
+      etimer0:
+        svd_name: ETIMER3
+        irqn: 170
+    etimer4:
+      etimer0:
+        svd_name: ETIMER4
+        irqn: 171
+    etimer5:
+      etimer0:
+        svd_name: ETIMER5
+        irqn: 172
+    etimer6:
+      etimer0:
+        svd_name: ETIMER6
+        irqn: 173
+    etimer7:
+      etimer0:
+        svd_name: ETIMER7
+        irqn: 174
+    etimer8:
+      etimer0:
+        svd_name: ETIMER8
+        irqn: 175
+    etimer9:
+      etimer0:
+        svd_name: ETIMER9
+        irqn: 176
+    irq:
+      etimer0:
+        svd_name: ETIMER0
+        irqn: 167
+  identities:
+    base_address:
+      etimer0: '0x40024000'
+evidence:
+  etimer.feature.cap_load:
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[0].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[10].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[11].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[1].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[2].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[3].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[4].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[5].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[6].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[7].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[8].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[9].CAP_CTRL.CAP_LOAD_EN
+    rule: boolean_enable_field
+  etimer.feature.fault:
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[0].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[10].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[11].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[1].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[2].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[3].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[4].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[5].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[6].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[7].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[8].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  - instance: etimer0
+    kind: field
+    path: ETIMER.CORE[9].PWM_CTRL.FAULT_EN
+    rule: boolean_enable_field
+  etimer.feature.sync_out_event:
+  - instance: etimer0
+    kind: field
+    path: ETIMER.EN3.SYNC_OUT_EVENT_EN
+    rule: boolean_enable_field
+  etimer.identity.base_address:
+  - instance: etimer0
+    kind: peripheral
+    path: ETIMER.baseAddress
+    rule: direct
+  etimer.interrupt.etimer1:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER1
+    rule: direct
+  etimer.interrupt.etimer10:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER10
+    rule: direct
+  etimer.interrupt.etimer11:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER11
+    rule: direct
+  etimer.interrupt.etimer2:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER2
+    rule: direct
+  etimer.interrupt.etimer3:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER3
+    rule: direct
+  etimer.interrupt.etimer4:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER4
+    rule: direct
+  etimer.interrupt.etimer5:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER5
+    rule: direct
+  etimer.interrupt.etimer6:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER6
+    rule: direct
+  etimer.interrupt.etimer7:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER7
+    rule: direct
+  etimer.interrupt.etimer8:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER8
+    rule: direct
+  etimer.interrupt.etimer9:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER9
+    rule: direct
+  etimer.interrupt.irq:
+  - instance: etimer0
+    kind: interrupt
+    path: ETIMER.interrupt.ETIMER0
+    rule: direct

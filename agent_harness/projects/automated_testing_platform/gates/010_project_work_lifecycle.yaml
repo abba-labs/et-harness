@@ -1,0 +1,68 @@
+standard: gate-v0.1
+file_id: G010
+title: Project Work Governance Lifecycle
+
+nodes:
+  - id: G010.010
+    title: Governed Task Lifecycle
+    children:
+      - id: G010.010.010
+        title: Compile Task Context
+        gate:
+          level: MUST
+          when: A new non-trivial task starts or its module, change, IP, chip or lane scope materially expands.
+          steps:
+            - id: compile-context
+              tool: governance.context.compile
+              args:
+                entrypoint: tools/governance/compile_task_context.py
+                mode: compile
+          pass:
+            mode: all_steps_pass
+          refs: [R010.010.020, A010.010.020, K001.003, K001.004]
+
+      - id: G010.010.020
+        title: Check Write Scope
+        gate:
+          level: MUST
+          when: The governed task has produced tracked changes and is about to enter project validation.
+          steps:
+            - id: scope-check
+              tool: governance.scope.check
+              args:
+                entrypoint: tools/governance/compile_task_context.py
+                mode: scope-check
+          pass:
+            mode: all_steps_pass
+          refs: [R010.010.030, A010.010.020, K001.005]
+
+      - id: G010.010.030
+        title: Run Project Software Gate
+        gate:
+          level: MUST
+          when: Code, configuration, rule, documentation or tool changes are ready to be committed.
+          steps:
+            - id: project-software-validation
+              tool: validation.software.execute
+              args:
+                entrypoint: tools/validate_pc.py
+                additional_checks: [git diff --check, git status --short]
+          pass:
+            mode: all_steps_pass
+          refs: [R010.060.030, A010.050.010, K001.009]
+
+      - id: G010.010.040
+        title: Verify Exact CI Head
+        gate:
+          level: MUST
+          when: A pushed branch uses a required GitHub workflow as completion evidence.
+          steps:
+            - id: verify-ci-head
+              tool: ci.status.verify
+              args:
+                workflow: relevant-required-project-workflow
+                require_exact_head_sha: true
+                require_conclusion: success
+          pass:
+            mode: all_steps_pass
+          refs: [R010.060.040, K001.010]

@@ -1,0 +1,32 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: systick
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  systick0:
+    svd_name: SYSTICK
+capabilities:
+  features:
+    counter:
+    - systick0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      systick0: '0xE000E010'
+evidence:
+  systick.feature.counter:
+  - instance: systick0
+    kind: field
+    path: SYSTICK.CSR.ENABLE
+    rule: boolean_enable_field
+  systick.identity.base_address:
+  - instance: systick0
+    kind: peripheral
+    path: SYSTICK.baseAddress
+    rule: direct

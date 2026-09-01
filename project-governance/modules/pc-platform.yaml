@@ -1,0 +1,205 @@
+schema: et.module-profile.v1
+id: pc-platform
+summary: 跨IP的PC运行时、Target API、Backend、调度、结果与公共通信层。
+parameters:
+  required: []
+  optional: [chip]
+architecture_chain:
+  - Formal Case -> Driver -> TargetClient -> Transport/Backend
+  - Case Assertion -> Evidence/RunContext -> pytest Plugin -> Result/Report
+
+always:
+  read:
+    - path: AGENTS.md
+      reason: 冻结公共层和芯片中立总约束
+      required: true
+    - path: report/design/rules/R200_pc_layer_responsibilities.md
+      reason: 公共PC依赖方向和接口边界
+      required: true
+  rules:
+    - pc_layer_responsibilities
+    - python_style_documentation
+  protected_scopes:
+    - firmware/**
+    - test_case_doc/**
+
+changes:
+  package:
+    read:
+      - path: pc/README.md
+        reason: PC包入口、CLI和公共导出边界
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/__init__.py
+      - pc/et_test_platform/cli/**
+      - pc/et_test_platform/drivers/__init__.py
+    validation:
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/cli pc/et_test_platform/__init__.py
+
+  profile:
+    read:
+      - path: pc/et_test_platform/profiles
+        reason: 公共Capability、Bench、Resolver和Execution Mapping入口
+        required: true
+      - path: report/design/rules/R410_capability_v2.md
+        reason: Capability查询、生成和适配边界
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - capability_v2
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/profiles/*.py
+      - pc/et_test_platform/profiles/resolvers/**
+      - pc/et_test_platform/profiles/chip_execution_mappings/*.py
+      - pc/et_test_platform/framework_validation/unit/profiles/**
+      - pc/et_test_platform/framework_validation/unit/profiles/test_bench_config.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/profiles
+
+  bench:
+    required_parameters: [chip]
+    read:
+      - path: pc/et_test_platform/profiles/bench_topologies
+        reason: 目标芯片或板卡的物理连接与基础通信Profile
+        required: true
+      - path: report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md
+        reason: 芯片和板级事实不得进入公共Case与Driver
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - chip_adaptation_boundary
+      - operator_pipeline
+    write_scopes:
+      - pc/et_test_platform/profiles/bench_topologies/{chip}_*.yaml
+      - pc/et_test_platform/framework_validation/unit/profiles/test_bench_config.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/profiles/test_bench_config.py
+
+  case-runtime:
+    read:
+      - path: pc/et_test_platform/test_cases
+        reason: 所有IP共用的Case注册、Fixture和清理入口
+        required: true
+      - path: report/design/rules/R210_pc_case_responsibility.md
+        reason: Formal Case职责和公共运行边界
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - pc_case_responsibility
+      - canonical_result_evidence
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/test_cases/*.py
+      - pc/et_test_platform/framework_validation/unit/cases/common/test_case_cleanup.py
+      - pc/et_test_platform/framework_validation/unit/cases/common/test_formal_case_registry.py
+      - pc/et_test_platform/framework_validation/unit/cases/common/test_formal_case_v2_contract.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/cases/common
+
+  validation:
+    read:
+      - path: pc/et_test_platform/framework_validation
+        reason: PC公共层、协议、Profile和Native契约回归入口
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - python_style_documentation
+    write_scopes:
+      - pc/et_test_platform/framework_validation/**
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit
+
+  docs:
+    read:
+      - path: pc/README.md
+        reason: PC目录导航和局部使用说明
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - python_style_documentation
+    write_scopes:
+      - pc/**/*.md
+    validation:
+      - python tools/quality/check_pc_documentation_rules.py --root . pc
+
+  core:
+    read:
+      - path: pc/et_test_platform/core
+        reason: 结果、错误、能力等稳定核心模型
+        required: true
+    rules:
+      - canonical_result_evidence
+    write_scopes:
+      - pc/et_test_platform/core/**
+      - pc/et_test_platform/framework_validation/unit/core/**
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/core
+
+  backend:
+    read:
+      - path: pc/et_test_platform/clients
+        reason: 稳定Target Client与目标访问边界
+        required: true
+      - path: pc/et_test_platform/programmers
+        reason: 烧录器和调试探针公共接口
+        required: true
+    rules:
+      - pc_layer_responsibilities
+    write_scopes:
+      - pc/et_test_platform/clients/**
+      - pc/et_test_platform/programmers/**
+      - pc/et_test_platform/framework_validation/unit/clients/**
+    validation:
+      - python tools/quality/check_pc_code_rules.py --root . pc/et_test_platform/clients pc/et_test_platform/programmers
+
+  communication:
+    read:
+      - path: pc/et_test_platform/communication
+        reason: ET-Frame与Transport实现
+        required: true
+      - path: report/design/rules/R400_et_frame_v1.md
+        reason: Wire、事务与重试契约
+        required: true
+    rules:
+      - et_frame_v1
+    write_scopes:
+      - pc/et_test_platform/communication/**
+      - pc/et_test_platform/framework_validation/unit/communication/test_protocol.py
+      - pc/et_test_platform/framework_validation/unit/communication/test_serial_transport.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/communication
+
+  scheduling:
+    read:
+      - path: pc/et_test_platform/scheduling
+        reason: Fixture、注册和运行上下文
+        required: true
+    rules:
+      - pc_layer_responsibilities
+      - canonical_result_evidence
+    write_scopes:
+      - pc/et_test_platform/scheduling/**
+      - pc/et_test_platform/pytest_plugin.py
+      - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
+
+  result:
+    read:
+      - path: pc/et_test_platform/results
+        reason: Canonical Result和人工报告转换
+        required: true
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: Result、Observation和Evidence契约
+        required: true
+    rules:
+      - canonical_result_evidence
+    write_scopes:
+      - pc/et_test_platform/results/**
+      - pc/et_test_platform/framework_validation/unit/results/test_case_report.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/results/test_case_report.py

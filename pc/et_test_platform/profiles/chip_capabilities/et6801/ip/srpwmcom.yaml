@@ -1,0 +1,32 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: srpwmcom
+source:
+  file: ET6801.svd
+  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
+  generator_version: 8
+instances:
+  srpwmcom0:
+    svd_name: SRPWMCOM
+capabilities:
+  features:
+    ultra_hrpwm:
+    - srpwmcom0
+  limits: {}
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      srpwmcom0: '0x40000000'
+evidence:
+  srpwmcom.feature.ultra_hrpwm:
+  - instance: srpwmcom0
+    kind: field
+    path: SRPWMCOM.EPWM_HR_EN.ULTRA_HRPWM_EN
+    rule: boolean_enable_field
+  srpwmcom.identity.base_address:
+  - instance: srpwmcom0
+    kind: peripheral
+    path: SRPWMCOM.baseAddress
+    rule: direct

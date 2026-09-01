@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "et-automated-testing-platform"
+version = "0.1.0"
+description = "Common PC-side framework for ET MCU automated testing"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0",
+  "PyVISA>=1.14",
+  "pyserial>=3.5",
+]
+
+[project.scripts]
+et-target-smoke = "et_test_platform.cli.target_smoke:main"
+
+[project.optional-dependencies]
+report = [
+  "XlsxWriter>=3.2",
+]
+test = [
+  "pytest>=8.0",
+  "ruff>=0.12",
+  "pycryptodomex>=3.20,<4",
+  "XlsxWriter>=3.2",
+  "clang-format==20.1.8",
+]
+
+[tool.setuptools.packages.find]
+where = ["pc"]
+exclude = ["et_test_platform.framework_validation*"]
+
+[tool.setuptools.package-data]
+et_test_platform = [
+  "profiles/bench_topologies/*.yaml",
+  "profiles/chip_capabilities/*/ip/*.yaml",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["pc"]
+testpaths = ["pc/et_test_platform/framework_validation/unit"]
+python_files = ["test_*.py"]
+addopts = "-q"
+cache_dir = "../tmp/pytest_cache"
+markers = [
+  "hardware: requires the explicit real-hardware execution gate",
+  "ip(name): identifies the primary IP owned by a formal Case package",
+  "framework_communication: exercises the common firmware protocol",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "C90"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

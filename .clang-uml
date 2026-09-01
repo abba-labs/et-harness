@@ -1,0 +1,8 @@
+compilation_database_dir: firmware/build/et6801
+output_directory: diagrams
+
+diagrams:
+  main_sequence:
+    type: sequence
+    glob:
+      - "firmware/application/src/main.c"
