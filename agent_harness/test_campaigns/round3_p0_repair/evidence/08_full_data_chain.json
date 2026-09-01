@@ -1,0 +1,131 @@
+{
+  "schema": "round3-p0-full-data-chain.evidence.v1",
+  "testedSourceHead": "1f7e317219f39a2096e3201ddbea51513d47bf91",
+  "taskId": "round3-p0-full-data-chain-20260901",
+  "runtimeId": "codex-runtime-b1f40338-eb82-44fb-ae02-690b25c7a7f7",
+  "turnId": "codex-turn-d73c20bc-a04a-44df-9513-f05bb7579fe5",
+  "contextRevision": "3e74e4b19c0f509cabcf17ee375ccc05d4b72c22f79f6e20dfcb137342975930",
+  "publicTools": [
+    "harness_health",
+    "harness_begin",
+    "harness_status",
+    "harness_observe",
+    "harness_preflight",
+    "harness_complete",
+    "harness_read_required",
+    "harness_checkpoint"
+  ],
+  "routing": {
+    "projectId": "et-automated-testing-platform",
+    "architectureCount": 12,
+    "ruleCount": 24,
+    "knowledgeCount": 11,
+    "gateCount": 4,
+    "contributionReceiptPresent": true
+  },
+  "supervision": {
+    "level": "AUDIT",
+    "claimsMechanicalInterception": false
+  },
+  "preflight": {
+    "allowedPath": "test_case_doc/etimer/round3_p0_probe.md",
+    "allowedStatus": "ALLOWED",
+    "protectedPath": "pc/et_test_platform/core/forbidden_round3_p0.py",
+    "protectedStatus": "BLOCKED",
+    "protectedFileAbsent": true
+  },
+  "negativeControls": {
+    "checkpointBeforeReads": "BLOCKED: REQUIRED_READS_PENDING",
+    "nonRequiredResourcesRejected": [
+      "README.md",
+      "../AGENTS.md",
+      "source://project/et-automated-testing-platform/ip-analysis/et6801/etimer"
+    ],
+    "nonRequiredReadsAdvancedObligations": false,
+    "forgedToolResultAdvancedValidationObligations": false,
+    "prematureCompletion": "BLOCKED",
+    "directValidationStillUntrusted": "PASS"
+  },
+  "trustedRequiredReads": {
+    "acceptedCount": 7,
+    "satisfiedCount": 7
+  },
+  "checkpoint": {
+    "status": "CHECKPOINTED",
+    "validations": [
+      {
+        "obligationId": "OBL-ATP-VALIDATION-TASK-CONTEXT-CURRENT",
+        "validationId": "task-context-current",
+        "exitCode": 0,
+        "resultStatus": "PASS",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-1",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-1",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-1"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-TASK-WRITE-SCOPE",
+        "validationId": "task-write-scope",
+        "exitCode": 0,
+        "resultStatus": "PASS",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-2",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-2",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-2"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-01",
+        "validationId": "project-validation-01",
+        "exitCode": 0,
+        "resultStatus": "PASS",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-3",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-3",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-3"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-02",
+        "validationId": "project-validation-02",
+        "exitCode": 0,
+        "resultStatus": "PASS",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-4",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-4",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-4"
+      },
+      {
+        "obligationId": "OBL-ATP-VALIDATION-PROJECT-VALIDATION-03",
+        "validationId": "project-validation-03",
+        "exitCode": 0,
+        "resultStatus": "PASS",
+        "requestEventRef": "execution-event://mcp-checkpoint-span-request-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-5",
+        "validationEventRef": "execution-event://mcp-checkpoint-validation-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-5",
+        "responseEventRef": "execution-event://mcp-checkpoint-span-response-d1b9c5cc-d4a9-44a1-b489-f6ebe2cc656b-5"
+      }
+    ],
+    "satisfiedValidationCount": 5
+  },
+  "replay": {
+    "gatewayPidAfterRestart": 22000,
+    "health": "UP",
+    "runtimeDecisionBefore": "READY_TO_CLOSE",
+    "runtimeDecisionAfter": "READY_TO_CLOSE",
+    "satisfiedExecutionObligationsBefore": 13,
+    "satisfiedExecutionObligationsAfter": 13,
+    "pendingBefore": [
+      "OBL-BASELINE-REFLECTION"
+    ],
+    "pendingAfter": [
+      "OBL-BASELINE-REFLECTION"
+    ],
+    "violatedBefore": [],
+    "violatedAfter": [],
+    "preservesState": true
+  },
+  "completion": {
+    "status": "COMPLETE",
+    "reflectionProvider": "public.governance-runtime.semantic-executor",
+    "closureStatus": "COMPLETE",
+    "knowledgeCaptureMode": "NONE",
+    "contextUpdateSatisfied": true,
+    "satisfiedObligationCount": 17,
+    "pendingObligations": [],
+    "violatedObligations": []
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "schema": "round3-p0-codex-desktop-blackbox.evidence.v1",
+  "testedAt": "2026-09-02T07:13:21+08:00",
+  "testedSourceHead": "1f7e317219f39a2096e3201ddbea51513d47bf91",
+  "taskId": "round3-p0-desktop-blackbox-20260902",
+  "runtimeId": "codex-runtime-cecf3d77-7678-44e0-866c-209429e54fef",
+  "turnId": "codex-turn-3016b3f7-2c61-4713-87f4-13b4d47cd771",
+  "gateway": {
+    "pidBeforeDesktopRestart": 22000,
+    "pidAfterDesktopRestart": 22000,
+    "survived": true,
+    "health": "READY",
+    "runtimeConnected": true,
+    "projectId": "et-automated-testing-platform"
+  },
+  "desktopTools": [
+    "harness_begin",
+    "harness_checkpoint",
+    "harness_complete",
+    "harness_health",
+    "harness_observe",
+    "harness_preflight",
+    "harness_read_required",
+    "harness_status"
+  ],
+  "internalTrustedSpanExposed": false,
+  "routing": {
+    "projectId": "et-automated-testing-platform",
+    "contextRevision": "9d53095807ad1137eec85965410c3b4a2f598d6933c2b2de0944bb8516afdcaa",
+    "architectureCount": 12,
+    "ruleCount": 24,
+    "knowledgeCount": 11,
+    "gateCount": 4,
+    "ruleOwners": [
+      "public_ip_semantics",
+      "public_chip_neutrality",
+      "contract_document_sync",
+      "ip_analysis_workflow",
+      "public_ip_machine_contract",
+      "canonical_result_evidence"
+    ],
+    "contributionReceiptPresent": true
+  },
+  "preflight": {
+    "allowedProbe": "ALLOWED",
+    "protectedProbe": "BLOCKED"
+  },
+  "checkpointBeforeReads": "BLOCKED: REQUIRED_READS_PENDING",
+  "requiredReads": {
+    "acceptedCount": 7,
+    "eventRefs": [
+      "execution-event://mcp-read-6685eccd7ae1d6ddb3adb9e2194fbb2f8534c763f3921abe",
+      "execution-event://mcp-read-8419b1b7b3070528ce4b90b2bc7bf0e04baad7c65f0fc86e",
+      "execution-event://mcp-read-d64500f3c1567d8c8278be2287551c60b17eb8117b32181b",
+      "execution-event://mcp-read-12791353c09d4add6ee9037a06ed84f8a543607c610bf0e2",
+      "execution-event://mcp-read-1f796bdc3c911ca64a0fc713c0753b67d0541d59fa719888",
+      "execution-event://mcp-read-3212d9880faa33da8ac6d2d709aa4e1525a46b2680d53026",
+      "execution-event://mcp-read-98e9b692f468738ec01dfd816f22501a2fd3c087f51c5117"
+    ]
+  },
+  "checkpoint": {
+    "status": "CHECKPOINTED",
+    "validationExitCodes": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "validationStatuses": [
+      "PASS",
+      "PASS",
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "spanIds": [
+      "050a7bad-be6a-43c8-8ef8-66aaadd4ca1b-1",
+      "050a7bad-be6a-43c8-8ef8-66aaadd4ca1b-2",
+      "050a7bad-be6a-43c8-8ef8-66aaadd4ca1b-3",
+      "050a7bad-be6a-43c8-8ef8-66aaadd4ca1b-4",
+      "050a7bad-be6a-43c8-8ef8-66aaadd4ca1b-5"
+    ]
+  },
+  "observation": {
+    "status": "OBSERVED",
+    "observationId": "OBS-0002",
+    "kind": "RESOURCE_TOUCH",
+    "knowledgeCaptureMode": "NONE"
+  },
+  "documentReview": {
+    "publicContractChipNeutral": true,
+    "stableFeatureCount": 10,
+    "plannedCaseCount": 8,
+    "et6801FeatureMappingCount": 10,
+    "et6801CaseMappingCount": 8,
+    "confirmedGap": "ETIM_CLAIM_009 DMA API conflict and implementation/mapping/bench gaps remain explicit",
+    "softwareTest": "NOT_EXECUTED",
+    "fpgaTest": "NOT_EXECUTED",
+    "hilTest": "NOT_EXECUTED"
+  },
+  "completion": {
+    "status": "COMPLETE",
+    "reflectionProvider": "public.governance-runtime.semantic-executor",
+    "closureStatus": "COMPLETE",
+    "knowledgeCaptureMode": "NONE",
+    "supervisionDecision": "COMPLETE",
+    "satisfiedObligationCount": 17,
+    "contextUpdateSatisfied": true,
+    "pendingObligations": [],
+    "violatedObligations": []
+  },
+  "result": "PASS"
+}

@@ -1,65 +1,74 @@
-# Round 3 P0 Trusted Validation Repair Verification
+# Round 3 P0 Repair Verification - Final Evidence Report
 
-## Baseline
+## Boundaries
 
-- Repair baseline: `ef31b59637937b96d4c3a152f650aa7de999b2f3`
-- Verification charter HEAD: `40b469d950959259a574e2952659e6c76eb0608e`
-- Role: Test Executor
-- Architecture redesign: `NO`
-- Product/runtime repair during verification: `NO`
+- Repair baseline: `ef31b59637937b96d4c3a152f650aa7de999b2f3`.
+- Tested Gateway/Runtime source HEAD and ATP project revision: `1f7e317219f39a2096e3201ddbea51513d47bf91`.
+- Role: Test Executor.
+- Architecture Owner final acceptance: `NOT_DECLARED`.
+- Pure MCP supervision level: `AUDIT`.
+- Product source changed during this final verification batch: `NO`.
+- Earlier failure evidence in `00_environment.md` through `07_black_box.md` is retained as the historical first-failure record. Post-repair closure evidence is in `08_full_data_chain.json`, `09_codex_desktop_blackbox.json`, and `10_post_repair_environment.md`.
 
 ## Result matrix
 
 | Check | Result | Evidence |
 |---|---|---|
-| STATIC_TRUST_BOUNDARY_REVIEW | PASS | `01_build_and_focused_tests.md` |
-| DETERMINISTIC_FREEZE_RUNTIME | PASS | `00_environment.md`, `01_build_and_focused_tests.md` |
-| VERIFY_ENVIRONMENT_22_OF_22 | PASS | `01_build_and_focused_tests.md` |
-| DIRECT_VALIDATION_STILL_UNTRUSTED | PASS | `01_build_and_focused_tests.md`, `04_checkpoint.json` |
-| SUPERVISOR_SAFETY_REGRESSIONS | PASS | `01_build_and_focused_tests.md` |
-| LIVE_MCP_EIGHT_TOOLS | PASS | `06_live_mcp.md` |
-| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | PASS | `02_preflight.json` |
-| PROTECTED_PREFLIGHT_BLOCKS | PASS | `02_preflight.json` |
-| CHECKPOINT_REJECTS_PENDING_READS | PASS | `04_checkpoint.json` |
-| REQUIRED_READ_TRUSTED_EVENTS | PASS | `03_required_reads.jsonl` |
-| REQUIRED_READ_OBLIGATIONS_ADVANCE | PASS | `03_required_reads.jsonl` |
-| AGENT_CANNOT_FORGE_TRUSTED_RESULT | PASS | `04_checkpoint.json` |
-| PREMATURE_COMPLETE_STILL_BLOCKED | PASS | `05_closure.json` |
-| CHECKPOINT_TRUSTED_VALIDATION_EVENTS | PASS | `04_checkpoint.json` |
-| VALIDATION_OBLIGATIONS_ADVANCE | PASS | `04_checkpoint.json` |
-| REPLAY_PRESERVES_VALIDATION_STATE | FAIL | `06_live_mcp.md` |
-| REFLECTION_TRIGGERED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
-| CLOSURE_REACHED_COMPLETE | BLOCKED_BY_UPSTREAM | `05_closure.json` |
-| CONTEXT_UPDATE_REACHED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
-| REAL_DESKTOP_BLACK_BOX | BLOCKED_BY_UPSTREAM | `07_black_box.md` |
+| DETERMINISTIC_ENVIRONMENT_22_OF_22 | PASS | `10_post_repair_environment.md` |
+| SUPERVISOR_SAFETY_REGRESSIONS_15 | PASS | `10_post_repair_environment.md` |
+| DIRECT_VALIDATION_STILL_UNTRUSTED | PASS | `08_full_data_chain.json` |
+| TRUSTED_CHECKPOINT_ADVANCES_VALIDATION | PASS | `08_full_data_chain.json` |
+| PROJECT_ROUTE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| ARCHITECTURE_ROUTE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| RULE_ROUTE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| KNOWLEDGE_ROUTE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| GATE_ROUTE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | PASS | `08_full_data_chain.json` |
+| PROTECTED_PREFLIGHT_BLOCKS | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| CHECKPOINT_REJECTS_PENDING_READS | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| NON_REQUIRED_READS_FAIL_CLOSED | PASS | `08_full_data_chain.json` |
+| REQUIRED_READ_TRUSTED_EVENTS | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| REQUIRED_READ_OBLIGATIONS_ADVANCE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| AGENT_CANNOT_FORGE_TRUSTED_RESULT | PASS | `08_full_data_chain.json` |
+| PREMATURE_COMPLETE_STILL_BLOCKED | PASS | `08_full_data_chain.json` |
+| CHECKPOINT_TRUSTED_VALIDATION_EVENTS | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| VALIDATION_OBLIGATIONS_ADVANCE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| REPLAY_PRESERVES_VALIDATION_STATE | PASS | `08_full_data_chain.json` |
+| REFLECTION_TRIGGERED | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| KNOWLEDGE_CLASSIFICATION | PASS (`NONE`) | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| CONTEXT_UPDATE_REACHED | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| CLOSURE_REACHED_COMPLETE | PASS | `08_full_data_chain.json`, `09_codex_desktop_blackbox.json` |
+| GATEWAY_SURVIVES_CODEX_RESTART | PASS | `09_codex_desktop_blackbox.json`, `10_post_repair_environment.md` |
+| REAL_CODEX_DESKTOP_BLACK_BOX | PASS | `09_codex_desktop_blackbox.json` |
 
-## Repair result
+## Closed first-failure boundary
 
-The trusted Validation admission repair works before restart:
+The prior first failure was not lost durable evidence. A fresh Gateway process did not bind and rehydrate the existing supervised Turn before status/closure operations. Commit `39b1aa7` added idempotent Runtime rehydration from the existing Event Store, and commit `1f7e317` persisted the task-end request before existing Runtime closure. The post-repair task preserved the same 13 satisfied execution obligations across Gateway restart and then reached all 17 final obligations with no pending or violated items.
 
-```text
-real frozen command PASS
--> Runtime-owned durable trusted span admitted
--> matching Validation obligation SATISFIED
-```
+## Real Codex Desktop result
 
-Ordinary direct `VALIDATION_RESULT` remains untrusted and cannot satisfy the obligation.
+The black-box task was invoked through the tools exposed to this Codex Desktop process, not through the standalone test client. It proved:
 
-## New first failing boundary
+- all eight public MCP tools were active;
+- project, architecture, rule, knowledge and Gate routes were contributed by the ATP Project Plugin;
+- protected preflight blocked while an allowed probe remained allowed;
+- seven required reads produced accepted execution events;
+- five frozen validations exited `0` and produced trusted request/validation/response spans;
+- Reflection, Knowledge Classification, Context Update and eight-module Closure reached `COMPLETE`;
+- Gateway PID `22000` survived Desktop restart and the Desktop reconnected without a Gateway restart.
 
-After external Gateway restart, the Event Store still contained all 27 accepted events and the Kernel Turn remained OPEN. The same task/runtime/turn could be queried, but the returned supervision projection contained no pending, satisfied, or violated obligations.
+## eTimer review truthfulness
 
-The first failing boundary is the Gateway frozen recovery/status path: it queries a new in-memory Runtime through `getStatus()` before binding the existing Event Store and invoking the Runtime's existing supervised-Turn rehydration capability. This is outside the trusted Validation repair boundary.
-
-Per the charter, no Supervisor, Ledger, ATP, Closure, environment, or recovery code was modified. Final Closure and Desktop black-box were not executed.
+The public eTimer contract remained chip-neutral with 10 stable features and 8 planned cases; the ET6801 mapping covered the same 10 features and 8 cases. Existing implementation/mapping/bench gaps and `ETIM_CLAIM_009` remained explicit. Software, FPGA and HIL execution was not performed and is recorded as `NOT_EXECUTED`.
 
 ## Overall
 
-- Deterministic environment: `PASS`
-- Direct Validation still untrusted: `PASS`
-- Trusted checkpoint Validation advances: `PASS`
-- Replay preserves Validation state: `FAIL`
-- Overall Round 3 P0 status: `FAIL`
-- Failed check: `REPLAY_PRESERVES_VALIDATION_STATE`
-- Architecture review required: `YES`
-- Architecture Owner final acceptance: `NOT_DECLARED`
+- Deterministic environment: `PASS`.
+- Direct Validation still untrusted: `PASS`.
+- Trusted checkpoint Validation advances: `PASS`.
+- Replay preserves Validation state: `PASS`.
+- Codex Desktop black-box: `PASS`.
+- Overall Round 3 P0 status: `PASS`.
+- Failed checks: `NONE`.
+- Architecture review required: `NO`.
+- Architecture Owner final acceptance: `NOT_DECLARED`.
