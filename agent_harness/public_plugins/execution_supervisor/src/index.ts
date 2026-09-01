@@ -1,5 +1,6 @@
 export * from './baseline.js'
 export * from './contracts.js'
+export * from './degraded-governance.js'
 export * from './event-store.js'
 export * from './external-agent-bridge.js'
 export * from './hash.js'
