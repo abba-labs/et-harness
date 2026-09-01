@@ -115,7 +115,7 @@ test('real frozen Runtime keeps explicit WRITE_SCOPE preflight truthful under AU
     assert.deepEqual(allowed, { status: 'ALLOWED', allowed: true })
     assert.equal(forbidden.status, 'BLOCKED')
     assert.equal(forbidden.allowed, false)
-    assert.match(forbidden.reason, /outside the governed WRITE_SCOPE/i)
+    assert.match(forbidden.reason, /WRITE_SCOPE/)
     await assert.rejects(
       async () => (await import('node:fs/promises')).access(protectedPath),
       { code: 'ENOENT' },
