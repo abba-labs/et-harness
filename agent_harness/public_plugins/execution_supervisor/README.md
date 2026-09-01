@@ -50,6 +50,12 @@ Evidence evaluation requires contributed provider, Context, revision, target, re
 
 Completion evaluation in this phase is pre-Closure only. It may return `READY_TO_CLOSE` after all execution-stage MUST obligations resolve, while explicitly reporting deferred Reflection/Knowledge/Context/Closure obligations. It never returns `COMPLETE`, creates a Closure Receipt or calls a Runtime lifecycle entrypoint.
 
+## Minimal degraded-mode rule
+
+When an external/web Host cannot reach the Framework entry path itself (for example health/capability/bootstrap transport failure), it should surface `GOVERNANCE_DEGRADED` through `createGovernanceDegradedNotice()`. Useful read-only analysis may continue, but that work is not represented as Framework-governed completion and `formalPassCloseAllowed` remains `false`.
+
+An Agent statement such as `PASS`, `CLOSE` or “task complete” is never final authorization. Formal completion remains owned by the existing Framework lifecycle authority: the Kernel/Closure binding must be verified, durable lifecycle finalization must exist, and only then may the Ledger report `COMPLETE`. This adds no new normal lifecycle state and no per-action Gate.
+
 Phase 2 v0.1 accepts one `WRITE_SCOPE` obligation. It computes scope from the contributed resource/path allowlist rather than trusting `MutationReceipt.scopeDecision`. `MOVE` and `COPY` fail closed because the v0.1 receipt cannot represent both endpoints.
 
 Phase 6 preflight reuses exactly that WRITE_SCOPE rule. A mutation intent accepts only `resourceId`, optional `path` and `action`; Agent-supplied scope decisions or extra fields fail closed. Preflight is deterministic and does not mutate Ledger state.
