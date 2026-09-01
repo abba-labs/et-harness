@@ -1,0 +1,11 @@
+export const GATEWAY_VERSION = '0.1.0'
+export const GATEWAY_API = 'et-harness-mcp-fast-track.v1'
+
+export const createHealthResult = () => ({
+  status: 'READY',
+  gatewayVersion: GATEWAY_VERSION,
+  gatewayApi: GATEWAY_API,
+  runtimePortVersion: '0.1',
+  runtimeConnected: false,
+  projects: [],
+})
