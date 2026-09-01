@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { GovernanceCatalogEngine } from '@agent-harness/governance-core'
 import { loadProjectManifestFile } from '@agent-harness/project-manager'
 import {
   ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
@@ -88,18 +89,29 @@ describe('Automated Testing Platform Project Plugin', () => {
     expect(manifest.metadata?.adapter_kind).toBe('project-context-contributor')
   })
 
-  it('registers only the project-owned contributor and leaves project binding to the host owner', () => {
+  it('admits the project-owned Gate capabilities without redefining public core contracts', () => {
+    const catalog = new GovernanceCatalogEngine()
+    expect(catalog.admit(governanceManifest)).toEqual({ status: 'admitted', reasons: [] })
+    expect(catalog.listCapabilities().map(item => item.id)).toEqual(expect.arrayContaining([
+      'context.contribute',
+      'governance.context.compile',
+      'governance.scope.check',
+      'validation.software.execute',
+    ]))
+  })
+
+  it('registers only project-owned providers and leaves project binding to the host owner', () => {
     let effect: (() => void | (() => void)) | undefined
-    let registeredProvider: Record<string, unknown> | undefined
+    const registeredProviders: Record<string, unknown>[] = []
     let removedPlugin: string | undefined
-    let disposedProvider = false
+    let disposedProviderCount = 0
     let disposedService = false
     const context = {
       governanceCatalog: {
         admit: () => ({ status: 'admitted', reasons: [] }),
         registerProvider: (provider: Record<string, unknown>) => {
-          registeredProvider = provider
-          return () => { disposedProvider = true }
+          registeredProviders.push(provider)
+          return () => { disposedProviderCount += 1 }
         },
         removePlugin: (pluginId: string) => { removedPlugin = pluginId },
       },
@@ -112,14 +124,27 @@ describe('Automated Testing Platform Project Plugin', () => {
 
     expect(inject).toEqual(['governanceCatalog'])
     expect(governanceManifest.permissions).not.toContain('project.register')
-    expect(registeredProvider).toMatchObject({
+    expect(registeredProviders).toContainEqual(expect.objectContaining({
       providerId: ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
       capability: 'context.contribute',
-      metadata: { projectId: ATP_PROJECT_ID },
-    })
+      metadata: expect.objectContaining({ projectId: ATP_PROJECT_ID }),
+    }))
+    expect(registeredProviders).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        capability: 'governance.context.compile',
+        metadata: expect.objectContaining({
+          preflightMethod: 'matchGateEvidenceInvocation',
+          resultMethod: 'buildValidationReceipt',
+          executionMethod: 'executeGateEvidence',
+        }),
+      }),
+      expect.objectContaining({ capability: 'governance.scope.check' }),
+      expect.objectContaining({ capability: 'validation.software.execute' }),
+    ]))
+    expect(registeredProviders).toHaveLength(4)
 
     if (typeof cleanup === 'function') cleanup()
-    expect(disposedProvider).toBe(true)
+    expect(disposedProviderCount).toBe(4)
     expect(disposedService).toBe(true)
     expect(removedPlugin).toBe(governanceManifest.pluginId)
   })

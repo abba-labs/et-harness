@@ -13,6 +13,7 @@ nodes:
           when: A new non-trivial task starts or its module, change, IP, chip or lane scope materially expands.
           steps:
             - id: compile-context
+              role: EVIDENCE_PRODUCER
               tool: governance.context.compile
               args:
                 entrypoint: tools/governance/compile_task_context.py
@@ -28,6 +29,7 @@ nodes:
           when: The governed task has produced tracked changes and is about to enter project validation.
           steps:
             - id: scope-check
+              role: EVIDENCE_PRODUCER
               tool: governance.scope.check
               args:
                 entrypoint: tools/governance/compile_task_context.py
@@ -43,6 +45,7 @@ nodes:
           when: Code, configuration, rule, documentation or tool changes are ready to be committed.
           steps:
             - id: project-software-validation
+              role: EVIDENCE_PRODUCER
               tool: validation.software.execute
               args:
                 entrypoint: tools/validate_pc.py
@@ -58,6 +61,7 @@ nodes:
           when: A pushed branch uses a required GitHub workflow as completion evidence.
           steps:
             - id: verify-ci-head
+              role: EVIDENCE_PRODUCER
               tool: ci.status.verify
               args:
                 workflow: relevant-required-project-workflow

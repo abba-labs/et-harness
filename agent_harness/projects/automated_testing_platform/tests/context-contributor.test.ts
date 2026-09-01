@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID,
   ATP_PROJECT_ID,
+  ATP_REQUIRED_RESOURCE_PROVIDER_ID,
   buildAtpIpAnalysisContribution,
   classifyAutomatedTestingPlatformTask,
   type AtpCompiledTaskContext,
@@ -204,6 +205,24 @@ describe('ATP project-scoped Context Contributor', () => {
       kind: 'WRITE_SCOPE',
     }))
     expect(contribution.supervision?.obligations.some(item => item.kind === 'VALIDATION')).toBe(true)
+    expect(contribution.supervision?.obligations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'REQUIRED_RESOURCE',
+        satisfaction: expect.objectContaining({
+          acceptedProviderIds: [ATP_REQUIRED_RESOURCE_PROVIDER_ID],
+        }),
+      }),
+    ]))
+    expect(contribution.supervision?.evidencePolicies).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        acceptedProviderIds: ['project.automated-testing-platform.gate.context'],
+        acceptedProviderKinds: ['VALIDATOR'],
+      }),
+      expect.objectContaining({
+        acceptedProviderIds: ['project.automated-testing-platform.gate.software'],
+        acceptedProviderKinds: ['VALIDATOR'],
+      }),
+    ]))
     expect(contribution.supervision?.completionPolicy.requiredClosureModuleIds).toHaveLength(8)
     expect(contribution.inlineItems?.map(item => item.id)).toContain(
       'external-source-disposition-contract',

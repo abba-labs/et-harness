@@ -17,12 +17,24 @@ import {
   type ObligationDefinitionV01,
 } from '@agent-harness/execution-supervisor'
 import { findAutomatedTestingPlatformRoot } from './root-discovery.js'
+import {
+  atpValidationSpecifications,
+  buildAtpValidationReceipt,
+  executeAtpGateEvidence,
+  matchAtpGateEvidenceInvocation,
+  type AtpGateEvidenceExecutionRequestV01,
+  type AtpGateEvidenceExecutionResultV01,
+  type AtpGateEvidenceInvocationRequestV01,
+  type AtpGateEvidenceMatchResultV01,
+  type AtpValidationReceiptResultV01,
+} from './gate-evidence-provider.js'
 
 export const ATP_PROJECT_ID = 'et-automated-testing-platform'
 export const ATP_CONTEXT_CONTRIBUTOR_PLUGIN_ID =
   'project.automated-testing-platform'
 export const ATP_CONTEXT_CONTRIBUTOR_PROVIDER_ID =
   'project.automated-testing-platform.context'
+export const ATP_REQUIRED_RESOURCE_PROVIDER_ID = 'et-harness'
 export const ATP_CONTEXT_CONTRIBUTOR_SERVICE = 'atpContextContributor'
 export const ATP_TASK_CONTEXT_RELATIVE_PATH =
   'project-governance/runtime/current_task_context.json'
@@ -510,23 +522,16 @@ const compiledNavigationContent = (
 
 const validationObligations = (
   compiled: AtpCompiledTaskContext,
-): NonNullable<ProjectContextContributionV01['validation']> => [
-  {
-    id: 'task-context-current',
-    summary: 'Confirm that the persisted ATP Task Context still matches its project inputs and exact repository identity.',
-    command: `python ${ATP_TASK_CONTEXT_COMPILER} check --context ${ATP_TASK_CONTEXT_RELATIVE_PATH}`,
-  },
-  {
-    id: 'task-write-scope',
-    summary: 'Before project validation, check all task changes against the compiled allowed and protected scopes.',
-    command: `python ${ATP_TASK_CONTEXT_COMPILER} scope-check --context ${ATP_TASK_CONTEXT_RELATIVE_PATH}`,
-  },
-  ...compiled.validation.map((command, index) => ({
-    id: `project-validation-${String(index + 1).padStart(2, '0')}`,
-    summary: 'Run the project-owned validation command exactly as compiled for this task.',
-    command,
-  })),
-]
+): NonNullable<ProjectContextContributionV01['validation']> =>
+  atpValidationSpecifications(compiled).map(item => ({
+    id: item.validationId,
+    summary: item.validationId === 'task-context-current'
+      ? 'Confirm that the persisted ATP Task Context still matches its project inputs and exact repository identity.'
+      : item.validationId === 'task-write-scope'
+        ? 'Before project validation, check all task changes against the compiled allowed and protected scopes.'
+        : 'Run the project-owned validation command exactly as compiled for this task.',
+    command: item.command,
+  }))
 
 const supervisionPathPrefix = (value: string): string =>
   value.replaceAll('\\', '/').replace(/\/\*\*$/, '').replace(/\/$/, '')
@@ -543,10 +548,11 @@ const structuredSupervision = (
       sourceRefs: compiled.rule_owners.map(owner => owner.rule_id),
       target: { resourceId: item.path.replaceAll('\\', '/') },
       satisfaction: {
-        acceptedProviderIds: ['codex-host-adapter'],
+        acceptedProviderIds: [ATP_REQUIRED_RESOURCE_PROVIDER_ID],
         acceptedDispositions: ['FOUND'],
       },
     }))
+  const validationSpecifications = atpValidationSpecifications(compiled)
   const validations = validationObligations(compiled)
   const validationDefinitions: ObligationDefinitionV01[] = validations.map(item => ({
     id: `OBL-ATP-VALIDATION-${item.id.toUpperCase()}`,
@@ -556,11 +562,11 @@ const structuredSupervision = (
     target: { validationId: item.id, targetIdentity: `validation:${item.id}` },
     satisfaction: { requiredResultStatus: 'PASS' },
   }))
-  const evidencePolicies: EvidencePolicyV01[] = validations.map(item => ({
-    id: `POLICY-ATP-VALIDATION-${item.id.toUpperCase()}`,
-    obligationIds: [`OBL-ATP-VALIDATION-${item.id.toUpperCase()}`],
-    acceptedProviderIds: ['codex-host-adapter'],
-    acceptedProviderKinds: ['HOST_ADAPTER'],
+  const evidencePolicies: EvidencePolicyV01[] = validationSpecifications.map(item => ({
+    id: `POLICY-ATP-VALIDATION-${item.validationId.toUpperCase()}`,
+    obligationIds: [`OBL-ATP-VALIDATION-${item.validationId.toUpperCase()}`],
+    acceptedProviderIds: [item.providerId],
+    acceptedProviderKinds: ['VALIDATOR'],
     acceptedResultStatuses: ['PASS'],
     requireExactContextHash: true,
     requireExactProjectRevision: false,
@@ -720,6 +726,11 @@ export function buildAtpIpAnalysisContribution(
 }
 
 export class AtpContextContributorService extends Service {
+  private readonly compiledByTask = new Map<string, {
+    readonly rootPath: string
+    readonly compiled: AtpCompiledTaskContext
+  }>()
+
   constructor(ctx: Context) {
     super(ctx, ATP_CONTEXT_CONTRIBUTOR_SERVICE)
   }
@@ -748,10 +759,48 @@ export class AtpContextContributorService extends Service {
     const compiled = request.phase === 'analysis'
       ? compileAtpTaskContext(rootPath, request, task)
       : loadCurrentAtpTaskContext(rootPath, request, task)
+    this.compiledByTask.set(request.taskId, { rootPath, compiled })
     return {
       applicable: true,
       contribution: buildAtpIpAnalysisContribution(rootPath, request, task, compiled),
     }
+  }
+
+  matchGateEvidenceInvocation(
+    request: AtpGateEvidenceInvocationRequestV01,
+  ): AtpGateEvidenceMatchResultV01 {
+    return matchAtpGateEvidenceInvocation(this.requireCompiledContext(request), request)
+  }
+
+  buildValidationReceipt(
+    request: AtpGateEvidenceInvocationRequestV01,
+  ): AtpValidationReceiptResultV01 {
+    return buildAtpValidationReceipt(this.requireCompiledContext(request), request)
+  }
+
+  executeGateEvidence(
+    request: AtpGateEvidenceExecutionRequestV01,
+  ): Promise<AtpGateEvidenceExecutionResultV01> {
+    return executeAtpGateEvidence(
+      this.requireCompiledContext(request),
+      request,
+    )
+  }
+
+  private requireCompiledContext(
+    request: AtpGateEvidenceInvocationRequestV01 | AtpGateEvidenceExecutionRequestV01,
+  ): AtpCompiledTaskContext {
+    if (request.projectId !== ATP_PROJECT_ID) {
+      throw new Error(`ATP Gate Evidence project mismatch: ${request.projectId}`)
+    }
+    const cached = this.compiledByTask.get(request.taskId)
+    if (!cached) {
+      throw new Error('ATP Gate Evidence has no Task Context snapshot from this governed Runtime')
+    }
+    if (!samePath(cached.rootPath, request.workspacePath)) {
+      throw new Error('ATP Gate Evidence workspace does not match the governed Task Context')
+    }
+    return cached.compiled
   }
 }
 

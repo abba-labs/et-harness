@@ -137,6 +137,15 @@ describe('Automated Testing Platform public manager integration', () => {
       .toBe('governance.scope.check')
     expect(gates.getExecutionPlan(ATP_PROJECT_ID, 'G010.010.010')?.steps[0]?.tool)
       .toBe('governance.context.compile')
+    for (const gateId of [
+      'G010.010.010',
+      'G010.010.020',
+      'G010.010.030',
+      'G010.010.040',
+    ]) {
+      expect(gates.getExecutionPlan(ATP_PROJECT_ID, gateId)?.steps)
+        .toEqual([expect.objectContaining({ role: 'EVIDENCE_PRODUCER' })])
+    }
 
     const sources = readFileSync(
       resolve(requiredPath(registry, 'knowledge'), 'SOURCES.yaml'),
