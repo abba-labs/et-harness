@@ -4,6 +4,22 @@
 
 ET-TOOL 作为第一套项目插件和试点工程，用于验证总线、插件协议、治理体系、上下文记忆、测试知识、持续集成和自我迭代等能力。
 
+## First read: Real Requirements
+
+在设计或修改某项 Host / Agent / Project Plugin 能力前，先阅读与任务相关的真实需求：
+
+```text
+requirements/
+```
+
+这里记录“真正要做什么、为什么要做、哪些方向已经明确否决”，避免新 Agent 只根据历史实现或阶段性设计反推用户目标。
+
+当前 ChatGPT 网页版 Host 的真实定位见：
+
+```text
+requirements/001_WEB_CHATGPT_HOST_REAL_REQUIREMENTS.md
+```
+
 核心原则：
 
 - 一切皆插件；
