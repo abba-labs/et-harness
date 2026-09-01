@@ -49,6 +49,18 @@ interface RuntimeDeploymentConfig {
   projectBindings: ProjectBinding[]
 }
 
+interface TrustedValidationSpanInput {
+  cwd: string
+  runtimeId: string
+  turnId: string
+  requestEventId: string
+  requestManifest: Record<string, unknown>
+  validationEventId: string
+  validationReceipt: Record<string, unknown>
+  responseEventId: string
+  responseManifest: Record<string, unknown>
+}
+
 const tick = (): Promise<void> => new Promise(resolveTick => setTimeout(resolveTick, 0))
 const storeToken = (runtimeId: string, turnId: string): string =>
   createHash('sha256').update(`${runtimeId}\0${turnId}`).digest('hex')
@@ -151,6 +163,54 @@ class PureMcpRuntimeOwner {
   runtimePort(): GovernanceHostRuntimePortV01 {
     if (!this.port) throw new Error('Pure MCP Runtime owner is not ready')
     return this.port
+  }
+
+  async ingestTrustedValidationSpan(input: TrustedValidationSpanInput) {
+    if (!this.runtime) throw new Error('Pure MCP Runtime owner is not ready')
+    await selectProjectBinding(this.config, input.cwd)
+
+    // Queue all three events synchronously on the Runtime ingest tail so no
+    // unrelated Host event can interleave inside the persisted trusted span.
+    const request = this.runtime.ingestExecutionEvent({
+      runtimeId: input.runtimeId,
+      turnId: input.turnId,
+      eventId: input.requestEventId,
+      kind: 'USER_MESSAGE',
+      payload: { requestManifest: input.requestManifest },
+    })
+    const validation = this.runtime.ingestExecutionEvent({
+      runtimeId: input.runtimeId,
+      turnId: input.turnId,
+      eventId: input.validationEventId,
+      kind: 'VALIDATION_RESULT',
+      payload: { receipt: input.validationReceipt },
+    })
+    const response = this.runtime.ingestExecutionEvent({
+      runtimeId: input.runtimeId,
+      turnId: input.turnId,
+      eventId: input.responseEventId,
+      kind: 'ASSISTANT_MESSAGE',
+      payload: { responseManifest: input.responseManifest },
+    })
+    const [requestResult, validationResult, responseResult] = await Promise.all([
+      request,
+      validation,
+      response,
+    ])
+    for (const [label, result] of [
+      ['request', requestResult],
+      ['validation', validationResult],
+      ['response', responseResult],
+    ] as const) {
+      if (result.acceptance.status === 'REJECTED') {
+        throw new Error(`Trusted validation ${label} event was rejected: ${result.acceptance.reasons.join('; ')}`)
+      }
+    }
+    return {
+      request: requestResult,
+      validation: validationResult,
+      response: responseResult,
+    }
   }
 
   async stop(): Promise<void> {
@@ -309,6 +369,10 @@ export const createPureMcpRuntimeModule = (deploymentConfigPath: string) => {
     async createGovernanceHostRuntimePort(input: { cwd: string }) {
       await selectProjectBinding(await config(), input.cwd)
       return (await owner()).runtimePort()
+    },
+    async ingestTrustedValidationSpan(input: TrustedValidationSpanInput) {
+      await selectProjectBinding(await config(), input.cwd)
+      return (await owner()).ingestTrustedValidationSpan(input)
     },
     async close() {
       if (ownerPromise) await (await ownerPromise).stop()
