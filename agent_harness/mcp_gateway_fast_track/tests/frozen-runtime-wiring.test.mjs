@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import {
   environmentRoot,
@@ -11,7 +12,7 @@ import {
   createFileSnapshotStore,
   createGovernanceController,
 } from '../src/governance.mjs'
-import { createFrozenRuntimeAccess } from '../src/runtime-release.mjs'
+import { verifyActiveRuntimeRelease } from '../src/runtime-release.mjs'
 
 const stateParent = resolve(
   environmentRoot,
@@ -24,13 +25,45 @@ const stateRoot = await mkdtemp(join(stateParent, 'case-'))
 after(async () => rm(stateRoot, { recursive: true, force: true }))
 
 test('real frozen Runtime keeps explicit WRITE_SCOPE preflight truthful under AUDIT', async () => {
-  const runtimeAccess = createFrozenRuntimeAccess({
-    releasePointerPath: resolve(
-      environmentRoot,
-      'state',
-      'pure-mcp-fast-track',
-      'active-release.json',
-    ),
+  const release = await verifyActiveRuntimeRelease(resolve(
+    environmentRoot,
+    'state',
+    'pure-mcp-fast-track',
+    'active-release.json',
+  ))
+  const deploymentPath = resolve(stateRoot, 'deployment.json')
+  await writeFile(deploymentPath, `${JSON.stringify({
+    schema: 'et-harness.pure-mcp-runtime-deployment.v1',
+    environmentRoot,
+    stateRoot: resolve(stateRoot, 'runtime-state'),
+    eventStoreRoot: resolve(stateRoot, 'execution-events'),
+    projectBindings: [{
+      projectId: 'et-automated-testing-platform',
+      projectRoot: repositoryRoot,
+      projectManifestPath: resolve(
+        repositoryRoot,
+        'agent_harness',
+        'projects',
+        'automated_testing_platform',
+        'project.yaml',
+      ),
+      allowedWorkspaceRoots: [repositoryRoot],
+      projectPluginEntryPath: resolve(release.releaseRoot, 'atp-project-plugin.mjs'),
+      projectPluginReadinessService: 'atpContextContributor',
+    }],
+  })}\n`, 'utf8')
+  const namespace = await import(pathToFileURL(release.runtimeArtifactPath).href)
+  const runtimeModule = namespace.createPureMcpRuntimeModule(deploymentPath)
+  const port = await runtimeModule.createGovernanceHostRuntimePort({ cwd: repositoryRoot })
+  const runtimeAccess = Object.freeze({
+    resolveProject: workspacePath => runtimeModule.resolveProject(workspacePath),
+    openTurn: input => port.openTurn(input),
+    getStatus: snapshot => port.getStatus(snapshot.runtimeId),
+    observeWork: (snapshot, input) => port.observeWork(input),
+    preflightAction: (snapshot, input) => port.preflightAction(input),
+    closeTurn: (snapshot, input) => port.closeTurn(input),
+    ingest: (snapshot, input) => port.ingestExecutionEvent(input),
+    close: () => runtimeModule.close(),
   })
   const controller = createGovernanceController({
     runtimeAccess,
