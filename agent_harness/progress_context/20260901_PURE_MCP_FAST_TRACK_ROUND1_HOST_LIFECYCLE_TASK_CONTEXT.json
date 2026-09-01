@@ -1,0 +1,122 @@
+{
+  "schema": "et.task-context.v1",
+  "generated_at": "2026-09-01T14:54:36+08:00",
+  "fingerprint": "0652f49f8722e9fd97b191516afa0f5e0b9d726e9a002f3c98300e55342f18d6",
+  "task": {
+    "id": "20260901-pure-mcp-round1-host-lifecycle",
+    "intent": "Isolate the local ET Harness MCP Gateway process lifecycle from Codex Desktop, add gateway-only GET /health, preserve /mcp and verify reconnect without changing Runtime, ATP Project Plugin, legacy Codex integration, hooks, marketplace, or tool schemas.",
+    "modules": [
+      "harness-host-adapter"
+    ],
+    "changes": [
+      "mcp-gateway"
+    ],
+    "lanes": [
+      "tooling"
+    ],
+    "ip": null,
+    "chip": null,
+    "matched_changes_by_module": {
+      "harness-host-adapter": [
+        "mcp-gateway"
+      ]
+    }
+  },
+  "repository": {
+    "available": true,
+    "branch": "codex/fast-track-pure-mcp-atp-v0.1",
+    "head": "a3a5b140c1eb6e081ce5b1d7cb724620d116446b",
+    "dirty": false
+  },
+  "source_inputs": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "1a2c41c6f7d799df2b1ff098c853f71ea43fed07839c4c3dee3670abd74f0c3d"
+    },
+    {
+      "path": "project-governance/modules/harness-host-adapter.yaml",
+      "sha256": "7a7a003b7f7b09dbc8e78ed50cfc4ede9a10ded0d2d486a85582940f4c39f094"
+    },
+    {
+      "path": "project-governance/system-map.yaml",
+      "sha256": "c0ef2d3a3681a698814db7801ed3ef69fe21059d29bf759ed4242b8c5a13846a"
+    },
+    {
+      "path": "report/design/rule_owner_catalog.yaml",
+      "sha256": "6d906830875ff3cdf813596a8c5eec06472ed3ad3cc713fe5be95d4a259a9b97"
+    },
+    {
+      "path": "report/design/rules/R002_task_context_navigation.md",
+      "sha256": "a5a94827eb26d21bb8e6fa75bb28f200bd136162e6957abb05b20635692b7b3c"
+    }
+  ],
+  "architecture": [
+    {
+      "module": "harness-host-adapter",
+      "summary": "Host专属的轻量协议适配入口；只翻译Host调用，不拥有公共Runtime或项目业务语义。",
+      "chain": [
+        "Codex MCP Client -> Thin MCP Gateway -> Governance Runtime Port",
+        "Governance Runtime -> Project Plugin -> Project Task Context"
+      ]
+    }
+  ],
+  "must_read": [
+    {
+      "path": "AGENTS.md",
+      "reason": "仓库最高执行契约和冻结公共架构边界",
+      "required": true,
+      "exists": true
+    },
+    {
+      "path": "agent_harness/design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md",
+      "reason": "Host Adapter只翻译Host事件且不得拥有Runtime语义",
+      "required": true,
+      "exists": true
+    },
+    {
+      "path": "agent_harness/public_plugins/governance_runtime",
+      "reason": "后续阶段只通过现有Host-neutral Runtime Port接入",
+      "required": true,
+      "exists": true
+    },
+    {
+      "path": "agent_harness/mcp_gateway_fast_track",
+      "reason": "纯MCP快速通道的唯一Host适配实现目录",
+      "required": false,
+      "exists": true
+    },
+    {
+      "path": "report/design/rules/R002_task_context_navigation.md",
+      "reason": "活动规则Owner：task_context_navigation / ## 2. 强制执行链路",
+      "required": true,
+      "exists": true
+    }
+  ],
+  "rule_owners": [
+    {
+      "owner_id": "task_context_navigation",
+      "rule_id": "ET-RULE-TASK-CONTEXT",
+      "source": "report/design/rules/R002_task_context_navigation.md",
+      "heading": "## 2. 强制执行链路"
+    }
+  ],
+  "write_scope": {
+    "allowed": [
+      "agent_harness/mcp_gateway_fast_track/**",
+      "agent_harness/progress_context/20260901_PURE_MCP_FAST_TRACK_*.json"
+    ],
+    "protected": [
+      "agent_harness/public_plugins/**",
+      "agent_harness/governance_core/**",
+      "agent_harness/projects/**",
+      "agent_harness/host_adapters/**",
+      "agent_harness/deployments/**",
+      "plugins/**"
+    ]
+  },
+  "validation": [
+    "npm test --prefix agent_harness/mcp_gateway_fast_track"
+  ],
+  "integrity_fingerprint": "d0596e07c6a63982b5e1e26825c98e5f8b3e24036d87561b415316ca1ce00d5b",
+  "scope_baseline": "20260901_PURE_MCP_FAST_TRACK_ROUND1_HOST_LIFECYCLE_TASK_CONTEXT.json.baseline.json"
+}

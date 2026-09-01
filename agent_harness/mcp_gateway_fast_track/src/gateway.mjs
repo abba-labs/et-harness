@@ -9,10 +9,12 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 
 import {
+  createGatewayProcessHealth,
   createHealthResult,
   GATEWAY_API,
   GATEWAY_VERSION,
 } from './tools/health.mjs'
+import { assertExternalGatewayLauncher } from '../scripts/launcher-policy.mjs'
 
 export const MCP_INSTRUCTIONS =
   'For every non-trivial task in a configured workspace, call harness_begin before project analysis or modification. Follow the returned mustRead, ruleOwners, writeScope, validation, and knownConflicts. Submit material source facts and conflicts through harness_observe. Query harness_status before claiming completion. Call harness_complete; the model must not self-declare PASS or COMPLETE. Do not expose internal Runtime, Ledger, auth, or raw Closure data.'
@@ -131,8 +133,7 @@ export const createGatewayServer = async (overrides = {}) => {
     if (server) await server.close()
   }
 
-  const handleMcpRequest = async (request, response) => {
-    const requestUrl = new URL(request.url ?? '/', `http://${options.host}`)
+  const handleMcpRequest = async (request, response, requestUrl) => {
     if (requestUrl.pathname !== options.path) {
       sendRpcError(response, 404, -32601, 'MCP endpoint not found')
       return
@@ -170,8 +171,26 @@ export const createGatewayServer = async (overrides = {}) => {
     await transport.handleRequest(request, response, body)
   }
 
+  const handleHttpRequest = async (request, response) => {
+    const requestUrl = new URL(request.url ?? '/', `http://${options.host}`)
+    if (requestUrl.pathname === '/health') {
+      if (request.method !== 'GET') {
+        sendJson(
+          response,
+          405,
+          { status: 'METHOD_NOT_ALLOWED' },
+          { allow: 'GET' },
+        )
+        return
+      }
+      sendJson(response, 200, createGatewayProcessHealth())
+      return
+    }
+    await handleMcpRequest(request, response, requestUrl)
+  }
+
   const httpServer = createHttpServer((request, response) => {
-    void handleMcpRequest(request, response).catch((error) => {
+    void handleHttpRequest(request, response).catch((error) => {
       process.stderr.write(
         `${JSON.stringify({ event: 'mcp_request_failed', message: error instanceof Error ? error.message : 'Unknown error' })}\n`,
       )
@@ -212,6 +231,7 @@ const isMainModule = () => {
 }
 
 if (isMainModule()) {
+  assertExternalGatewayLauncher()
   const portOverride = process.env.ET_HARNESS_GATEWAY_PORT
   const gateway = await createGatewayServer(
     portOverride === undefined ? {} : { port: Number.parseInt(portOverride, 10) },

@@ -4,6 +4,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { connect } from 'node:net'
 
+import { assertExternalGatewayLauncher } from './launcher-policy.mjs'
+
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(packageRoot, '..', '..')
@@ -41,6 +43,7 @@ const waitForGateway = async (timeoutMs = 10_000) => {
 }
 
 const start = async () => {
+  const launcherProcesses = assertExternalGatewayLauncher()
   mkdirSync(stateDirectory, { recursive: true })
   if (readExistingPid()?.pid && isRunning(readExistingPid().pid)) {
     throw new Error(`Gateway is already running with PID ${readExistingPid().pid}`)
@@ -59,7 +62,12 @@ const start = async () => {
   closeSync(stderr)
   writeFileSync(
     pidFile,
-    `${JSON.stringify({ pid: child.pid, gatewayEntry, startedAt: new Date().toISOString() })}\n`,
+    `${JSON.stringify({
+      pid: child.pid,
+      gatewayEntry,
+      startedAt: new Date().toISOString(),
+      launcher: launcherProcesses.map(({ processId, name }) => ({ processId, name })),
+    })}\n`,
     'utf8',
   )
 

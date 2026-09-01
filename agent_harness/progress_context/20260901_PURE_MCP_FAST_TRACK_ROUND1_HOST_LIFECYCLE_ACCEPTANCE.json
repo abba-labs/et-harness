@@ -1,0 +1,54 @@
+{
+  "schema": "et.pure-mcp-fast-track.round1-host-lifecycle-acceptance.v1",
+  "recorded_at": "2026-09-01T15:09:05+08:00",
+  "status": "ROUND1_HOST_LIFECYCLE_PASS",
+  "scope": {
+    "implemented": "Gateway process lifecycle isolation and Gateway-only GET /health",
+    "excluded": [
+      "Governance Runtime",
+      "ATP Project Plugin",
+      "legacy Codex Plugin",
+      "Hooks",
+      "Marketplace",
+      "MCP tool schema",
+      "Round 2"
+    ]
+  },
+  "gateway": {
+    "launcher": "agent_harness/mcp_gateway_fast_track/start-et-harness-gateway.cmd",
+    "pid": 33796,
+    "started_at": "2026-09-01T07:01:42.830Z",
+    "launcher_ancestry": [
+      "node.exe",
+      "cmd.exe",
+      "explorer.exe"
+    ],
+    "codex_ancestor_present": false,
+    "listener": "127.0.0.1:8765",
+    "health_endpoint": "http://127.0.0.1:8765/health",
+    "mcp_endpoint": "http://127.0.0.1:8765/mcp"
+  },
+  "acceptance": {
+    "gateway_independent_start": "PASS",
+    "codex_internal_start_rejected": "PASS",
+    "health_http_200": "PASS",
+    "mcp_initialize": "PASS",
+    "mcp_tools_list": "PASS",
+    "mcp_harness_health": "PASS",
+    "codex_first_connection": "PASS",
+    "codex_exit_gateway_survival": "PASS",
+    "codex_second_connection_without_gateway_restart": "PASS"
+  },
+  "lifecycle_proof": {
+    "pid_before_codex_restart": 33796,
+    "pid_after_first_codex_restart": 33796,
+    "pid_after_second_codex_restart": 33796,
+    "listener_pid_after_second_codex_restart": 33796,
+    "health_process_id_after_second_codex_restart": 33796,
+    "second_health_uptime_seconds_observed": 418
+  },
+  "codex_configuration_observed": {
+    "enabled": true,
+    "required": false
+  }
+}

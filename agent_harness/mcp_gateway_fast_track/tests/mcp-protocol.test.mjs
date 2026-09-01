@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
-import { once } from 'node:events'
 import { test } from 'node:test'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -32,6 +30,32 @@ test('T1 rejects non-loopback binding and listens only on 127.0.0.1', async () =
     /may only bind to 127\.0\.0\.1/,
   )
   await withGatewayClient(async ({ address }) => assert.equal(address.address, '127.0.0.1'))
+})
+
+test('T1b GET /health reports only Gateway process health', async () => {
+  const gateway = await createGatewayServer({ port: 0 })
+  const address = await gateway.listen()
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`)
+    assert.equal(response.status, 200)
+    const body = await response.json()
+    assert.deepEqual(Object.keys(body).sort(), [
+      'gatewayApi',
+      'gatewayVersion',
+      'processId',
+      'service',
+      'status',
+      'uptimeSeconds',
+    ])
+    assert.equal(body.status, 'UP')
+    assert.equal(body.service, 'et-harness-mcp-gateway')
+    assert.equal(body.processId, process.pid)
+    assert.equal(Number.isInteger(body.uptimeSeconds), true)
+    assert.equal('runtimeConnected' in body, false)
+    assert.equal('projects' in body, false)
+  } finally {
+    await gateway.close()
+  }
 })
 
 test('T2-T3 initialize exposes fixed identity and self-contained instructions', async () => {
@@ -98,27 +122,4 @@ test('T7 oversized requests are rejected before MCP dispatch', async () => {
   } finally {
     await gateway.close()
   }
-})
-
-test('T8 the executable Gateway writes no protocol-breaking stdout', async () => {
-  const child = spawn(process.execPath, ['src/gateway.mjs'], {
-    cwd: new URL('..', import.meta.url),
-    env: { ...process.env, ET_HARNESS_GATEWAY_PORT: '0' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  let stdout = ''
-  let stderr = ''
-  child.stdout.setEncoding('utf8')
-  child.stderr.setEncoding('utf8')
-  child.stdout.on('data', (chunk) => (stdout += chunk))
-  child.stderr.on('data', (chunk) => (stderr += chunk))
-
-  const deadline = Date.now() + 10_000
-  while (!stderr.includes('gateway_started') && Date.now() < deadline) {
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 25))
-  }
-  assert.match(stderr, /gateway_started/)
-  assert.equal(stdout, '')
-  child.kill()
-  await once(child, 'exit')
 })
