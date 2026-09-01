@@ -4,6 +4,29 @@
 
 ET-TOOL 作为第一套项目插件和试点工程，用于验证总线、插件协议、治理体系、上下文记忆、测试知识、持续集成和自我迭代等能力。
 
+## 当前生产任务入口
+
+当前优先级已经从“继续测试 Framework 本身”切换为“使用现有 ET Harness / ATP Project Plugin 支撑真实芯片 IP 分析与测试开发”。
+
+下一对话、下一 Host 或新的 Agent 在继续 ET6801 IP 工作前，先读取：
+
+```text
+progress_context/20260901_IP_ANALYSIS_AND_TEST_DEVELOPMENT_HANDOFF_V0_1.md
+```
+
+该文档包含：
+
+- 当前 ET Harness / ATP 基线；
+- 当前哪些 Project Plugin / Rule / Knowledge / Context / Source Registry 能力可以直接使用；
+- 哪些 Framework 问题暂时冻结、不阻塞生产任务；
+- 统一 IP 分析流程；
+- ET6801 XBAR 当前证据与已知冲突；
+- XBAR Feature / Case / 测试代码的下一步实施顺序。
+
+核心执行原则：
+
+> Framework 作为治理基础设施使用；IP 分析正确性、测试设计质量和测试代码可执行性优先。不要等待 Portable Runtime 完成后才继续真实 IP 工作。
+
 核心原则：
 
 - 一切皆插件；
