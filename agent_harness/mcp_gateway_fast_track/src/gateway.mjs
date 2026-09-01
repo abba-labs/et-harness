@@ -22,9 +22,13 @@ import {
   createGovernanceController,
   governanceToolError,
 } from './governance.mjs'
+import {
+  createTrustedCheckpointController,
+  registerTrustedCheckpointTools,
+} from './trusted-checkpoint.mjs'
 
 export const MCP_INSTRUCTIONS =
-  'For every non-trivial task in a configured workspace, call harness_begin before project analysis or modification. Follow the returned mustRead, ruleOwners, writeScope, validation, and knownConflicts. Submit material source facts and conflicts through harness_observe. Query harness_status before claiming completion. Call harness_complete; the model must not self-declare PASS or COMPLETE. Do not expose internal Runtime, Ledger, auth, or raw Closure data.'
+  'For every non-trivial task in a configured workspace, call harness_begin before project analysis or modification. Read frozen required mustRead filesystem resources through harness_read_required when eligible. Follow ruleOwners and writeScope, submit semantic work facts through harness_observe, and call harness_preflight before planned mutations. Call harness_checkpoint after meaningful work to let ET Harness run only frozen validations and emit trusted execution evidence. Query harness_status before claiming completion. Call harness_complete; the model must not self-declare PASS or COMPLETE. Do not expose internal Runtime, Ledger, auth, or raw Closure data.'
 
 const CONFIG_URL = new URL('../config/gateway.local.json', import.meta.url)
 
@@ -259,6 +263,13 @@ const createProtocolServer = (governance) => {
     },
   )
 
+  registerTrustedCheckpointTools({
+    server,
+    governance,
+    toolResult,
+    governanceToolError,
+  })
+
   return server
 }
 
@@ -293,14 +304,23 @@ const normalizeOptions = async (overrides) => {
 export const createGatewayServer = async (overrides = {}) => {
   const { governanceController, ...optionOverrides } = overrides
   const options = await normalizeOptions(optionOverrides)
-  const governance = governanceController ?? createGovernanceController({
-    runtimeAccess: createBridgeRuntimeAccess({
+  let governance = governanceController
+  if (!governance) {
+    const base = createGovernanceController({
+      runtimeAccess: createBridgeRuntimeAccess({
+        bridgeClientPath: options.runtimeBridgeClientPath,
+        deploymentConfigPath: options.runtimeDeploymentConfigPath,
+      }),
+      snapshotStore: createFileSnapshotStore(options.taskSnapshotRoot),
+      projects: options.projects,
+    })
+    const trusted = createTrustedCheckpointController({
       bridgeClientPath: options.runtimeBridgeClientPath,
       deploymentConfigPath: options.runtimeDeploymentConfigPath,
-    }),
-    snapshotStore: createFileSnapshotStore(options.taskSnapshotRoot),
-    projects: options.projects,
-  })
+      taskSnapshotRoot: options.taskSnapshotRoot,
+    })
+    governance = Object.freeze({ ...base, ...trusted })
+  }
   const transports = new Map()
   const protocolServers = new Map()
 
