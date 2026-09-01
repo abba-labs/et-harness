@@ -10,6 +10,8 @@ export * from './contracts.js'
 export * from './turn-observation-store.js'
 export * from './knowledge-governance-decision.js'
 export * from './tool-gateway.js'
+export * from './host-runtime-port.js'
+export * from './baseline-supervision-compiler.js'
 export * from './service.js'
 
 export const name = 'agent-harness-governance-runtime'

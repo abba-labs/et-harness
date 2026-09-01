@@ -2,12 +2,17 @@ import type {
   GovernanceActionPreflightInput,
   GovernanceActionPreflightResult,
   GovernanceActionEffect,
+  GovernanceGateEvidenceProducerPreflightInput,
   GovernanceWorkObservationResult,
 } from './contracts.js'
 import type { MutationIntentV01 } from '@agent-harness/execution-supervisor'
 
 export interface GovernanceToolRuntimePort {
   preflightAction(input: GovernanceActionPreflightInput): GovernanceActionPreflightResult
+  /** Runtime-only path; the least-authority Host Runtime Port does not expose it. */
+  preflightGateEvidenceProducer?(
+    input: GovernanceGateEvidenceProducerPreflightInput,
+  ): GovernanceActionPreflightResult
   observeWork(input: {
     readonly kind: 'tool-result'
     readonly runtimeId: string
@@ -50,6 +55,12 @@ export type GovernedToolEffectDefinition =
       readonly kind: 'MUTATION'
       readonly intent: (invocation: GovernedToolPlanningInput) => MutationIntentV01
     }
+  | {
+      readonly kind: 'GATE_EVIDENCE_PRODUCER'
+      readonly gateId: string
+      readonly stepId: string
+      readonly capability: string
+    }
 
 export interface GovernedToolDefinition<T = unknown> {
   readonly name: string
@@ -59,6 +70,11 @@ export interface GovernedToolDefinition<T = unknown> {
   /** Trusted Host event identity mapper required by supervised ENFORCE. */
   readonly eventIdentity?: (invocation: GovernedToolPlanningInput) => string
 }
+
+type ResolvedGovernedToolEffect = GovernanceActionEffect | Extract<
+  GovernedToolEffectDefinition,
+  { readonly kind: 'GATE_EVIDENCE_PRODUCER' }
+>
 
 export type GovernedToolExecutionResult<T = unknown> =
   | {
@@ -109,6 +125,15 @@ const validateEffectDefinition = (effect: GovernedToolEffectDefinition | undefin
       && keys[0] === 'intent'
       && keys[1] === 'kind'
       && typeof effect.intent === 'function') return
+  if (effect.kind === 'GATE_EVIDENCE_PRODUCER'
+      && keys.length === 4
+      && keys[0] === 'capability'
+      && keys[1] === 'gateId'
+      && keys[2] === 'kind'
+      && keys[3] === 'stepId'
+      && effect.capability.trim().length > 0
+      && effect.gateId.trim().length > 0
+      && effect.stepId.trim().length > 0) return
   throw new Error('Governed Tool effect definition is malformed or unsupported')
 }
 
@@ -154,7 +179,14 @@ export class GovernedToolGateway {
         ? { kind: 'READ_ONLY' as const }
         : definition.effect?.kind === 'MUTATION'
           ? { kind: 'MUTATION' as const, intent: definition.effect.intent }
-          : undefined
+          : definition.effect?.kind === 'GATE_EVIDENCE_PRODUCER'
+            ? {
+                kind: 'GATE_EVIDENCE_PRODUCER' as const,
+                capability: definition.effect.capability.trim(),
+                gateId: definition.effect.gateId.trim(),
+                stepId: definition.effect.stepId.trim(),
+              }
+            : undefined
       this.tools.set(key, {
         name,
         execute: definition.execute as GovernedRawToolExecutor<unknown>,
@@ -187,7 +219,7 @@ export class GovernedToolGateway {
       name: tool.name,
       ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
     }
-    let effect: GovernanceActionEffect | undefined
+    let effect: ResolvedGovernedToolEffect | undefined
     let trustedEventRef: string | undefined
     try {
       effect = tool.effect?.kind === 'MUTATION'
@@ -205,14 +237,28 @@ export class GovernedToolGateway {
       }
     }
 
-    const preflight = this.runtime.preflightAction({
-      runtimeId: invocation.runtimeId,
-      turnId: invocation.turnId,
-      name: tool.name,
-      ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
-      ...(trustedEventRef ? { eventRef: trustedEventRef } : {}),
-      ...(effect ? { effect } : {}),
-    })
+    const preflight = effect?.kind === 'GATE_EVIDENCE_PRODUCER'
+      ? this.runtime.preflightGateEvidenceProducer?.({
+          runtimeId: invocation.runtimeId,
+          turnId: invocation.turnId,
+          name: tool.name,
+          ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
+          ...(trustedEventRef ? { eventRef: trustedEventRef } : {}),
+          gateId: effect.gateId,
+          stepId: effect.stepId,
+          capability: effect.capability,
+        }) ?? {
+          allowed: false,
+          reason: 'Governance Runtime does not expose the trusted Gate producer preflight path.',
+        }
+      : this.runtime.preflightAction({
+          runtimeId: invocation.runtimeId,
+          turnId: invocation.turnId,
+          name: tool.name,
+          ...(invocation.arguments !== undefined ? { arguments: invocation.arguments } : {}),
+          ...(trustedEventRef ? { eventRef: trustedEventRef } : {}),
+          ...(effect ? { effect } : {}),
+        })
     if (!preflight.allowed) {
       return { status: 'BLOCKED', executorCalled: false, preflight }
     }

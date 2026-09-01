@@ -11,8 +11,11 @@ import type {
 } from '@agent-harness/auto-governance-engine'
 import type {
   CompletionDecisionV01,
+  ExecutionEventAcceptanceV01,
+  ExecutionEventKind,
   ExecutionEventStoreV01,
   HostCapabilityContractV01,
+  JsonRecord,
   MutationIntentV01,
   ObligationLedgerStatusV01,
   SupervisionNegotiationV01,
@@ -160,6 +163,24 @@ export interface GovernanceSupervisionStatus {
   readonly readiness?: SupervisionReadinessReceiptV01
 }
 
+/**
+ * Host-observed execution fact. Runtime supplies every supervision identity and
+ * the canonical sequence; adapters cannot forge Project, Agent or Context data.
+ */
+export interface GovernanceHostExecutionEventInput {
+  readonly runtimeId: string
+  readonly turnId: string
+  readonly eventId: string
+  readonly kind: ExecutionEventKind
+  readonly payload: JsonRecord
+}
+
+export interface GovernanceHostExecutionEventResult {
+  readonly eventRef: string
+  readonly acceptance: ExecutionEventAcceptanceV01
+  readonly supervision: GovernanceSupervisionStatus
+}
+
 export interface GovernanceOpenTurnResult {
   readonly contractVersion: typeof GOVERNANCE_RUNTIME_CONTRACT_VERSION
   readonly runtimeId: string
@@ -228,6 +249,18 @@ export interface GovernanceActionPreflightInput {
 export type GovernanceActionEffect =
   | { readonly kind: 'READ_ONLY' }
   | { readonly kind: 'MUTATION'; readonly intent: MutationIntentV01 }
+
+/** Runtime-side Gate execution input. It is intentionally absent from the Host Runtime Port. */
+export interface GovernanceGateEvidenceProducerPreflightInput {
+  readonly runtimeId: string
+  readonly turnId: string
+  readonly name: string
+  readonly arguments?: unknown
+  readonly eventRef?: string
+  readonly gateId: string
+  readonly stepId: string
+  readonly capability: string
+}
 
 export interface GovernanceActionPreflightResult {
   readonly allowed: boolean

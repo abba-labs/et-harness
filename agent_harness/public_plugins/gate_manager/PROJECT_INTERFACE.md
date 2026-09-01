@@ -51,6 +51,7 @@ nodes:
           steps:
             - id: build
               tool: build.execute
+              role: EVIDENCE_PRODUCER
           pass:
             mode: all_steps_pass
           refs: []
@@ -75,6 +76,17 @@ tool
 ```
 
 `tool` 必须是稳定 Tool Capability，不允许把项目命令写进公共 Gate Manager。
+
+新 Gate Step 应显式声明：
+
+```text
+role = REVIEW | EVIDENCE_PRODUCER
+```
+
+`REVIEW` 由 Review Provider 生成 Review Packet 并记录 PASS/BLOCK；
+`EVIDENCE_PRODUCER` 由 Runtime 受信注册的 Gate 执行入口产生机械 Evidence。
+为兼容既有 `gate-v0.1`，缺少 `role` 仍按旧 Review 流程处理，但不会获得新的
+Provider fail-fast 或 Evidence Producer 放行能力。
 
 ## 5. Gate Manager 输出
 
@@ -101,6 +113,7 @@ Node ID 重复 / 错位
 Branch 和 Gate 混用
 Gate 缺 level / when / steps / pass
 Step 缺 id / tool
+Step role 非法
 Step ID 重复
 Tool Capability 格式非法
 Index 与实际文件不一致

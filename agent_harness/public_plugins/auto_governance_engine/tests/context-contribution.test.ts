@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { GovernanceProviderRegistration } from '@agent-harness/governance-core'
 import type { ProjectContext } from '@agent-harness/project-contract'
+import { MANDATORY_LIFECYCLE_CLOSURE_MODULE_IDS } from '@agent-harness/execution-supervisor'
 import {
   PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
   PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA,
   PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
+  PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA,
   mergeContributionInlineItems,
   mergeContributionReferences,
   replaceContributionInlineItems,
@@ -106,6 +108,28 @@ const validService = {
         title: 'Analysis Output Contract',
         content: 'Required sections:\n- Stable Contract\n- Evidence\n- Unknowns',
       },
+      supervision: {
+        schema: PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA,
+        obligations: [{
+          id: 'OBL-SYNTHETIC-READ',
+          kind: 'REQUIRED_RESOURCE',
+          severity: 'MUST',
+          sourceRefs: ['R010'],
+          target: { resourceId: 'project://synthetic/required' },
+          satisfaction: { acceptedProviderIds: ['host.filesystem'], acceptedDispositions: ['FOUND'] },
+        }],
+        evidencePolicies: [],
+        completionPolicy: {
+          requireAllMustSatisfied: true,
+          requireNoViolations: true,
+          requireReflection: true,
+          requireKnowledgeDecision: true,
+          requireContextUpdate: true,
+          requireClosureReceipt: true,
+          allowShouldWarnings: true,
+          requiredClosureModuleIds: [...MANDATORY_LIFECYCLE_CLOSURE_MODULE_IDS],
+        },
+      },
     },
   }),
 }
@@ -137,6 +161,7 @@ describe('optional project context contribution contract', () => {
 
     expect(contributions).toHaveLength(1)
     expect(contributions[0]?.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(contributions[0]?.supervision?.obligations[0]?.id).toBe('OBL-SYNTHETIC-READ')
     const items = mergeContributionInlineItems(contributions)
     expect(items.some(item => item.content.includes('write_scope:'))).toBe(true)
     expect(items.some(item => item.content.includes('validate-contract'))).toBe(true)

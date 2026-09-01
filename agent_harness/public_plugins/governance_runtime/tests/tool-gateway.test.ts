@@ -155,6 +155,44 @@ describe('Governed Tool Gateway', () => {
     expect(executor).not.toHaveBeenCalled()
   })
 
+  it('takes Gate Evidence Producer identity only from trusted registration metadata', async () => {
+    const runtime: GovernanceToolRuntimePort = {
+      preflightAction: vi.fn(() => ({ allowed: false, reason: 'wrong preflight path' })),
+      preflightGateEvidenceProducer: vi.fn(input => ({
+        allowed: input.capability === 'test.execute'
+          && input.gateId === 'G010.010.010'
+          && input.stepId === 'unit',
+      })),
+      observeWork: vi.fn(() => observationResult),
+    }
+    const gateway = createGovernedToolGateway(runtime, [{
+      name: 'run_unit_gate',
+      effect: {
+        kind: 'GATE_EVIDENCE_PRODUCER',
+        capability: 'test.execute',
+        gateId: 'G010.010.010',
+        stepId: 'unit',
+      },
+      execute: () => ({ value: 'tested' }),
+    }])
+
+    await expect(gateway.execute({
+      runtimeId: 'runtime-1', turnId: 'turn-1', name: 'run_unit_gate',
+      effect: {
+        kind: 'GATE_EVIDENCE_PRODUCER',
+        capability: 'forged.execute',
+        gateId: 'G999.999.999',
+        stepId: 'forged',
+      },
+    } as never)).resolves.toMatchObject({ status: 'EXECUTED', result: 'tested' })
+    expect(runtime.preflightAction).not.toHaveBeenCalled()
+    expect(runtime.preflightGateEvidenceProducer).toHaveBeenCalledWith(expect.objectContaining({
+      capability: 'test.execute',
+      gateId: 'G010.010.010',
+      stepId: 'unit',
+    }))
+  })
+
   it('preserves the trusted event identity for success and executor errors', async () => {
     const runtime: GovernanceToolRuntimePort = {
       preflightAction: vi.fn(() => ({ allowed: true })),

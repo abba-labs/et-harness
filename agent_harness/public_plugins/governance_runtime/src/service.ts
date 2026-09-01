@@ -12,6 +12,7 @@ import type {
 import type { AutoGovernanceContextEnvelope } from '@agent-harness/auto-governance-engine'
 import type { KnowledgeCategory, KnowledgeTaxonomy } from '@agent-harness/knowledge-manager'
 import {
+  EXECUTION_EVENT_SCHEMA,
   SUPERVISION_LIFECYCLE_BINDING_SCHEMA,
   createExecutionObligationLedger,
   evaluateMutationPreflight,
@@ -37,12 +38,15 @@ import {
   type GovernanceBindSupervisedTurnInput,
   type GovernanceCloseTurnInput,
   type GovernanceCloseTurnResult,
+  type GovernanceGateEvidenceProducerPreflightInput,
   type GovernanceKnowledgeCategoryOption,
   type GovernanceKnowledgeDecision,
   type GovernanceKnowledgePromotion,
   type GovernanceKnowledgeSourceOption,
   type GovernanceKnowledgeVerificationResult,
   type GovernanceHostSupervisionProfile,
+  type GovernanceHostExecutionEventInput,
+  type GovernanceHostExecutionEventResult,
   type GovernanceOpenTurnInput,
   type GovernanceOpenTurnResult,
   type GovernanceRehydrateSupervisedTurnInput,
@@ -56,6 +60,11 @@ import {
   type GovernanceWorkObservationResult,
 } from './contracts.js'
 import { GovernanceTurnObservationStore } from './turn-observation-store.js'
+import {
+  enqueueRuntimeExecutionEvent,
+  type RuntimeExecutionEventIdentity,
+  type RuntimeExecutionIngressState,
+} from './runtime-execution-ingress.js'
 
 interface RuntimeSession {
   runtimeId: string
@@ -69,10 +78,12 @@ interface RuntimeSession {
   supervision?: RuntimeSupervision
 }
 
-interface RuntimeSupervision {
+interface RuntimeSupervision extends RuntimeExecutionIngressState {
   readonly eventStore: ExecutionEventStoreV01
   readonly ledger: ExecutionObligationLedgerV01
   readonly hostProfile?: GovernanceHostSupervisionProfile
+  readonly eventsById: Map<string, RuntimeExecutionEventIdentity>
+  ingestTail: Promise<void>
 }
 
 interface ReflectionJob {
@@ -346,13 +357,13 @@ export class GovernanceRuntimeService extends Service {
       throw new Error(`Supervision Runtime identity mismatch: ${binding.runtimeId} != ${runtimeId}`)
     }
     let session = this.sessions.get(runtimeId)
+    const isCrossProcessRestore = session === undefined
     if (!session) {
       const journal = this.runtimeContext.agentGovernanceKernel.getTurn(contract.taskId, binding.turnId)
       const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId)
-      if (!journal || !reflection) {
-        throw new Error(
-          'Cross-process supervised rehydration requires a durable Kernel Turn and readiness-bound Reflection',
-        )
+      if (!journal) throw new Error('Cross-process supervised rehydration requires a durable Kernel Turn')
+      if (journal.sessionRef !== `governance-runtime://${runtimeId}`) {
+        throw new Error('Persisted Kernel Turn sessionRef does not match supervision Runtime identity')
       }
       if (journal.agentId !== contract.agentId
           || journal.projectBinding.kind !== 'BOUND'
@@ -396,18 +407,45 @@ export class GovernanceRuntimeService extends Service {
       input.hostCapabilities,
       true,
     )
+    if (isCrossProcessRestore) this.restoreAutoGovernanceFromDurableExecution(session)
     const decision = session.supervision!.ledger.getCompletionDecision()
     const currentReadiness = session.supervision!.ledger.getReadinessReceipt()
     if (decision.status !== 'COMPLETE') {
-      if (!currentReadiness
-          || reflectionBindingRef(
-            this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId),
-          ) !== `${currentReadiness.receiptRef}|${supervisionFingerprint(currentReadiness.receiptHash)}`) {
+      const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(
+        contract.taskId,
+        binding.turnId,
+      )
+      if (!reflection && !isCrossProcessRestore) {
+        throw new Error('Persisted Reflection is not bound to the latest durable supervision readiness')
+      }
+      if (reflection && (!currentReadiness
+          || reflectionBindingRef(reflection)
+            !== `${currentReadiness.receiptRef}|${supervisionFingerprint(currentReadiness.receiptHash)}`)) {
         throw new Error('Persisted Reflection is not bound to the latest durable supervision readiness')
       }
     }
     if (decision.status !== 'COMPLETE') session.activeTurnId = binding.turnId
     if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
+  }
+
+  async ingestExecutionEvent(
+    input: GovernanceHostExecutionEventInput,
+  ): Promise<GovernanceHostExecutionEventResult> {
+    const session = this.requireActiveTurn(input.runtimeId, input.turnId)
+    this.requireOpenJournal(session, input.turnId)
+    const supervision = session.supervision
+    if (!supervision) throw new Error('Execution supervision is not bound to the active Runtime Turn')
+
+    const operation = enqueueRuntimeExecutionEvent(supervision, input, {
+      schema: EXECUTION_EVENT_SCHEMA,
+      hashPayload: hashCanonicalJson,
+      now: () => new Date().toISOString(),
+      cleanEventId: value => cleanIdentifier('eventId', value),
+    })
+    return {
+      ...await operation,
+      supervision: this.supervisionStatus(supervision),
+    }
   }
 
   observeWork(input: GovernanceWorkObservation): GovernanceWorkObservationResult {
@@ -536,6 +574,30 @@ export class GovernanceRuntimeService extends Service {
       actorId: session.actorId,
       name: input.name,
       ...(input.arguments !== undefined ? { arguments: input.arguments } : {}),
+    })
+    return reason ? { allowed: false, reason } : { allowed: true }
+  }
+
+  preflightGateEvidenceProducer(
+    input: GovernanceGateEvidenceProducerPreflightInput,
+  ): GovernanceActionPreflightResult {
+    const session = this.requireActiveTurn(input.runtimeId, input.turnId)
+    const profile = session.supervision?.hostProfile
+    if (session.supervision
+        && profile?.negotiation.effectiveLevel === 'ENFORCE'
+        && !input.eventRef?.trim()) {
+      return {
+        allowed: false,
+        reason: 'Supervised ENFORCE Gate producers require a stable Host tool event identity.',
+      }
+    }
+    const reason = this.runtimeContext.autoGovernanceEngine.guardGateEvidenceProducer({
+      actorId: session.actorId,
+      name: input.name,
+      ...(input.arguments !== undefined ? { arguments: input.arguments } : {}),
+      gateId: input.gateId,
+      stepId: input.stepId,
+      capability: input.capability,
     })
     return reason ? { allowed: false, reason } : { allowed: true }
   }
@@ -819,6 +881,24 @@ export class GovernanceRuntimeService extends Service {
     }
   }
 
+  private restoreAutoGovernanceFromDurableExecution(session: RuntimeSession): void {
+    if (!session.activeTurnId || !session.supervision) return
+    const resourceWriteCount = [...session.supervision.eventsById.values()]
+      .filter(event => event.kind === 'RESOURCE_WRITE').length
+    if (resourceWriteCount === 0) return
+    // A durable write proves code may have changed, but in-memory Review decisions
+    // are not durable Evidence. Recreate a fresh fail-closed review epoch instead
+    // of silently trusting pre-restart packet state.
+    this.runtimeContext.autoGovernanceEngine.observeToolResult({
+      actorId: session.actorId,
+      name: 'write_file_durable_rehydration',
+      arguments: {
+        source: 'trusted-execution-event-store',
+        resourceWriteCount,
+      },
+    })
+  }
+
   private async bindSupervision(
     session: RuntimeSession,
     eventStore: ExecutionEventStoreV01,
@@ -872,11 +952,39 @@ export class GovernanceRuntimeService extends Service {
       verifyLifecycleClosure: lifecycle => this.verifyKernelLifecycleBinding(lifecycle),
     }
     const ledger = await createExecutionObligationLedger({ eventStore, lifecycleAuthority: authority })
+    const eventsById = await this.indexExecutionEvents(eventStore)
     session.supervision = {
       eventStore,
       ledger,
       ...(hostProfile ? { hostProfile } : {}),
+      eventsById,
+      ingestTail: Promise.resolve(),
     }
+  }
+
+  private async indexExecutionEvents(
+    eventStore: ExecutionEventStoreV01,
+  ): Promise<Map<string, RuntimeExecutionEventIdentity>> {
+    const eventsById = new Map<string, RuntimeExecutionEventIdentity>()
+    let after: ExecutionEventStoreV01['cursor'] | undefined
+    do {
+      const page = await eventStore.replay({
+        ...(after ? { after } : {}),
+        limit: Math.max(1, eventStore.limits.maxReplayEvents),
+      })
+      for (const event of page.events) eventsById.set(event.eventId, {
+        sequence: event.sequence,
+        timestamp: event.timestamp,
+        kind: event.kind,
+        payloadHash: event.payloadHash,
+      })
+      if (!page.hasMore) break
+      after = page.cursor
+    } while (true)
+    if (eventsById.size !== eventStore.eventCount) {
+      throw new Error('Execution Event Store contains duplicate event identities')
+    }
+    return eventsById
   }
 
   private resolveHostProfile(

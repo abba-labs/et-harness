@@ -187,7 +187,12 @@ describe('Governance Runtime Phase 6 Host enforcement profiles', () => {
       },
     }
     service.sessions = new Map([['runtime-1', runtimeSession]])
-    service.runtimeContext = { autoGovernanceEngine: { guardAction } }
+    service.runtimeContext = {
+      autoGovernanceEngine: {
+        guardAction,
+        guardGateEvidenceProducer: guardAction,
+      },
+    }
 
     expect(service.preflightAction({
       runtimeId: 'runtime-1', turnId: 'turn-1', name: 'write_file', eventRef: 'host-event-1',
@@ -195,10 +200,64 @@ describe('Governance Runtime Phase 6 Host enforcement profiles', () => {
     })).toMatchObject({ allowed: false, reason: expect.stringContaining('outside WRITE_SCOPE') })
     expect(guardAction).not.toHaveBeenCalled()
 
+    expect(service.preflightGateEvidenceProducer({
+      runtimeId: 'runtime-1', turnId: 'turn-1', name: 'pytest', eventRef: 'host-event-gate',
+      capability: 'test.execute', gateId: 'G010.010.010', stepId: 'unit',
+    })).toEqual({ allowed: true })
+    expect(guardAction).toHaveBeenCalledWith(expect.objectContaining({
+      capability: 'test.execute', gateId: 'G010.010.010', stepId: 'unit',
+    }))
+
     runtimeSession.supervision.hostProfile = service.resolveHostProfile('AUDIT', host('host-a'), false)
     expect(service.preflightAction({
       runtimeId: 'runtime-1', turnId: 'turn-1', name: 'write_file',
     })).toEqual({ allowed: true })
-    expect(guardAction).toHaveBeenCalledOnce()
+    expect(guardAction).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects cross-process recovery when the durable Kernel sessionRef names another Runtime', async () => {
+    const service = servicePrototype()
+    service.sessions = new Map()
+    service.runtimeContext = {
+      agentGovernanceKernel: {
+        getTurn: vi.fn(() => ({
+          agentId: 'agent-1',
+          projectBinding: { kind: 'BOUND', projectId: 'project-1' },
+          sessionRef: 'governance-runtime://runtime-original',
+        })),
+        getReflection: vi.fn(() => undefined),
+      },
+    }
+    const eventStore: any = {
+      binding: {
+        runtimeId: 'runtime-forged',
+        turnId: 'turn-1',
+        contract: contract('AUDIT'),
+      },
+    }
+
+    await expect(service.rehydrateSupervisedTurn({
+      runtimeId: 'runtime-forged', eventStore,
+    })).rejects.toThrow('sessionRef does not match')
+  })
+
+  it('fails closed when a Host event targets the wrong Turn or lacks supervision binding', async () => {
+    const service = servicePrototype()
+    service.sessions = new Map([['runtime-1', {
+      runtimeId: 'runtime-1', actorId: 'agent-1', projectId: 'project-1', taskId: 'task-1',
+      activeTurnId: 'turn-1',
+    }]])
+    service.runtimeContext = {
+      agentGovernanceKernel: { getTurn: vi.fn(() => ({ status: 'OPEN' })) },
+    }
+
+    await expect(service.ingestExecutionEvent({
+      runtimeId: 'runtime-1', turnId: 'turn-other', eventId: 'event-1',
+      kind: 'TOOL_RESULT', payload: {},
+    })).rejects.toThrow('active Turn')
+    await expect(service.ingestExecutionEvent({
+      runtimeId: 'runtime-1', turnId: 'turn-1', eventId: 'event-1',
+      kind: 'TOOL_RESULT', payload: {},
+    })).rejects.toThrow('Execution supervision is not bound')
   })
 })

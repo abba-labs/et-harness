@@ -11,6 +11,7 @@ export interface AutoGovernanceContextContributionReceipt {
   readonly fingerprint: string
   readonly referenceIds: readonly string[]
   readonly inlineItemIds: readonly string[]
+  readonly supervision?: ProjectSupervisionContributionV01
 }
 
 export type AutoGovernanceReviewDecision = 'PENDING' | 'PASS' | 'BLOCK'
@@ -79,6 +80,15 @@ export interface AutoGovernanceActionCheck {
   readonly arguments?: unknown
 }
 
+export interface AutoGovernanceGateEvidenceProducerCheck {
+  readonly actorId: string
+  readonly name: string
+  readonly arguments?: unknown
+  readonly gateId: string
+  readonly stepId: string
+  readonly capability: string
+}
+
 export interface AutoGovernanceReviewDecisionInput {
   readonly packetId: string
   readonly result: 'PASS' | 'BLOCK'
@@ -109,3 +119,4 @@ export interface AutoGovernanceCompletionResult {
   readonly status: 'COMPLETED' | 'BLOCKED'
   readonly reason?: string
 }
+import type { ProjectSupervisionContributionV01 } from './context-contribution.js'

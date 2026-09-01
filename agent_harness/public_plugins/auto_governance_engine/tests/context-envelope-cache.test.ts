@@ -2,6 +2,48 @@ import { describe, expect, it, vi } from 'vitest'
 import { AutoGovernanceEngineService } from '../src/service.js'
 
 describe('Phase 7 incremental Context envelope reuse', () => {
+  it('keeps a broad project route inside the recent-decision reference budget', () => {
+    const recordRecent = vi.fn()
+    const service = Object.create(AutoGovernanceEngineService.prototype) as any
+    service.runtimeContext = {
+      contextManager: {
+        updateProgressLedger: vi.fn(),
+        recordRecent,
+      },
+      gateManager: {
+        getExecutionPlan: vi.fn(() => undefined),
+      },
+    }
+    const runtime = {
+      actorId: 'agent-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      goal: 'Analyze a project IP.',
+      route: { architectureIds: [], ruleIds: [], knowledgeIds: [], gateIds: [] },
+    }
+    service.resolveProject = vi.fn(() => ({ projectId: 'project-1' }))
+    service.ensureRuntimeTask = vi.fn(() => runtime)
+    service.routeTask = vi.fn(() => ({
+      architectureIds: Array.from({ length: 12 }, (_, index) => `A${index}`),
+      ruleIds: Array.from({ length: 22 }, (_, index) => `R${index}`),
+      knowledgeIds: Array.from({ length: 9 }, (_, index) => `K${index}`),
+      gateIds: Array.from({ length: 4 }, (_, index) => `G${index}`),
+    }))
+    service.buildContextEnvelope = vi.fn(() => ({ text: 'bounded' }))
+
+    service.bootstrapTask({
+      actorId: 'agent-1',
+      taskId: 'task-1',
+      goal: runtime.goal,
+      projectId: 'project-1',
+    })
+
+    expect(recordRecent).toHaveBeenCalledOnce()
+    expect(recordRecent.mock.calls[0][2].refs).toHaveLength(32)
+    expect(recordRecent.mock.calls[0][2].refs[0]).toBe('A0')
+    expect(recordRecent.mock.calls[0][2].refs.at(-1)).toBe('R19')
+  })
+
   it('keeps 1000 ordinary reads off reroute/rebuild and refreshes after mutation', () => {
     let stateVersion = 7
     const getTask = vi.fn(() => ({

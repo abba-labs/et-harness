@@ -678,4 +678,128 @@ describe('Governance Runtime real supervised lifecycle', () => {
     await reopened.close()
     await second.dispose()
   }, 30_000)
+
+  it('rehydrates a durable supervised Turn before Reflection and then closes it normally', async () => {
+    const caseRoot = resolve(tempRoot, randomUUID())
+    cleanup.push(caseRoot)
+    const projectRoot = resolve(caseRoot, 'project')
+    const stateRoot = resolve(caseRoot, 'state')
+    const storeRoot = resolve(caseRoot, 'event-store')
+    await mkdir(projectRoot, { recursive: true })
+    await writeProject(projectRoot)
+    process.env.AGENT_HARNESS_STATE_ROOT = stateRoot
+
+    const first = await startRuntime(projectRoot)
+    const taskText = 'Recover this supervised turn before reflection'
+    const opened = await first.runtime.openTurn({
+      runtimeId: 'runtime-recovery', actorId: 'agent-recovery', taskId: 'task-recovery',
+      turnId: 'turn-recovery', taskText, projectId: 'project-1', workspacePath: projectRoot,
+    })
+    const contract = contractFor(opened.context, {
+      runtimeId: 'runtime-recovery', taskId: 'task-recovery', agentId: 'agent-recovery',
+      writeScope: true,
+    })
+    const store = await createFileExecutionEventStore({
+      directory: storeRoot,
+      binding: {
+        requestId: 'request-recovery', runtimeId: 'runtime-recovery',
+        turnId: 'turn-recovery', contract,
+      },
+      limits: { maxEvents: 100, maxStoreBytes: 2_000_000, maxReplayEvents: 20 },
+    })
+    await first.runtime.bindSupervisedTurn({ runtimeId: 'runtime-recovery', eventStore: store })
+    const requestManifest = {
+      schema: EXTERNAL_AGENT_REQUEST_MANIFEST_SCHEMA,
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', projectId: 'project-1',
+      taskId: 'task-recovery', turnId: 'turn-recovery', agentId: 'agent-recovery',
+      contextHash: contract.contextHash, contractHash: hashCanonicalJson(contract),
+      expectedHostId: 'host-recovery', expectedProviderId: 'provider-recovery',
+      expectedModelId: 'model-recovery',
+      userMessage: { messageId: 'message-user-recovery', content: taskText, contentHash: sha256Hex(taskText) },
+      issuedAt: '2026-08-29T00:00:01.000Z',
+    }
+    const responseText = 'The supervised work is ready for reflection.'
+    const responseManifest = {
+      schema: EXTERNAL_AGENT_RESPONSE_MANIFEST_SCHEMA,
+      requestManifestHash: hashCanonicalJson(requestManifest),
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', projectId: 'project-1',
+      taskId: 'task-recovery', turnId: 'turn-recovery', agentId: 'agent-recovery',
+      contextHash: contract.contextHash, responseId: 'response-recovery',
+      actualHostId: 'host-recovery', actualProviderId: 'provider-recovery',
+      actualModelId: 'model-recovery', actualAgentId: 'agent-recovery',
+      assistantMessage: {
+        messageId: 'message-assistant-recovery', content: responseText,
+        contentHash: sha256Hex(responseText),
+      },
+      claims: [], receiptRefs: [], completedAt: '2026-08-29T00:00:02.000Z',
+    }
+    await store.append({
+      ...executionEvent(1, 'USER_MESSAGE', { requestManifest }),
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', taskId: 'task-recovery',
+      turnId: 'turn-recovery', agentId: 'agent-recovery', eventId: 'message-user-recovery',
+      contextHash: contract.contextHash,
+    })
+    await store.append({
+      ...executionEvent(2, 'ASSISTANT_MESSAGE', { responseManifest }),
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', taskId: 'task-recovery',
+      turnId: 'turn-recovery', agentId: 'agent-recovery', eventId: 'message-assistant-recovery',
+      contextHash: contract.contextHash,
+    })
+    await store.append({
+      ...executionEvent(3, 'RESOURCE_WRITE', {
+        receipt: {
+          resourceId: 'resource-allowed', action: 'UPDATE', scopeDecision: 'IN_SCOPE',
+          executorId: 'recovery-tool',
+        },
+      }),
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', taskId: 'task-recovery',
+      turnId: 'turn-recovery', agentId: 'agent-recovery', contextHash: contract.contextHash,
+    })
+    await store.append({
+      ...executionEvent(4, 'TASK_END_REQUEST', { requestedBy: 'agent-recovery' }),
+      requestId: 'request-recovery', runtimeId: 'runtime-recovery', taskId: 'task-recovery',
+      turnId: 'turn-recovery', agentId: 'agent-recovery', contextHash: contract.contextHash,
+    })
+    expect(first.kernel.getReflection('task-recovery', 'turn-recovery')).toBeUndefined()
+    await store.close()
+    await first.dispose()
+
+    const second = await startRuntime(projectRoot)
+    const reopened = await openFileExecutionEventStore({
+      directory: storeRoot,
+      binding: {
+        requestId: 'request-recovery', runtimeId: 'runtime-recovery',
+        turnId: 'turn-recovery', contract,
+      },
+    })
+    await expect(second.runtime.rehydrateSupervisedTurn({
+      runtimeId: 'runtime-recovery',
+      eventStore: reopened,
+      semanticExecutor: {
+        executorId: 'recovery-semantic',
+        reflect: request => ({
+          contractVersion: '0.1', taskId: request.taskId, turnId: request.turnId,
+          context: { progress: 'recovered', decisions: [], confirmed: [], assumptions: [], openIssues: [], next: [], touchedRefs: [] },
+          knowledge: none(), experience: none(), architecture: none(), rules: none(), evidence: none(),
+          workingSet: { keep: [], add: [], remove: [] },
+          obligations: { opened: [], resolved: [], unchanged: [] },
+        }),
+      },
+    })).resolves.toBeUndefined()
+    expect(second.kernel.getReflection('task-recovery', 'turn-recovery')).toBeUndefined()
+    expect(second.runtime.getStatus('runtime-recovery')?.activeTurnId).toBe('turn-recovery')
+    expect(second.runtime.getStatus('runtime-recovery')?.autoGovernance.codeChangeSeen).toBe(true)
+    expect(second.runtime.preflightAction({
+      runtimeId: 'runtime-recovery', turnId: 'turn-recovery', name: 'pytest',
+      arguments: ['tests/unit'],
+    })).toMatchObject({
+      allowed: false,
+      reason: expect.stringContaining('no current review packet'),
+    })
+    await expect(second.runtime.closeTurn({
+      runtimeId: 'runtime-recovery', turnId: 'turn-recovery',
+    })).resolves.toMatchObject({ closure: { status: 'COMPLETE' } })
+    await reopened.close()
+    await second.dispose()
+  }, 30_000)
 })

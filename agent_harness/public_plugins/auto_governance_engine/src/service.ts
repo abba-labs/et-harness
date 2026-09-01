@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { resolve, sep } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import '@agent-harness/governance-core'
@@ -16,6 +17,7 @@ import type {
   AutoGovernanceCompletionResult,
   AutoGovernanceContextContributionReceipt,
   AutoGovernanceContextEnvelope,
+  AutoGovernanceGateEvidenceProducerCheck,
   AutoGovernancePendingReview,
   AutoGovernanceReviewDecisionInput,
   AutoGovernanceReviewDecisionResult,
@@ -39,7 +41,19 @@ import {
 
 const MAX_QUERY_CHARS = 4000
 const MAX_REVIEW_PACKETS = 32
+const MAX_RECENT_REFS = 32
 const MAX_TASK_LEDGER_REFS = 64
+const MAX_TASK_LEDGER_GOAL_CHARS = 400
+
+const taskLedgerGoal = (taskText: string): string => {
+  const normalized = taskText.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= MAX_TASK_LEDGER_GOAL_CHARS) return normalized
+  const suffix = ` [sha256:${createHash('sha256').update(taskText).digest('hex').slice(0, 16)}]`
+  let preview = normalized.slice(0, MAX_TASK_LEDGER_GOAL_CHARS - suffix.length).trimEnd()
+  const finalCodeUnit = preview.charCodeAt(preview.length - 1)
+  if (finalCodeUnit >= 0xD800 && finalCodeUnit <= 0xDBFF) preview = preview.slice(0, -1)
+  return `${preview}${suffix}`
+}
 
 interface RuntimeTask {
   actorId: string
@@ -237,6 +251,7 @@ export class AutoGovernanceEngineService extends Service {
     runtime.goal = goal
     const phase = input.phase ?? 'analysis'
     runtime.route = this.routeTask(runtime, goal, true, phase)
+    this.assertReviewProviderReadiness(runtime, runtime.route.gateIds)
     this.runtimeContext.contextManager.updateProgressLedger(runtime.projectId, runtime.taskId, {
       lastAction: 'Auto Governance bootstrapped the task.',
       lastResult: 'Architecture / Rule / Knowledge / Gate candidates routed automatically.',
@@ -253,7 +268,11 @@ export class AutoGovernanceEngineService extends Service {
     this.runtimeContext.contextManager.recordRecent(runtime.projectId, runtime.taskId, {
       kind: 'DECISION',
       summary: 'Auto Governance bootstrap routed current task context.',
-      refs: [...runtime.route.architectureIds, ...runtime.route.ruleIds, ...runtime.route.gateIds],
+      refs: unique([
+        ...runtime.route.architectureIds,
+        ...runtime.route.ruleIds,
+        ...runtime.route.gateIds,
+      ]).slice(0, MAX_RECENT_REFS),
     })
     return this.buildContextEnvelope(actorId)
   }
@@ -330,6 +349,7 @@ export class AutoGovernanceEngineService extends Service {
     runtime.applicableGateIds = runtime.route.gateIds.filter(gateId =>
       this.runtimeContext.gateManager.getExecutionPlan(runtime.projectId, gateId) !== undefined,
     )
+    this.assertReviewProviderReadiness(runtime, runtime.applicableGateIds)
     runtime.currentPacketIds = this.prepareReviewPackets(runtime)
 
     const reviewBlockers = runtime.currentPacketIds.length > 0
@@ -399,6 +419,33 @@ export class AutoGovernanceEngineService extends Service {
     )
     if (!gateStatus.canComplete) {
       return `Auto Governance blocked build/test: missing PASS Evidence for ${gateStatus.blockingGateIds.join(', ')}.`
+    }
+    return undefined
+  }
+
+  guardGateEvidenceProducer(
+    input: AutoGovernanceGateEvidenceProducerCheck,
+  ): string | undefined {
+    const runtime = this.tasks.get(input.actorId)
+    if (!runtime) return 'Auto Governance blocked Gate producer: no active governed task.'
+    if (isProductBuildInvocation(input.name, input.arguments)) {
+      const ruleGuard = this.runtimeContext.ruleManager.guardAction(runtime.projectId, {
+        actionKind: 'PRODUCT_BUILD',
+        actionText: jsonText(input.arguments),
+      })
+      if (!ruleGuard.allowed) {
+        return `Rule ${ruleGuard.ruleId ?? 'ACTION_GUARD'} blocked product build: ${ruleGuard.reason ?? 'project action guard rejected the action'}`
+      }
+    }
+    if (!runtime.codeChangeSeen) {
+      return 'Auto Governance blocked Gate producer: no current code-change epoch exists.'
+    }
+    const plan = runtime.applicableGateIds.includes(input.gateId)
+      ? this.runtimeContext.gateManager.getExecutionPlan(runtime.projectId, input.gateId)
+      : undefined
+    const step = plan?.steps.find(item => item.id === input.stepId)
+    if (step?.role !== 'EVIDENCE_PRODUCER' || step.tool !== input.capability) {
+      return 'Auto Governance blocked Gate producer: registration does not match an applicable EVIDENCE_PRODUCER step.'
     }
     return undefined
   }
@@ -551,7 +598,11 @@ export class AutoGovernanceEngineService extends Service {
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Governed task is already completed:')) throw error
-      this.runtimeContext.contextManager.beginTask({ projectId: project.projectId, taskId, goal })
+      this.runtimeContext.contextManager.beginTask({
+        projectId: project.projectId,
+        taskId,
+        goal: taskLedgerGoal(goal),
+      })
     }
 
     const runtime: RuntimeTask = {
@@ -675,7 +726,7 @@ export class AutoGovernanceEngineService extends Service {
     }
     const current = this.runtimeContext.contextManager.getTask(runtime.projectId, runtime.taskId).session.taskLedger
     this.runtimeContext.contextManager.updateTaskLedger(runtime.projectId, runtime.taskId, {
-      goal: runtime.goal,
+      goal: taskLedgerGoal(runtime.goal),
       phase,
       scopeRefs: unique([...route.architectureIds, ...current.scopeRefs]).slice(0, MAX_TASK_LEDGER_REFS),
       constraintRefs: unique([...route.ruleIds, ...route.gateIds, ...current.constraintRefs])
@@ -696,9 +747,11 @@ export class AutoGovernanceEngineService extends Service {
       const plan = this.runtimeContext.gateManager.getExecutionPlan(runtime.projectId, gateId)
       if (!plan) continue
       for (const step of plan.steps) {
+        if (step.role === 'EVIDENCE_PRODUCER') continue
         if (packetIds.length >= MAX_REVIEW_PACKETS) break
         const providers = this.runtimeContext.governanceCatalog.listProviders(step.tool)
-        const provider = providers.find(item => item.metadata?.projectId === runtime.projectId) ?? providers[0]
+        const provider = providers.find(item => item.metadata?.projectId === runtime.projectId)
+          ?? providers.find(item => typeof item.metadata?.projectId !== 'string')
         if (!provider) continue
         const serviceName = typeof provider.metadata?.service === 'string' ? provider.metadata.service : ''
         const prepareMethod = typeof provider.metadata?.prepareMethod === 'string' ? provider.metadata.prepareMethod : ''
@@ -759,6 +812,48 @@ export class AutoGovernanceEngineService extends Service {
     })
     if (handles.length > 0) this.runtimeContext.contextManager.addHandles(runtime.projectId, runtime.taskId, handles)
     return unique(packetIds)
+  }
+
+  private assertReviewProviderReadiness(
+    runtime: RuntimeTask,
+    gateIds: readonly string[],
+  ): void {
+    const unavailable: string[] = []
+    for (const gateId of unique(gateIds)) {
+      const plan = this.runtimeContext.gateManager.getExecutionPlan(runtime.projectId, gateId)
+      if (!plan) continue
+      for (const step of plan.steps) {
+        // Missing role remains legacy gate-v0.1 behavior. Only an explicit REVIEW
+        // declaration opts into fail-fast provider readiness.
+        if (step.role !== 'REVIEW') continue
+        const providers = this.runtimeContext.governanceCatalog.listProviders(step.tool)
+        const provider = providers.find(item => item.metadata?.projectId === runtime.projectId)
+          ?? providers.find(item => typeof item.metadata?.projectId !== 'string')
+        const serviceName = typeof provider?.metadata?.service === 'string'
+          ? provider.metadata.service
+          : ''
+        const prepareMethod = typeof provider?.metadata?.prepareMethod === 'string'
+          ? provider.metadata.prepareMethod
+          : ''
+        const decisionMethod = typeof provider?.metadata?.decisionMethod === 'string'
+          ? provider.metadata.decisionMethod
+          : ''
+        const service = serviceName ? this.dynamicContext().get(serviceName) : undefined
+        if (!provider
+            || !serviceName
+            || !prepareMethod
+            || !decisionMethod
+            || typeof recordOf(service)?.[prepareMethod] !== 'function'
+            || typeof recordOf(service)?.[decisionMethod] !== 'function') {
+          unavailable.push(`${gateId}/${step.id}:${step.tool}`)
+        }
+      }
+    }
+    if (unavailable.length > 0) {
+      throw new Error(
+        `Auto Governance Gate readiness failed; REVIEW provider unavailable: ${unavailable.join(', ')}`,
+      )
+    }
   }
 
   private attachPacketContext(runtime: RuntimeTask, packet: Record<string, any>): void {

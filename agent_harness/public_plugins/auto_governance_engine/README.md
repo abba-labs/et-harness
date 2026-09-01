@@ -26,6 +26,11 @@ Project / Context / A-R-K-G / Gate / Evidence
 - Review PASS/BLOCK 记录；
 - Task complete / pause。
 
+显式 `role: REVIEW` 的 Gate Step 会在 Task bootstrap 和后续路由扩展时检查当前
+Project 或公共 Review Provider 是否真实可用；缺失时立即失败，不再等到任务后段。
+显式 `role: EVIDENCE_PRODUCER` 的 Step 不会被误建为 Review Packet。它只能通过
+Governance Runtime 传入的受信 Gate/Step 绑定提前执行，普通 build/test 仍保持阻断。
+
 ## 不负责
 
 - 不监听 `agent/pre-step` / `session/event` / `tools/result`；

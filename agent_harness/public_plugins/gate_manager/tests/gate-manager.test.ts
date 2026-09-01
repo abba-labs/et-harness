@@ -47,6 +47,22 @@ const writeIndex = (root: string, files: string): void => {
 }
 
 describe('Gate Tree parser', () => {
+  it('保留显式 Gate Step 职责，供 Runtime 区分 Review 与 Evidence Producer', () => {
+    const explicitRoles = validGates
+      .replace('tool: build.execute', 'tool: build.execute\n              role: EVIDENCE_PRODUCER')
+      .replace('tool: test.execute', 'tool: test.execute\n              role: EVIDENCE_PRODUCER')
+      .replace('tool: review.visual', 'tool: review.visual\n              role: REVIEW')
+    const result = parseGateFile('G010', '010_interface.yaml', explicitRoles)
+    const buildGate = result.nodes.find(node => node.id === 'G010.010.010')
+    const reviewGate = result.nodes.find(node => node.id === 'G010.010.020')
+
+    expect(buildGate?.gate?.steps.map(step => step.role)).toEqual([
+      'EVIDENCE_PRODUCER',
+      'EVIDENCE_PRODUCER',
+    ])
+    expect(reviewGate?.gate?.steps[0]?.role).toBe('REVIEW')
+  })
+
   it('解析 Branch、Gate Leaf 和 Execution 字段', () => {
     const result = parseGateFile('G010', '010_interface.yaml', validGates)
     expect(result.nodes.map(node => node.id)).toContain('G010.010.010')
@@ -66,6 +82,13 @@ describe('Gate Tree parser', () => {
   it('非法 Tool Capability 时拒绝', () => {
     const invalid = `standard: gate-v0.1\nfile_id: G010\ntitle: X\nnodes:\n  - id: G010.010\n    title: Gate\n    gate:\n      level: MUST\n      when: x\n      steps:\n        - id: x\n          tool: BAD TOOL\n      pass: ok\n`
     expect(() => parseGateFile('G010', '010_bad.yaml', invalid)).toThrow('合法 Tool Capability')
+  })
+
+  it('非法或非字符串 Gate Step role 时拒绝', () => {
+    const invalid = validGates.replace('tool: build.execute', 'tool: build.execute\n              role: 7')
+    expect(() => parseGateFile('G010', '010_bad.yaml', invalid)).toThrow(
+      'role 必须为 REVIEW | EVIDENCE_PRODUCER',
+    )
   })
 
   it('缺少 pass 时拒绝', () => {

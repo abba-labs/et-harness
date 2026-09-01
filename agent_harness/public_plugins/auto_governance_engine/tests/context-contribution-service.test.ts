@@ -221,4 +221,87 @@ describe('Auto Governance project context contribution integration', () => {
       provenance: 'runtime://synthetic/host',
     }])
   })
+
+  it('keeps the complete raw task for routing while bounding only the Task Ledger goal', () => {
+    const rawTask = `Inspect the complete request.\n${'retain every routing constraint '.repeat(30)}TAIL-CONSTRAINT`
+    const contributedTasks: string[] = []
+    const ledgerGoals: string[] = []
+    const project = {
+      projectId: PROJECT_ID,
+      displayName: 'Synthetic Project',
+      aliases: [],
+      projectRoot: '/workspace/synthetic',
+      resources: {},
+      resourceStandards: {},
+      adapters: {
+        context: { provider: PROVIDER_ID, capability: PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY },
+      },
+    }
+    const runtimeContext = {
+      projectManager: { getProjectContext: () => project },
+      architectureNavigator: { searchArchitecture: () => [], getNode: () => undefined },
+      ruleManager: { searchRules: () => [], getNode: () => undefined },
+      knowledgeManager: { searchKnowledge: () => [], getNode: () => undefined },
+      gateManager: { searchGates: () => [], getNode: () => undefined },
+      governanceCatalog: {
+        listProviders: () => [{
+          providerId: PROVIDER_ID,
+          pluginId: 'project.synthetic.context-plugin',
+          capability: PROJECT_CONTEXT_CONTRIBUTION_CAPABILITY,
+          priority: 100,
+          metadata: {
+            projectId: PROJECT_ID,
+            service: 'syntheticContextProvider',
+            method: 'contributeContext',
+          },
+        }],
+      },
+      contextManager: {
+        getTask: () => ({
+          stateVersion: 1,
+          session: { inlineItems: [], taskLedger: { scopeRefs: [], constraintRefs: [] } },
+        }),
+        replaceInlineItems: () => undefined,
+        replaceWorkingSet: () => undefined,
+        attach: () => undefined,
+        updateTaskLedger: (_projectId: string, _taskId: string, update: { goal: string }) => {
+          ledgerGoals.push(update.goal)
+        },
+      },
+      get: (name: string) => name === 'syntheticContextProvider'
+        ? {
+            contributeContext: (request: { rawTask: string; projectId: string; taskId: string }) => {
+              contributedTasks.push(request.rawTask)
+              return {
+                applicable: true,
+                contribution: {
+                  schema: PROJECT_CONTEXT_CONTRIBUTION_SCHEMA,
+                  projectId: request.projectId,
+                  taskId: request.taskId,
+                  contributionId: 'long-task',
+                  provenance: `provider://${PROVIDER_ID}/${request.taskId}`,
+                },
+              }
+            },
+          }
+        : undefined,
+    }
+    const service = Object.create(AutoGovernanceEngineService.prototype) as any
+    service.runtimeContext = runtimeContext
+    const runtime = {
+      actorId: 'actor-long', projectId: PROJECT_ID, taskId: 'TASK-LONG', goal: rawTask,
+      codeChangeEpoch: 0, codeChangeSeen: false, route: emptyRoute(), contextContributions: [],
+      applicableGateIds: [], currentPacketIds: [],
+    }
+
+    service.routeTask(runtime, rawTask, true, 'analysis')
+    service.routeTask(runtime, rawTask, true, 'analysis')
+
+    expect(contributedTasks).toEqual([rawTask, rawTask])
+    expect(ledgerGoals).toHaveLength(2)
+    expect(ledgerGoals[0]).toBe(ledgerGoals[1])
+    expect(ledgerGoals[0]).not.toMatch(/[\r\n]/)
+    expect(ledgerGoals[0].length).toBeLessThanOrEqual(400)
+    expect(ledgerGoals[0]).toMatch(/ \[sha256:[a-f0-9]{16}\]$/)
+  })
 })

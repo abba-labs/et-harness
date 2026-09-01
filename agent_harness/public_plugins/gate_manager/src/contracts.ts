@@ -1,10 +1,13 @@
 import type { ProjectResourceIndexEntryV01 } from '@agent-harness/project-contract'
 
 export type GateLevel = 'MUST' | 'MAY'
+export type GateStepRole = 'REVIEW' | 'EVIDENCE_PRODUCER'
 
 export interface GateStep {
   readonly id: string
   readonly tool: string
+  /** Optional for gate-v0.1 compatibility; new Gate plans should declare it explicitly. */
+  readonly role?: GateStepRole
   readonly args?: Readonly<Record<string, unknown>>
 }
 

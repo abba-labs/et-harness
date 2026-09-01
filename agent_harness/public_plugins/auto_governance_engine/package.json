@@ -22,6 +22,7 @@
     "@agent-harness/gate-manager": "0.1.0",
     "@agent-harness/evidence-state-manager": "0.1.0",
     "@agent-harness/context-builder": "0.2.0",
+    "@agent-harness/execution-supervisor": "0.1.0",
     "@deepseek-ai/cordis": "^4.0.0"
   },
   "devDependencies": {
@@ -34,6 +35,7 @@
     "@agent-harness/gate-manager": "file:../gate_manager",
     "@agent-harness/evidence-state-manager": "file:../evidence_state_manager",
     "@agent-harness/context-builder": "file:../context_builder",
+    "@agent-harness/execution-supervisor": "file:../execution_supervisor",
     "@deepseek-ai/cordis": "^4.0.0",
     "@types/node": "^24.10.0",
     "typescript": "^6.0.3",

@@ -4,9 +4,11 @@ import type {
   GateLevel,
   GateNode,
   GateStep,
+  GateStepRole,
 } from './contracts.js'
 
 const VALID_LEVELS = new Set<GateLevel>(['MUST', 'MAY'])
+const VALID_STEP_ROLES = new Set<GateStepRole>(['REVIEW', 'EVIDENCE_PRODUCER'])
 const TOOL_CAPABILITY_RE = /^[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+$/
 const NODE_ID_RE = /^G\d{3}(?:\.\d{3})+$/
 
@@ -45,6 +47,14 @@ const parseSteps = (value: unknown, path: string): readonly GateStep[] => {
     if (!nonEmpty(raw.tool) || !TOOL_CAPABILITY_RE.test(raw.tool)) {
       throw new Error(`${stepPath}.tool 必须是合法 Tool Capability`)
     }
+    let role: GateStepRole | undefined
+    if (raw.role !== undefined) {
+      const normalizedRole = typeof raw.role === 'string' ? raw.role.toUpperCase() : ''
+      if (!VALID_STEP_ROLES.has(normalizedRole as GateStepRole)) {
+        throw new Error(`${stepPath}.role 必须为 REVIEW | EVIDENCE_PRODUCER`)
+      }
+      role = normalizedRole as GateStepRole
+    }
     if (raw.args !== undefined && !isRecord(raw.args)) {
       throw new Error(`${stepPath}.args 必须是对象`)
     }
@@ -52,6 +62,7 @@ const parseSteps = (value: unknown, path: string): readonly GateStep[] => {
     return {
       id: raw.id,
       tool: raw.tool,
+      ...(role ? { role } : {}),
       ...(raw.args ? { args: raw.args } : {}),
     }
   })

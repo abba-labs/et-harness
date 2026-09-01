@@ -47,6 +47,21 @@ closeTurn()
 
 Host Adapter 不允许重新实现 Context、Knowledge、Rule、Gate、Reflection 或 Closure 逻辑。
 
+## Baseline lifecycle supervision
+
+当 Project Plugin 尚未提供结构化 supervision contribution 时，可信 Runtime
+composition 可以调用 `compileGovernanceBaselineSupervisionContractV01()`。编译器只从
+精确匹配的 Project / Task / Agent / Context / Route 身份生成 4 个公共生命周期义务：
+
+```text
+Reflection -> Knowledge Decision -> Context Update -> 8/8 Closure
+```
+
+它不从 Context 文本猜测业务规则，也不生成 Required Resource、Write Scope、Output、
+Validation 或 Rule Compliance 义务。因此它只能声明
+`BASELINE_LIFECYCLE`，不能声明 full project supervision；需要完整监管的 Project/Gate
+必须等待结构化 Project contribution。
+
 ## Host supervision profile
 
 受监管 Turn 可以在 `openTurn()`、`bindSupervisedTurn()` 或
@@ -139,10 +154,13 @@ Raw executor 保存在 Gateway 内部，模型调用时不能临时传入 callba
 ```text
 READ_ONLY
 或 MUTATION + registration-side mutation intent mapper
+或 GATE_EVIDENCE_PRODUCER + registration-side gateId / stepId
 以及 registration-side stable event identity mapper
 ```
 
-Agent-facing invocation 不能提供或替换 effect mapper、scope decision 或稳定事件身份。
+Agent-facing invocation 不能提供或替换 effect、Gate Step 绑定、scope decision 或稳定事件身份。
+Gate Evidence Producer 使用 Gateway 到 Runtime 的专用 preflight，不进入最小权限 Host
+Runtime Port；Host Adapter 不能通过普通 `preflightAction()` 自行标注 Producer。
 MUTATION preflight 直接使用 Ledger 冻结的 Task Supervision Contract；不会解析 shell、
 MCP 或 Host 专属参数。允许动作执行后，Host Adapter/Tool Plugin 仍负责把真实工具结果和
 `RESOURCE_WRITE` receipt 摄入现有 Event Store；普通 Turn Observation 不是持久化 Evidence。
@@ -156,7 +174,13 @@ Turn Closure 完成后的 Knowledge Verification / Promotion 属于非阻断 Pos
 ## 当前 v0.1 限制
 
 - 同一进程内 unresolved Turn 会在下一 Turn 前自动 replay；
-- Turn Observation Ledger 当前也是进程内状态；
-- Kernel 持久化后、整个 Runtime 进程重启的 task + observation rehydration 尚未实现；遇到持久化 unresolved Turn 时 fail-closed，不会静默开启新 Turn。
+- `openTurn()` 遇到跨进程 unresolved Turn 仍 fail-closed，因为它没有对应 Event Store；
+- Host 可用同一 durable Kernel Turn + Execution Event Store 显式调用
+  `rehydrateSupervisedTurn()`，在 Reflection 前或 Reflection 后恢复原 Turn；
+- Reflection 已存在时仍必须绑定最新 readiness；缺少或过期绑定不能恢复；
+- 普通进程内 Observation 不会被猜测重建。跨进程 Closure 只投影 Event Store 中经过
+  校验的可见消息和执行事实。
+- Event Store 中存在 `RESOURCE_WRITE` 时，Runtime 会重建一个新的 fail-closed Review
+  epoch；重启前仅驻内存的 Review 决定不会被当作 durable PASS 复用。
 
-后续应通过公共 Runtime State Store 解决，而不是把恢复逻辑塞进某个 Host Adapter。
+Host Adapter 不得自行实现第二套恢复生命周期。

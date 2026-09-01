@@ -2,6 +2,13 @@ import { createHash } from 'node:crypto'
 import { isAbsolute } from 'node:path'
 import type { GovernanceProviderRegistration } from '@agent-harness/governance-core'
 import type { ProjectContext } from '@agent-harness/project-contract'
+import {
+  TASK_SUPERVISION_CONTRACT_SCHEMA,
+  validateObligationLedgerContribution,
+  type CompletionPolicyV01,
+  type EvidencePolicyV01,
+  type ObligationDefinitionV01,
+} from '@agent-harness/execution-supervisor'
 import type {
   ContextPriority,
   ContextReference,
@@ -14,6 +21,8 @@ export const PROJECT_CONTEXT_CONTRIBUTION_REQUEST_SCHEMA =
   'agent-harness.project-context-contribution-request.v0.1'
 export const PROJECT_CONTEXT_CONTRIBUTION_SCHEMA =
   'agent-harness.project-context-contribution.v0.1'
+export const PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA =
+  'agent-harness.project-supervision-contribution.v0.1' as const
 
 const MAX_CONTRIBUTION_REFERENCES = 32
 const MAX_CONTRIBUTION_INLINE_ITEMS = 24
@@ -21,6 +30,7 @@ const MAX_INLINE_ITEM_CHARS = 8_000
 const MAX_TOTAL_INLINE_CHARS = 16_000
 const MAX_SCOPE_ENTRIES = 128
 const MAX_VALIDATION_OBLIGATIONS = 64
+const MAX_SUPERVISION_CONTRIBUTION_BYTES = 256 * 1024
 const IDENTIFIER_RE = /^[A-Za-z0-9._:-]+$/
 const RESOURCE_ID_RE: Readonly<Record<ContextReference['kind'], RegExp>> = {
   architecture: /^A\d{3}(?:\.\d{3})*$/,
@@ -56,6 +66,14 @@ export interface ProjectContextContributionOutputContract {
   readonly content: string
 }
 
+export interface ProjectSupervisionContributionV01 {
+  readonly schema: typeof PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA
+  readonly projectRevision?: string
+  readonly obligations: readonly ObligationDefinitionV01[]
+  readonly evidencePolicies: readonly EvidencePolicyV01[]
+  readonly completionPolicy: CompletionPolicyV01
+}
+
 export interface ProjectContextContributionV01 {
   readonly schema: typeof PROJECT_CONTEXT_CONTRIBUTION_SCHEMA
   readonly projectId: string
@@ -68,6 +86,7 @@ export interface ProjectContextContributionV01 {
   readonly writeScope?: ProjectContextContributionWriteScope
   readonly validation?: readonly ProjectContextContributionValidationObligation[]
   readonly outputContract?: ProjectContextContributionOutputContract
+  readonly supervision?: ProjectSupervisionContributionV01
 }
 
 export type ProjectContextContributionProviderResult =
@@ -86,6 +105,7 @@ export interface NormalizedProjectContextContribution {
   readonly fingerprint: string
   readonly references: readonly ContextReference[]
   readonly inlineItems: readonly InlineContextItem[]
+  readonly supervision?: ProjectSupervisionContributionV01
 }
 
 export interface ProjectContextContributionReceipt {
@@ -187,6 +207,52 @@ const normalizeWriteScope = (
     protected: uniqueStrings(input.protected.map((value, index) =>
       safeProjectRelativePath(`writeScope.protected[${index}]`, value),
     )),
+  }
+}
+
+const normalizeSupervision = (
+  input: ProjectSupervisionContributionV01 | undefined,
+  request: ProjectContextContributionRequestV01,
+): ProjectSupervisionContributionV01 | undefined => {
+  if (!input) return undefined
+  const record = recordOf(input)
+  if (!record || input.schema !== PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA) {
+    throw new Error(`unsupported project supervision contribution schema: ${String(record?.schema)}`)
+  }
+  const allowedKeys = new Set(['schema', 'projectRevision', 'obligations', 'evidencePolicies', 'completionPolicy'])
+  const unknownKeys = Object.keys(record).filter(key => !allowedKeys.has(key))
+  if (unknownKeys.length > 0) {
+    throw new Error(`project supervision contribution contains unsupported fields: ${unknownKeys.join(', ')}`)
+  }
+  if (Buffer.byteLength(stableStringify(input), 'utf8') > MAX_SUPERVISION_CONTRIBUTION_BYTES) {
+    throw new Error('project supervision contribution exceeds its byte budget')
+  }
+  const projectRevision = input.projectRevision === undefined
+    ? undefined
+    : singleLine('supervision.projectRevision', input.projectRevision, 256)
+  const validation = validateObligationLedgerContribution({
+    schema: TASK_SUPERVISION_CONTRACT_SCHEMA,
+    projectId: request.projectId,
+    taskId: request.taskId,
+    agentId: 'project-context-contributor',
+    contextHash: sha256({ projectId: request.projectId, taskId: request.taskId }).slice('sha256:'.length),
+    routeHash: sha256(request.initialRoute).slice('sha256:'.length),
+    ...(projectRevision ? { projectRevision } : {}),
+    supervisionLevel: 'AUDIT',
+    obligations: input.obligations,
+    evidencePolicies: input.evidencePolicies,
+    completionPolicy: input.completionPolicy,
+  })
+  if (!validation.valid) {
+    throw new Error(`invalid project supervision contribution: ${validation.issues
+      .map(issue => `${issue.path} ${issue.code}: ${issue.message}`).join('; ')}`)
+  }
+  return {
+    schema: PROJECT_SUPERVISION_CONTRIBUTION_SCHEMA,
+    ...(projectRevision ? { projectRevision } : {}),
+    obligations: structuredClone(validation.value.obligations),
+    evidencePolicies: structuredClone(validation.value.evidencePolicies),
+    completionPolicy: structuredClone(validation.value.completionPolicy),
   }
 }
 
@@ -339,6 +405,7 @@ export function normalizeProjectContextContribution(
   const references = normalizeReferences(contribution.references)
   const readScope = normalizeReadScope(contribution.readScope)
   const writeScope = normalizeWriteScope(contribution.writeScope)
+  const supervision = normalizeSupervision(contribution.supervision, request)
   const inlineItems = normalizeInlineItems(
     contribution.inlineItems,
     providerId,
@@ -386,6 +453,7 @@ export function normalizeProjectContextContribution(
     taskId: request.taskId,
     references,
     inlineItems: normalizedItems,
+    ...(supervision ? { supervision } : {}),
   }
   return {
     providerId,
@@ -393,6 +461,7 @@ export function normalizeProjectContextContribution(
     fingerprint: sha256(fingerprintPayload),
     references,
     inlineItems: normalizedItems,
+    ...(supervision ? { supervision } : {}),
   }
 }
 
@@ -456,6 +525,9 @@ export const contributionReceipt = (
   fingerprint: contribution.fingerprint,
   referenceIds: contribution.references.map(reference => `${reference.kind}:${reference.id}`),
   inlineItemIds: contribution.inlineItems.map(item => item.id),
+  ...(contribution.supervision
+    ? { supervision: structuredClone(contribution.supervision) }
+    : {}),
 })
 
 export const mergeContributionInlineItems = (
