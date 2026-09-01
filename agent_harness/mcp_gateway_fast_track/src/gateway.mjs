@@ -17,11 +17,11 @@ import {
 } from './tools/health.mjs'
 import { assertExternalGatewayLauncher } from '../scripts/launcher-policy.mjs'
 import {
-  createBridgeRuntimeAccess,
   createFileSnapshotStore,
   createGovernanceController,
   governanceToolError,
 } from './governance.mjs'
+import { createFrozenRuntimeAccess } from './runtime-release.mjs'
 import {
   createTrustedCheckpointController,
   registerTrustedCheckpointTools,
@@ -289,7 +289,7 @@ const normalizeOptions = async (overrides) => {
   if (!Number.isInteger(options.maxRequestBytes) || options.maxRequestBytes < 1024) {
     throw new Error('Gateway request limit must be a bounded positive integer')
   }
-  for (const field of ['runtimeBridgeClientPath', 'runtimeDeploymentConfigPath', 'taskSnapshotRoot']) {
+  for (const field of ['runtimeReleasePointerPath', 'taskSnapshotRoot']) {
     if (typeof options[field] !== 'string' || !isAbsolute(options[field])) {
       throw new Error(`${field} must be an absolute path`)
     }
@@ -305,18 +305,18 @@ export const createGatewayServer = async (overrides = {}) => {
   const { governanceController, ...optionOverrides } = overrides
   const options = await normalizeOptions(optionOverrides)
   let governance = governanceController
+  let runtimeAccess
   if (!governance) {
+    runtimeAccess = createFrozenRuntimeAccess({
+      releasePointerPath: options.runtimeReleasePointerPath,
+    })
     const base = createGovernanceController({
-      runtimeAccess: createBridgeRuntimeAccess({
-        bridgeClientPath: options.runtimeBridgeClientPath,
-        deploymentConfigPath: options.runtimeDeploymentConfigPath,
-      }),
+      runtimeAccess,
       snapshotStore: createFileSnapshotStore(options.taskSnapshotRoot),
       projects: options.projects,
     })
     const trusted = createTrustedCheckpointController({
-      bridgeClientPath: options.runtimeBridgeClientPath,
-      deploymentConfigPath: options.runtimeDeploymentConfigPath,
+      runtimeAccess,
       taskSnapshotRoot: options.taskSnapshotRoot,
     })
     governance = Object.freeze({ ...base, ...trusted })
@@ -413,6 +413,7 @@ export const createGatewayServer = async (overrides = {}) => {
     await new Promise((resolveClose, rejectClose) =>
       httpServer.close((error) => (error ? rejectClose(error) : resolveClose())),
     )
+    await runtimeAccess?.close()
   }
 
   return Object.freeze({

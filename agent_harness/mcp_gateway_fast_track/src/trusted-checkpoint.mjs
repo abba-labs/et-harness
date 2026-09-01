@@ -2,7 +2,6 @@ import { exec } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 import { z } from 'zod'
 
@@ -80,30 +79,6 @@ const boundedStatus = (snapshot, runtimeStatus) => {
     satisfiedObligationIds: ledger.satisfiedObligationIds ?? [],
     violatedObligationIds: ledger.violatedObligationIds ?? [],
   }
-}
-
-const createTrustedRuntimeAccess = ({ bridgeClientPath, deploymentConfigPath }) => {
-  let bridge
-  const bridgeModule = async () => {
-    if (bridge) return bridge
-    const namespace = await import(pathToFileURL(bridgeClientPath).href)
-    if (typeof namespace.createCodexLocalBridgeModule !== 'function') {
-      throw new Error('Existing Runtime bridge factory is unavailable')
-    }
-    bridge = namespace.createCodexLocalBridgeModule(deploymentConfigPath)
-    return bridge
-  }
-  const portFor = async (snapshot) =>
-    (await bridgeModule()).createGovernanceHostRuntimePort({ cwd: snapshot.workspacePath })
-
-  return Object.freeze({
-    async getStatus(snapshot) {
-      return (await portFor(snapshot)).getStatus(snapshot.runtimeId)
-    },
-    async ingest(snapshot, event) {
-      return (await portFor(snapshot)).ingestExecutionEvent(event)
-    },
-  })
 }
 
 const mustReadEntries = (snapshot) =>
@@ -238,12 +213,9 @@ const acceptedCheckpointPolicy = (contract, obligationId) => {
 }
 
 export const createTrustedCheckpointController = ({
-  bridgeClientPath,
-  deploymentConfigPath,
+  runtimeAccess,
   taskSnapshotRoot,
 }) => {
-  const runtimeAccess = createTrustedRuntimeAccess({ bridgeClientPath, deploymentConfigPath })
-
   return Object.freeze({
     async readRequired(input) {
       const snapshot = await loadSnapshot(taskSnapshotRoot, input?.taskId)

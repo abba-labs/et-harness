@@ -3,8 +3,7 @@
   "port": 8765,
   "path": "/mcp",
   "maxRequestBytes": 65536,
-  "runtimeBridgeClientPath": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\codex-plugin-pilot\\releases\\32e6bd27cfdd0268\\bridge-client.js",
-  "runtimeDeploymentConfigPath": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\round2-deployment-9255c3c8-r1\\deployment.json",
-  "taskSnapshotRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\round2-deployment-9255c3c8-r1\\gateway-task-snapshots",
+  "runtimeReleasePointerPath": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\active-release.json",
+  "taskSnapshotRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\gateway-task-snapshots",
   "projects": ["et-automated-testing-platform"]
 }

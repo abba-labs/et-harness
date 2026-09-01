@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 const MAX_INTENT_CHARS = 8_000
 const MAX_PATH_CHARS = 1_024
@@ -230,67 +229,6 @@ export const createFileSnapshotStore = (root) => {
       const temporary = `${destination}.${process.pid}.${randomUUID()}.tmp`
       await writeFile(temporary, `${JSON.stringify(snapshot)}\n`, { encoding: 'utf8', flag: 'wx' })
       await rename(temporary, destination)
-    },
-  })
-}
-
-const loadDeployment = async (configPath) => {
-  const parsed = JSON.parse(await readFile(configPath, 'utf8'))
-  if (!Array.isArray(parsed.projectBindings) || parsed.projectBindings.length === 0) {
-    throw new Error('Runtime deployment has no project bindings')
-  }
-  return parsed
-}
-
-export const createBridgeRuntimeAccess = ({ bridgeClientPath, deploymentConfigPath }) => {
-  let loaded
-  let bridge
-  const deployment = async () => (loaded ??= await loadDeployment(deploymentConfigPath))
-  const module = async () => {
-    if (bridge) return bridge
-    const namespace = await import(pathToFileURL(bridgeClientPath).href)
-    if (typeof namespace.createCodexLocalBridgeModule !== 'function') {
-      throw new Error('Existing Runtime bridge factory is unavailable')
-    }
-    bridge = namespace.createCodexLocalBridgeModule(deploymentConfigPath)
-    return bridge
-  }
-
-  const resolveProject = async (workspacePath) => {
-    const canonical = await realpath(workspacePath)
-    const bindings = []
-    for (const binding of (await deployment()).projectBindings) {
-      const roots = binding.allowedWorkspaceRoots ?? [binding.projectRoot]
-      const canonicalRoots = []
-      for (const root of roots) {
-        canonicalRoots.push(await realpath(root))
-      }
-      bindings.push({ ...binding, allowedWorkspaceRoots: canonicalRoots })
-    }
-    return selectProjectBinding(canonical, bindings)
-  }
-
-  const portFor = async (workspacePath) => {
-    const current = await module()
-    return current.createGovernanceHostRuntimePort({ cwd: workspacePath })
-  }
-
-  return Object.freeze({
-    resolveProject,
-    async openTurn(input) {
-      return (await portFor(input.workspacePath)).openTurn(input)
-    },
-    async getStatus(snapshot) {
-      return (await portFor(snapshot.workspacePath)).getStatus(snapshot.runtimeId)
-    },
-    async observeWork(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).observeWork(input)
-    },
-    async preflightAction(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).preflightAction(input)
-    },
-    async closeTurn(snapshot, input) {
-      return (await portFor(snapshot.workspacePath)).closeTurn(input)
     },
   })
 }

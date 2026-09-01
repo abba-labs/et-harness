@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "paths": {
+      "@deepseek-ai/cordis": ["./node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
+      "yaml": ["./node_modules/yaml/dist/index.d.ts"],
+      "@agent-harness/governance-core": ["../governance_core/src/index.ts"],
+      "@agent-harness/project-contract": ["../project_contract/src/index.ts"],
+      "@agent-harness/project-manager": ["../public_plugins/project_manager/src/index.ts"],
+      "@agent-harness/architecture-navigator": ["../public_plugins/architecture_navigator/src/index.ts"],
+      "@agent-harness/rule-manager": ["../public_plugins/rule_manager/src/index.ts"],
+      "@agent-harness/evidence-state-manager": ["../public_plugins/evidence_state_manager/src/index.ts"],
+      "@agent-harness/knowledge-manager": ["../public_plugins/knowledge_manager/src/index.ts"],
+      "@agent-harness/gate-manager": ["../public_plugins/gate_manager/src/index.ts"],
+      "@agent-harness/context-builder": ["../public_plugins/context_builder/src/index.ts"],
+      "@agent-harness/experience-memory-manager": ["../public_plugins/experience_memory_manager/src/index.ts"],
+      "@agent-harness/agent-governance-kernel": ["../public_plugins/agent_governance_kernel/src/index.ts"],
+      "@agent-harness/agent-governance-closure-adapters": ["../public_plugins/agent_governance_closure_adapters/src/index.ts"],
+      "@agent-harness/auto-governance-engine": ["../public_plugins/auto_governance_engine/src/index.ts"],
+      "@agent-harness/governance-runtime": ["../public_plugins/governance_runtime/src/index.ts"],
+      "@agent-harness/execution-supervisor": ["../public_plugins/execution_supervisor/src/index.ts"]
+    }
+  },
+  "include": ["src/runtime-owner.ts"]
+}

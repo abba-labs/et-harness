@@ -5,12 +5,22 @@
   "type": "module",
   "scripts": {
     "start": "node src/gateway.mjs",
+    "freeze-runtime": "node scripts/freeze-runtime.mjs",
+    "verify-runtime": "node scripts/freeze-runtime.mjs --verify-only",
+    "typecheck:runtime": "tsc -p tsconfig.runtime-bundle.json",
     "smoke": "node scripts/smoke.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@types/node": "24.10.0",
+    "rolldown": "1.2.6",
+    "typescript": "6.0.3",
+    "yaml": "2.9.0"
   },
   "engines": {
     "node": ">=22 <23"

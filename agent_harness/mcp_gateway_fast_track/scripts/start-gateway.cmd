@@ -6,5 +6,10 @@ if not exist "%NODE_EXE%" (
   echo ET Harness Node 22 runtime not found: "%NODE_EXE%" 1>&2
   exit /b 1
 )
+"%NODE_EXE%" "%~dp0freeze-runtime.mjs" --verify-only
+if errorlevel 1 (
+  echo Frozen Runtime release is missing or stale. Run scripts\freeze-runtime.cmd first. 1>&2
+  exit /b 1
+)
 "%NODE_EXE%" "%~dp0process-control.mjs" start
 exit /b %ERRORLEVEL%

@@ -15,6 +15,9 @@ const pidFile = resolve(stateDirectory, 'gateway.pid.json')
 const stdoutLog = resolve(stateDirectory, 'gateway.stdout.log')
 const stderrLog = resolve(stateDirectory, 'gateway.stderr.log')
 const gatewayEntry = resolve(packageRoot, 'src', 'gateway.mjs')
+const gatewayTemp = resolve(environmentRoot, 'temp', 'pure-mcp-gateway')
+const npmCache = resolve(environmentRoot, 'cache', 'npm')
+const pythonCache = resolve(environmentRoot, 'cache', 'python')
 
 const isRunning = (pid) => {
   try {
@@ -45,6 +48,9 @@ const waitForGateway = async (timeoutMs = 10_000) => {
 const start = async () => {
   const launcherProcesses = assertExternalGatewayLauncher()
   mkdirSync(stateDirectory, { recursive: true })
+  mkdirSync(gatewayTemp, { recursive: true })
+  mkdirSync(npmCache, { recursive: true })
+  mkdirSync(pythonCache, { recursive: true })
   if (readExistingPid()?.pid && isRunning(readExistingPid().pid)) {
     throw new Error(`Gateway is already running with PID ${readExistingPid().pid}`)
   }
@@ -56,6 +62,14 @@ const start = async () => {
     detached: true,
     windowsHide: true,
     stdio: ['ignore', stdout, stderr],
+    env: {
+      ...process.env,
+      TEMP: gatewayTemp,
+      TMP: gatewayTemp,
+      npm_config_cache: npmCache,
+      PYTHONDONTWRITEBYTECODE: '1',
+      PYTHONPYCACHEPREFIX: pythonCache,
+    },
   })
   child.unref()
   closeSync(stdout)
