@@ -1,0 +1,11 @@
+{
+  "testId": "R3-03",
+  "mustReadCount": 9,
+  "requiredReadCount": 7,
+  "ruleOwners": ["public_ip_semantics", "public_chip_neutrality", "contract_document_sync", "ip_analysis_workflow", "public_ip_machine_contract", "canonical_result_evidence"],
+  "readScopeIncludes": ["AGENTS.md", "project-governance/ip-analysis-sources.yaml", "report/design/rules/R100_public_ip_semantics_and_chip_adaptation.md", "report/design/rules/R110_contract_document_sync.md", "report/design/rules/R120_public_ip_machine_contract.md", "report/design/rules/R130_canonical_result_evidence.md", "report/design/rules/R140_ip_analysis_workflow.md", "source://project/et-automated-testing-platform/ip-analysis/et6801/etimer"],
+  "writeScope": {"allowed": ["test_case_doc/etimer/**"], "protected": ["pc/et_test_platform/core/**", "pc/et_test_platform/communication/**", "pc/et_test_platform/clients/**", "firmware/framework/**"]},
+  "validationIds": ["task-context-current", "task-write-scope", "project-validation-01", "project-validation-02", "project-validation-03"],
+  "routeCounts": {"architectureIds": 12, "ruleIds": 22, "knowledgeIds": 9, "gateIds": 4},
+  "warnings": []
+}
