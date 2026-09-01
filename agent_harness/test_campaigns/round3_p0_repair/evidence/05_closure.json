@@ -1,10 +1,14 @@
 {
   "test": "T7_T9_PREMATURE_AND_FINAL_CLOSURE",
-  "result": "NOT_EXECUTED",
-  "prematureCompletion": "NOT_EXECUTED",
-  "reflection": "BLOCKED_BY_UPSTREAM",
-  "closure": "BLOCKED_BY_UPSTREAM",
+  "prematureCompletion": {
+    "result": "PASS",
+    "requestAccepted": false,
+    "runtimeMessage": "Execution Supervisor blocks Turn Closure: IN_PROGRESS",
+    "statusAfter": "IN_PROGRESS"
+  },
+  "finalReflection": "BLOCKED_BY_UPSTREAM",
+  "finalClosure": "BLOCKED_BY_UPSTREAM",
   "contextUpdate": "BLOCKED_BY_UPSTREAM",
-  "reason": "No fresh task was opened against an activated repaired Runtime bundle.",
+  "reason": "Five trusted validation events were accepted but their VALIDATION obligations remained PENDING; the Charter requires stopping at this first semantic boundary.",
   "architectureReviewRequired": true
 }

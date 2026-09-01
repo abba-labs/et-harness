@@ -1,56 +1,49 @@
 # Round 3 P0 Repair Verification Final Report
 
-## Baseline
+## Runtime wiring review
 
-- Branch: `codex/fast-track-pure-mcp-atp-v0.1`
-- Required repair HEAD: `997cd63251955d920ffedbf0522f03dc9cfcf4b6`
-- Role: Test Executor
-- Source redesign performed: `NO`
-- Direct test/compile correction: bounded MCP instructions shortened to 506 characters and tool-list fixture updated for the two committed tools.
+- Hypothesis: `CONFIRMED`.
+- Wiring modified: `YES`, only in the authorized Gateway Runtime owner.
+- Repair: install the existing `ScopeSafeGovernanceRuntimeService` instead of the base service.
+- Real frozen Runtime + real ATP Project Plugin regression: `PASS`.
+- Effective capability remained `AUDIT`; no ENFORCE or mechanical interception claim was introduced.
 
 ## Result matrix
 
-| Check | Result | Exact Evidence | Notes |
-|---|---|---|---|
-| PROTECTED_PREFLIGHT_BLOCKS | FAIL | `02_preflight.json`, `06_live_mcp.md` | Not executed against repaired live Runtime; T3 failed first |
-| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | FAIL | `02_preflight.json`, `06_live_mcp.md` | Not verified on repaired live Runtime; no ENFORCE claim was made |
-| CHECKPOINT_REJECTS_PENDING_READS | FAIL | `04_checkpoint.json`, `06_live_mcp.md` | Tool not active in live MCP |
-| REQUIRED_READ_TRUSTED_EVENTS | FAIL | `03_required_reads.jsonl`, `06_live_mcp.md` | Tool not active in live MCP |
-| REQUIRED_READ_OBLIGATIONS_ADVANCE | FAIL | `03_required_reads.jsonl` | No event was fabricated |
-| CHECKPOINT_TRUSTED_VALIDATION_EVENTS | FAIL | `04_checkpoint.json` | Not executed |
-| VALIDATION_OBLIGATIONS_ADVANCE | FAIL | `04_checkpoint.json` | Not executed |
-| AGENT_CANNOT_FORGE_TRUSTED_RESULT | FAIL | `04_checkpoint.json`, `06_live_mcp.md` | Static input schema exists, but real repaired path was not active |
-| PREMATURE_COMPLETE_STILL_BLOCKED | FAIL | `05_closure.json` | Not executed on a fresh repaired task |
-| REFLECTION_TRIGGERED | BLOCKED_BY_UPSTREAM | `05_closure.json` | T3 failed |
-| CLOSURE_REACHED_COMPLETE | BLOCKED_BY_UPSTREAM | `05_closure.json` | T3 failed |
-| CONTEXT_UPDATE_REACHED | BLOCKED_BY_UPSTREAM | `05_closure.json` | T3 failed |
-| LIVE_MCP_NEW_TOOLS_ACTIVE | FAIL | `06_live_mcp.md` | Direct MCP listed only three tools |
-| GATEWAY_SURVIVES_CODEX_RESTART | FAIL | `06_live_mcp.md` | Restart test not justified after T3 failure |
-| REAL_DESKTOP_BLACK_BOX | FAIL | `07_black_box.md` | Not executed |
+| Check | Result | Evidence |
+|---|---|---|
+| FROZEN_RUNTIME_WIRING | PASS | `01_build_and_focused_tests.md` |
+| PROTECTED_PREFLIGHT_BLOCKS | PASS | `02_preflight.json` |
+| AUDIT_CAPABILITY_REMAINS_TRUTHFUL | PASS | `01_build_and_focused_tests.md`, `02_preflight.json` |
+| LIVE_MCP_NEW_TOOLS_ACTIVE | PASS | `06_live_mcp.md` |
+| CHECKPOINT_REJECTS_PENDING_READS | PASS | `04_checkpoint.json` |
+| REQUIRED_READ_TRUSTED_EVENTS | PASS | `03_required_reads.jsonl` |
+| REQUIRED_READ_OBLIGATIONS_ADVANCE | PASS | `03_required_reads.jsonl` |
+| AGENT_CANNOT_FORGE_TRUSTED_RESULT | PASS | `04_checkpoint.json` |
+| PREMATURE_COMPLETE_STILL_BLOCKED | PASS | `05_closure.json` |
+| CHECKPOINT_TRUSTED_VALIDATION_EVENTS | PASS | `04_checkpoint.json` |
+| VALIDATION_OBLIGATIONS_ADVANCE | FAIL | `04_checkpoint.json` |
+| REFLECTION_TRIGGERED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
+| CLOSURE_REACHED_COMPLETE | BLOCKED_BY_UPSTREAM | `05_closure.json` |
+| CONTEXT_UPDATE_REACHED | BLOCKED_BY_UPSTREAM | `05_closure.json` |
+| GATEWAY_SURVIVES_CODEX_RESTART | NOT_EXECUTED | `07_black_box.md` |
+| REAL_DESKTOP_BLACK_BOX | NOT_EXECUTED | `07_black_box.md` |
 
-## First failing boundary
+## Confirmed first failing boundary
 
-`T3_RUNTIME_DEPLOYMENT_ARTIFACT_REFRESH`
+`ExecutionObligationLedgerV01.ingest` direct trusted-event routing.
 
-The repaired source compiles, but the active Runtime owner bundle predates the repair and the branch has no deterministic, committed Pure MCP artifact refresh path. Restarting only `src/gateway.mjs` would expose tool names while still exercising old Runtime semantics, so that action was rejected as false evidence.
+Expected: a Runtime-ingested, Event Store-accepted `VALIDATION_RESULT` matching frozen Evidence Policy advances the corresponding VALIDATION obligation.
 
-## Required architecture-owner action
+Actual: all five commands exited 0, all five receipts used accepted provider `et-harness`, exact context and target identities, and all five events were durably accepted. Nevertheless, all five obligations stayed `PENDING`.
 
-Provide one deterministic local verification/deployment entry that, from a clean worktree and pinned Windows Node 22 environment:
+Source boundary: `runtime-execution-ingress.ts` calls `ledger.ingest(event)` directly. `obligation-ledger.ts` applies `VALIDATION_RESULT` only while admitting an external Agent span; its direct trusted-event branch handles resource read, resource write and task-end events but omits validation results.
 
-1. prepares or verifies the dependency signature without relying on a historical Linux worktree;
-2. compiles the affected current package graph;
-3. builds a new Runtime owner/bridge artifact from the same Git SHA;
-4. refreshes the ATP Project Plugin artifact from the same Git SHA;
-5. records artifact hashes and source SHA;
-6. runs MCP initialize/tools/list plus one bounded preflight/checkpoint smoke before the repair is handed to the Test Executor.
-
-Also align the campaign evidence path with a deterministic Test Executor Task Context route. The current scope checker correctly rejects the required evidence directory; this round did not widen the map or weaken the checker.
-
-This report does not restore the old Codex Plugin/Hook/Marketplace path and does not create a second Runtime.
+No Supervisor, Ledger, Event Store, ATP Project Plugin, Closure or contract change was made after discovery. This result requires Architecture Owner review under the Charter.
 
 ## Overall
 
 - Overall status: `ROUND3_P0_REPAIR_FAIL`
+- Failed check: `VALIDATION_OBLIGATIONS_ADVANCE`
 - Architecture review required: `YES`
-- No Round 4 work started.
+- Round 4: `NOT_STARTED`

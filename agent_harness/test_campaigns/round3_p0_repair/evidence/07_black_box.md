@@ -1,10 +1,9 @@
-# Round 3 P0 Repair - T10 Desktop Black-box
+# Round 3 P0 Repair - Desktop Black-box
 
 Result: `NOT_EXECUTED / BLOCKED_BY_UPSTREAM`.
 
-The execution order permits the Desktop black-box only after T0-T9 pass sufficiently and the repaired live MCP is active. T3 failed before a fresh governed task could be created. No direct Runtime-port call was substituted and no old Runtime result was reported as P0 repair evidence.
+The execution order requires both P0 behaviors to pass before the final Codex Desktop black-box and restart checks. The live trusted checkpoint persisted five PASS `VALIDATION_RESULT` events, but all five matching Ledger obligations remained `PENDING`.
 
-First failing boundary: `T3_RUNTIME_DEPLOYMENT_ARTIFACT_REFRESH`.
+The Test Executor stopped at the first semantic boundary. Direct MCP results were not represented as a completed Desktop black-box, and no Runtime result was fabricated.
 
 Architecture review required: `YES`.
-

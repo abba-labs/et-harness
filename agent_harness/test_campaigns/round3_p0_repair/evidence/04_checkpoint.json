@@ -1,7 +1,43 @@
 {
   "test": "T8_TRUSTED_CHECKPOINT",
-  "result": "NOT_EXECUTED",
-  "actual": "No live repaired Runtime was available. No caller-supplied command, PASS state, provider, receipt, obligation result, or execution event was submitted.",
-  "firstFailingBoundary": "T3_RUNTIME_DEPLOYMENT_ARTIFACT_REFRESH",
+  "overall": "FAIL",
+  "pendingReadCheckpoint": {
+    "result": "PASS",
+    "status": "BLOCKED",
+    "reason": "REQUIRED_READS_PENDING",
+    "pendingRequiredReadCount": 7
+  },
+  "negativeControls": {
+    "checkpointAcceptsOnlyTaskId": true,
+    "injectedCommandPassProviderReceiptAndEventIgnored": true,
+    "unrequiredReadIdsRejected": ["README.md", "../AGENTS.md", "arbitrary-source-uri"]
+  },
+  "trustedCheckpoint": {
+    "status": "CHECKPOINTED",
+    "executed": 5,
+    "exitCodes": [0, 0, 0, 0, 0],
+    "resultStatuses": ["PASS", "PASS", "PASS", "PASS", "PASS"],
+    "validationEventRefs": [
+      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-1",
+      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-2",
+      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-3",
+      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-4",
+      "execution-event://mcp-checkpoint-validation-786d4261-feaf-4545-a5a2-ab3a17db6e0a-5"
+    ],
+    "eventStoreAcceptance": "ACCEPTED"
+  },
+  "validationObligations": {
+    "expected": "SATISFIED",
+    "actual": "PENDING",
+    "failedIds": [
+      "OBL-ATP-VALIDATION-TASK-CONTEXT-CURRENT",
+      "OBL-ATP-VALIDATION-TASK-WRITE-SCOPE",
+      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-01",
+      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-02",
+      "OBL-ATP-VALIDATION-PROJECT-VALIDATION-03"
+    ]
+  },
+  "firstFailingBoundary": "ExecutionObligationLedgerV01.ingest direct trusted-event routing",
+  "rootCause": "Direct VALIDATION_RESULT events are persisted and accepted by runtime-execution-ingress, but obligation-ledger processes VALIDATION_RESULT only inside an external Agent span; the direct-event branch omits it.",
   "architectureReviewRequired": true
 }
