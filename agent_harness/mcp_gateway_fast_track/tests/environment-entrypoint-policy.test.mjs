@@ -7,7 +7,18 @@ import { fileURLToPath } from 'node:url'
 const testRoot = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(testRoot, '..')
 const scriptsRoot = resolve(packageRoot, 'scripts')
+const srcRoot = resolve(packageRoot, 'src')
 const read = path => readFileSync(path, 'utf8')
+
+const filesBelow = (directory, suffix) => {
+  const result = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name)
+    if (entry.isDirectory()) result.push(...filesBelow(path, suffix))
+    else if (entry.isFile() && entry.name.endsWith(suffix)) result.push(path)
+  }
+  return result
+}
 
 const resolverEntries = [
   'activate-runtime.cmd',
@@ -47,10 +58,11 @@ test('direct MCP smoke loads npm dependencies from the shared Toolchain', () => 
   assert.match(smoke, /smoke\.mjs/i)
 })
 
-test('runtime scripts contain no legacy checkout-parent environment owner', () => {
-  const mjsFiles = readdirSync(scriptsRoot)
-    .filter(name => name.endsWith('.mjs'))
-    .map(name => resolve(scriptsRoot, name))
+test('all Gateway and infrastructure mjs contain no checkout-local environment owner', () => {
+  const mjsFiles = [
+    ...filesBelow(scriptsRoot, '.mjs'),
+    ...filesBelow(srcRoot, '.mjs'),
+  ]
   for (const file of mjsFiles) {
     const content = read(file)
     assert.doesNotMatch(
@@ -63,6 +75,11 @@ test('runtime scripts contain no legacy checkout-parent environment owner', () =
       /resolve\(packageRoot\s*,\s*['"]node_modules['"]\)/,
       `${file} must not own checkout-local npm dependencies`,
     )
+    assert.doesNotMatch(
+      content,
+      /requireFromPackage\.resolve\(['"]@deepseek-ai\/cordis['"]\)/,
+      `${file} must resolve Cordis from the shared Toolchain, not the checkout`,
+    )
   }
 })
 
@@ -71,6 +88,6 @@ test('release switching is explicit and guarded from a live Gateway', () => {
   const rollback = read(resolve(scriptsRoot, 'rollback-runtime.mjs'))
   assert.match(activate, /assertGatewayStoppedForReleaseSwitch\(\)/)
   assert.match(rollback, /assertGatewayStoppedForReleaseSwitch\(\)/)
-  assert.doesNotMatch(read(resolve(scriptsRoot, 'build-runtime.mjs')), /activeReleasePointer[^\n]*write/i)
+  assert.doesNotMatch(read(resolve(scriptsRoot, 'build-runtime.mjs')), /atomicWriteJson\(layout\.activeReleasePointer/)
   assert.doesNotMatch(read(resolve(scriptsRoot, 'verify-candidate-runtime.mjs')), /atomicWriteJson\(layout\.activeReleasePointer/)
 })
