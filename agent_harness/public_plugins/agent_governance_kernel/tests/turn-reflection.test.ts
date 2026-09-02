@@ -149,25 +149,40 @@ describe('Unified Turn Reflection', () => {
       },
     })).rejects.toThrow('sha256:<64 lowercase hex>')
     expect(calls).toBe(0)
+    expect(journal.getTurn('TASK-INVALID-BINDING', 'TURN-1')?.status).toBe('OPEN')
   })
 
-  it('requires explicit coverage of every reflection domain even when the result is NO_CHANGE', async () => {
+  it('keeps malformed Reflection retryable and seals only after a corrected result validates', async () => {
     const { journal, controller } = createRuntime()
     journal.beginTurn({ taskId: 'TASK-2', turnId: 'TURN-1', agentId: 'AGENT-2' })
+    let calls = 0
     controller.registerProvider({
-      providerId: 'incomplete-reflector',
+      providerId: 'retryable-reflector',
       reflect(input) {
-        const result = noChangeResult(input) as Record<string, unknown>
-        delete result.rules
-        return result
+        calls += 1
+        if (calls === 1) {
+          const result = noChangeResult(input) as Record<string, unknown>
+          delete result.rules
+          return result
+        }
+        return noChangeResult(input)
       },
     })
 
     await expect(controller.reflectTurn('TASK-2', 'TURN-1')).rejects.toThrow('rules reflection section is required')
-    expect(journal.getTurn('TASK-2', 'TURN-1')?.status).toBe('CLOSURE_PENDING')
+    const afterFailure = journal.getTurn('TASK-2', 'TURN-1')
+    expect(afterFailure?.status).toBe('OPEN')
+    expect(afterFailure?.closingAt).toBeUndefined()
+    expect(afterFailure?.reflectionRef).toBeUndefined()
+
+    const corrected = await controller.reflectTurn('TASK-2', 'TURN-1')
+    expect(calls).toBe(2)
+    expect(corrected.result.rules.scopeDecision).toBe('NONE')
+    expect(journal.getTurn('TASK-2', 'TURN-1')?.status).toBe('SEALED')
+    expect(journal.getTurn('TASK-2', 'TURN-1')?.reflectionRef).toContain('governance-reflection://')
   })
 
-  it('rejects PROJECT/BOTH semantic candidates while a Turn is UNBOUND', async () => {
+  it('rejects PROJECT/BOTH semantic candidates while a Turn is UNBOUND without sealing the Turn', async () => {
     const { journal, controller } = createRuntime()
     journal.beginTurn({ taskId: 'TASK-3', turnId: 'TURN-1', agentId: 'AGENT-3' })
     controller.registerProvider({
@@ -195,18 +210,42 @@ describe('Unified Turn Reflection', () => {
     })
 
     await expect(controller.reflectTurn('TASK-3', 'TURN-1')).rejects.toThrow('cannot emit PROJECT/BOTH')
-    expect(journal.getTurn('TASK-3', 'TURN-1')?.status).toBe('CLOSURE_PENDING')
+    expect(journal.getTurn('TASK-3', 'TURN-1')?.status).toBe('OPEN')
     expect(journal.getTurn('TASK-3', 'TURN-1')?.reflectionRef).toBeUndefined()
   })
 
-  it('fails closed when no Agent Reflection Provider exists', async () => {
+  it('keeps an OPEN Turn retryable when no Agent Reflection Provider exists', async () => {
     const { journal, controller } = createRuntime()
     journal.beginTurn({ taskId: 'TASK-4', turnId: 'TURN-1', agentId: 'AGENT-4' })
 
     await expect(controller.reflectTurn('TASK-4', 'TURN-1')).rejects.toThrow('provider unavailable')
     const turn = journal.getTurn('TASK-4', 'TURN-1')
-    expect(turn?.status).toBe('CLOSURE_PENDING')
-    expect(turn?.lastClosureError).toContain('provider unavailable')
+    expect(turn?.status).toBe('OPEN')
+    expect(turn?.lastClosureError).toBeUndefined()
+  })
+
+  it('rejects a prepared Reflection if the OPEN Turn changes before seal', async () => {
+    const { journal, controller } = createRuntime()
+    journal.beginTurn({ taskId: 'TASK-RACE', turnId: 'TURN-1', agentId: 'AGENT-RACE' })
+    let mutateDuringFirstAttempt = true
+    controller.registerProvider({
+      providerId: 'race-aware-reflector',
+      reflect(input) {
+        if (mutateDuringFirstAttempt) {
+          mutateDuringFirstAttempt = false
+          journal.appendRefs('TASK-RACE', 'TURN-1', { resourceTouchRefs: ['rule://R010'] })
+        }
+        return noChangeResult(input)
+      },
+    })
+
+    await expect(controller.reflectTurn('TASK-RACE', 'TURN-1')).rejects.toThrow('changed while Reflection was being prepared')
+    expect(journal.getTurn('TASK-RACE', 'TURN-1')?.status).toBe('OPEN')
+    expect(journal.getTurn('TASK-RACE', 'TURN-1')?.resourceTouchRefs).toContain('rule://R010')
+
+    const retried = await controller.reflectTurn('TASK-RACE', 'TURN-1')
+    expect(retried.result.context.touchedRefs).toContain('rule://R010')
+    expect(journal.getTurn('TASK-RACE', 'TURN-1')?.status).toBe('SEALED')
   })
 
   it('uses the highest-priority provider and accepts PUBLIC reflection while UNBOUND', async () => {
