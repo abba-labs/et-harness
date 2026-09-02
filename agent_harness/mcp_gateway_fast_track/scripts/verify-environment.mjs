@@ -88,7 +88,23 @@ const run = (label, args, options = {}) => {
   return result.stdout.trim()
 }
 
+const mjsFilesBelow = directory => {
+  const files = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name)
+    if (entry.isDirectory()) files.push(...mjsFilesBelow(path))
+    else if (entry.isFile() && entry.name.endsWith('.mjs')) files.push(path)
+  }
+  return files
+}
+
 try {
+  const syntaxFiles = [
+    ...mjsFilesBelow(resolve(packageRoot, 'src')),
+    ...mjsFilesBelow(resolve(packageRoot, 'scripts')),
+  ].sort()
+  for (const file of syntaxFiles) run(`Node syntax check ${file}`, ['--check', file])
+
   const tscPath = resolve(toolchain.toolchainRoot, 'node_modules', 'typescript', 'bin', 'tsc')
   run('Runtime TypeScript verification', [tscPath, '-p', generatedConfig])
 
@@ -107,6 +123,8 @@ try {
     nodeVersion: process.version,
     toolchainId: toolchain.descriptor.toolchainId,
     dependencyCount: Object.keys(toolchain.dependencyVersions).length,
+    verifiedPackageCount: toolchain.lockfileVerification.verifiedPackageCount,
+    syntaxCheckedFileCount: syntaxFiles.length,
     sourceGatewayTestCount: testFiles.length,
     activeRuntimeBehaviorUsedAsCandidateEvidence: false,
     checkoutNodeModulesRequired: false,
