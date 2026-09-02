@@ -170,7 +170,7 @@ const isContextSession = (value: unknown): value is ContextSession => {
     && Array.isArray(item.recentTail)
 }
 
-interface ContextStateRecordLike {
+export interface ContextStateRecordLike {
   readonly scope: string
   readonly key: string
   readonly value: unknown
@@ -213,6 +213,9 @@ const boundedLines = (lines: readonly string[], maxChars: number): string => {
   return selected.join('\n')
 }
 
+const hasClosedTurnContext = (session: ContextSession): boolean =>
+  session.progressLedger.lastAction?.startsWith('Close governed Turn ') === true
+
 export const selectRelevantContextHistory = (input: {
   readonly projectId: string
   readonly currentTaskId: string
@@ -235,7 +238,11 @@ export const selectRelevantContextHistory = (input: {
     .map(record => ({ record, session: record.value as ContextSession }))
     .filter(({ session }) => session.projectId === input.projectId
       && session.taskId !== input.currentTaskId
-      && (session.status === 'COMPLETED' || session.status === 'PAUSED'))
+      && (
+        session.status === 'COMPLETED'
+        || session.status === 'PAUSED'
+        || (session.status === 'ACTIVE' && hasClosedTurnContext(session))
+      ))
     .map(item => {
       const historicalRefs = sessionRefTokens(item.session)
       const matchedRefs = [...currentRefs].filter(ref => historicalRefs.has(ref))
