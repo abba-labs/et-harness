@@ -8,7 +8,7 @@ import {
 } from '../scripts/environment-layout.mjs'
 
 test('explicit machine environment root is authoritative and independent of checkout location', () => {
-  const root = resolve('D:\\shared-et-harness-env')
+  const root = resolve(process.cwd(), '..', 'shared-et-harness-env-fixture')
   assert.equal(
     resolveEnvironmentRoot({ environmentRoot: root, allowLegacyGatewayConfig: false }),
     root,
