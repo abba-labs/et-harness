@@ -238,6 +238,7 @@ export class TurnJournalStore {
     if (!input.inputFingerprint.trim()) throw new Error('reflection inputFingerprint cannot be empty')
     const current = this.requireTurn(taskId, turnId)
     if (current.status === 'OPEN') throw new Error(`Turn ${turnId} must be sealed before Reflection can be attached`)
+    if (current.status === 'ABORTED') throw new Error(`Turn ${turnId} is ABORTED; Reflection cannot be attached`)
     if (current.reflectionRef) {
       if (current.reflectionRef === input.reflectionRef.trim()
           && current.reflectionInputFingerprint === input.inputFingerprint.trim()) return current
