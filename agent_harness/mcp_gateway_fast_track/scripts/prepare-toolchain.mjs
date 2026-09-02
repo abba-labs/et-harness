@@ -1,7 +1,8 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -9,11 +10,12 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
 import {
   EXPECTED_NODE_VERSION,
   layout,
+  packageRoot,
 } from './environment-layout.mjs'
 import {
   TOOLCHAIN_SCHEMA,
@@ -24,6 +26,7 @@ import {
   verifyInstalledDependencies,
   verifyToolchainAt,
 } from './toolchain.mjs'
+import { verifyRuntimeReleasePointer } from '../src/runtime-release.mjs'
 
 if (process.version !== EXPECTED_NODE_VERSION) {
   throw new Error(`Shared Toolchain preparation requires ${EXPECTED_NODE_VERSION}; current Node is ${process.version}`)
@@ -38,6 +41,7 @@ try {
     status: 'REUSED',
     toolchainId: descriptor.toolchainId,
     toolchainRoot: verified.toolchainRoot,
+    preparationSource: verified.manifest.preparationSource ?? 'existing',
   })}\n`)
   process.exit(0)
 } catch (error) {
@@ -49,9 +53,6 @@ try {
   }
 }
 
-if (!existsSync(layout.npmCli)) {
-  throw new Error(`Pinned npm CLI is unavailable: ${layout.npmCli}`)
-}
 mkdirSync(layout.toolchainTempRoot, { recursive: true })
 mkdirSync(layout.npmCache, { recursive: true })
 mkdirSync(layout.toolchainsRoot, { recursive: true })
@@ -61,31 +62,40 @@ mkdirSync(staging, { recursive: true })
 copyFileSync(packageManifestPath, resolve(staging, 'package.json'))
 copyFileSync(packageLockPath, resolve(staging, 'package-lock.json'))
 
-const npm = spawnSync(
-  process.execPath,
-  [
-    layout.npmCli,
-    'ci',
-    '--ignore-scripts',
-    '--no-audit',
-    '--no-fund',
-  ],
-  {
-    cwd: staging,
-    encoding: 'utf8',
-    windowsHide: true,
-    env: {
-      ...process.env,
-      TEMP: layout.toolchainTempRoot,
-      TMP: layout.toolchainTempRoot,
-      npm_config_cache: layout.npmCache,
+let preparationSource = await seedFromVerifiedEnvironment(staging)
+if (!preparationSource) {
+  if (!existsSync(layout.npmCli)) {
+    rmSync(staging, { recursive: true, force: true })
+    throw new Error(`Pinned npm CLI is unavailable: ${layout.npmCli}`)
+  }
+  const npm = spawnSync(
+    process.execPath,
+    [
+      layout.npmCli,
+      'ci',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--prefer-offline',
+    ],
+    {
+      cwd: staging,
+      encoding: 'utf8',
+      windowsHide: true,
+      env: {
+        ...process.env,
+        TEMP: layout.toolchainTempRoot,
+        TMP: layout.toolchainTempRoot,
+        npm_config_cache: layout.npmCache,
+      },
     },
-  },
-)
-if (npm.status !== 0) {
-  rmSync(staging, { recursive: true, force: true })
-  const detail = [npm.stderr, npm.stdout].filter(value => value?.trim()).join('\n').trim()
-  throw new Error(`Shared Toolchain npm ci failed with exit ${npm.status}${detail ? `: ${detail}` : ''}`)
+  )
+  if (npm.status !== 0) {
+    rmSync(staging, { recursive: true, force: true })
+    const detail = [npm.stderr, npm.stdout].filter(value => value?.trim()).join('\n').trim()
+    throw new Error(`Shared Toolchain npm ci failed with exit ${npm.status}${detail ? `: ${detail}` : ''}`)
+  }
+  preparationSource = 'npm-ci'
 }
 
 const dependencyVersions = verifyInstalledDependencies(staging, descriptor)
@@ -98,6 +108,7 @@ const manifest = {
   packageJsonSha256: descriptor.packageJsonSha256,
   packageLockSha256: descriptor.packageLockSha256,
   dependencies: dependencyVersions,
+  preparationSource,
   createdAt: new Date().toISOString(),
 }
 writeFileSync(resolve(staging, 'toolchain.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
@@ -115,4 +126,62 @@ process.stdout.write(`${JSON.stringify({
   toolchainId: descriptor.toolchainId,
   toolchainRoot: verified.toolchainRoot,
   dependencyCount: Object.keys(verified.dependencyVersions).length,
+  preparationSource: verified.manifest.preparationSource,
 })}\n`)
+
+async function seedFromVerifiedEnvironment(stagingRoot) {
+  const candidates = []
+  const explicitSeed = process.env.ET_HARNESS_TOOLCHAIN_SEED?.trim()
+  if (explicitSeed) candidates.push(resolve(explicitSeed))
+
+  try {
+    const active = await verifyRuntimeReleasePointer(layout.activeReleasePointer)
+    if (typeof active.manifest.repositoryRoot === 'string') {
+      candidates.push(resolve(
+        active.manifest.repositoryRoot,
+        'agent_harness',
+        'mcp_gateway_fast_track',
+      ))
+    }
+  } catch {
+    // A shared Toolchain can still be prepared on a machine with no active Runtime.
+  }
+  candidates.push(packageRoot)
+
+  const uniqueCandidates = [...new Set(candidates.map(value => value.toLowerCase()))]
+  for (const normalized of uniqueCandidates) {
+    const seedRoot = candidates.find(value => value.toLowerCase() === normalized)
+    if (!seedRoot || !compatibleSeed(seedRoot)) continue
+    const seedModules = resolve(seedRoot, 'node_modules')
+    if (!existsSync(seedModules)) continue
+    rmSync(resolve(stagingRoot, 'node_modules'), { recursive: true, force: true })
+    try {
+      cpSync(seedModules, resolve(stagingRoot, 'node_modules'), {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+      })
+      verifyInstalledDependencies(stagingRoot, descriptor)
+      return `verified-seed:${seedRoot}`
+    } catch {
+      rmSync(resolve(stagingRoot, 'node_modules'), { recursive: true, force: true })
+    }
+  }
+  return undefined
+}
+
+function compatibleSeed(seedRoot) {
+  try {
+    const packageJson = readFileSync(resolve(seedRoot, 'package.json'))
+    const packageLock = readFileSync(resolve(seedRoot, 'package-lock.json'))
+    return sha256(packageJson) === descriptor.packageJsonSha256
+      && sha256(packageLock) === descriptor.packageLockSha256
+      && Boolean(verifyInstalledDependencies(seedRoot, descriptor))
+  } catch {
+    return false
+  }
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex')
+}
