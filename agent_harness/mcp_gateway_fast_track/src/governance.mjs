@@ -8,6 +8,7 @@ const MAX_ERROR_CHARS = 500
 const MAX_TEXT_CHARS = 8_000
 const MAX_REF_CHARS = 2_048
 const MAX_REFS = 64
+const MAX_PRIOR_CONTEXT_ITEMS = 4
 
 export class GatewayGovernanceError extends Error {
   constructor(code, message) {
@@ -186,6 +187,10 @@ export const projectContextFromOpenTurn = (opened) => {
   if (!projectRevision || !contextRevision) {
     throw new GatewayGovernanceError('CONTEXT_INCOMPLETE', 'Runtime Context has no project or context revision')
   }
+  const priorContext = items
+    .filter((item) => item.id.startsWith('prior-context-'))
+    .slice(0, MAX_PRIOR_CONTEXT_ITEMS)
+    .map((item) => ({ id: item.id, title: item.title, content: item.content }))
 
   return Object.freeze({
     projectId: opened.projectId,
@@ -197,6 +202,7 @@ export const projectContextFromOpenTurn = (opened) => {
     writeScope: { allowed: scope.allowed, protected: scope.protected },
     validation,
     route: context.route,
+    ...(priorContext.length > 0 ? { priorContext } : {}),
     contributionReceipts: contributions.map((item) => ({
       providerId: item.providerId,
       contributionId: item.contributionId,
