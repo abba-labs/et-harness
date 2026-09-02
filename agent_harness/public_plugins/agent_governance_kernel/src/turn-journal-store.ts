@@ -10,6 +10,7 @@ import {
 import { dirname, join } from 'node:path'
 import {
   AGENT_GOVERNANCE_KERNEL_CONTRACT_VERSION,
+  type AbortTurnInput,
   type AppendTurnRefsInput,
   type AttachReflectionInput,
   type BeginTurnInput,
@@ -58,7 +59,7 @@ const parseRecord = (file: string): TurnJournalRecord => {
   }
   if (!isBinding(value.projectBinding)) throw new Error(`Invalid projectBinding in ${file}`)
   assertProjectBinding(value.projectBinding)
-  if (!['OPEN', 'SEALED', 'CLOSURE_PENDING', 'CLOSED'].includes(String(value.status))) {
+  if (!['OPEN', 'SEALED', 'CLOSURE_PENDING', 'CLOSED', 'ABORTED'].includes(String(value.status))) {
     throw new Error(`Invalid Turn Journal status in ${file}: ${String(value.status)}`)
   }
   if (!isStringArray(value.userMessageRefs)
@@ -72,7 +73,7 @@ const parseRecord = (file: string): TurnJournalRecord => {
     throw new Error(`Invalid Turn Journal revision metadata in ${file}`)
   }
   if (typeof value.startedAt !== 'string') throw new Error(`Invalid startedAt in ${file}`)
-  if (value.status !== 'OPEN' && typeof value.closingAt !== 'string') {
+  if (value.status !== 'OPEN' && value.status !== 'ABORTED' && typeof value.closingAt !== 'string') {
     throw new Error(`Turn Journal ${value.status} is missing closingAt in ${file}`)
   }
   if ((value.reflectionRef === undefined) !== (value.reflectionInputFingerprint === undefined)) {
@@ -83,6 +84,12 @@ const parseRecord = (file: string): TurnJournalRecord => {
         || typeof value.closureReceiptRef !== 'string'
         || typeof value.reflectionRef !== 'string')) {
     throw new Error(`CLOSED Turn Journal is missing Reflection/Closure Receipt metadata in ${file}`)
+  }
+  if (value.status === 'ABORTED'
+      && (typeof value.abortedAt !== 'string'
+        || typeof value.abortReason !== 'string'
+        || !value.abortReason.trim())) {
+    throw new Error(`ABORTED Turn Journal is missing abort metadata in ${file}`)
   }
   return value as TurnJournalRecord
 }
@@ -184,6 +191,28 @@ export class TurnJournalStore {
     const updated: TurnJournalRecord = {
       ...current,
       projectBinding: { kind: 'BOUND', projectId },
+      revision: current.revision + 1,
+    }
+    this.write(updated)
+    return updated
+  }
+
+  abortTurn(taskId: string, turnId: string, input: AbortTurnInput): TurnJournalRecord {
+    if (!input.reason.trim()) throw new Error('abort reason cannot be empty')
+    const current = this.requireTurn(taskId, turnId)
+    if (current.status === 'ABORTED') {
+      if (current.abortReason === input.reason.trim()) return current
+      throw new Error(`Turn ${turnId} is already ABORTED with a different reason`)
+    }
+    if (current.status !== 'OPEN') {
+      throw new Error(`Turn ${turnId} cannot be aborted from ${current.status}`)
+    }
+    assertTurnTransition(current.status, 'ABORTED')
+    const updated: TurnJournalRecord = {
+      ...current,
+      status: 'ABORTED',
+      abortedAt: input.abortedAt ?? now(),
+      abortReason: input.reason.trim(),
       revision: current.revision + 1,
     }
     this.write(updated)
