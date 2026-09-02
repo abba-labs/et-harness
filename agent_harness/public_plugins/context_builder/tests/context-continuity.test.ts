@@ -84,15 +84,21 @@ describe('cross-task Context continuity', () => {
   })
 
   it('keeps bounded source-backed facts after a task-level route match', () => {
-    const prior = session('TASK-SOURCE-FACTS', 'COMPLETED', ['A010.020'], 'Driver result needs follow-up')
-    prior.taskLedger.confirmed = [{
-      text: 'Source-backed hardware fact',
-      refs: ['source://firmware/svd/ET6801.svd'],
-    }]
-    prior.taskLedger.openIssues = [{
-      text: 'Source-backed driver gap',
-      refs: ['source://firmware/driver/srpwm.c'],
-    }]
+    const base = session('TASK-SOURCE-FACTS', 'COMPLETED', ['A010.020'], 'Driver result needs follow-up')
+    const prior: ContextSession = {
+      ...base,
+      taskLedger: {
+        ...base.taskLedger,
+        confirmed: [{
+          text: 'Source-backed hardware fact',
+          refs: ['source://firmware/svd/ET6801.svd'],
+        }],
+        openIssues: [{
+          text: 'Source-backed driver gap',
+          refs: ['source://firmware/driver/srpwm.c'],
+        }],
+      },
+    }
 
     const items = selectRelevantContextHistory({
       projectId: 'p1',
