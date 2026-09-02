@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import {
   copyFileSync,
@@ -190,15 +190,15 @@ function compatibleSeed(seedRoot) {
   try {
     const packageJson = readFileSync(resolve(seedRoot, 'package.json'))
     const packageLock = readFileSync(resolve(seedRoot, 'package-lock.json'))
-    return sha256(packageJson) === descriptor.packageJsonSha256
-      && sha256(packageLock) === descriptor.packageLockSha256
+    const seedDescriptor = computeToolchainDescriptor({
+      packageJsonBytes: packageJson,
+      packageLockBytes: packageLock,
+    })
+    return seedDescriptor.packageJsonSha256 === descriptor.packageJsonSha256
+      && seedDescriptor.packageLockSha256 === descriptor.packageLockSha256
       && Boolean(verifyInstalledDependencies(seedRoot, descriptor))
       && Boolean(verifyLockfileInstallation(seedRoot))
   } catch {
     return false
   }
-}
-
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex')
 }

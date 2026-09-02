@@ -12,6 +12,11 @@ import {
 export const TOOLCHAIN_SCHEMA = 'et-harness.toolchain.v1'
 
 const hashBuffer = value => createHash('sha256').update(value).digest('hex')
+const canonicalPackageBytes = value => Buffer.from(
+  (Buffer.isBuffer(value) ? value.toString('utf8') : String(value)).replace(/\r\n?/g, '\n'),
+  'utf8',
+)
+const hashPackageBytes = value => hashBuffer(canonicalPackageBytes(value))
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'))
 const parsePackageManifest = bytes => {
   const parsed = JSON.parse(Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes))
@@ -32,8 +37,8 @@ export const computeToolchainDescriptor = (options = {}) => {
   const nodeVersion = options.nodeVersion ?? EXPECTED_NODE_VERSION
   const platform = options.platform ?? process.platform
   const arch = options.arch ?? process.arch
-  const packageJsonSha256 = hashBuffer(packageJsonBytes)
-  const packageLockSha256 = hashBuffer(packageLockBytes)
+  const packageJsonSha256 = hashPackageBytes(packageJsonBytes)
+  const packageLockSha256 = hashPackageBytes(packageLockBytes)
   const digest = createHash('sha256')
   digest.update('et-harness-toolchain-v1\0')
   digest.update(`${nodeVersion}\0${platform}\0${arch}\0`)
