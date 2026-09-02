@@ -71,6 +71,18 @@ const openTurnResult = () => ({
   },
 })
 
+const routeDecision = {
+  schema: 'auto-governance.route-decision.v0.1',
+  phase: 'analysis',
+  queryPreview: 'Analyze XBAR.',
+  queryHash: `sha256:${'a'.repeat(64)}`,
+  seeds: { architecture: [], rule: [], knowledge: [], gate: [] },
+  selected: { architectureIds: [], ruleIds: ['R010'], knowledgeIds: [], gateIds: ['G010'] },
+  trace: [{ kind: 'rule', id: 'R010', source: 'semantic-search', depth: 0 }],
+  omissions: [],
+  contextContributionIds: ['atp-xbar-01'],
+}
+
 const memoryStore = () => {
   const values = new Map()
   return {
@@ -94,6 +106,7 @@ const fakeRuntime = (overrides = {}) => {
     getStatus: async () => {
       calls.getStatus += 1
       return {
+        autoGovernance: { routeDecision },
         supervision: {
           decision: { status: 'READY_TO_CLOSE' },
           ledger: {
@@ -109,7 +122,7 @@ const fakeRuntime = (overrides = {}) => {
       return {
         observation: { observationId: 'observation-01', kind: input.kind.toUpperCase() },
         journal: { status: 'OPEN' },
-        knowledgeDecision: { captureMode: 'OPTIONAL', consultationMode: 'NONE' },
+        knowledgeDecision: { captureMode: 'OPTIONAL', consultMode: 'NONE' },
       }
     },
     preflightAction: async (_snapshot, input) => {
@@ -126,7 +139,7 @@ const fakeRuntime = (overrides = {}) => {
         turnId: input.turnId,
         reflection: { providerId: 'host-proposal', createdAt: '2026-09-01T00:00:00.000Z' },
         closure: { status: 'COMPLETE', attemptId: 'closure-01' },
-        knowledgeDecision: { captureMode: 'OPTIONAL', consultationMode: 'NONE' },
+        knowledgeDecision: { captureMode: 'OPTIONAL', consultMode: 'NONE' },
         knowledgeVerifications: [],
         knowledgeVerificationWarnings: [],
         knowledgePromotions: [],
@@ -211,13 +224,14 @@ test('T8 contributor failure fails closed and persists no snapshot', async () =>
   assert.equal(await store.get('xbar-fail'), undefined)
 })
 
-test('T9 status reads the existing Runtime state through the saved binding', async () => {
+test('T9 status reads the existing Runtime state and exposes bounded route decision receipt', async () => {
   const runtime = fakeRuntime()
   const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: memoryStore() })
   await controller.begin({ workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-status' })
   const status = await controller.status({ taskId: 'xbar-status' })
   assert.equal(status.runtimeDecision, 'READY_TO_CLOSE')
   assert.deepEqual(status.pendingObligationIds, ['OBL-ATP-READ-001'])
+  assert.deepEqual(status.routeDecision, routeDecision)
   assert.equal(runtime.calls.getStatus, 1)
 })
 
@@ -257,6 +271,7 @@ test('T10 thin wrappers bind task identity and preserve Runtime authority', asyn
     semanticReflection: { contractVersion: '0.1' },
   })
   assert.equal(completed.status, 'COMPLETE')
+  assert.equal(completed.knowledge.consultationMode, 'NONE')
   assert.equal(completed.supervision.decision, 'COMPLETE')
   assert.deepEqual(completed.supervision.satisfiedObligationIds, ['OBL-BASELINE-REFLECTION'])
   assert.deepEqual(runtime.calls, {
