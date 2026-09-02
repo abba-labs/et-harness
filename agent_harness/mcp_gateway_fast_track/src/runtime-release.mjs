@@ -154,6 +154,7 @@ export const createFrozenRuntimeAccess = ({ releaseManifestPath, releasePointerP
       taskId: snapshot.taskId,
       projectId: snapshot.projectId,
       projectRevision: snapshot.projectRevision,
+      restoredRoute: snapshot.context?.route,
     })
     return module.createGovernanceHostRuntimePort({ cwd: snapshot.workspacePath })
   }
