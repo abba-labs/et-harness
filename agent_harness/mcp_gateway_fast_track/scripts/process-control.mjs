@@ -54,6 +54,7 @@ const gatewayLaunch = async () => {
       cwd: release.releaseRoot,
       args: [release.gatewayArtifactPath],
       bundled: true,
+      dependencyMode: 'release-bundled',
     }
   }
 
@@ -66,16 +67,23 @@ const gatewayLaunch = async () => {
   if (!existsSync(gatewayEntry)) {
     throw new Error(`Legacy active Runtime Gateway source is unavailable: ${gatewayEntry}`)
   }
+  const legacyDependenciesReady = [
+    resolve(legacyPackageRoot, 'node_modules', '@modelcontextprotocol', 'sdk', 'package.json'),
+    resolve(legacyPackageRoot, 'node_modules', 'zod', 'package.json'),
+  ].every(existsSync)
   return {
     release,
     gatewayEntry,
     cwd: legacyPackageRoot,
-    args: [
-      '--import',
-      resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs'),
-      gatewayEntry,
-    ],
+    args: legacyDependenciesReady
+      ? [gatewayEntry]
+      : [
+          '--import',
+          resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs'),
+          gatewayEntry,
+        ],
     bundled: false,
+    dependencyMode: legacyDependenciesReady ? 'legacy-checkout' : 'shared-toolchain',
   }
 }
 
@@ -119,6 +127,7 @@ const start = async () => {
       releaseManifestPath: launch.release.manifestPath,
       releaseSchema: launch.release.manifest.schema,
       bundledGateway: launch.bundled,
+      dependencyMode: launch.dependencyMode,
       startedAt: new Date().toISOString(),
       launcher: launcherProcesses.map(({ processId, name }) => ({ processId, name })),
     })}\n`,
@@ -138,6 +147,7 @@ const start = async () => {
     pid: child.pid,
     releaseManifestPath: launch.release.manifestPath,
     bundledGateway: launch.bundled,
+    dependencyMode: launch.dependencyMode,
   })}\n`)
 }
 
