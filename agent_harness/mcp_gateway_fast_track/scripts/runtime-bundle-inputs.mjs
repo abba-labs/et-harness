@@ -93,6 +93,7 @@ export const runtimeSourceFiles = () => {
     resolve(packageRoot, 'config', 'gateway.local.json'),
     resolve(packageRoot, 'scripts', 'environment-layout.mjs'),
     resolve(packageRoot, 'scripts', 'toolchain.mjs'),
+    resolve(packageRoot, 'scripts', 'build-runtime.mjs'),
     fileURLToPath(import.meta.url),
   ]
   for (const directory of packageDirectories) {
