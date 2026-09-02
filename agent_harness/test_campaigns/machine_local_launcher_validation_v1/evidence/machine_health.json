@@ -1,0 +1,25 @@
+{
+  "status": "HEALTHY",
+  "gatewayPid": 20124,
+  "http": {
+    "status": "UP",
+    "service": "et-harness-mcp-gateway",
+    "gatewayVersion": "0.1.0",
+    "gatewayApi": "et-harness-mcp-fast-track.v1"
+  },
+  "mcp": {
+    "protocolVersion": "2025-03-26",
+    "toolCount": 8,
+    "tools": [
+      "harness_health",
+      "harness_begin",
+      "harness_status",
+      "harness_observe",
+      "harness_preflight",
+      "harness_complete",
+      "harness_read_required",
+      "harness_checkpoint"
+    ]
+  },
+  "result": "PASS"
+}

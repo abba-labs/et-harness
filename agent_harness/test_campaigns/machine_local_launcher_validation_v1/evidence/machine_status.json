@@ -1,0 +1,16 @@
+{
+  "status": "MACHINE_ENVIRONMENT_READY",
+  "launcherVersion": "0.1.0",
+  "environmentRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env",
+  "nodeVersion": "v22.23.2",
+  "nodePath": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\runtimes\\node-v22.23.2-win-x64\\node.exe",
+  "activeReleaseId": "f976d8e32df64fa78075",
+  "activeReleaseSchema": "et-harness.pure-mcp-runtime-release.v2",
+  "previousReleaseId": "6ea5d462630eb5186076",
+  "pid": 20124,
+  "processRunning": true,
+  "gatewayEntry": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\releases\\f976d8e32df64fa78075\\gateway.mjs",
+  "bundledGateway": true,
+  "dependencyMode": "release-bundled",
+  "activeReleaseIntegrity": "PASS"
+}

@@ -1,0 +1,16 @@
+{
+  "testId": "MLL-PROJECT-ADMISSION-001",
+  "checkoutSha": "7ce711a882da7807d996684c27313221fa359c00",
+  "clientImportsRepositoryCode": false,
+  "project": "ET Automated Testing Platform",
+  "intent": "项目：ET Automated Testing Platform，帮我分析 SRPWM 这个 IP。",
+  "decision": "PROJECT_CONTEXT_REQUIRED",
+  "projectId": "et-automated-testing-platform",
+  "architectureStandard": "architecture-v0.1",
+  "fingerprint": "sha256:d09f1347bda9a4da21336d1f42766499e8fb2170f2cf64033cfee190d1379111",
+  "runtimeTurnCreated": false,
+  "runtimeStateUnchanged": true,
+  "eventStoreUnchanged": true,
+  "taskSnapshotsUnchanged": true,
+  "result": "PASS"
+}

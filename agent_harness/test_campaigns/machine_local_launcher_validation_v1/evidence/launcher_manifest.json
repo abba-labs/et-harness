@@ -1,0 +1,10 @@
+{
+  "schema": "et-harness.machine-launcher.v0.1",
+  "launcherVersion": "0.1.0",
+  "installedFromProductSha": "6aaefb28a4c6776fb241617d3735b5c313ca4c7e",
+  "environmentRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env",
+  "expectedNodeVersion": "v22.23.2",
+  "launcherSha256": "f4973e07baae0063a59735d9d6a182e183c6295571b3ef7a72a89af377de8c04",
+  "commandSha256": "5ed9c410ba54f145809806554fa47e514c0fa663ce5a9b11e59b78cfe0a397b3",
+  "installedAt": "2026-09-02T10:29:10.005Z"
+}

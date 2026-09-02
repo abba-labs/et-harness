@@ -1,0 +1,16 @@
+{
+  "campaign": "machine_local_launcher_validation_v1",
+  "recordedAt": "2026-09-02T10:30:41.2105094Z",
+  "productBranch": "architecture/machine-local-launcher-v0.1",
+  "productSha": "6aaefb28a4c6776fb241617d3735b5c313ca4c7e",
+  "worktreeClean": true,
+  "environmentRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env",
+  "activeReleaseId": "f976d8e32df64fa78075",
+  "gatewayPid": 34828,
+  "activePointerSha256": "0e58b1b8d1814ccefcb3f7778f49f45e8c3623ed88944e95ad6f6519f24eefb4",
+  "previousPointerSha256": "c3b38f2b7f2298f529c2e060912d20255b434d3c57025e1f5cef5ec1a9d41fd2",
+  "runtimeStateDigest": "8ddc38d2952b8d9a94b8762dfc3b2f5729663f66f37ff66f8862f4c2b7749a14",
+  "eventStoreDigest": "9a475046460a05197eb1aafd4e1b21e17ae2d96fc648f250e7284b2fad4a8080",
+  "taskSnapshotDigest": "02e1e45bd4eac9ee9fb1c3ada55bf842b6d961228155f383fc71c46c8137c9ba",
+  "checkoutNodeModulesPresent": false
+}

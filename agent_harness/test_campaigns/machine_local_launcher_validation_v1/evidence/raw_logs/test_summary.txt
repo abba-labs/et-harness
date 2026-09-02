@@ -1,0 +1,7 @@
+Targeted direct-Node tests: 24 passed, 0 failed.
+Full MCP Gateway direct-Node tests on clean product checkout: 66 passed, 0 failed.
+Repository-wide software gate: NOT_RUN by explicit user instruction.
+npm install: not invoked.
+npm ci: not invoked.
+npm update: not invoked.
+npx: not invoked.

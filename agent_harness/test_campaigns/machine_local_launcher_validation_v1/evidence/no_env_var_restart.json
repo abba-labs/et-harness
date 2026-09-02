@@ -1,0 +1,27 @@
+{
+  "testId": "MLL-NO-ENV-001",
+  "historicalCheckoutSha": "7ce711a882da7807d996684c27313221fa359c00",
+  "workingDirectory": "C:\\Users\\admin\\AppData\\Local\\Temp",
+  "environmentVariablesClearedInCommand": [
+    "ET_HARNESS_ENV_ROOT",
+    "ET_HARNESS_NODE"
+  ],
+  "stop": {
+    "status": "STOPPED",
+    "pid": 46040,
+    "portClosed": true
+  },
+  "start": {
+    "status": "STARTED",
+    "pid": 20124,
+    "releaseId": "f976d8e32df64fa78075",
+    "bundledGateway": true,
+    "dependencyMode": "release-bundled",
+    "httpStatus": "UP"
+  },
+  "status": "MACHINE_ENVIRONMENT_READY",
+  "health": "HEALTHY",
+  "mcpToolCount": 8,
+  "checkoutNodeModulesPresent": false,
+  "result": "PASS"
+}

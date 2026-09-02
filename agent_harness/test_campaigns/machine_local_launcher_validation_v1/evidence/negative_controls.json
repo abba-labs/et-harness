@@ -1,0 +1,35 @@
+{
+  "controls": [
+    {
+      "testId": "MLL-NC-ANCESTRY-001",
+      "stimulus": "Invoke D-drive et-harness.cmd start directly from Codex-owned ancestry",
+      "expected": "BLOCK",
+      "actual": "BLOCK: codex.exe is in launcher ancestry",
+      "pidRecordUnchanged": true,
+      "result": "PASS"
+    },
+    {
+      "testId": "MLL-NC-TAMPER-001",
+      "stimulus": "Tamper with a v2 release artifact in an isolated fixture",
+      "expected": "Integrity rejection",
+      "actual": "Runtime release artifact failed integrity verification",
+      "result": "PASS"
+    },
+    {
+      "testId": "MLL-NC-ESCAPE-001",
+      "stimulus": "Point active release outside machine Environment Root in an isolated fixture",
+      "expected": "Fail closed",
+      "actual": "Runtime release manifest escapes the machine Environment Root",
+      "result": "PASS"
+    },
+    {
+      "testId": "MLL-NC-LEGACY-001",
+      "stimulus": "Use a v1 release for normal machine start verification",
+      "expected": "Reject non-v2 normal start",
+      "actual": "Normal Machine Launcher start requires a v2 release-bundled Runtime",
+      "result": "PASS"
+    }
+  ],
+  "unsafeLivePidForgeryPerformed": false,
+  "note": "Wrong-process protection is implemented by PID record, executable path, command-line, release manifest and bundled mode checks; destructive live PID forgery was not performed against stable state."
+}

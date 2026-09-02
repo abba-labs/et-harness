@@ -1,0 +1,28 @@
+{
+  "testId": "MLL-HISTORICAL-001",
+  "historicalCheckoutSha": "7ce711a882da7807d996684c27313221fa359c00",
+  "checkoutMachineLauncherPresent": false,
+  "initialPid": 34828,
+  "stop": {
+    "status": "STOPPED",
+    "pid": 34828,
+    "portClosed": true,
+    "pidFileRemoved": true
+  },
+  "start": {
+    "status": "STARTED",
+    "pid": 46040,
+    "releaseId": "f976d8e32df64fa78075",
+    "bundledGateway": true,
+    "dependencyMode": "release-bundled",
+    "httpStatus": "UP"
+  },
+  "processExecutable": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\runtimes\\node-v22.23.2-win-x64\\node.exe",
+  "processCommandLine": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\runtimes\\node-v22.23.2-win-x64\\node.exe D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track\\releases\\f976d8e32df64fa78075\\gateway.mjs",
+  "checkoutReferencedByCommandLine": false,
+  "installedLauncherHashUnchanged": true,
+  "activePointerHashUnchanged": true,
+  "eightMcpTools": "PASS",
+  "checkoutNodeModulesPresent": false,
+  "result": "PASS"
+}

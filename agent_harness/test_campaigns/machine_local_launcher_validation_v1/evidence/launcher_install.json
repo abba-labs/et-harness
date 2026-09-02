@@ -1,0 +1,22 @@
+{
+  "testId": "MLL-INSTALL-001",
+  "productSha": "6aaefb28a4c6776fb241617d3735b5c313ca4c7e",
+  "firstInstall": {
+    "decision": "INSTALLED",
+    "launcherVersion": "0.1.0",
+    "launcherSha256": "f4973e07baae0063a59735d9d6a182e183c6295571b3ef7a72a89af377de8c04",
+    "commandSha256": "5ed9c410ba54f145809806554fa47e514c0fa663ce5a9b11e59b78cfe0a397b3",
+    "pidRecordUnchanged": true,
+    "activePointerUnchanged": true,
+    "previousPointerUnchanged": true,
+    "stateTreeUnchanged": true
+  },
+  "identicalReinstall": {
+    "decision": "REUSED_UNCHANGED",
+    "binHashesUnchanged": true,
+    "pidRecordUnchanged": true,
+    "activePointerUnchanged": true,
+    "previousPointerUnchanged": true
+  },
+  "result": "PASS"
+}
