@@ -185,18 +185,21 @@ export const createFrozenRuntimeAccess = ({ releaseManifestPath, releasePointerP
     },
     async closeTurn(snapshot, input) {
       const port = await portForSnapshot(snapshot)
-      const taskEnd = await port.ingestExecutionEvent({
-        runtimeId: snapshot.runtimeId,
-        turnId: snapshot.turnId,
-        eventId: `mcp-task-end-${createHash('sha256')
-          .update(`${snapshot.runtimeId}\0${snapshot.turnId}`)
-          .digest('hex')
-          .slice(0, 32)}`,
-        kind: 'TASK_END_REQUEST',
-        payload: { requestedBy: 'pure-mcp-gateway' },
-      })
-      if (taskEnd.acceptance.status === 'REJECTED') {
-        throw new Error(`Runtime rejected Gateway Task End request: ${taskEnd.acceptance.reasons.join('; ')}`)
+      const status = await port.getStatus(snapshot.runtimeId)
+      if (status?.supervision?.decision.status !== 'COMPLETE') {
+        const taskEnd = await port.ingestExecutionEvent({
+          runtimeId: snapshot.runtimeId,
+          turnId: snapshot.turnId,
+          eventId: `mcp-task-end-${createHash('sha256')
+            .update(`${snapshot.runtimeId}\0${snapshot.turnId}`)
+            .digest('hex')
+            .slice(0, 32)}`,
+          kind: 'TASK_END_REQUEST',
+          payload: { requestedBy: 'pure-mcp-gateway' },
+        })
+        if (taskEnd.acceptance.status === 'REJECTED') {
+          throw new Error(`Runtime rejected Gateway Task End request: ${taskEnd.acceptance.reasons.join('; ')}`)
+        }
       }
       return port.closeTurn(input)
     },
