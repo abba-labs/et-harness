@@ -1,3 +1,5 @@
+import { pathToFileURL } from 'node:url'
+
 import { createToolchainRequire, resolveCurrentToolchain } from './toolchain.mjs'
 
 const toolchain = resolveCurrentToolchain()
@@ -10,6 +12,8 @@ const ownedPackage = specifier => directPackages.find(name =>
 
 export async function resolve(specifier, context, nextResolve) {
   if (!ownedPackage(specifier)) return nextResolve(specifier, context)
-  const url = new URL(`file:///${requireFromToolchain.resolve(specifier).replaceAll('\\', '/')}`)
-  return { url: url.href, shortCircuit: true }
+  return {
+    url: pathToFileURL(requireFromToolchain.resolve(specifier)).href,
+    shortCircuit: true,
+  }
 }
