@@ -1,0 +1,19 @@
+{
+  "scenario": "G",
+  "taskId": "gbv1-contradictory-knowledge-routed",
+  "knowledgeUri": "knowledge://project/et-automated-testing-platform/K001.006",
+  "basisRef": "source://project/et-automated-testing-platform/SRC000002",
+  "relation": "CONTRADICT",
+  "basisKind": "SOURCE",
+  "validationClass": "DOCUMENT",
+  "knowledgeFingerprint": "sha256:045de209c8f601624e1d9a6e776b0f3b41f24805e4a03b3b0b0d55107ef3bd4e",
+  "verificationId": "VR-20260902010310-948bd943-dd74-49d9-8787-e68535b5556b",
+  "recordedAt": "2026-09-02T01:03:10.397Z",
+  "promotionCount": 0,
+  "rawExternalSnapshotSha256": "B13DCD152035E60ACC2DC122075D74B98330CF9B6733707C9B7CB55B805999CD",
+  "sourceComparison": {
+    "K001.006": "six stable modules",
+    "currentSystemMapModuleCount": 9,
+    "addedIds": ["harness-project-plugin", "public-framework", "harness-host-adapter"]
+  }
+}

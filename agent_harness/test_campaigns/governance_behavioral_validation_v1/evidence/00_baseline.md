@@ -22,6 +22,14 @@ The existing D-drive frozen Runtime was reused. No dependency install, package u
 - Interpretation: lifecycle isolation policy behaved as designed; external Explorer launch is required before black-box scenarios
 - Environment content changed: `NO`
 
+## External Gateway lifecycle used by scenarios
+
+- First external PID: `7520`; launched manually outside Codex and served `/health` plus direct MCP.
+- Controlled replay restart: old PID stopped; user started new external PID `46224` without rebuilding or reinstalling.
+- Post-restart `/health`: `200 UP`; direct MCP `initialize`, `tools/list` and `harness_health` passed.
+- Gateway remained externally owned for all subsequent scenarios. Codex Desktop was not routinely restarted.
+- Desktop transport created while the Gateway was absent did not reconnect automatically; this is recorded as a Host transport defect and was not used as Framework behavioral evidence.
+
 ## Measurement rules
 
 1. A final `COMPLETE` never substitutes for module-level evidence.

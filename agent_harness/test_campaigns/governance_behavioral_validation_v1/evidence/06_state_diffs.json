@@ -18,6 +18,29 @@
     "TAXONOMY.yaml": "ED2AE879562BFE2D31F3F562AF9EB6DF990F2B0B51FEF25228571AD94F1BB588",
     "VERIFICATIONS.jsonl": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
   },
-  "afterScenarios": null,
-  "scenarioDiffs": []
+  "afterScenarios": {
+    "gateway-task-snapshots": {"fileCount": 20, "bytes": 127133},
+    "runtime-state/execution-events": {"fileCount": 61, "bytes": 802706},
+    "runtime-state/agent-governance-kernel/turn-journal": {"fileCount": 27, "bytes": 54885},
+    "runtime-state/agent-governance-kernel/turn-reflection": {"fileCount": 7, "bytes": 20693},
+    "runtime-state/agent-governance-kernel/turn-closure": {"fileCount": 7, "bytes": 32014},
+    "runtime-state/state": {"fileCount": 1, "bytes": 549309}
+  },
+  "trackedKnowledgeAfterCleanup": {
+    "00_INDEX.md": "06E5F85B58D84BA636969DE6E55D69C7FB4EA7170FF50BC7D02BA9AB2FAE822E",
+    "00_PROJECT.md": "229BD1758DB098827A4D64A9AFF78CE9699EDFE87574B67993CFFB47A626564D",
+    "001_library.md": "3947592953BB7E6AE774C283B469C15A67BABC67B7F995DAC3E115F760E9EA79",
+    "SOURCES.yaml": "487AEB913A277372CD6CD4DD21C560014001633252202038141A19196D105DA6",
+    "TAXONOMY.yaml": "ED2AE879562BFE2D31F3F562AF9EB6DF990F2B0B51FEF25228571AD94F1BB588",
+    "VERIFICATIONS.jsonl": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "gitStatus": "CLEAN_BEFORE_FINAL_EVIDENCE_WRITES",
+    "note": "001_library.md has the same Git blob as baseline (c3a2d99a740ba4da1bf637902a689973a59478c8); raw Windows bytes differ only because the exact test-created block was removed through patch normalization. No logical product diff remains."
+  },
+  "scenarioDiffs": [
+    {"scenario":"D","taskId":"gbv1-etimer-no-new-knowledge","journalDelta":1,"reflectionDelta":1,"closureDelta":1,"trackedKnowledgeLogicalDelta":0,"result":"COMPLETE with 8 receipts"},
+    {"scenario":"E","taskId":"gbv1-context-later-consumption","externalContextDelta":"open issue and working set persisted","trackedKnowledgeLogicalDelta":0,"result":"later separate task did not consume update"},
+    {"scenario":"F","taskId":"gbv1-restart-replay","eventStoreLinesBeforeStatus":28,"eventStoreLinesAfterStatus":28,"eventStoreSha256Before":"99408569FEAAE2A919F0904356FCD5F56BB105B9AC1A482990459E8939EE4C8F","eventStoreSha256After":"99408569FEAAE2A919F0904356FCD5F56BB105B9AC1A482990459E8939EE4C8F","result":"active state replay stable; closure retry poisoned"},
+    {"scenario":"G","taskId":"gbv1-contradictory-knowledge-routed","temporaryTrackedDelta":"one VERIFICATIONS.jsonl CONTRADICT record","snapshotSha256":"B13DCD152035E60ACC2DC122075D74B98330CF9B6733707C9B7CB55B805999CD","cleanup":"exact generated record removed after snapshot"},
+    {"scenario":"C","taskId":"gbv1-reusable-project-knowledge-routed","temporaryTrackedDelta":"K001.014 plus regenerated 00_INDEX.md","librarySnapshotSha256":"D2D5EDBEEFA77459B9682981B3CD43CFAC10B0FFE9D040C7F01D6CF9F8EC57C9","indexSnapshotSha256":"47330EA43B7242CD43AA957E3BDCFE0AD359D0767CE038DD85A32DECEFE04392","cleanup":"generated Knowledge candidate and index delta removed after snapshot"}
+  ]
 }
