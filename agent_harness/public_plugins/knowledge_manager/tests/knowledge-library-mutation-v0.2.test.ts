@@ -48,6 +48,14 @@ describe('Knowledge Library v0.2 mutation governance', () => {
     expect(result.status).toBe('CANDIDATE')
     expect(engine.getNode(projectId, 'K001.001')?.node.category).toBe('C010')
     expect(readFileSync(join(root, '00_INDEX.md'), 'utf-8')).toContain('AUTO GENERATED')
+
+    const laterSearch = engine.search({
+      projectId,
+      query: 'DMA target TCM access',
+      limit: 8,
+    })
+    expect(laterSearch.some(candidate => candidate.id === 'K001.001')).toBe(true)
+    expect(laterSearch.find(candidate => candidate.id === 'K001.001')?.metadata?.status).toBe('CANDIDATE')
   })
 
   it('Knowledge Contribution 不会自动创建不存在的分类', () => {
