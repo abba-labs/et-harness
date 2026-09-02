@@ -73,6 +73,37 @@ export const verifyInstalledDependencies = (toolchainRoot, descriptor) => {
   return Object.freeze(versions)
 }
 
+export const verifyLockfileInstallation = toolchainRoot => {
+  const lock = readJson(resolve(toolchainRoot, 'package-lock.json'))
+  if (lock?.lockfileVersion !== 3 || !lock.packages || typeof lock.packages !== 'object') {
+    throw new Error('Shared Toolchain package-lock.json is not a supported npm lockfile v3')
+  }
+  let verifiedPackageCount = 0
+  let skippedOptionalCount = 0
+  for (const [packagePath, locked] of Object.entries(lock.packages)) {
+    if (!packagePath.startsWith('node_modules/') || !locked || typeof locked !== 'object') continue
+    if (locked.link === true) continue
+    const expectedVersion = locked.version
+    if (typeof expectedVersion !== 'string' || !expectedVersion) continue
+    const installedManifest = resolve(toolchainRoot, packagePath, 'package.json')
+    if (!existsSync(installedManifest)) {
+      if (locked.optional === true) {
+        skippedOptionalCount += 1
+        continue
+      }
+      throw new Error(`Shared Toolchain lockfile package is unavailable: ${packagePath}@${expectedVersion}`)
+    }
+    const installed = readJson(installedManifest)
+    if (installed.version !== expectedVersion) {
+      throw new Error(
+        `Shared Toolchain lockfile mismatch for ${packagePath}: expected ${expectedVersion}, received ${installed.version}`,
+      )
+    }
+    verifiedPackageCount += 1
+  }
+  return Object.freeze({ verifiedPackageCount, skippedOptionalCount })
+}
+
 export const verifyToolchainAt = (toolchainRoot, expectedDescriptor = computeToolchainDescriptor()) => {
   const manifestPath = resolve(toolchainRoot, 'toolchain.json')
   if (!existsSync(manifestPath)) {
@@ -105,11 +136,13 @@ export const verifyToolchainAt = (toolchainRoot, expectedDescriptor = computeToo
     )
   }
   const dependencyVersions = verifyInstalledDependencies(toolchainRoot, expectedDescriptor)
+  const lockfileVerification = verifyLockfileInstallation(toolchainRoot)
   return Object.freeze({
     descriptor: expectedDescriptor,
     manifest,
     toolchainRoot,
     dependencyVersions,
+    lockfileVerification,
   })
 }
 
