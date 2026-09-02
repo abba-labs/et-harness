@@ -1,6 +1,7 @@
 @echo off
 rem Shared bootstrap resolver for every ET Harness command entry.
 rem Resolution order: explicit Node -> machine environment root -> legacy committed pointer.
+set "NODE_EXE="
 if defined ET_HARNESS_NODE set "NODE_EXE=%ET_HARNESS_NODE%"
 if not defined NODE_EXE if defined ET_HARNESS_ENV_ROOT set "NODE_EXE=%ET_HARNESS_ENV_ROOT%\runtimes\node-v22.23.2-win-x64\node.exe"
 if not defined NODE_EXE (
