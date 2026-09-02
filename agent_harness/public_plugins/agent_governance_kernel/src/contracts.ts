@@ -16,7 +16,7 @@ export const MANDATORY_CLOSURE_MODULE_IDS = [
 export type MandatoryClosureModuleId = typeof MANDATORY_CLOSURE_MODULE_IDS[number]
 
 export type AgentLifecycleState = 'INACTIVE' | 'ACTIVE' | 'ENDED'
-export type TaskLifecycleStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABORTED'
+export type TaskLifecycleStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED'
 export type TurnJournalStatus = 'OPEN' | 'SEALED' | 'CLOSURE_PENDING' | 'CLOSED' | 'ABORTED'
 
 export type ProjectBinding =
