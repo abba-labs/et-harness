@@ -3,11 +3,13 @@ import '@agent-harness/agent-governance-kernel'
 import '@agent-harness/agent-governance-closure-adapters'
 import '@agent-harness/auto-governance-engine'
 import '@agent-harness/knowledge-manager'
-import type {
-  KnowledgeVerificationReflection,
-  TurnJournalRecord,
-  TurnReflectionProviderInput,
-  TurnReflectionRecord,
+import {
+  reflectionInputFingerprint,
+  validateTurnReflectionResult,
+  type KnowledgeVerificationReflection,
+  type TurnJournalRecord,
+  type TurnReflectionProviderInput,
+  type TurnReflectionRecord,
 } from '@agent-harness/agent-governance-kernel'
 import type { AutoGovernanceContextEnvelope } from '@agent-harness/auto-governance-engine'
 import type { KnowledgeCategory, KnowledgeTaxonomy } from '@agent-harness/knowledge-manager'
@@ -156,6 +158,7 @@ export class GovernanceRuntimeService extends Service {
   private readonly sessions = new Map<string, RuntimeSession>()
   private readonly reflectionJobs = new Map<string, ReflectionJob>()
   private readonly closeJobs = new Map<string, Promise<GovernanceCloseTurnResult>>()
+  private readonly completedResults = new Map<string, GovernanceCloseTurnResult>()
   private readonly observations = new GovernanceTurnObservationStore()
 
   constructor(ctx: Context) {
@@ -171,6 +174,7 @@ export class GovernanceRuntimeService extends Service {
       return () => {
         disposeReflectionProvider()
         this.observations.clear()
+        this.completedResults.clear()
         this.closeJobs.clear()
         this.reflectionJobs.clear()
         this.sessions.clear()
@@ -362,6 +366,7 @@ export class GovernanceRuntimeService extends Service {
       const journal = this.runtimeContext.agentGovernanceKernel.getTurn(contract.taskId, binding.turnId)
       const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId)
       if (!journal) throw new Error('Cross-process supervised rehydration requires a durable Kernel Turn')
+      if (journal.status === 'ABORTED') throw new Error('ABORTED Turn cannot be rehydrated')
       if (journal.sessionRef !== `governance-runtime://${runtimeId}`) {
         throw new Error('Persisted Kernel Turn sessionRef does not match supervision Runtime identity')
       }
@@ -378,14 +383,24 @@ export class GovernanceRuntimeService extends Service {
       if (!project || project.projectId !== contract.projectId) {
         throw new Error(`Supervised project cannot be restored: ${contract.projectId}`)
       }
-      this.runtimeContext.autoGovernanceEngine.bootstrapTask({
-        actorId: contract.agentId,
-        taskId: contract.taskId,
-        goal: taskText,
-        projectId: contract.projectId,
-        phase: 'implementation',
-      })
-      const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(contract.agentId)
+      if (journal.status === 'CLOSED' && !input.restoredRoute) {
+        throw new Error('Completed replay recovery requires the frozen Gateway route')
+      }
+      const context = journal.status === 'CLOSED'
+        ? this.runtimeContext.autoGovernanceEngine.restoreCompletedTask({
+            actorId: contract.agentId,
+            taskId: contract.taskId,
+            goal: taskText,
+            projectId: contract.projectId,
+            route: input.restoredRoute!,
+          })
+        : this.runtimeContext.autoGovernanceEngine.bootstrapTask({
+            actorId: contract.agentId,
+            taskId: contract.taskId,
+            goal: taskText,
+            projectId: contract.projectId,
+            phase: 'implementation',
+          })
       if (hashCanonicalJson(context.route) !== contract.routeHash) {
         throw new Error('Rehydrated Auto Governance route does not match the durable supervision routeHash')
       }
@@ -426,6 +441,33 @@ export class GovernanceRuntimeService extends Service {
     }
     if (decision.status !== 'COMPLETE') session.activeTurnId = binding.turnId
     if (input.semanticExecutor) session.semanticExecutor = input.semanticExecutor
+  }
+
+  abortTurn(runtimeIdInput: string, turnIdInput: string, reasonInput: string): TurnJournalRecord | undefined {
+    const runtimeId = cleanIdentifier('runtimeId', runtimeIdInput)
+    const turnId = cleanIdentifier('turnId', turnIdInput)
+    const reason = reasonInput.trim()
+    if (!reason) throw new Error('abort reason cannot be empty')
+    const session = this.sessions.get(runtimeId)
+    if (!session) return undefined
+    if (session.activeTurnId && session.activeTurnId !== turnId) {
+      throw new Error(`Runtime ${runtimeId} is active on another Turn ${session.activeTurnId}`)
+    }
+    const journal = this.runtimeContext.agentGovernanceKernel.getTurn(session.taskId, turnId)
+    let aborted = journal
+    if (journal?.status === 'OPEN') {
+      aborted = this.runtimeContext.agentGovernanceKernel.abortTurn(session.taskId, turnId, { reason })
+    } else if (journal && journal.status !== 'ABORTED') {
+      throw new Error(`Turn ${turnId} cannot be aborted from ${journal.status}`)
+    }
+    this.runtimeContext.autoGovernanceEngine.abortTask(session.actorId, reason)
+    this.observations.clearTurn(session.taskId, turnId)
+    const key = reflectionKey(session.taskId, turnId)
+    this.reflectionJobs.delete(key)
+    this.closeJobs.delete(key)
+    this.completedResults.delete(key)
+    this.sessions.delete(runtimeId)
+    return aborted
   }
 
   async ingestExecutionEvent(
@@ -607,9 +649,10 @@ export class GovernanceRuntimeService extends Service {
     if (session.supervision && session.supervision.ledger.binding.turnId !== input.turnId) {
       throw new Error('Supervision Event Store cannot authorize a different Turn')
     }
+    const journal = this.runtimeContext.agentGovernanceKernel.getTurn(session.taskId, input.turnId)
+    if (journal?.status === 'CLOSED') return this.replayClosedTurn(session, input, journal)
     if (session.activeTurnId !== input.turnId) {
-      const journal = this.runtimeContext.agentGovernanceKernel.getTurn(session.taskId, input.turnId)
-      if (!journal || journal.status === 'CLOSED') {
+      if (!journal || journal.status === 'ABORTED') {
         throw new Error(`Turn ${input.turnId} is not active for runtime ${session.runtimeId}`)
       }
     }
@@ -859,9 +902,13 @@ export class GovernanceRuntimeService extends Service {
             `Knowledge post-Closure validation failed without reopening Turn ${turnId}: ${errorText(error)}`,
           ]
         }
+        const completion = await this.completeTask(session.runtimeId)
+        if (completion.status !== 'COMPLETED') {
+          throw new Error(`Runtime could not terminalize completed Task: ${completion.reason ?? completion.status}`)
+        }
       }
       const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(session.actorId)
-      return {
+      const result: GovernanceCloseTurnResult = {
         contractVersion: GOVERNANCE_RUNTIME_CONTRACT_VERSION,
         runtimeId: session.runtimeId,
         taskId: session.taskId,
@@ -876,8 +923,74 @@ export class GovernanceRuntimeService extends Service {
         knowledgePromotionWarnings,
         ...(session.supervision ? { supervision: this.supervisionStatus(session.supervision) } : {}),
       }
+      if (closure.status === 'COMPLETE') this.completedResults.set(key, result)
+      return result
     } finally {
       this.reflectionJobs.delete(key)
+    }
+  }
+
+  private async replayClosedTurn(
+    session: RuntimeSession,
+    input: GovernanceCloseTurnInput,
+    journal: TurnJournalRecord,
+  ): Promise<GovernanceCloseTurnResult> {
+    const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(session.taskId, input.turnId)
+    const closure = this.runtimeContext.agentGovernanceKernel.getClosureReceipt(session.taskId, input.turnId)
+    if (!reflection || !closure || closure.status !== 'COMPLETE') {
+      throw new Error(`Closed Turn ${input.turnId} has no COMPLETE durable lifecycle`)
+    }
+    if (input.assistantMessageRefs?.some(ref => !journal.assistantMessageRefs.includes(ref.trim()))) {
+      throw new Error(`Turn Closure replay input changed: ${session.taskId}/${input.turnId}`)
+    }
+    const replayFingerprint = reflectionInputFingerprint({
+      journal,
+      taskContextRef: `context://project/${session.projectId}/${session.taskId}`,
+      publicCandidateRefs: input.publicCandidateRefs ?? [],
+      projectCandidateRefs: input.projectCandidateRefs ?? [],
+      ...(reflection.readinessBinding ? { readinessBinding: reflection.readinessBinding } : {}),
+    })
+    if (replayFingerprint !== reflection.inputFingerprint) {
+      throw new Error(`Turn Closure replay input changed: ${session.taskId}/${input.turnId}`)
+    }
+    if (input.semanticExecutor) {
+      const proposed = await input.semanticExecutor.reflect({
+        runtimeId: session.runtimeId,
+        turnId: input.turnId,
+      } as GovernanceSemanticRequest)
+      const normalized = validateTurnReflectionResult(proposed, journal)
+      if (hashCanonicalJson(normalized) !== hashCanonicalJson(reflection.result)) {
+        throw new Error(`Turn Closure replay Reflection changed: ${session.taskId}/${input.turnId}`)
+      }
+    }
+    const completion = await this.completeTask(session.runtimeId)
+    if (completion.status !== 'COMPLETED') {
+      throw new Error(`Runtime could not restore completed Task: ${completion.reason ?? completion.status}`)
+    }
+    const key = reflectionKey(session.taskId, input.turnId)
+    const cached = this.completedResults.get(key)
+    if (cached) return cached
+    const context = this.runtimeContext.autoGovernanceEngine.buildContextEnvelope(session.actorId)
+    const knowledgeDecision = evaluateKnowledgeGovernanceDecision({
+      stage: 'CLOSE',
+      context,
+      observations: this.observations.list(session.taskId, input.turnId),
+      reflection: reflection.result,
+    })
+    return {
+      contractVersion: GOVERNANCE_RUNTIME_CONTRACT_VERSION,
+      runtimeId: session.runtimeId,
+      taskId: session.taskId,
+      turnId: input.turnId,
+      reflection,
+      closure,
+      context,
+      knowledgeDecision,
+      knowledgeVerifications: [],
+      knowledgeVerificationWarnings: [],
+      knowledgePromotions: [],
+      knowledgePromotionWarnings: [],
+      ...(session.supervision ? { supervision: this.supervisionStatus(session.supervision) } : {}),
     }
   }
 
@@ -1321,7 +1434,6 @@ export class GovernanceRuntimeService extends Service {
       ],
     }
   }
-
 
   private applyKnowledgeVerificationReflections(
     projectId: string,
