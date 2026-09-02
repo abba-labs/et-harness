@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "project-admission-round2-state-diffs-v1",
+  "testedSha": "2bf842597415ef235d52fc213c197e50ac2cb89e",
+  "measurementBoundary": {
+    "stableDDriveRuntime": "NOT_ACCESSED",
+    "dependencyInstallOrChange": false,
+    "productSourceMutation": false,
+    "runtimeStateQualification": "Real Runtime state was not activated or queried. Zero values below are instrumented Project Admission downstream-boundary counts, not durable Runtime proof."
+  },
+  "repository": {
+    "before": {
+      "head": "2bf842597415ef235d52fc213c197e50ac2cb89e",
+      "worktree": "CLEAN",
+      "taskContextWriteScope": ["agent_harness/test_campaigns/**/evidence/**"]
+    },
+    "afterMeasurementBeforeEvidenceCommit": {
+      "head": "2bf842597415ef235d52fc213c197e50ac2cb89e",
+      "productDiffFromTestedSha": [],
+      "protectedScopeDiff": [],
+      "onlyExpectedUntrackedArea": "agent_harness/test_campaigns/project_admission_round2/evidence/"
+    },
+    "trackedObjectChecks": [
+      {
+        "path": "agent_harness/mcp_gateway_fast_track/src/project-admission.mjs",
+        "testedShaBlob": "e20de6b9b908f87530fd04184a231f56c55dcd7e",
+        "postMeasurementWorktreeBlob": "e20de6b9b908f87530fd04184a231f56c55dcd7e",
+        "unchanged": true
+      },
+      {
+        "path": "agent_harness/mcp_gateway_fast_track/tests/project-admission.test.mjs",
+        "testedShaBlob": "31ccb77a0e37f5d31af796a51b8907c1c1d802d3",
+        "postMeasurementWorktreeBlob": "31ccb77a0e37f5d31af796a51b8907c1c1d802d3",
+        "unchanged": true
+      },
+      {
+        "path": "agent_harness/projects/automated_testing_platform/project.yaml",
+        "testedShaBlob": "e71294cf379587f909988ff2cbbd79b3b197b2e9",
+        "postMeasurementWorktreeBlob": "e71294cf379587f909988ff2cbbd79b3b197b2e9",
+        "unchanged": true
+      }
+    ]
+  },
+  "isolatedCheckoutRuntimePaths": [
+    {"path":"agent_harness/mcp_gateway_fast_track/state","before":false,"after":false},
+    {"path":"agent_harness/mcp_gateway_fast_track/runtime-state","before":false,"after":false},
+    {"path":"agent_harness/mcp_gateway_fast_track/gateway-task-snapshots","before":false,"after":false},
+    {"path":"agent_harness/mcp_gateway_fast_track/.runtime","before":false,"after":false}
+  ],
+  "admissionStateObservations": [
+    {
+      "testId": "PA2-A01",
+      "decision": "PROJECT_CONTEXT_REQUIRED",
+      "instrumentedRuntimeTurnBefore": 0,
+      "instrumentedRuntimeTurnAfter": 0,
+      "instrumentedLedgerBefore": 0,
+      "instrumentedLedgerAfter": 0,
+      "instrumentedEventStoreBefore": 0,
+      "instrumentedEventStoreAfter": 0
+    },
+    {
+      "testId": "PA2-A05",
+      "decision": "PROJECT_CONTEXT_REQUIRED",
+      "architectureBefore": "v1",
+      "architectureAfter": "v2",
+      "oldFingerprint": "sha256:32294eba5c6475443ce52537e50252e895dd410cea392c4a1f49dc9fb1d0aa73",
+      "returnedCurrentFingerprint": "sha256:53eaf5cde3b6ed1d50727ecd513061f85248c68ca0865341b0c6ac0dc6273b07",
+      "bootstrapReads": 2,
+      "instrumentedRuntimeTurnAfter": 0,
+      "instrumentedLedgerAfter": 0,
+      "instrumentedEventStoreAfter": 0
+    },
+    {
+      "testId": "PA2-A06",
+      "decision": "TASK_INTENT_REQUIRED",
+      "instrumentedRuntimeTurnAfter": 0,
+      "instrumentedLedgerAfter": 0,
+      "instrumentedEventStoreAfter": 0
+    },
+    {
+      "testId": "PA2-A08",
+      "decision": "ACTIVE",
+      "bootstrapReadsAcrossThreeStages": 3,
+      "instrumentedGovernanceBeginCalls": 1,
+      "instrumentedRuntimeTurnAfter": 1,
+      "instrumentedLedgerAfter": 1,
+      "instrumentedEventStoreAfter": 1,
+      "qualification": "The 1/1/1 values are deliberately coupled test-double counters proving exactly one downstream begin; they are not durable module state."
+    }
+  ],
+  "realRuntimeState": {
+    "runtimeTurn": "NOT_EXECUTED",
+    "ledger": "NOT_EXECUTED",
+    "eventStore": "NOT_EXECUTED",
+    "supervisor": "NOT_EXECUTED",
+    "closure": "NOT_EXECUTED",
+    "reason": "Current isolated checkout has no node_modules and controlled activation of the stable D-drive Runtime was not authorized."
+  },
+  "finalSoftwareGate": {
+    "command": ".\\.venv\\Scripts\\python.exe tools\\validate_pc.py",
+    "exitCode": 1,
+    "passed": 842,
+    "skipped": 9,
+    "failed": 1,
+    "firstFailingBoundary": "formal code root layout policy",
+    "unexpectedDirectories": ["docs", "tmp"],
+    "attribution": {
+      "docs": "tracked at tested SHA; first added by fe4fdeafcda47195f169f29539c2e3c21e19ef0e",
+      "tmp": "ignored untracked local directory created before campaign",
+      "projectAdmissionRepair": "did not touch either path"
+    }
+  }
+}

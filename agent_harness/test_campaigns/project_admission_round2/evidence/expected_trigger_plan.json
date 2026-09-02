@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "project-admission-round2-expected-trigger-plan-v1",
+  "frozenBeforeExecution": true,
+  "testedSha": "2bf842597415ef235d52fc213c197e50ac2cb89e",
+  "runtimeBoundary": "Stable D-drive Runtime is prohibited; real Runtime-dependent outcomes must be NOT_EXECUTED.",
+  "tests": [
+    {
+      "testId": "PA2-A01",
+      "stimulus": "Exact human project declaration, no fingerprint",
+      "expectedTrigger": ["Project Admission", "Project Bootstrap", "Architecture Navigator bounded bootstrap"],
+      "expectedDecision": "PROJECT_CONTEXT_REQUIRED with Architecture Bootstrap",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A02",
+      "stimulus": "Missing human project declaration",
+      "expectedTrigger": ["Project Admission input validation"],
+      "expectedDecision": "INVALID_ARGUMENT fail closed",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A03",
+      "stimulus": "Wrong or guessed project declaration",
+      "expectedTrigger": ["Project Admission", "Project Bootstrap", "Project selector"],
+      "expectedDecision": "PROJECT_DECLARATION_MISMATCH fail closed",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A04",
+      "stimulus": "Unknown fingerprint with otherwise valid TaskIntent",
+      "expectedTrigger": ["Project Admission", "current Project Bootstrap"],
+      "expectedDecision": "PROJECT_CONTEXT_REQUIRED",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A05",
+      "stimulus": "Previously accepted v1 fingerprint after Architecture changes to v2",
+      "expectedTrigger": ["Project Admission", "fresh Project Bootstrap v2"],
+      "expectedDecision": "Reject v1; return PROJECT_CONTEXT_REQUIRED plus v2 bootstrap",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A06",
+      "stimulus": "Current fingerprint, missing TaskIntent",
+      "expectedTrigger": ["Project Admission", "fresh Project Bootstrap"],
+      "expectedDecision": "TASK_INTENT_REQUIRED",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A07",
+      "stimulus": "Current fingerprint and malformed TaskIntent",
+      "expectedTrigger": ["Project Admission", "TaskIntent structural validation"],
+      "expectedDecision": "INVALID_ARGUMENT fail closed",
+      "expectedRuntimeTurn": 0,
+      "expectedLedgerChanges": 0,
+      "expectedEventStoreChanges": 0
+    },
+    {
+      "testId": "PA2-A08",
+      "stimulus": "Current fingerprint and valid structured TaskIntent",
+      "expectedTrigger": ["Project Admission", "TaskIntent canonicalization", "original Governance begin"],
+      "expectedDecision": "ACTIVE only after original Governance opens",
+      "expectedRuntimeTurn": 1,
+      "expectedLedgerChanges": "created by real Runtime only; simulated instrumentation may count boundary calls but cannot prove Runtime",
+      "expectedEventStoreChanges": "created by real Runtime only; simulated instrumentation may count boundary calls but cannot prove Runtime"
+    },
+    {
+      "testId": "PA2-NL01",
+      "stimulus": "ET6801 ETIMER IP and SDK request",
+      "expectedTrigger": ["Agent TaskIntent", "canonicalization", "original Governance begin"],
+      "expectedDecision": "First IP candidate ETIMER; never and",
+      "expectedRuntimeTurn": 1,
+      "expectedLedgerChanges": "NOT_EXECUTED without real Runtime",
+      "expectedEventStoreChanges": "NOT_EXECUTED without real Runtime"
+    },
+    {
+      "testId": "PA2-NL02",
+      "stimulus": "ET6801 XBAR analysis request",
+      "expectedTrigger": ["Agent TaskIntent", "canonicalization", "original Governance begin"],
+      "expectedDecision": "Canonical ip=XBAR precedes human prose",
+      "expectedRuntimeTurn": 1,
+      "expectedLedgerChanges": "NOT_EXECUTED without real Runtime",
+      "expectedEventStoreChanges": "NOT_EXECUTED without real Runtime"
+    },
+    {
+      "testId": "PA2-NL03",
+      "stimulus": "ET6801 SRPWM analysis request",
+      "expectedTrigger": ["Agent TaskIntent", "canonicalization", "original Governance begin"],
+      "expectedDecision": "Canonical ip=SRPWM precedes human prose",
+      "expectedRuntimeTurn": 1,
+      "expectedLedgerChanges": "NOT_EXECUTED without real Runtime",
+      "expectedEventStoreChanges": "NOT_EXECUTED without real Runtime"
+    },
+    {
+      "testId": "PA2-NL04",
+      "stimulus": "Long mixed Chinese/English request containing IP and SDK and unrelated qualifiers",
+      "expectedTrigger": ["Project Bootstrap", "Agent TaskIntent", "canonicalization", "original Governance begin"],
+      "expectedDecision": "Bootstrap succeeds independently of open-language classifier; canonical concrete IP is first",
+      "expectedRuntimeTurn": 1,
+      "expectedLedgerChanges": "NOT_EXECUTED without real Runtime",
+      "expectedEventStoreChanges": "NOT_EXECUTED without real Runtime"
+    },
+    {
+      "testId": "PA2-NC06",
+      "stimulus": "Caller-forged validation PASS without Runtime-owned trusted evidence",
+      "expectedTrigger": ["Trusted Validation admission", "Execution Supervisor", "Obligation Ledger"],
+      "expectedDecision": "Must not satisfy validation obligation",
+      "expectedRuntimeTurn": "requires real Runtime or executable frozen regression",
+      "expectedLedgerChanges": "validation obligation remains pending/blocked",
+      "expectedEventStoreChanges": "no trusted PASS event admitted"
+    },
+    {
+      "testId": "PA2-NC07",
+      "stimulus": "Premature completion with unresolved mandatory obligations",
+      "expectedTrigger": ["Execution Supervisor", "Obligation Ledger", "Completion"],
+      "expectedDecision": "BLOCK",
+      "expectedRuntimeTurn": "existing governed turn",
+      "expectedLedgerChanges": "unresolved obligations remain unresolved",
+      "expectedEventStoreChanges": "no valid COMPLETE transition"
+    },
+    {
+      "testId": "PA2-NC08",
+      "stimulus": "Mutation targeting protected WRITE_SCOPE path",
+      "expectedTrigger": ["WRITE_SCOPE preflight", "Execution Supervisor"],
+      "expectedDecision": "BLOCK",
+      "expectedRuntimeTurn": "existing governed turn",
+      "expectedLedgerChanges": "no false scope satisfaction",
+      "expectedEventStoreChanges": "bounded preflight decision only if real Runtime is available"
+    }
+  ]
+}
