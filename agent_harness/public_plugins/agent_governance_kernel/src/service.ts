@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type {
+  AbortTurnInput,
   AppendTurnRefsInput,
   BeginTurnInput,
   ClosureModule,
@@ -102,6 +103,10 @@ export class AgentGovernanceKernelService extends Service {
     const guard = this.guardTurnStart(input.taskId, input.turnId)
     if (!guard.allowed) throw new Error(guard.reason ?? 'Previous Turn closure is unresolved')
     return this.journal.beginTurn(input)
+  }
+
+  abortTurn(taskId: string, turnId: string, input: AbortTurnInput): TurnJournalRecord {
+    return this.journal.abortTurn(taskId, turnId, input)
   }
 
   appendTurnRefs(taskId: string, turnId: string, input: AppendTurnRefsInput): TurnJournalRecord {
