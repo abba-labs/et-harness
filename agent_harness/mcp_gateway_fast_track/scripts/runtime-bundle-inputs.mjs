@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url))
-export const packageRoot = resolve(scriptDirectory, '..')
-export const repositoryRoot = resolve(packageRoot, '..', '..')
-export const environmentRoot = resolve(repositoryRoot, '..', '..')
-const requireFromPackage = createRequire(resolve(packageRoot, 'package.json'))
+import {
+  environmentRoot,
+  packageRoot,
+  repositoryRoot,
+} from './environment-layout.mjs'
+import {
+  createToolchainRequire,
+  resolveCurrentToolchain,
+} from './toolchain.mjs'
 
 const packageEntries = Object.freeze({
   '@agent-harness/governance-core': 'agent_harness/governance_core/src/index.ts',
@@ -16,9 +19,9 @@ const packageEntries = Object.freeze({
   '@agent-harness/project-manager': 'agent_harness/public_plugins/project_manager/src/index.ts',
   '@agent-harness/architecture-navigator': 'agent_harness/public_plugins/architecture_navigator/src/index.ts',
   '@agent-harness/rule-manager': 'agent_harness/public_plugins/rule_manager/src/index.ts',
-  '@agent-harness/evidence-state-manager': 'agent_harness/public_plugins/evidence_state_manager/src/index.ts',
   '@agent-harness/knowledge-manager': 'agent_harness/public_plugins/knowledge_manager/src/index.ts',
   '@agent-harness/gate-manager': 'agent_harness/public_plugins/gate_manager/src/index.ts',
+  '@agent-harness/evidence-state-manager': 'agent_harness/public_plugins/evidence_state_manager/src/index.ts',
   '@agent-harness/context-builder': 'agent_harness/public_plugins/context_builder/src/index.ts',
   '@agent-harness/experience-memory-manager': 'agent_harness/public_plugins/experience_memory_manager/src/index.ts',
   '@agent-harness/agent-governance-kernel': 'agent_harness/public_plugins/agent_governance_kernel/src/index.ts',
@@ -29,17 +32,33 @@ const packageEntries = Object.freeze({
 })
 
 export const localPackageAliases = Object.freeze(
-  {
-    ...Object.fromEntries(
-      Object.entries(packageEntries).map(([name, path]) => [name, resolve(repositoryRoot, path)]),
-    ),
-    '@deepseek-ai/cordis': requireFromPackage.resolve('@deepseek-ai/cordis'),
-    yaml: requireFromPackage.resolve('yaml'),
-  },
+  Object.fromEntries(
+    Object.entries(packageEntries).map(([name, path]) => [name, resolve(repositoryRoot, path)]),
+  ),
 )
+
+let sharedToolchainResolution
+const sharedToolchain = () => {
+  if (sharedToolchainResolution) return sharedToolchainResolution
+  const toolchain = resolveCurrentToolchain()
+  sharedToolchainResolution = {
+    toolchain,
+    require: createToolchainRequire(toolchain.toolchainRoot),
+  }
+  return sharedToolchainResolution
+}
+
+export const resolveBundleSpecifier = source => {
+  if (localPackageAliases[source]) return localPackageAliases[source]
+  const { toolchain, require } = sharedToolchain()
+  const owned = Object.keys(toolchain.descriptor.dependencies)
+    .some(name => source === name || source.startsWith(`${name}/`))
+  return owned ? require.resolve(source) : undefined
+}
 
 export const runtimeOwnerEntry = resolve(packageRoot, 'src', 'runtime-owner.ts')
 export const runtimeBootstrapEntry = resolve(packageRoot, 'src', 'project-bootstrap.ts')
+export const gatewayEntry = resolve(packageRoot, 'src', 'gateway.mjs')
 export const atpProjectPluginEntry = resolve(
   repositoryRoot,
   'agent_harness',
@@ -49,39 +68,41 @@ export const atpProjectPluginEntry = resolve(
   'index.ts',
 )
 
-const walkFiles = (directory) => {
+const SOURCE_EXTENSIONS = new Set(['.ts', '.mjs'])
+const walkSourceFiles = directory => {
   const files = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = resolve(directory, entry.name)
-    if (entry.isDirectory()) files.push(...walkFiles(path))
-    else if (entry.isFile() && entry.name.endsWith('.ts')) files.push(path)
+    if (entry.isDirectory()) files.push(...walkSourceFiles(path))
+    else if (entry.isFile() && [...SOURCE_EXTENSIONS].some(extension => entry.name.endsWith(extension))) files.push(path)
   }
   return files
 }
 
 export const runtimeSourceFiles = () => {
   const packageDirectories = new Set(
-    Object.values(packageEntries).map((entry) => resolve(repositoryRoot, entry, '..', '..')),
+    Object.values(packageEntries).map(entry => resolve(repositoryRoot, entry, '..', '..')),
   )
   packageDirectories.add(resolve(atpProjectPluginEntry, '..', '..'))
   const files = [
-    runtimeOwnerEntry,
-    runtimeBootstrapEntry,
+    ...walkSourceFiles(resolve(packageRoot, 'src')),
     resolve(packageRoot, 'package.json'),
     resolve(packageRoot, 'package-lock.json'),
-    resolve(packageRoot, 'scripts', 'freeze-runtime.mjs'),
+    resolve(packageRoot, 'config', 'gateway.local.json'),
+    resolve(packageRoot, 'scripts', 'environment-layout.mjs'),
+    resolve(packageRoot, 'scripts', 'toolchain.mjs'),
     fileURLToPath(import.meta.url),
   ]
   for (const directory of packageDirectories) {
     files.push(resolve(directory, 'package.json'))
-    files.push(...walkFiles(resolve(directory, 'src')))
+    files.push(...walkSourceFiles(resolve(directory, 'src')))
   }
   return [...new Set(files)].sort((left, right) => left.localeCompare(right))
 }
 
 export const computeRuntimeSourceSignature = () => {
   const digest = createHash('sha256')
-  digest.update(`repositoryRoot\0${repositoryRoot.toLowerCase()}\0`)
+  digest.update('et-harness-runtime-source-v2\0')
   for (const path of runtimeSourceFiles()) {
     digest.update(relative(repositoryRoot, path).replaceAll('\\', '/'))
     digest.update('\0')
@@ -90,5 +111,9 @@ export const computeRuntimeSourceSignature = () => {
   }
   return digest.digest('hex')
 }
+
+export const computeRuntimeDeploymentFingerprint = () => createHash('sha256')
+  .update(`et-harness-runtime-deployment-v1\0${repositoryRoot.toLowerCase()}\0${computeRuntimeSourceSignature()}`)
+  .digest('hex')
 
 export const resolveEnvironmentPath = (...parts) => resolve(environmentRoot, ...parts)
