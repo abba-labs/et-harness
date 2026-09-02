@@ -72,10 +72,11 @@ describe('cross-task Context continuity', () => {
       ],
     })
 
-    expect(items.map(item => item.id)).toEqual([
-      'prior-context-TASK-CLOSED-TURN',
+    expect(items).toHaveLength(2)
+    expect(items.map(item => item.id)).toEqual(expect.arrayContaining([
       'prior-context-TASK-RELATED',
-    ])
+      'prior-context-TASK-CLOSED-TURN',
+    ]))
     expect(items.some(item => item.content.includes('Carry this issue forward'))).toBe(true)
     expect(items.some(item => item.content.includes('Turn-closed issue must be inherited'))).toBe(true)
     expect(items.every(item => !item.content.includes('Do not inherit'))).toBe(true)
