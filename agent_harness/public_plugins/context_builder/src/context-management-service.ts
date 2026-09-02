@@ -261,6 +261,7 @@ export const selectRelevantContextHistory = (input: {
   for (const { record, session, matchedRefs } of candidates) {
     const confirmed = matchingEntries(session.taskLedger.confirmed, currentRefs).slice(0, 4)
     const openIssues = matchingEntries(session.taskLedger.openIssues, currentRefs).slice(0, 4)
+    if (confirmed.length === 0 && openIssues.length === 0) continue
     const next = [...new Set([...session.taskLedger.plan, ...session.progressLedger.next])].slice(0, 4)
     const lines = [
       `SourceTask: ${session.taskId}`,
@@ -268,13 +269,10 @@ export const selectRelevantContextHistory = (input: {
       `Goal: ${session.taskLedger.goal}`,
       ...confirmed.map(entry => `Confirmed: ${entry.text}`),
       ...openIssues.map(entry => `OpenIssue: ${entry.text}`),
-      ...(session.progressLedger.currentProblem?.trim()
-        ? [`CurrentProblem: ${session.progressLedger.currentProblem.trim()}`]
-        : []),
       ...next.map(item => `Next: ${item}`),
     ]
     const content = boundedLines(lines, Math.min(MAX_INHERITED_ITEM_CHARS, remaining))
-    if (!content || (!confirmed.length && !openIssues.length && !session.progressLedger.currentProblem?.trim())) continue
+    if (!content) continue
     result.push({
       id: `${PRIOR_CONTEXT_PREFIX}${session.taskId}`,
       title: `Relevant Prior Context — ${session.taskId}`,
@@ -658,11 +656,21 @@ export class ContextManagementService extends Service {
       throw new Error(`Cannot complete aborted Context task: ${projectId}/${taskId}`)
     }
     const stamp = now()
+    const progressLedger: ContextProgressLedger = {
+      lastAction: 'Auto Governance completion check.',
+      lastResult: 'Task completion admitted.',
+      touchedRefs: snapshot.session.progressLedger.touchedRefs,
+      blockers: [],
+      next: [],
+      evidenceRefs: snapshot.session.progressLedger.evidenceRefs,
+      updatedAt: stamp,
+    }
     const session: ContextSession = {
       ...snapshot.session,
       status: 'COMPLETED',
       generation: snapshot.session.generation + 1,
       taskLedger: { ...snapshot.session.taskLedger, phase: 'complete', updatedAt: stamp },
+      progressLedger,
       recentTail: [],
       updatedAt: stamp,
     }
