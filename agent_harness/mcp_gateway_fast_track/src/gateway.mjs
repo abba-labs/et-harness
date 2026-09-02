@@ -19,6 +19,7 @@ import { assertExternalGatewayLauncher } from '../scripts/launcher-policy.mjs'
 import {
   createFileSnapshotStore,
   createGovernanceController,
+  GatewayGovernanceError,
   governanceToolError,
 } from './governance.mjs'
 import { createProjectAdmissionController } from './project-admission.mjs'
@@ -314,6 +315,24 @@ const normalizeOptions = async (overrides) => {
   return Object.freeze(options)
 }
 
+export const createFreshCompletionGovernance = (admitted, trusted) => Object.freeze({
+  ...admitted,
+  ...trusted,
+  async complete(input) {
+    const status = await admitted.status({ taskId: input.taskId })
+    if (status.runtimeDecision !== 'COMPLETE') {
+      const checkpoint = await trusted.checkpoint({ taskId: input.taskId })
+      if (checkpoint.status !== 'CHECKPOINTED') {
+        throw new GatewayGovernanceError(
+          'VALIDATION_NOT_CURRENT',
+          checkpoint.reason ?? 'Current frozen validations did not pass before completion',
+        )
+      }
+    }
+    return admitted.complete(input)
+  },
+})
+
 export const createGatewayServer = async (overrides = {}) => {
   const { governanceController, ...optionOverrides } = overrides
   const options = await normalizeOptions(optionOverrides)
@@ -336,7 +355,7 @@ export const createGatewayServer = async (overrides = {}) => {
       runtimeAccess,
       taskSnapshotRoot: options.taskSnapshotRoot,
     })
-    governance = Object.freeze({ ...admitted, ...trusted })
+    governance = createFreshCompletionGovernance(admitted, trusted)
   }
   const transports = new Map()
   const protocolServers = new Map()
