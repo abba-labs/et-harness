@@ -21,8 +21,7 @@ export const readGatewayPidRecord = () => {
   }
 }
 
-export const assertGatewayStoppedForReleaseSwitch = () => {
-  const record = readGatewayPidRecord()
+export const assertGatewayStoppedForReleaseSwitch = (record = readGatewayPidRecord()) => {
   if (record?.pid && isProcessRunning(record.pid)) {
     throw new Error(
       `ET Harness Gateway PID ${record.pid} is still running; stop the external Gateway before activation or rollback`,
