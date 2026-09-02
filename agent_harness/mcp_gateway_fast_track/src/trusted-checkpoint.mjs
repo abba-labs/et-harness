@@ -432,7 +432,7 @@ export const createTrustedCheckpointController = ({
       const checkpointId = randomUUID()
       const validations = []
       for (const obligation of contract.obligations) {
-        if (obligation.kind !== 'VALIDATION' || !pending.has(obligation.id)) continue
+        if (obligation.kind !== 'VALIDATION') continue
         acceptedCheckpointPolicy(contract, obligation.id)
         const validationId = String(obligation?.target?.validationId ?? '')
         const targetIdentity = String(obligation?.target?.targetIdentity ?? '')
@@ -547,7 +547,7 @@ export const registerTrustedCheckpointTools = ({
     {
       title: 'Run trusted governed checkpoint',
       description:
-        'Run only frozen Task Context validation commands authorized by the Task Contract, emit trusted validation events, and return bounded Supervisor status. The caller cannot supply commands, PASS states, receipts, or obligation outcomes.',
+        'Run every frozen Task Context validation command authorized by the Task Contract, emit trusted validation events, and return bounded Supervisor status. The caller cannot supply commands, PASS states, receipts, or obligation outcomes.',
       inputSchema: {
         taskId: z.string().min(1).max(MAX_TASK_ID_CHARS),
       },
