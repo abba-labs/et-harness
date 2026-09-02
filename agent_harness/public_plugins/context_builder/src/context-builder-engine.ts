@@ -21,6 +21,11 @@ const KIND_RANK: Readonly<Record<ContextResourceKind, number>> = {
   inline: 1,
 }
 
+const itemRank = (item: ContextResolvedItem): number =>
+  item.kind === 'inline' && item.id.startsWith('prior-context-')
+    ? 6
+    : KIND_RANK[item.kind]
+
 const renderItem = (item: ContextResolvedItem): string => {
   const warnings = item.warnings.length > 0
     ? `\nWarnings: ${item.warnings.join(' | ')}`
@@ -62,7 +67,7 @@ export class ContextBuilderEngine {
 
     const ordered = [...deduped.values()].sort((a, b) =>
       PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
-      || KIND_RANK[b.kind] - KIND_RANK[a.kind]
+      || itemRank(b) - itemRank(a)
       || a.id.localeCompare(b.id),
     )
 
