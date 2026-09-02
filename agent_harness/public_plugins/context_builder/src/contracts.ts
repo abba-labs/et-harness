@@ -55,7 +55,7 @@ export type ContextLifecyclePhase =
   | 'handoff'
   | 'complete'
 
-export type ContextSessionStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED'
+export type ContextSessionStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABORTED'
 
 export interface ContextLedgerEntry {
   readonly text: string
@@ -104,6 +104,18 @@ export interface ContextProgressLedgerPatch {
   readonly blockers?: readonly string[]
   readonly next?: readonly string[]
   readonly evidenceRefs?: readonly string[]
+}
+
+export interface ContextTurnClosureInput {
+  readonly turnId: string
+  readonly confirmed: readonly ContextLedgerEntry[]
+  readonly assumptions: readonly ContextLedgerEntry[]
+  readonly openIssues: readonly ContextLedgerEntry[]
+  readonly plan: readonly string[]
+  readonly progress: string
+  readonly touchedRefs: readonly string[]
+  readonly evidenceRefs: readonly string[]
+  readonly workingSet: readonly ContextReference[]
 }
 
 export type ContextRecentEventKind = 'ACTION' | 'OBSERVATION' | 'DECISION' | 'ERROR'
