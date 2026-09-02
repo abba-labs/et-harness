@@ -29,7 +29,7 @@ import {
 } from './trusted-checkpoint.mjs'
 
 export const MCP_INSTRUCTIONS =
-  'For governed work, copy human-declared project into harness_begin.project. If PROJECT_CONTEXT_REQUIRED, inspect bounded Architecture bootstrap and call harness_begin again with returned projectContextFingerprint plus structured taskIntent. Then follow mustRead/ruleOwners/writeScope; use harness_observe, harness_preflight and harness_checkpoint; check harness_status before harness_complete. Never submit PASS, receipts, provider IDs, commands, raw events, or self-declare COMPLETE.'
+  'For governed work, pass the human-declared project to harness_begin.project. If PROJECT_CONTEXT_REQUIRED, inspect bounded Architecture bootstrap, then retry with its fingerprint and structured taskIntent. Follow mustRead/ruleOwners/writeScope; use harness_observe, harness_preflight and harness_checkpoint; check harness_status before harness_complete. Never submit PASS, receipts, provider IDs, commands or raw events; never self-declare COMPLETE or expose raw Runtime/Ledger/Closure data.'
 
 const CONFIG_URL = new URL('../config/gateway.local.json', import.meta.url)
 
