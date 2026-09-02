@@ -147,18 +147,6 @@ export const createProjectAdmissionController = ({ baseGovernance, runtimeAccess
     throw new Error('Project Admission requires Runtime projectBootstrap access')
   }
 
-  // The cache is only a same-Gateway optimization. A missing or unknown
-  // fingerprint always re-reads the current Architecture bootstrap from the
-  // existing Navigator owner; Gateway restart also naturally clears the cache.
-  const bootstrapByWorkspace = new Map()
-  const currentBootstrap = async (workspacePath, suppliedFingerprint) => {
-    const cached = bootstrapByWorkspace.get(workspacePath)
-    if (cached && suppliedFingerprint === cached.fingerprint) return cached
-    const fresh = await runtimeAccess.projectBootstrap(workspacePath)
-    bootstrapByWorkspace.set(workspacePath, fresh)
-    return fresh
-  }
-
   return Object.freeze({
     ...baseGovernance,
     async begin(input) {
@@ -169,7 +157,11 @@ export const createProjectAdmissionController = ({ baseGovernance, runtimeAccess
         ? `codex-task-${randomUUID()}`
         : requiredText('requestedTaskId', input.requestedTaskId, 160)
       const suppliedFingerprint = boundedFingerprint(input.projectContextFingerprint)
-      const bootstrap = await currentBootstrap(workspacePath, suppliedFingerprint)
+
+      // Fingerprint freshness is owned by the current Architecture, never by a
+      // Gateway-local cache. projectBootstrap() performs the existing bounded,
+      // read-only Architecture refresh without opening Runtime/Ledger/Closure state.
+      const bootstrap = await runtimeAccess.projectBootstrap(workspacePath)
 
       if (!projectSelectorMatches(bootstrap, project)) {
         throw new GatewayGovernanceError(
