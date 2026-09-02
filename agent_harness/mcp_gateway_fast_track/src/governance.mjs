@@ -239,6 +239,19 @@ export const createFileSnapshotStore = (root) => {
   })
 }
 
+const snapshotPhase = (snapshot) => snapshot.phase ?? 'ACTIVE'
+
+const failedStatus = (snapshot) => ({
+  status: 'FAILED',
+  taskId: snapshot.taskId,
+  runtimeId: snapshot.runtimeId,
+  turnId: snapshot.turnId,
+  projectId: snapshot.projectId,
+  code: snapshot.failure?.code ?? 'BEGIN_FAILED',
+  message: snapshot.failure?.message ?? 'Governed task begin failed',
+  compensationStatus: snapshot.compensation?.status ?? 'UNKNOWN',
+})
+
 const statusSummary = (snapshot, runtimeStatus) => {
   const ledger = runtimeStatus?.supervision?.ledger
   const decision = runtimeStatus?.supervision?.decision
@@ -265,6 +278,60 @@ const requireSnapshot = async (snapshotStore, input) => {
   const snapshot = await snapshotStore.get(taskId)
   if (!snapshot) throw new GatewayGovernanceError('TASK_NOT_FOUND', 'No Gateway task snapshot matches taskId')
   return snapshot
+}
+
+const requireActiveSnapshot = async (snapshotStore, input) => {
+  const snapshot = await requireSnapshot(snapshotStore, input)
+  if (snapshotPhase(snapshot) !== 'ACTIVE') {
+    throw new GatewayGovernanceError(
+      'TASK_NOT_ACTIVE',
+      `Gateway task ${snapshot.taskId} is ${snapshotPhase(snapshot)}`,
+    )
+  }
+  return snapshot
+}
+
+const compensationSnapshot = async (runtimeAccess, snapshotStore, preparing, error) => {
+  const message = boundedError(error)
+  let compensation
+  try {
+    if (typeof runtimeAccess.abortTurn !== 'function') {
+      throw new Error('Runtime does not expose failed-begin compensation')
+    }
+    compensation = await runtimeAccess.abortTurn(preparing, message)
+  } catch (compensationError) {
+    const failed = {
+      ...preparing,
+      phase: 'FAILED',
+      failedAt: new Date().toISOString(),
+      failure: {
+        code: error instanceof GatewayGovernanceError ? error.code : 'RUNTIME_UNAVAILABLE',
+        message,
+      },
+      compensation: {
+        status: 'FAILED',
+        message: boundedError(compensationError),
+      },
+    }
+    await snapshotStore.put(failed)
+    throw new GatewayGovernanceError(
+      'BEGIN_COMPENSATION_FAILED',
+      `${message}; compensation failed: ${boundedError(compensationError)}`,
+    )
+  }
+
+  const failed = {
+    ...preparing,
+    phase: 'FAILED',
+    failedAt: new Date().toISOString(),
+    failure: {
+      code: error instanceof GatewayGovernanceError ? error.code : 'RUNTIME_UNAVAILABLE',
+      message,
+    },
+    compensation,
+  }
+  await snapshotStore.put(failed)
+  return failed
 }
 
 const workObservation = (snapshot, input) => {
@@ -426,51 +493,93 @@ export const createGovernanceController = ({ runtimeAccess, snapshotStore, proje
             'requestedTaskId already exists with different workspace or intent',
           )
         }
+        if (snapshotPhase(existing) === 'PREPARING') {
+          const failed = await compensationSnapshot(
+            runtimeAccess,
+            snapshotStore,
+            existing,
+            new GatewayGovernanceError('BEGIN_INTERRUPTED', 'Previous task begin was interrupted before activation'),
+          )
+          throw new GatewayGovernanceError(failed.failure.code, failed.failure.message)
+        }
+        if (snapshotPhase(existing) === 'FAILED') {
+          throw new GatewayGovernanceError(
+            existing.failure?.code ?? 'BEGIN_FAILED',
+            existing.failure?.message ?? 'Previous task begin failed',
+          )
+        }
         return { ...existing, idempotentReplay: true }
       }
 
       const runtimeId = `codex-runtime-${randomUUID()}`
       const turnId = `codex-turn-${randomUUID()}`
-      const opened = await runtimeAccess.openTurn({
-        runtimeId,
-        turnId,
-        taskId,
-        projectId: project.projectId,
-        workspacePath: project.workspacePath,
-        taskText: intent,
-      })
-      runtimeConnected = true
-      const context = projectContextFromOpenTurn(opened)
-      const snapshot = {
+      const preparing = {
         schema: 'et-harness.gateway-task-snapshot.v0.1',
+        phase: 'PREPARING',
         taskId,
         runtimeId,
         turnId,
         workspacePath: project.workspacePath,
-        projectId: context.projectId,
-        projectRevision: context.projectRevision,
-        contextRevision: context.contextRevision,
+        projectId: project.projectId,
         intentHash,
         createdAt: new Date().toISOString(),
-        context,
       }
-      await snapshotStore.put(snapshot)
-      return { ...snapshot, idempotentReplay: false }
+      await snapshotStore.put(preparing)
+
+      try {
+        const opened = await runtimeAccess.openTurn({
+          runtimeId,
+          turnId,
+          taskId,
+          projectId: project.projectId,
+          workspacePath: project.workspacePath,
+          taskText: intent,
+        })
+        runtimeConnected = true
+        const context = projectContextFromOpenTurn(opened)
+        const snapshot = {
+          ...preparing,
+          phase: 'ACTIVE',
+          projectId: context.projectId,
+          projectRevision: context.projectRevision,
+          contextRevision: context.contextRevision,
+          activatedAt: new Date().toISOString(),
+          context,
+        }
+        await snapshotStore.put(snapshot)
+        return { ...snapshot, idempotentReplay: false }
+      } catch (error) {
+        const failed = await compensationSnapshot(runtimeAccess, snapshotStore, preparing, error)
+        runtimeConnected = true
+        if (error instanceof GatewayGovernanceError) throw error
+        throw new GatewayGovernanceError(failed.failure.code, failed.failure.message)
+      }
     },
     async status(input) {
       const snapshot = await requireSnapshot(snapshotStore, input)
+      if (snapshotPhase(snapshot) === 'PREPARING') {
+        const failed = await compensationSnapshot(
+          runtimeAccess,
+          snapshotStore,
+          snapshot,
+          new GatewayGovernanceError('BEGIN_INTERRUPTED', 'Task begin was interrupted before activation'),
+        )
+        runtimeConnected = true
+        return failedStatus(failed)
+      }
+      if (snapshotPhase(snapshot) === 'FAILED') return failedStatus(snapshot)
       const runtimeStatus = await runtimeAccess.getStatus(snapshot)
       runtimeConnected = true
       return statusSummary(snapshot, runtimeStatus)
     },
     async observe(input) {
-      const snapshot = await requireSnapshot(snapshotStore, input)
+      const snapshot = await requireActiveSnapshot(snapshotStore, input)
       const result = await runtimeAccess.observeWork(snapshot, workObservation(snapshot, input))
       runtimeConnected = true
       return observationSummary(result)
     },
     async preflight(input) {
-      const snapshot = await requireSnapshot(snapshotStore, input)
+      const snapshot = await requireActiveSnapshot(snapshotStore, input)
       const result = await runtimeAccess.preflightAction(snapshot, actionPreflight(snapshot, input))
       runtimeConnected = true
       return {
@@ -480,7 +589,7 @@ export const createGovernanceController = ({ runtimeAccess, snapshotStore, proje
       }
     },
     async complete(input) {
-      const snapshot = await requireSnapshot(snapshotStore, input)
+      const snapshot = await requireActiveSnapshot(snapshotStore, input)
       const result = await runtimeAccess.closeTurn(snapshot, closeInput(snapshot, input))
       runtimeConnected = true
       return closeSummary(result)
