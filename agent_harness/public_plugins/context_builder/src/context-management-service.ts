@@ -30,6 +30,7 @@ import type {
   ContextStartTaskInput,
   ContextTaskLedger,
   ContextTaskLedgerPatch,
+  ContextTurnClosureInput,
 } from './contracts.js'
 
 const DEFAULT_MAX_CHARS = 18000
@@ -58,6 +59,7 @@ const ROUTE_MAP_LIMIT = 8
 const PRIORITY_RANK = { required: 4, high: 3, normal: 2, low: 1 } as const
 
 const now = (): string => new Date().toISOString()
+const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 
 const nonEmpty = (name: string, value: string): string => {
   const trimmed = value.trim()
@@ -257,8 +259,10 @@ export const selectRelevantContextHistory = (input: {
 
   const result: InlineContextItem[] = []
   for (const { record, session, matchedRefs } of candidates) {
-    const confirmed = matchingEntries(session.taskLedger.confirmed, currentRefs).slice(0, 4)
-    const openIssues = matchingEntries(session.taskLedger.openIssues, currentRefs).slice(0, 4)
+    const exactConfirmed = matchingEntries(session.taskLedger.confirmed, currentRefs)
+    const exactOpenIssues = matchingEntries(session.taskLedger.openIssues, currentRefs)
+    const confirmed = (exactConfirmed.length > 0 ? exactConfirmed : session.taskLedger.confirmed).slice(0, 4)
+    const openIssues = (exactOpenIssues.length > 0 ? exactOpenIssues : session.taskLedger.openIssues).slice(0, 4)
     const next = [...new Set([...session.taskLedger.plan, ...session.progressLedger.next])].slice(0, 4)
     const lines = [
       `SourceTask: ${session.taskId}`,
@@ -435,6 +439,83 @@ export class ContextManagementService extends Service {
     )
   }
 
+  applyTurnClosure(
+    projectId: string,
+    taskId: string,
+    input: ContextTurnClosureInput,
+  ): ContextSessionSnapshot {
+    const snapshot = this.getTask(projectId, taskId)
+    if (snapshot.session.status === 'COMPLETED' || snapshot.session.status === 'ABORTED') {
+      throw new Error(`Context task is terminal: ${projectId}/${taskId}/${snapshot.session.status}`)
+    }
+    const turnId = nonEmpty('turnId', input.turnId)
+    const confirmed = normalizeEntries(input.confirmed, 'confirmed')
+    const assumptions = normalizeEntries(input.assumptions, 'assumptions')
+    const openIssues = normalizeEntries(input.openIssues, 'openIssues')
+    const plan = normalizeStringList(input.plan, MAX_PLAN_ITEMS, 'plan')
+    const touchedRefs = normalizeStringList(input.touchedRefs, MAX_LEDGER_ENTRIES, 'touchedRefs')
+    const evidenceRefs = normalizeStringList(input.evidenceRefs, MAX_LEDGER_ENTRIES, 'evidenceRefs')
+    const workingSet = normalizeReferences(input.workingSet)
+    const baseInlineItems = (snapshot.session.inlineItems ?? [])
+      .filter(item => !item.id.startsWith(PRIOR_CONTEXT_PREFIX))
+    const inherited = selectRelevantContextHistory({
+      projectId,
+      currentTaskId: taskId,
+      references: workingSet,
+      records: this.runtimeContext.evidenceStateManager.snapshot(projectId).records,
+      existingInlineItems: baseInlineItems,
+    })
+    const inlineItems = normalizeInlineContextItems([...baseInlineItems, ...inherited])
+    const lastAction = `Close governed Turn ${turnId}`
+    const lastResult = nonEmpty('Context closure progress', input.progress)
+    const current = snapshot.session
+    if (current.progressLedger.lastAction === lastAction
+        && current.progressLedger.lastResult === lastResult
+        && same(current.taskLedger.confirmed, confirmed)
+        && same(current.taskLedger.assumptions, assumptions)
+        && same(current.taskLedger.openIssues, openIssues)
+        && same(current.taskLedger.plan, plan)
+        && same(current.progressLedger.touchedRefs, touchedRefs)
+        && same(current.progressLedger.next, plan)
+        && same(current.progressLedger.evidenceRefs, evidenceRefs)
+        && same(current.workingSet, workingSet)
+        && same(current.inlineItems ?? [], inlineItems)) {
+      return snapshot
+    }
+    const stamp = now()
+    const taskLedger: ContextTaskLedger = {
+      ...current.taskLedger,
+      confirmed,
+      assumptions,
+      openIssues,
+      plan,
+      updatedAt: stamp,
+    }
+    const progressLedger: ContextProgressLedger = {
+      ...(current.progressLedger.currentProblem ? { currentProblem: current.progressLedger.currentProblem } : {}),
+      lastAction,
+      lastResult,
+      touchedRefs,
+      blockers: current.progressLedger.blockers,
+      next: plan,
+      evidenceRefs,
+      updatedAt: stamp,
+    }
+    return this.commit(
+      snapshot,
+      {
+        ...current,
+        taskLedger,
+        progressLedger,
+        workingSet,
+        inlineItems,
+        updatedAt: stamp,
+      },
+      `Apply governed Turn ${turnId} Context closure`,
+      evidenceRefs,
+    )
+  }
+
   attach(projectId: string, taskId: string, references: readonly ContextReference[]): ContextSessionSnapshot {
     const snapshot = this.getTask(projectId, taskId)
     const workingSet = normalizeReferences([...snapshot.session.workingSet, ...references])
@@ -571,14 +652,117 @@ export class ContextManagementService extends Service {
 
   resume(projectId: string, taskId: string): ContextFrame {
     const snapshot = this.getTask(projectId, taskId)
+    if (snapshot.session.status === 'COMPLETED' || snapshot.session.status === 'ABORTED') {
+      throw new Error(`Cannot resume terminal Context task: ${projectId}/${taskId}/${snapshot.session.status}`)
+    }
     const updated = snapshot.session.status === 'ACTIVE'
       ? snapshot
       : this.commit(snapshot, { ...snapshot.session, status: 'ACTIVE', updatedAt: now() }, 'Resume context task')
     return this.buildFrame(updated.session.projectId, updated.session.taskId)
   }
 
+  completeFromClosure(
+    projectId: string,
+    taskId: string,
+    turnIdInput: string,
+    closureRefInput: string,
+  ): ContextSessionSnapshot {
+    const turnId = nonEmpty('turnId', turnIdInput)
+    const closureRef = nonEmpty('closureRef', closureRefInput)
+    const snapshot = this.getTask(projectId, taskId)
+    const terminalAction = `Complete governed Task after Turn ${turnId}`
+    if (snapshot.session.status === 'COMPLETED') {
+      if (snapshot.session.progressLedger.lastAction === terminalAction
+          && snapshot.session.progressLedger.evidenceRefs.includes(closureRef)) {
+        return snapshot
+      }
+      throw new Error(`Context task is already completed by another lifecycle identity: ${projectId}/${taskId}`)
+    }
+    if (snapshot.session.status === 'ABORTED') {
+      throw new Error(`Cannot complete aborted Context task: ${projectId}/${taskId}`)
+    }
+    if (snapshot.session.progressLedger.lastAction !== `Close governed Turn ${turnId}`) {
+      throw new Error(`Context task was not prepared by Turn ${turnId}`)
+    }
+    const stamp = now()
+    const progressLedger: ContextProgressLedger = {
+      lastAction: terminalAction,
+      ...(snapshot.session.progressLedger.lastResult
+        ? { lastResult: snapshot.session.progressLedger.lastResult }
+        : {}),
+      touchedRefs: snapshot.session.progressLedger.touchedRefs,
+      blockers: [],
+      next: [],
+      evidenceRefs: normalizeStringList(
+        [...snapshot.session.progressLedger.evidenceRefs, closureRef],
+        MAX_LEDGER_ENTRIES,
+        'evidenceRefs',
+      ),
+      updatedAt: stamp,
+    }
+    const session: ContextSession = {
+      ...snapshot.session,
+      status: 'COMPLETED',
+      generation: snapshot.session.generation + 1,
+      taskLedger: { ...snapshot.session.taskLedger, phase: 'complete', updatedAt: stamp },
+      progressLedger,
+      recentTail: [],
+      updatedAt: stamp,
+    }
+    return this.commit(snapshot, session, `Complete context task from ${closureRef}`, [closureRef])
+  }
+
+  abortTask(
+    projectId: string,
+    taskId: string,
+    turnIdInput: string,
+    reasonInput: string,
+    evidenceRefsInput: readonly string[] = [],
+  ): ContextSessionSnapshot {
+    const turnId = nonEmpty('turnId', turnIdInput)
+    const reason = nonEmpty('abort reason', reasonInput)
+    const evidenceRefs = normalizeStringList(evidenceRefsInput, MAX_LEDGER_ENTRIES, 'evidenceRefs')
+    const snapshot = this.getTask(projectId, taskId)
+    const terminalAction = `Abort governed Task after failed begin ${turnId}`
+    if (snapshot.session.status === 'ABORTED') {
+      if (snapshot.session.progressLedger.lastAction === terminalAction) return snapshot
+      throw new Error(`Context task is already aborted by another lifecycle identity: ${projectId}/${taskId}`)
+    }
+    if (snapshot.session.status === 'COMPLETED') {
+      throw new Error(`Cannot abort completed Context task: ${projectId}/${taskId}`)
+    }
+    const stamp = now()
+    const progressLedger: ContextProgressLedger = {
+      lastAction: terminalAction,
+      lastResult: reason,
+      touchedRefs: snapshot.session.progressLedger.touchedRefs,
+      currentProblem: reason,
+      blockers: [turnId],
+      next: [],
+      evidenceRefs,
+      updatedAt: stamp,
+    }
+    return this.commit(
+      snapshot,
+      {
+        ...snapshot.session,
+        status: 'ABORTED',
+        generation: snapshot.session.generation + 1,
+        progressLedger,
+        recentTail: [],
+        updatedAt: stamp,
+      },
+      `Abort context task after failed begin ${turnId}`,
+      evidenceRefs,
+    )
+  }
+
   complete(projectId: string, taskId: string): ContextSessionSnapshot {
     const snapshot = this.getTask(projectId, taskId)
+    if (snapshot.session.status === 'COMPLETED') return snapshot
+    if (snapshot.session.status === 'ABORTED') {
+      throw new Error(`Cannot complete aborted Context task: ${projectId}/${taskId}`)
+    }
     const stamp = now()
     const session: ContextSession = {
       ...snapshot.session,
