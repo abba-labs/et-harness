@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, relative, resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -12,6 +12,8 @@ import {
   createToolchainRequire,
   resolveCurrentToolchain,
 } from './toolchain.mjs'
+
+export { environmentRoot, packageRoot, repositoryRoot }
 
 const packageEntries = Object.freeze({
   '@agent-harness/governance-core': 'agent_harness/governance_core/src/index.ts',
