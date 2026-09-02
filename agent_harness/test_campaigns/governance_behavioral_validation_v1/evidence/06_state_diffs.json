@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "governance-state-diff-v1",
+  "baselineSourceSha": "21c0fcc8523e9aa48fbc81459895b4d9510bc909",
+  "externalStateRoot": "D:\\lihuan\\vibe_code\\codex\\et_harness_env\\state\\pure-mcp-fast-track",
+  "beforeScenarios": {
+    "gateway-task-snapshots": {"fileCount": 11, "bytes": 70155},
+    "runtime-state/execution-events": {"fileCount": 33, "bytes": 404063},
+    "runtime-state/agent-governance-kernel/turn-journal": {"fileCount": 15, "bytes": 29403},
+    "runtime-state/agent-governance-kernel/turn-reflection": {"fileCount": 3, "bytes": 7988},
+    "runtime-state/agent-governance-kernel/turn-closure": {"fileCount": 3, "bytes": 13734},
+    "runtime-state/state": {"fileCount": 1, "bytes": 328159}
+  },
+  "trackedKnowledgeBefore": {
+    "00_INDEX.md": "06E5F85B58D84BA636969DE6E55D69C7FB4EA7170FF50BC7D02BA9AB2FAE822E",
+    "00_PROJECT.md": "229BD1758DB098827A4D64A9AFF78CE9699EDFE87574B67993CFFB47A626564D",
+    "001_library.md": "5E0D2506378D526614309E404BD6A5D01A7482F25639C2BF58FF089468D08183",
+    "SOURCES.yaml": "487AEB913A277372CD6CD4DD21C560014001633252202038141A19196D105DA6",
+    "TAXONOMY.yaml": "ED2AE879562BFE2D31F3F562AF9EB6DF990F2B0B51FEF25228571AD94F1BB588",
+    "VERIFICATIONS.jsonl": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+  },
+  "afterScenarios": null,
+  "scenarioDiffs": []
+}

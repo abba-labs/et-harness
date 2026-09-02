@@ -1,0 +1,405 @@
+{
+  "schemaVersion": "governance-module-inventory-v1",
+  "baselineSourceSha": "21c0fcc8523e9aa48fbc81459895b4d9510bc909",
+  "derivedFrom": [
+    "agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts",
+    "agent_harness/public_plugins/*/src",
+    "agent_harness/projects/automated_testing_platform/src",
+    "agent_harness/projects/automated_testing_platform/project.yaml"
+  ],
+  "modules": [
+    {
+      "id": "M01",
+      "name": "Governance Catalog / Bootstrap",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "Gateway Runtime owner construction",
+      "input": "public package registrations and governance_core contracts",
+      "output": "registered governance services",
+      "sourceEvidence": ["agent_harness/governance_core/src/cordis-service.ts", "agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts"]
+    },
+    {
+      "id": "M02",
+      "name": "Project Manager / Discovery",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "Runtime startup and project registration",
+      "input": "ATP project manifest and root",
+      "output": "discoverable project registration",
+      "sourceEvidence": ["agent_harness/public_plugins/project_manager/src", "agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts"]
+    },
+    {
+      "id": "M03",
+      "name": "Project Router / Runtime Binding",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "harness_begin with ATP projectRoot",
+      "input": "projectRoot and registered projects",
+      "output": "selected ATP projectId",
+      "sourceEvidence": ["agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts", "agent_harness/mcp_gateway_fast_track/src/tools.ts"]
+    },
+    {
+      "id": "M04",
+      "name": "ATP Task Classification / Context Contribution",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "ATP task bootstrap",
+      "input": "intent, module, change, IP and lane",
+      "output": "project governance contribution and obligations",
+      "sourceEvidence": ["agent_harness/projects/automated_testing_platform/src/context-contributor.ts", "agent_harness/projects/automated_testing_platform/src/index.ts"]
+    },
+    {
+      "id": "M05",
+      "name": "Architecture Navigator",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "context assembly for a routed task",
+      "input": "project architecture resources and task classification",
+      "output": "architecture routes and boundaries",
+      "sourceEvidence": ["agent_harness/public_plugins/architecture_navigator/src/service.ts", "agent_harness/public_plugins/architecture_navigator/src/navigator-engine.ts"]
+    },
+    {
+      "id": "M06",
+      "name": "Rule Manager",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "context assembly for a routed task",
+      "input": "rule catalog and task classification",
+      "output": "resolved mandatory rules",
+      "sourceEvidence": ["agent_harness/public_plugins/rule_manager/src/service.ts", "agent_harness/public_plugins/rule_manager/src/rule-manager-engine.ts"]
+    },
+    {
+      "id": "M07",
+      "name": "Knowledge Manager / Consult",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "context assembly and knowledge query",
+      "input": "project knowledge registry, task route and query",
+      "output": "ranked knowledge records and consultation decision",
+      "sourceEvidence": ["agent_harness/public_plugins/knowledge_manager/src/service.ts", "agent_harness/public_plugins/knowledge_manager/src/knowledge-manager-engine.ts"]
+    },
+    {
+      "id": "M08",
+      "name": "Knowledge Validation Policy",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "knowledge consultation, verification or promotion",
+      "input": "knowledge status, source and evidence",
+      "output": "admission or validation decision",
+      "sourceEvidence": ["agent_harness/public_plugins/knowledge_manager/src/validation-service.ts"]
+    },
+    {
+      "id": "M09",
+      "name": "Context Builder",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "harness_begin",
+      "input": "project, architecture, rules, knowledge, gates and contributor output",
+      "output": "compiled Task Context",
+      "sourceEvidence": ["agent_harness/public_plugins/context_builder/src/context-builder-engine.ts", "agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts"]
+    },
+    {
+      "id": "M10",
+      "name": "Context Management / Update",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "closure reflection reports durable context delta",
+      "input": "reflection context section and evidence state",
+      "output": "persisted context update consumable by a later turn",
+      "sourceEvidence": ["agent_harness/public_plugins/context_builder/src", "agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts"]
+    },
+    {
+      "id": "M11",
+      "name": "Gate Manager",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "task bootstrap, checkpoint and completion",
+      "input": "gate plans, evidence and producer mapping",
+      "output": "gate state and blocking decision",
+      "sourceEvidence": ["agent_harness/public_plugins/gate_manager/src", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M12",
+      "name": "Evidence State Manager",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "evidence observation, validation and closure",
+      "input": "evidence records and provenance",
+      "output": "canonical evidence state",
+      "sourceEvidence": ["agent_harness/public_plugins/evidence_state_manager/src", "agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M13",
+      "name": "Experience Memory Manager",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "reflection and closure when reusable experience exists",
+      "input": "experience reflection candidates",
+      "output": "durable experience decision or NONE",
+      "sourceEvidence": ["agent_harness/public_plugins/experience_memory_manager/src", "agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts"]
+    },
+    {
+      "id": "M14",
+      "name": "Auto Governance Engine",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "task bootstrap and governance decision assembly",
+      "input": "resolved project governance contributions",
+      "output": "auto-governance context and obligation contribution",
+      "sourceEvidence": ["agent_harness/public_plugins/auto_governance_engine/src", "agent_harness/public_plugins/auto_governance_engine/src/context-contribution.ts"]
+    },
+    {
+      "id": "M15",
+      "name": "Runtime Work Observation",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "harness_observe",
+      "input": "bounded work observation with task and turn binding",
+      "output": "Runtime-owned observation/evidence update",
+      "sourceEvidence": ["agent_harness/public_plugins/governance_runtime/src/service.ts", "agent_harness/mcp_gateway_fast_track/src/tools.ts"]
+    },
+    {
+      "id": "M16",
+      "name": "Execution Supervisor",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "supervised turn open, trusted events, preflight and completion",
+      "input": "Runtime-bound event store, obligations and actions",
+      "output": "supervision status, violations and readiness",
+      "sourceEvidence": ["agent_harness/public_plugins/execution_supervisor/src", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M17",
+      "name": "Obligation Ledger",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "supervised turn creation and every trusted execution event",
+      "input": "validated obligation contribution and durable events",
+      "output": "PENDING, SATISFIED or VIOLATED obligation state",
+      "sourceEvidence": ["agent_harness/public_plugins/execution_supervisor/src/obligation-ledger.ts", "agent_harness/public_plugins/governance_runtime/src/runtime-execution-ingress.ts"]
+    },
+    {
+      "id": "M18",
+      "name": "WRITE_SCOPE Preflight",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "explicit harness_preflight for a proposed mutation",
+      "input": "action, path and frozen write scope",
+      "output": "ALLOW or BLOCK without pretending host-wide ENFORCE",
+      "sourceEvidence": ["agent_harness/public_plugins/governance_runtime/src/scope-safe-service.ts", "agent_harness/public_plugins/execution_supervisor/src"]
+    },
+    {
+      "id": "M19",
+      "name": "Required Resource Enforcement",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "harness_read_required followed by trusted receipt admission",
+      "input": "Runtime-selected required resource and actual file content",
+      "output": "trusted REQUIRED_RESOURCE event and obligation progression",
+      "sourceEvidence": ["agent_harness/mcp_gateway_fast_track/src/tools.ts", "agent_harness/public_plugins/execution_supervisor/src"]
+    },
+    {
+      "id": "M20",
+      "name": "Trusted Validation Admission",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "harness_checkpoint executes a frozen validation",
+      "input": "Runtime-selected command and actual exit/output",
+      "output": "trusted validation span and matching obligation progression",
+      "sourceEvidence": ["agent_harness/mcp_gateway_fast_track/src/tools.ts", "agent_harness/public_plugins/execution_supervisor/src"]
+    },
+    {
+      "id": "M21",
+      "name": "Agent Governance Kernel / Turn Journal",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "turn open, reflection, sealing and closure",
+      "input": "task/turn binding and Runtime-owned lifecycle facts",
+      "output": "durable turn journal with monotonic lifecycle",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_kernel/src", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M22",
+      "name": "Unified Reflection",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "completion after supervision readiness",
+      "input": "exact task/turn binding and durable work evidence",
+      "output": "validated TurnReflectionResult bound to readiness",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_kernel/src/turn-reflection-controller.ts", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M23",
+      "name": "Knowledge Decision / Classification / Promotion",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "reflection and closure when knowledge is NONE or a candidate",
+      "input": "reflection candidates, source refs and verification evidence",
+      "output": "NONE, CHECK, DOCUMENT or evidence-check decision and bounded persistence",
+      "sourceEvidence": ["agent_harness/public_plugins/governance_runtime/src/knowledge-governance-decision.ts", "agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts"]
+    },
+    {
+      "id": "M24",
+      "name": "Mandatory Closure Adapters",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "Closure Coordinator after valid reflection",
+      "input": "reflection and current governed state",
+      "output": "eight replayable module receipts",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts", "agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M25",
+      "name": "Closure Coordinator",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "completion after valid reflection",
+      "input": "sealed journal, reflection and mandatory module receipts",
+      "output": "CLOSED only after every mandatory module succeeds",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_kernel/src/closure-coordinator.ts", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M26",
+      "name": "Runtime / Gateway Rehydrate and Replay",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "Gateway restart and access to an existing supervised task",
+      "input": "durable turn, event store, ledger and kernel state",
+      "output": "same lifecycle and obligation state after restart",
+      "sourceEvidence": ["agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts", "agent_harness/public_plugins/governance_runtime/src/service.ts"]
+    },
+    {
+      "id": "M27",
+      "name": "Execution Event Store",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "supervised turn creation and trusted event append",
+      "input": "binding-checked lifecycle and execution events",
+      "output": "append-only durable event sequence and cursor",
+      "sourceEvidence": ["agent_harness/public_plugins/execution_supervisor/src/event-store.ts", "agent_harness/mcp_gateway_fast_track/src/runtime-owner.ts"]
+    },
+    {
+      "id": "M28",
+      "name": "ATP Gate Evidence Provider",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "matching ATP checkpoint invocation",
+      "input": "ATP gate plan, command and real execution result",
+      "output": "provider-bound gate evidence without self-asserted PASS",
+      "sourceEvidence": ["agent_harness/projects/automated_testing_platform/src/index.ts", "agent_harness/projects/automated_testing_platform/src/checkpoint-context-contributor.ts"]
+    },
+    {
+      "id": "M29",
+      "name": "Context Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "context reflection section",
+      "output": "context update or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M30",
+      "name": "Knowledge Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "scoped knowledge candidates and provenance",
+      "output": "candidate persistence or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts"]
+    },
+    {
+      "id": "M31",
+      "name": "Experience Memory Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "project-scoped evidence-backed experience candidates",
+      "output": "experience state update or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/modules.ts"]
+    },
+    {
+      "id": "M32",
+      "name": "Architecture Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "architecture candidates",
+      "output": "non-canonical change candidate or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M33",
+      "name": "Rules Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "rule candidates",
+      "output": "non-canonical change candidate or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M34",
+      "name": "Evidence State Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "project-scoped evidence reflection",
+      "output": "INFO evidence only or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M35",
+      "name": "Working Set Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "working-set keep/add/remove reflection",
+      "output": "context working-set update or explicit NO_CHANGE receipt",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M36",
+      "name": "Obligation / Gate Reconcile Closure Module",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "every valid closure after reflection",
+      "input": "Supervisor state, gate evidence and proposed obligation transitions",
+      "output": "Runtime-owned reconciliation; agent proposals cannot self-resolve",
+      "sourceEvidence": ["agent_harness/public_plugins/agent_governance_closure_adapters/src/remaining-modules.ts"]
+    },
+    {
+      "id": "M37",
+      "name": "Governance Runtime Lifecycle",
+      "mandatory": true,
+      "applicable": true,
+      "trigger": "open, observe, preflight, status and close",
+      "input": "Runtime/project/task/turn-bound governance facts",
+      "output": "monotonic lifecycle with fail-closed identity checks",
+      "sourceEvidence": ["agent_harness/public_plugins/governance_runtime/src/service.ts", "agent_harness/public_plugins/governance_runtime/src/scope-safe-service.ts"]
+    }
+  ],
+  "excludedFromMandatoryRuntimeComposition": [
+    {
+      "package": "agent_harness/public_plugins/auto_governance_orchestrator",
+      "reason": "present in repository but not registered by the current frozen Runtime owner"
+    },
+    {
+      "package": "agent_harness/public_plugins/framework_efficiency_observer",
+      "reason": "present in repository but not registered by the current frozen Runtime owner; the independent test Observer is not this package"
+    }
+  ],
+  "counts": {
+    "mandatoryApplicable": 37,
+    "excludedUncomposedPackages": 2
+  },
+  "initialObserverFindingsToVerify": [
+    "Live catalog/provider snapshot is not exposed by Gateway.",
+    "Architecture, Rule, Knowledge and Gate routes persist selected results but not full candidate/decision traces.",
+    "Ordinary harness_observe bodies appear memory-only and may not replay.",
+    "ExperienceMemoryManager.searchMemory has no observed production caller in Auto Governance or Context assembly.",
+    "Explicit preflight responses appear non-durable.",
+    "OPEN and OBSERVE knowledge decisions appear non-durable.",
+    "Supervisor trusted evidence and Evidence State/Gate evidence are separate trust planes and must not substitute for each other."
+  ]
+}
