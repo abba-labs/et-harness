@@ -14,7 +14,10 @@ import { ContextBuilderService, ContextManagementService } from '@agent-harness/
 import { ExperienceMemoryManagerService } from '@agent-harness/experience-memory-manager'
 import { AgentGovernanceKernelService } from '@agent-harness/agent-governance-kernel'
 import { AgentGovernanceClosureAdaptersService } from '@agent-harness/agent-governance-closure-adapters'
-import { AutoGovernanceEngineService } from '@agent-harness/auto-governance-engine'
+import {
+  AutoGovernanceEngineService,
+  type AutoGovernanceRouteSnapshot,
+} from '@agent-harness/auto-governance-engine'
 import {
   ScopeSafeGovernanceRuntimeService,
   compileGovernanceProjectSupervisionContractV01,
@@ -70,6 +73,7 @@ interface SupervisedTurnSnapshotInput {
   taskId: string
   projectId: string
   projectRevision?: string
+  restoredRoute?: AutoGovernanceRouteSnapshot
 }
 
 interface AbortSupervisedTurnInput extends SupervisedTurnSnapshotInput {
@@ -280,33 +284,30 @@ class PureMcpRuntimeOwner {
     const contextManager = this.context.get('contextManager')
     if (!kernel || !contextManager) throw new Error('Runtime lifecycle compensation services are not ready')
 
-    let journalStatus = 'ABSENT'
-    const existingJournal = kernel.getTurn(input.taskId, input.turnId)
-    if (existingJournal) {
-      if (existingJournal.status === 'OPEN') {
+    const runtimeJournal = this.runtime.abortTurn(input.runtimeId, input.turnId, reason)
+    let journalStatus = runtimeJournal?.status ?? 'ABSENT'
+    if (!runtimeJournal) {
+      const existingJournal = kernel.getTurn(input.taskId, input.turnId)
+      if (existingJournal?.status === 'OPEN') {
         journalStatus = kernel.abortTurn(input.taskId, input.turnId, { reason }).status
-      } else if (existingJournal.status === 'ABORTED') {
+      } else if (existingJournal?.status === 'ABORTED') {
         journalStatus = existingJournal.status
-      } else {
+      } else if (existingJournal) {
         throw new Error(`Turn ${input.turnId} cannot be compensated from ${existingJournal.status}`)
+      }
+      try {
+        contextManager.abort(input.projectId, input.taskId, reason)
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('Context task 不存在')) throw error
       }
     }
 
     let contextStatus = 'ABSENT'
     let contextStateVersion: number | undefined
     try {
-      const existingContext = contextManager.getTask(input.projectId, input.taskId)
-      const compensated = existingContext.session.status === 'ABORTED'
-        ? existingContext
-        : contextManager.abortTask(
-          input.projectId,
-          input.taskId,
-          input.turnId,
-          reason,
-          existingJournal ? [`governance-journal://task/${input.taskId}/turn/${input.turnId}`] : [],
-        )
-      contextStatus = compensated.session.status
-      contextStateVersion = compensated.stateVersion
+      const context = contextManager.getTask(input.projectId, input.taskId)
+      contextStatus = context.session.status
+      contextStateVersion = context.stateVersion
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('Context task 不存在')) throw error
     }
@@ -316,7 +317,6 @@ class PureMcpRuntimeOwner {
     if (store) await store.close()
     this.stores.delete(key)
     this.opened.delete(key)
-    this.runtime.releaseAbortedRuntimeSession(input.runtimeId, input.turnId)
     return {
       status: 'ABORTED' as const,
       runtimeId: input.runtimeId,
@@ -515,6 +515,7 @@ class PureMcpRuntimeOwner {
       await this.runtime.rehydrateSupervisedTurn({
         runtimeId: input.runtimeId,
         eventStore: store,
+        ...(input.restoredRoute ? { restoredRoute: input.restoredRoute } : {}),
         hostCapabilities: PURE_MCP_AUDIT_CAPABILITIES,
       })
       this.stores.set(key, store)
