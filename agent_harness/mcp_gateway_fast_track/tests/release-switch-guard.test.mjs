@@ -11,10 +11,10 @@ test('current live process is mechanically recognized', () => {
   assert.equal(isProcessRunning(-1), false)
 })
 
-test('release switch guard rejects a live Gateway PID and accepts no PID', () => {
+test('release switch guard rejects a live Gateway PID and accepts an explicit empty record', () => {
   assert.throws(
     () => assertGatewayStoppedForReleaseSwitch({ pid: process.pid }),
     /stop the external Gateway before activation or rollback/,
   )
-  assert.doesNotThrow(() => assertGatewayStoppedForReleaseSwitch(undefined))
+  assert.doesNotThrow(() => assertGatewayStoppedForReleaseSwitch({}))
 })
