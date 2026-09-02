@@ -13,17 +13,18 @@ export const TOOLCHAIN_SCHEMA = 'et-harness.toolchain.v1'
 
 const hashBuffer = value => createHash('sha256').update(value).digest('hex')
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'))
+const parsePackageManifest = bytes => {
+  const parsed = JSON.parse(Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes))
+  return Object.freeze({
+    ...(parsed.dependencies ?? {}),
+    ...(parsed.devDependencies ?? {}),
+  })
+}
 
 export const packageManifestPath = resolve(packageRoot, 'package.json')
 export const packageLockPath = resolve(packageRoot, 'package-lock.json')
 
-export const pinnedDependencies = () => {
-  const manifest = readJson(packageManifestPath)
-  return Object.freeze({
-    ...(manifest.dependencies ?? {}),
-    ...(manifest.devDependencies ?? {}),
-  })
-}
+export const pinnedDependencies = () => parsePackageManifest(readFileSync(packageManifestPath))
 
 export const computeToolchainDescriptor = (options = {}) => {
   const packageJsonBytes = options.packageJsonBytes ?? readFileSync(packageManifestPath)
@@ -46,7 +47,7 @@ export const computeToolchainDescriptor = (options = {}) => {
     arch,
     packageJsonSha256,
     packageLockSha256,
-    dependencies: pinnedDependencies(),
+    dependencies: parsePackageManifest(packageJsonBytes),
   })
 }
 
