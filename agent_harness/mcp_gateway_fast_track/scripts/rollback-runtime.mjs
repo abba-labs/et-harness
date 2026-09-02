@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { renameSync, writeFileSync } from 'node:fs'
 
 import { layout } from './environment-layout.mjs'
+import { assertGatewayStoppedForReleaseSwitch } from './gateway-process-state.mjs'
 import { verifyRuntimeReleasePointer } from '../src/runtime-release.mjs'
 
 const active = await verifyRuntimeReleasePointer(layout.activeReleasePointer)
 const previous = await verifyRuntimeReleasePointer(layout.previousReleasePointer)
+
+// Rollback is a pointer transition, not a live-process hot swap.
+assertGatewayStoppedForReleaseSwitch()
 
 atomicWriteJson(layout.activeReleasePointer, {
   schema: 'et-harness.pure-mcp-active-release.v1',
