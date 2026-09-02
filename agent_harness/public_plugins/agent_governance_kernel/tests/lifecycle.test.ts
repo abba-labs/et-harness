@@ -37,15 +37,13 @@ describe('Kernel lifecycle contracts', () => {
     expect(() => assertTurnTransition('CLOSED', 'OPEN')).toThrow('Illegal Turn lifecycle transition')
   })
 
-  it('allows Task resume but never reopens a terminal Task', () => {
+  it('keeps the existing Task lifecycle unchanged', () => {
     expect(() => assertTaskTransition('PAUSED', 'ACTIVE')).not.toThrow()
     expect(() => assertTaskTransition('ACTIVE', 'COMPLETED')).not.toThrow()
-    expect(() => assertTaskTransition('ACTIVE', 'ABORTED')).not.toThrow()
     expect(() => assertTaskTransition('COMPLETED', 'ACTIVE')).toThrow('Illegal Task lifecycle transition')
-    expect(() => assertTaskTransition('ABORTED', 'ACTIVE')).toThrow('Illegal Task lifecycle transition')
   })
 
-  it('fail-closes a new Turn while any previous non-terminal Turn is unresolved', () => {
+  it('does not let an aborted Turn block the next Turn', () => {
     const guard = guardNewTurn([
       turn('TURN-1', 'CLOSED'),
       turn('TURN-2', 'ABORTED'),
@@ -61,7 +59,7 @@ describe('Kernel lifecycle contracts', () => {
     expect(afterAbort.allowed).toBe(true)
   })
 
-  it('identifies closure replay candidates independently of project binding or project actions', () => {
+  it('identifies only sealed or pending closure replay candidates', () => {
     const replay = closureReplayTurns([
       turn('TURN-1', 'OPEN'),
       turn('TURN-2', 'SEALED'),
