@@ -3,76 +3,116 @@ import { readFile, realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import {
-  computeRuntimeSourceSignature,
-  environmentRoot,
-  repositoryRoot,
-} from '../scripts/runtime-bundle-inputs.mjs'
+import { environmentRoot } from '../scripts/environment-layout.mjs'
 
-const hashFile = async (path) => createHash('sha256').update(await readFile(path)).digest('hex')
+const RELEASE_SCHEMAS = new Set([
+  'et-harness.pure-mcp-runtime-release.v1',
+  'et-harness.pure-mcp-runtime-release.v2',
+])
+const POINTER_SCHEMA = 'et-harness.pure-mcp-active-release.v1'
+
+const hashFile = async path => createHash('sha256').update(await readFile(path)).digest('hex')
 
 const inside = (candidate, root) => {
   const relation = relative(root, candidate)
   return relation === '' || (!relation.startsWith('..') && !isAbsolute(relation))
 }
 
-const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
+const readJson = async path => JSON.parse(await readFile(path, 'utf8'))
+const samePath = (left, right) => process.platform === 'win32'
+  ? resolve(left).toLowerCase() === resolve(right).toLowerCase()
+  : resolve(left) === resolve(right)
 
-export const verifyActiveRuntimeRelease = async (pointerPath) => {
-  if (!isAbsolute(pointerPath)) throw new Error('Runtime release pointer must be an absolute path')
-  const pointer = await readJson(pointerPath)
-  if (pointer?.schema !== 'et-harness.pure-mcp-active-release.v1'
-      || typeof pointer.releaseManifestPath !== 'string'
-      || !isAbsolute(pointer.releaseManifestPath)) {
-    throw new Error('Runtime release pointer is invalid')
-  }
-  const canonicalEnvironment = await realpath(environmentRoot)
-  const canonicalManifest = await realpath(pointer.releaseManifestPath)
+export const verifyRuntimeReleaseManifest = async (manifestPathInput, options = {}) => {
+  if (!isAbsolute(manifestPathInput)) throw new Error('Runtime release manifest path must be absolute')
+  const canonicalEnvironment = await realpath(options.environmentRoot ?? environmentRoot)
+  const canonicalManifest = await realpath(manifestPathInput)
   if (!inside(canonicalManifest, canonicalEnvironment)) {
-    throw new Error('Runtime release manifest escapes the D-drive ET Harness environment')
+    throw new Error('Runtime release manifest escapes the ET Harness environment root')
   }
+
   const manifest = await readJson(canonicalManifest)
-  if (manifest?.schema !== 'et-harness.pure-mcp-runtime-release.v1') {
+  if (!RELEASE_SCHEMAS.has(manifest?.schema)) {
     throw new Error('Runtime release manifest schema is invalid')
   }
-  const expectedSignature = computeRuntimeSourceSignature()
-  if (manifest.sourceSignature !== expectedSignature) {
+  if (options.expectedSourceSignature !== undefined
+      && manifest.sourceSignature !== options.expectedSourceSignature) {
     throw new Error(
-      `Runtime release is stale for the current source: expected ${expectedSignature}, received ${manifest.sourceSignature}`,
+      `Runtime release source signature mismatch: expected ${options.expectedSourceSignature}, received ${manifest.sourceSignature}`,
     )
   }
-  if (manifest.repositoryRoot?.toLowerCase() !== repositoryRoot.toLowerCase()) {
-    throw new Error('Runtime release belongs to a different worktree')
+  if (options.expectedRepositoryRoot !== undefined
+      && (!manifest.repositoryRoot || !samePath(manifest.repositoryRoot, options.expectedRepositoryRoot))) {
+    throw new Error('Runtime release belongs to a different source workspace')
+  }
+  if (options.expectedToolchainId !== undefined
+      && manifest.toolchainId !== options.expectedToolchainId) {
+    throw new Error(
+      `Runtime release Toolchain mismatch: expected ${options.expectedToolchainId}, received ${manifest.toolchainId ?? '<legacy>'}`,
+    )
   }
   if (manifest.nodeVersion !== process.version) {
     throw new Error(`Runtime release requires ${manifest.nodeVersion}; current Node is ${process.version}`)
   }
+
   const releaseRoot = resolve(canonicalManifest, '..')
-  for (const [name, expectedHash] of Object.entries(manifest.artifacts ?? {})) {
+  const artifacts = manifest.artifacts ?? {}
+  for (const [name, expectedHash] of Object.entries(artifacts)) {
     const path = resolve(releaseRoot, name)
-    if (!inside(path, releaseRoot) || await hashFile(path) !== expectedHash) {
+    if (!inside(path, releaseRoot) || typeof expectedHash !== 'string' || await hashFile(path) !== expectedHash) {
       throw new Error(`Runtime release artifact failed integrity verification: ${name}`)
     }
   }
-  for (const required of ['runtime.mjs', 'atp-project-plugin.mjs', 'deployment.json']) {
-    if (typeof manifest.artifacts?.[required] !== 'string') {
-      throw new Error(`Runtime release is missing required artifact: ${required}`)
+
+  const required = ['runtime.mjs', 'atp-project-plugin.mjs', 'deployment.json']
+  if (manifest.schema === 'et-harness.pure-mcp-runtime-release.v2') {
+    required.push('gateway.mjs', 'gateway.json')
+  }
+  for (const name of required) {
+    if (typeof artifacts[name] !== 'string') {
+      throw new Error(`Runtime release is missing required artifact: ${name}`)
     }
   }
+
   return Object.freeze({
     manifest,
+    manifestPath: canonicalManifest,
     releaseRoot,
     runtimeArtifactPath: resolve(releaseRoot, 'runtime.mjs'),
     deploymentConfigPath: resolve(releaseRoot, 'deployment.json'),
+    ...(typeof artifacts['gateway.mjs'] === 'string'
+      ? { gatewayArtifactPath: resolve(releaseRoot, 'gateway.mjs') }
+      : {}),
+    ...(typeof artifacts['gateway.json'] === 'string'
+      ? { gatewayConfigPath: resolve(releaseRoot, 'gateway.json') }
+      : {}),
   })
 }
 
-export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
+export const verifyRuntimeReleasePointer = async (pointerPath, options = {}) => {
+  if (!isAbsolute(pointerPath)) throw new Error('Runtime release pointer must be an absolute path')
+  const pointer = await readJson(pointerPath)
+  if (pointer?.schema !== POINTER_SCHEMA
+      || typeof pointer.releaseManifestPath !== 'string'
+      || !isAbsolute(pointer.releaseManifestPath)) {
+    throw new Error('Runtime release pointer is invalid')
+  }
+  return verifyRuntimeReleaseManifest(pointer.releaseManifestPath, options)
+}
+
+export const verifyActiveRuntimeRelease = verifyRuntimeReleasePointer
+
+export const createFrozenRuntimeAccess = ({ releaseManifestPath, releasePointerPath }) => {
+  if (!releaseManifestPath && !releasePointerPath) {
+    throw new Error('Frozen Runtime access requires releaseManifestPath or releasePointerPath')
+  }
   let loaded
   const runtimeModule = async () => {
     if (loaded) return loaded
     loaded = (async () => {
-      const release = await verifyActiveRuntimeRelease(releasePointerPath)
+      const release = releaseManifestPath
+        ? await verifyRuntimeReleaseManifest(releaseManifestPath)
+        : await verifyRuntimeReleasePointer(releasePointerPath)
       const namespace = await import(pathToFileURL(release.runtimeArtifactPath).href)
       if (typeof namespace.createPureMcpRuntimeModule !== 'function') {
         throw new Error('Frozen Runtime artifact does not export createPureMcpRuntimeModule')
@@ -81,9 +121,9 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
     })()
     return loaded
   }
-  const portFor = async (workspacePath) =>
+  const portFor = async workspacePath =>
     (await runtimeModule()).createGovernanceHostRuntimePort({ cwd: workspacePath })
-  const portForSnapshot = async (snapshot) => {
+  const portForSnapshot = async snapshot => {
     const module = await runtimeModule()
     if (typeof module.ensureSupervisedTurn !== 'function') {
       throw new Error('Frozen Runtime artifact does not expose supervised Turn recovery')
@@ -115,9 +155,7 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
     },
     async getStatus(snapshot) {
       const status = await (await portForSnapshot(snapshot)).getStatus(snapshot.runtimeId)
-      if (!status?.supervision) {
-        throw new Error('Recovered Runtime Turn has no supervised status')
-      }
+      if (!status?.supervision) throw new Error('Recovered Runtime Turn has no supervised status')
       return status
     },
     async observeWork(snapshot, input) {
