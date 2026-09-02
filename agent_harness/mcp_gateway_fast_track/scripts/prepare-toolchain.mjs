@@ -35,6 +35,7 @@ if (process.version !== EXPECTED_NODE_VERSION) {
 
 const descriptor = computeToolchainDescriptor()
 const toolchainRoot = toolchainRootFor(descriptor)
+const seedOnly = process.argv.includes('--seed-only')
 
 try {
   const verified = verifyToolchainAt(toolchainRoot, descriptor)
@@ -65,6 +66,13 @@ copyFileSync(packageManifestPath, resolve(staging, 'package.json'))
 copyFileSync(packageLockPath, resolve(staging, 'package-lock.json'))
 
 let preparationSource = await seedFromVerifiedEnvironment(staging)
+if (!preparationSource && seedOnly) {
+  rmSync(staging, { recursive: true, force: true })
+  throw new Error(
+    `Seed-only Toolchain preparation could not find one fully verified package-lock-compatible seed for ${descriptor.toolchainId}; `
+    + 'npm ci was not attempted.',
+  )
+}
 if (!preparationSource) {
   if (!existsSync(layout.npmCli)) {
     rmSync(staging, { recursive: true, force: true })
