@@ -11,7 +11,7 @@ import {
   verifyRuntimeReleaseManifest,
 } from '../src/runtime-release.mjs'
 
-const parent = resolve(layout.stateRoot, 'release-verifier-tests')
+const parent = resolve(layout.tempRoot, 'release-verifier-tests')
 await mkdir(parent, { recursive: true })
 const testRoot = await mkdtemp(join(parent, 'case-'))
 after(async () => rm(testRoot, { recursive: true, force: true }))
@@ -42,11 +42,24 @@ const writeValidV1 = async (directory, overrides = {}) => {
   return manifestPath
 }
 
-test('active Runtime release verifies its own integrity without requiring the current checkout source', async () => {
-  const release = await verifyActiveRuntimeRelease(layout.activeReleasePointer)
-  assert.equal(typeof release.manifest.sourceSignature, 'string')
-  assert.equal(typeof release.manifest.repositoryRoot, 'string')
-  assert.equal(typeof release.manifest.artifacts?.['runtime.mjs'], 'string')
+const pointerFor = async (directory, manifestPath) => {
+  const pointerPath = resolve(directory, 'pointer.json')
+  await writeJson(pointerPath, {
+    schema: 'et-harness.pure-mcp-active-release.v1',
+    releaseManifestPath: manifestPath,
+  })
+  return pointerPath
+}
+
+test('an active pointer verifies release integrity without requiring current-checkout identity', async () => {
+  const directory = resolve(testRoot, 'active-independent')
+  const manifestPath = await writeValidV1(directory, {
+    sourceSignature: '1'.repeat(64),
+    repositoryRoot: resolve(repositoryRoot, '..', 'different-worktree'),
+  })
+  const pointerPath = await pointerFor(directory, manifestPath)
+  const release = await verifyActiveRuntimeRelease(pointerPath)
+  assert.equal(release.manifest.sourceSignature, '1'.repeat(64))
 })
 
 test('candidate identity checks are explicit and reject a stale source signature', async () => {
