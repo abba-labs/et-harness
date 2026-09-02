@@ -26,10 +26,11 @@ export function projectBindingEquals(left: ProjectBinding, right: ProjectBinding
 }
 
 const TURN_TRANSITIONS: Readonly<Record<TurnJournalStatus, ReadonlySet<TurnJournalStatus>>> = {
-  OPEN: new Set(['SEALED']),
+  OPEN: new Set(['SEALED', 'ABORTED']),
   SEALED: new Set(['CLOSURE_PENDING', 'CLOSED']),
   CLOSURE_PENDING: new Set(['CLOSURE_PENDING', 'CLOSED']),
   CLOSED: new Set(['CLOSED']),
+  ABORTED: new Set(['ABORTED']),
 }
 
 export function assertTurnTransition(from: TurnJournalStatus, to: TurnJournalStatus): void {
@@ -39,9 +40,10 @@ export function assertTurnTransition(from: TurnJournalStatus, to: TurnJournalSta
 }
 
 const TASK_TRANSITIONS: Readonly<Record<TaskLifecycleStatus, ReadonlySet<TaskLifecycleStatus>>> = {
-  ACTIVE: new Set(['ACTIVE', 'PAUSED', 'COMPLETED']),
-  PAUSED: new Set(['PAUSED', 'ACTIVE', 'COMPLETED']),
+  ACTIVE: new Set(['ACTIVE', 'PAUSED', 'COMPLETED', 'ABORTED']),
+  PAUSED: new Set(['PAUSED', 'ACTIVE', 'COMPLETED', 'ABORTED']),
   COMPLETED: new Set(['COMPLETED']),
+  ABORTED: new Set(['ABORTED']),
 }
 
 export function assertTaskTransition(from: TaskLifecycleStatus, to: TaskLifecycleStatus): void {
@@ -51,7 +53,7 @@ export function assertTaskTransition(from: TaskLifecycleStatus, to: TaskLifecycl
 }
 
 export function unresolvedTurns(turns: readonly TurnJournalRecord[]): readonly TurnJournalRecord[] {
-  return turns.filter(turn => turn.status !== 'CLOSED')
+  return turns.filter(turn => turn.status !== 'CLOSED' && turn.status !== 'ABORTED')
 }
 
 export function closureReplayTurns(turns: readonly TurnJournalRecord[]): readonly TurnJournalRecord[] {
