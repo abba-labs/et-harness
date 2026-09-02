@@ -310,8 +310,8 @@ export class AutoGovernanceEngineService extends Service {
       throw new Error(`Auto Governance project is unavailable: ${projectId}`)
     }
     const snapshot = this.runtimeContext.contextManager.getTask(projectId, taskId)
-    if (snapshot.session.status !== 'COMPLETED') {
-      throw new Error(`Completed task restore requires COMPLETED Context: ${projectId}/${taskId}`)
+    if (snapshot.session.status !== 'ACTIVE' && snapshot.session.status !== 'COMPLETED') {
+      throw new Error(`Closed lifecycle restore requires ACTIVE or COMPLETED Context: ${projectId}/${taskId}`)
     }
     const route: AutoGovernanceRouteSnapshot = {
       architectureIds: unique(input.route.architectureIds),
