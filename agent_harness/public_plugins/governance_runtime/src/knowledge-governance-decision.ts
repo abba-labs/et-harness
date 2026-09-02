@@ -5,6 +5,26 @@ import type {
   GovernanceTurnObservation,
 } from './contracts.js'
 
+export const KNOWLEDGE_TRIGGER_CONTRACT_VERSION = '0.1' as const
+
+/**
+ * Public trust boundary for automatic Knowledge governance.
+ *
+ * Agent prose may suggest a candidate during Reflection, but it is never a
+ * trusted SUPPORT/CONTRADICT signal by itself. Automatic CHECK escalation is
+ * reserved for Runtime-visible deterministic facts such as registered source
+ * refs, Evidence refs, and tool failures. Verification remains source/evidence
+ * bound in the Kernel/Knowledge Manager contracts.
+ */
+export const KNOWLEDGE_TRIGGER_CONTRACT = Object.freeze({
+  version: KNOWLEDGE_TRIGGER_CONTRACT_VERSION,
+  agentProse: 'SEMANTIC_CANDIDATE_ONLY',
+  sourceReference: Object.freeze({ captureMode: 'CHECK', validationMode: 'DOCUMENT' }),
+  evidenceReference: Object.freeze({ captureMode: 'CHECK', validationMode: 'EVIDENCE_CHECK' }),
+  toolError: Object.freeze({ captureMode: 'CHECK' }),
+  trustedVerificationBasis: Object.freeze(['source://', 'evidence://']),
+})
+
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
 
