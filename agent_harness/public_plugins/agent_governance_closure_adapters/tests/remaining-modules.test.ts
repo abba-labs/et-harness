@@ -113,29 +113,47 @@ describe('Step 5 remaining Mandatory Closure Modules', () => {
     expect(ruleReplay.candidateRefs).toEqual(ruleFirst.candidateRefs)
   })
 
-  it('keeps Context Ledger and Working Set as separate idempotent responsibilities', async () => {
+  it('persists Context Ledger, progress and Working Set through one idempotent Context CAS', async () => {
     let version = 1
+    let commits = 0
     const session: any = {
       taskLedger: { confirmed: [], assumptions: [], openIssues: [], plan: [] },
       progressLedger: { touchedRefs: [], next: [], evidenceRefs: [] },
       workingSet: [],
     }
+    const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
     const context = {
       getTask() { return { stateVersion: version, session } },
-      updateTaskLedger(_projectId: string, _taskId: string, patch: any) {
-        session.taskLedger = { ...session.taskLedger, ...patch }
+      applyTurnClosure(_projectId: string, _taskId: string, closure: any) {
+        const confirmed = closure.confirmed
+        const assumptions = closure.assumptions
+        const openIssues = closure.openIssues
+        const plan = closure.plan
+        const progressLedger = {
+          lastAction: `Close governed Turn ${closure.turnId}`,
+          lastResult: closure.progress,
+          touchedRefs: closure.touchedRefs,
+          blockers: [],
+          next: plan,
+          evidenceRefs: closure.evidenceRefs,
+        }
+        if (same(session.taskLedger.confirmed, confirmed)
+            && same(session.taskLedger.assumptions, assumptions)
+            && same(session.taskLedger.openIssues, openIssues)
+            && same(session.taskLedger.plan, plan)
+            && same(session.progressLedger, progressLedger)
+            && same(session.workingSet, closure.workingSet)) {
+          return { stateVersion: version, session }
+        }
+        session.taskLedger = { ...session.taskLedger, confirmed, assumptions, openIssues, plan }
+        session.progressLedger = progressLedger
+        session.workingSet = closure.workingSet
+        commits += 1
         version += 1
         return { stateVersion: version, session }
       },
-      updateProgressLedger(_projectId: string, _taskId: string, patch: any) {
-        session.progressLedger = { ...session.progressLedger, ...patch }
-        version += 1
-        return { stateVersion: version, session }
-      },
-      replaceWorkingSet(_projectId: string, _taskId: string, refs: any[]) {
-        session.workingSet = refs
-        version += 1
-        return { stateVersion: version, session }
+      replaceWorkingSet() {
+        throw new Error('working-set-closure must observe the atomic Context result as NO_CHANGE')
       },
     }
     const contextModule = createContextLedgerClosureModule(context as never)
@@ -144,18 +162,23 @@ describe('Step 5 remaining Mandatory Closure Modules', () => {
 
     const contextFirst = await contextModule.apply(input)
     expect(contextFirst.status).toBe('APPLIED')
-    expect(session.workingSet).toEqual([])
-    const workingFirst = await workingSetModule.apply(input)
-    expect(workingFirst.status).toBe('APPLIED')
+    expect(contextFirst.stateVersionAfter).toBe(2)
+    expect(commits).toBe(1)
     expect(session.workingSet).toEqual([
       { kind: 'architecture', id: 'A050' },
       { kind: 'rule', id: 'R300.600.020' },
     ])
 
+    const workingFirst = await workingSetModule.apply(input)
+    expect(workingFirst.status).toBe('NO_CHANGE')
+    expect(workingFirst.stateVersionAfter).toBe(2)
+
     const contextReplay = await contextModule.apply(input)
     const workingReplay = await workingSetModule.apply(input)
     expect(contextReplay.status).toBe('NO_CHANGE')
     expect(workingReplay.status).toBe('NO_CHANGE')
+    expect(version).toBe(2)
+    expect(commits).toBe(1)
   })
 
   it('records Reflection Evidence as INFO with replay fingerprint and never auto-PASSes it', async () => {
