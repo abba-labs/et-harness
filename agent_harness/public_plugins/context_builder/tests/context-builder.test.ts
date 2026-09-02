@@ -69,6 +69,30 @@ describe('Context Builder Engine', () => {
     expect(result.overBudget).toBe(true)
   })
 
+  it('在同一 high 预算竞争中优先保留已选出的 prior Context', () => {
+    const engine = new ContextBuilderEngine()
+    const result = engine.build(
+      { projectId: 'p1', references: [], maxChars: 1000 },
+      [
+        item({
+          kind: 'inline',
+          id: 'prior-context-TASK-OLD',
+          title: 'Prior Context',
+          content: 'P'.repeat(650),
+          priority: 'high',
+        }),
+        item({
+          id: 'A020',
+          title: 'Additional Architecture',
+          content: 'A'.repeat(650),
+          priority: 'high',
+        }),
+      ],
+    )
+    expect(result.items.map(value => value.id)).toContain('prior-context-TASK-OLD')
+    expect(result.omitted).toContain('architecture:A020')
+  })
+
   it('不会截断 item 语义内容', () => {
     const engine = new ContextBuilderEngine()
     const content = '完整规则正文'.repeat(50)
