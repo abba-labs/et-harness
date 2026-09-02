@@ -16,8 +16,8 @@ export const MANDATORY_CLOSURE_MODULE_IDS = [
 export type MandatoryClosureModuleId = typeof MANDATORY_CLOSURE_MODULE_IDS[number]
 
 export type AgentLifecycleState = 'INACTIVE' | 'ACTIVE' | 'ENDED'
-export type TaskLifecycleStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED'
-export type TurnJournalStatus = 'OPEN' | 'SEALED' | 'CLOSURE_PENDING' | 'CLOSED'
+export type TaskLifecycleStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABORTED'
+export type TurnJournalStatus = 'OPEN' | 'SEALED' | 'CLOSURE_PENDING' | 'CLOSED' | 'ABORTED'
 
 export type ProjectBinding =
   | { readonly kind: 'UNBOUND' }
@@ -195,6 +195,8 @@ export interface TurnJournalRecord {
   readonly startedAt: string
   readonly closingAt?: string
   readonly closedAt?: string
+  readonly abortedAt?: string
+  readonly abortReason?: string
   readonly userMessageRefs: readonly string[]
   readonly assistantMessageRefs: readonly string[]
   readonly toolEventRefs: readonly string[]
@@ -243,6 +245,11 @@ export interface MarkClosurePendingInput {
 export interface CloseTurnInput {
   readonly closureReceiptRef: string
   readonly closedAt?: string
+}
+
+export interface AbortTurnInput {
+  readonly reason: string
+  readonly abortedAt?: string
 }
 
 export interface TurnStartGuardResult {
