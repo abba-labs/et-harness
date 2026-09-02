@@ -17,6 +17,10 @@ import type {
 } from './contracts.js'
 import GovernanceRuntimeService from './service.js'
 
+interface RuntimeSessionMapView {
+  readonly sessions: Map<string, { readonly activeTurnId?: string }>
+}
+
 /**
  * Keeps deterministic Task Contract scope checks active for every explicit
  * Runtime preflight, even when a Host can only negotiate AUDIT supervision.
@@ -134,6 +138,19 @@ export class ScopeSafeGovernanceRuntimeService extends GovernanceRuntimeService 
       knowledgePromotionWarnings: [],
       supervision: status.supervision,
     }
+  }
+
+  /** Internal Runtime-owner cleanup after durable Kernel/Context compensation. */
+  releaseAbortedRuntimeSession(runtimeIdInput: string, turnIdInput: string): void {
+    const runtimeId = runtimeIdInput.trim()
+    const turnId = turnIdInput.trim()
+    const sessions = (this as unknown as RuntimeSessionMapView).sessions
+    const session = sessions.get(runtimeId)
+    if (!session) return
+    if (session.activeTurnId && session.activeTurnId !== turnId) {
+      throw new Error(`Runtime ${runtimeId} is active on another Turn ${session.activeTurnId}`)
+    }
+    sessions.delete(runtimeId)
   }
 
   private terminalizeCompletedContext(
