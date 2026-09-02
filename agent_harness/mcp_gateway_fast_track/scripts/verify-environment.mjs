@@ -14,9 +14,7 @@ import {
   layout,
   packageRoot,
 } from './environment-layout.mjs'
-import {
-  resolveCurrentToolchain,
-} from './toolchain.mjs'
+import { resolveCurrentToolchain } from './toolchain.mjs'
 
 if (process.version !== EXPECTED_NODE_VERSION) {
   throw new Error(`ET Harness verification requires ${EXPECTED_NODE_VERSION}; current Node is ${process.version}`)
@@ -81,21 +79,22 @@ try {
   run('Runtime TypeScript verification', [tscPath, '-p', generatedConfig])
 
   const testFiles = readdirSync(resolve(packageRoot, 'tests'))
-    .filter(name => name.endsWith('.test.mjs'))
+    .filter(name => name.endsWith('.test.mjs') && name !== 'frozen-runtime-wiring.test.mjs')
     .sort()
     .map(name => resolve(packageRoot, 'tests', name))
-  if (testFiles.length === 0) throw new Error('Gateway verification found no .test.mjs files')
+  if (testFiles.length === 0) throw new Error('Gateway verification found no source .test.mjs files')
   run(
     'Gateway source regression tests',
     ['--import', resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs'), '--test', ...testFiles],
   )
 
   process.stdout.write(`${JSON.stringify({
-    status: 'VERIFIED',
+    status: 'SOURCE_ENVIRONMENT_VERIFIED',
     nodeVersion: process.version,
     toolchainId: toolchain.descriptor.toolchainId,
     dependencyCount: Object.keys(toolchain.dependencyVersions).length,
-    gatewayTestCount: testFiles.length,
+    sourceGatewayTestCount: testFiles.length,
+    activeRuntimeBehaviorUsedAsCandidateEvidence: false,
     checkoutNodeModulesRequired: false,
   })}\n`)
 } finally {
