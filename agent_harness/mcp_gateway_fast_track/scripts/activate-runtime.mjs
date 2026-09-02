@@ -2,13 +2,13 @@ import { randomUUID } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   renameSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 import { layout, repositoryRoot } from './environment-layout.mjs'
+import { assertGatewayStoppedForReleaseSwitch } from './gateway-process-state.mjs'
 import { computeRuntimeSourceSignature } from './runtime-bundle-inputs.mjs'
 import { resolveCurrentToolchain } from './toolchain.mjs'
 import {
@@ -41,6 +41,11 @@ if (existsSync(layout.activeReleasePointer)) {
     process.exit(0)
   }
 }
+
+// Release pointer switching is intentionally separated from process lifecycle.
+// The Gateway must already be stopped so no v1 lazy Runtime load or v2 process
+// can observe a pointer transition mid-process.
+assertGatewayStoppedForReleaseSwitch()
 
 mkdirSync(dirname(layout.activeReleasePointer), { recursive: true })
 if (current) {
