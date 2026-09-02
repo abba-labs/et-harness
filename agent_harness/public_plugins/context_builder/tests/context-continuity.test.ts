@@ -82,7 +82,7 @@ describe('cross-task Context continuity', () => {
     expect(items.every(item => !item.content.includes('Do not inherit'))).toBe(true)
   })
 
-  it('does not broaden inheritance from a task match to unmatched source facts', () => {
+  it('does not broaden a task-level match to unmatched source facts', () => {
     const base = session('TASK-SOURCE-FACTS', 'COMPLETED', ['A010.020'], 'Route-level follow-up')
     const prior: ContextSession = {
       ...base,
@@ -100,9 +100,7 @@ describe('cross-task Context continuity', () => {
       records: [record(prior)],
     })
 
-    expect(items).toHaveLength(1)
-    expect(items[0]?.content).not.toContain('Unmatched hardware fact')
-    expect(items[0]?.content).not.toContain('Unmatched driver gap')
+    expect(items).toEqual([])
   })
 
   it('does not inherit when the current route has no shared refs', () => {
