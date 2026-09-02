@@ -9,7 +9,7 @@ import '@agent-harness/knowledge-manager'
 import '@agent-harness/gate-manager'
 import '@agent-harness/evidence-state-manager'
 import '@agent-harness/context-builder'
-import type { ProjectContext } from '@agent-harness/project-contract'
+import type { ProjectCandidateResult, ProjectContext } from '@agent-harness/project-contract'
 import type { ContextPriority, ContextReference } from '@agent-harness/context-builder'
 import type {
   AutoGovernanceActionCheck,
@@ -21,6 +21,8 @@ import type {
   AutoGovernancePendingReview,
   AutoGovernanceReviewDecisionInput,
   AutoGovernanceReviewDecisionResult,
+  AutoGovernanceRouteCandidateReceipt,
+  AutoGovernanceRouteDecisionReceipt,
   AutoGovernanceRouteSnapshot,
   AutoGovernanceTaskStatus,
   AutoGovernanceToolObservation,
@@ -44,6 +46,10 @@ const MAX_REVIEW_PACKETS = 32
 const MAX_RECENT_REFS = 32
 const MAX_TASK_LEDGER_REFS = 64
 const MAX_TASK_LEDGER_GOAL_CHARS = 400
+const MAX_ROUTE_RECEIPT_ITEMS = 96
+const MAX_ROUTE_RECEIPT_REASONS = 4
+const MAX_ROUTE_RECEIPT_REASON_CHARS = 240
+const MAX_ROUTE_QUERY_PREVIEW = 400
 
 const taskLedgerGoal = (taskText: string): string => {
   const normalized = taskText.replace(/\s+/g, ' ').trim()
@@ -63,6 +69,7 @@ interface RuntimeTask {
   codeChangeEpoch: number
   codeChangeSeen: boolean
   route: AutoGovernanceRouteSnapshot
+  routeDecision?: AutoGovernanceRouteDecisionReceipt
   contextContributions: NormalizedProjectContextContribution[]
   applicableGateIds: string[]
   currentPacketIds: string[]
@@ -108,6 +115,16 @@ const immutableEnvelope = (value: AutoGovernanceContextEnvelope): AutoGovernance
 const contributionReceipts = (
   contributions: readonly NormalizedProjectContextContribution[],
 ): AutoGovernanceContextContributionReceipt[] => contributions.map(contributionReceipt)
+
+const routeCandidateReceipts = (
+  candidates: readonly ProjectCandidateResult[],
+): AutoGovernanceRouteCandidateReceipt[] => candidates.slice(0, 32).map(candidate => ({
+  id: candidate.id,
+  ...(typeof candidate.relevance === 'number' ? { relevance: candidate.relevance } : {}),
+  reasons: candidate.matchReasons
+    .slice(0, MAX_ROUTE_RECEIPT_REASONS)
+    .map(reason => reason.slice(0, MAX_ROUTE_RECEIPT_REASON_CHARS)),
+}))
 
 const mergeRouteReferences = (
   route: AutoGovernanceRouteSnapshot,
@@ -560,6 +577,7 @@ export class AutoGovernanceEngineService extends Service {
       codeChangeEpoch: runtime.codeChangeEpoch,
       codeChangeSeen: runtime.codeChangeSeen,
       route: runtime.route,
+      ...(runtime.routeDecision ? { routeDecision: structuredClone(runtime.routeDecision) } : {}),
       contextContributions: contributionReceipts(runtime.contextContributions),
       applicableGateIds: [...runtime.applicableGateIds],
       pendingReviews: runtime.currentPacketIds
@@ -705,6 +723,27 @@ export class AutoGovernanceEngineService extends Service {
       }
     }
     route = mergeRouteReferences(route, contributionReferences)
+    runtime.routeDecision = {
+      schema: 'auto-governance.route-decision.v0.1',
+      phase,
+      queryPreview: query.slice(0, MAX_ROUTE_QUERY_PREVIEW),
+      queryHash: `sha256:${createHash('sha256').update(query).digest('hex')}`,
+      seeds: {
+        architecture: routeCandidateReceipts(seeds.architecture),
+        rule: routeCandidateReceipts(seeds.rule),
+        knowledge: routeCandidateReceipts(seeds.knowledge),
+        gate: routeCandidateReceipts(seeds.gate),
+      },
+      selected: {
+        architectureIds: [...route.architectureIds],
+        ruleIds: [...route.ruleIds],
+        knowledgeIds: [...route.knowledgeIds],
+        gateIds: [...route.gateIds],
+      },
+      trace: resolution.trace.slice(0, MAX_ROUTE_RECEIPT_ITEMS).map(item => ({ ...item })),
+      omissions: resolution.omissions.slice(0, MAX_ROUTE_RECEIPT_ITEMS).map(item => ({ ...item })),
+      contextContributionIds: runtime.contextContributions.map(item => item.contributionId),
+    }
     const refs: ContextReference[] = [
       ...route.architectureIds.map(id => ({ kind: 'architecture' as const, id, priority: 'high' as const })),
       ...route.ruleIds.map(id => ({ kind: 'rule' as const, id, priority: 'high' as const })),
