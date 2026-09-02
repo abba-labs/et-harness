@@ -20,6 +20,15 @@ const bootstrap = Object.freeze({
   },
 })
 
+const bootstrapV2 = Object.freeze({
+  ...bootstrap,
+  fingerprint: 'sha256:architecture-v2',
+  architecture: {
+    standard: 'architecture-v0.1',
+    roots: [{ id: 'A010', title: 'Project Governance Projection v2', children: [] }],
+  },
+})
+
 const taskIntent = {
   schema: 'et-harness.task-intent.v0.1',
   taskType: 'IP_ANALYSIS',
@@ -87,7 +96,7 @@ test('New project context is forced through Architecture bootstrap before Runtim
   })
   assert.equal(second.status, 'TASK_INTENT_REQUIRED')
   assert.equal(openCount, 0)
-  assert.equal(bootstrapCount, 1)
+  assert.equal(bootstrapCount, 2)
 
   const third = await controller.begin({
     workspacePath: 'D:/projects/atp',
@@ -102,10 +111,10 @@ test('New project context is forced through Architecture bootstrap before Runtim
   assert.equal(third.taskIntent.taskType, 'IP_ANALYSIS')
   assert.match(third.intent, /ip=ETIMER/)
   assert.equal(openCount, 1)
-  assert.equal(bootstrapCount, 1)
+  assert.equal(bootstrapCount, 3)
 })
 
-test('Stale project context fingerprint refreshes Architecture without opening Runtime', async () => {
+test('Unknown project context fingerprint refreshes Architecture without opening Runtime', async () => {
   let openCount = 0
   let bootstrapCount = 0
   const controller = createProjectAdmissionController({
@@ -133,6 +142,66 @@ test('Stale project context fingerprint refreshes Architecture without opening R
   assert.equal(result.status, 'PROJECT_CONTEXT_REQUIRED')
   assert.equal(openCount, 0)
   assert.equal(bootstrapCount, 1)
+})
+
+test('Previously accepted fingerprint is revalidated after Architecture changes', async () => {
+  let openCount = 0
+  let bootstrapCount = 0
+  let current = bootstrap
+  const controller = createProjectAdmissionController({
+    baseGovernance: {
+      begin: async (input) => {
+        openCount += 1
+        return { status: 'ACTIVE', taskId: input.requestedTaskId, intent: input.intent }
+      },
+    },
+    runtimeAccess: {
+      projectBootstrap: async () => {
+        bootstrapCount += 1
+        return current
+      },
+    },
+  })
+
+  const first = await controller.begin({
+    workspacePath: 'D:/projects/atp',
+    project: 'ATP',
+    intent: '分析 ET6801 ETIMER',
+    requestedTaskId: 'task-refresh',
+  })
+  assert.equal(first.status, 'PROJECT_CONTEXT_REQUIRED')
+  assert.equal(first.projectContextFingerprint, bootstrap.fingerprint)
+  assert.equal(openCount, 0)
+  assert.equal(bootstrapCount, 1)
+
+  current = bootstrapV2
+  const stale = await controller.begin({
+    workspacePath: 'D:/projects/atp',
+    project: 'ATP',
+    intent: '分析 ET6801 ETIMER',
+    requestedTaskId: 'task-refresh',
+    projectContextFingerprint: bootstrap.fingerprint,
+    taskIntent,
+  })
+  assert.equal(stale.status, 'PROJECT_CONTEXT_REQUIRED')
+  assert.equal(stale.projectContextFingerprint, bootstrapV2.fingerprint)
+  assert.equal(stale.architectureBootstrap.roots[0].title, 'Project Governance Projection v2')
+  assert.equal(openCount, 0)
+  assert.equal(bootstrapCount, 2)
+
+  const fresh = await controller.begin({
+    workspacePath: 'D:/projects/atp',
+    project: 'ATP',
+    intent: '分析 ET6801 ETIMER',
+    requestedTaskId: 'task-refresh',
+    projectContextFingerprint: bootstrapV2.fingerprint,
+    taskIntent,
+  })
+  assert.equal(fresh.status, 'ACTIVE')
+  assert.equal(fresh.projectContextFingerprint, bootstrapV2.fingerprint)
+  assert.match(fresh.intent, /ip=ETIMER/)
+  assert.equal(openCount, 1)
+  assert.equal(bootstrapCount, 3)
 })
 
 test('TaskIntent validation remains bounded and project-agnostic', () => {
