@@ -66,11 +66,31 @@ export const verifyRuntimeReleaseManifest = async (manifestPathInput, options = 
 
   const required = ['runtime.mjs', 'atp-project-plugin.mjs', 'deployment.json']
   if (manifest.schema === 'et-harness.pure-mcp-runtime-release.v2') {
-    required.push('gateway.mjs', 'gateway.json')
+    required.push('gateway.mjs', 'runtime-pointer.json', 'config/gateway.local.json')
   }
   for (const name of required) {
     if (typeof artifacts[name] !== 'string') {
       throw new Error(`Runtime release is missing required artifact: ${name}`)
+    }
+  }
+
+  let gatewayConfigPath
+  let runtimePointerPath
+  if (manifest.schema === 'et-harness.pure-mcp-runtime-release.v2') {
+    runtimePointerPath = resolve(releaseRoot, 'runtime-pointer.json')
+    const localPointer = await readJson(runtimePointerPath)
+    if (localPointer?.schema !== POINTER_SCHEMA
+        || typeof localPointer.releaseManifestPath !== 'string'
+        || !isAbsolute(localPointer.releaseManifestPath)
+        || !samePath(localPointer.releaseManifestPath, canonicalManifest)) {
+      throw new Error('Bundled Gateway Runtime pointer does not bind to its own release manifest')
+    }
+    gatewayConfigPath = resolve(releaseRoot, 'config', 'gateway.local.json')
+    const gatewayConfig = await readJson(gatewayConfigPath)
+    if (typeof gatewayConfig.runtimeReleasePointerPath !== 'string'
+        || !isAbsolute(gatewayConfig.runtimeReleasePointerPath)
+        || !samePath(gatewayConfig.runtimeReleasePointerPath, runtimePointerPath)) {
+      throw new Error('Bundled Gateway configuration does not use its release-local Runtime pointer')
     }
   }
 
@@ -83,9 +103,8 @@ export const verifyRuntimeReleaseManifest = async (manifestPathInput, options = 
     ...(typeof artifacts['gateway.mjs'] === 'string'
       ? { gatewayArtifactPath: resolve(releaseRoot, 'gateway.mjs') }
       : {}),
-    ...(typeof artifacts['gateway.json'] === 'string'
-      ? { gatewayConfigPath: resolve(releaseRoot, 'gateway.json') }
-      : {}),
+    ...(gatewayConfigPath ? { gatewayConfigPath } : {}),
+    ...(runtimePointerPath ? { runtimePointerPath } : {}),
   })
 }
 
