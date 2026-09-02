@@ -51,6 +51,13 @@ const renderedContext = [
   '- task-context-current: Check context. | command=python tools/governance/compile_task_context.py check',
   '- task-write-scope: Check scope. | command=python tools/governance/compile_task_context.py scope-check',
   '',
+  '## [inline] prior-context-TASK-OLD Relevant Prior Context — TASK-OLD',
+  'Provenance: context://project/et-automated-testing-platform/task/TASK-OLD/state/3',
+  '',
+  'SourceTask: TASK-OLD',
+  'MatchedRefs: A010.020',
+  'OpenIssue: Preserve this bounded prior issue.',
+  '',
   'Pending Code Gate Reviews: none prepared for the current epoch.',
 ].join('\n')
 
@@ -122,7 +129,7 @@ const fakeRuntime = (overrides = {}) => {
       return {
         observation: { observationId: 'observation-01', kind: input.kind.toUpperCase() },
         journal: { status: 'OPEN' },
-        knowledgeDecision: { captureMode: 'OPTIONAL', consultMode: 'NONE' },
+        knowledgeDecision: { captureMode: 'CHECK', consultMode: 'NONE' },
       }
     },
     preflightAction: async (_snapshot, input) => {
@@ -139,7 +146,7 @@ const fakeRuntime = (overrides = {}) => {
         turnId: input.turnId,
         reflection: { providerId: 'host-proposal', createdAt: '2026-09-01T00:00:00.000Z' },
         closure: { status: 'COMPLETE', attemptId: 'closure-01' },
-        knowledgeDecision: { captureMode: 'OPTIONAL', consultMode: 'NONE' },
+        knowledgeDecision: { captureMode: 'CHECK', consultMode: 'NONE' },
         knowledgeVerifications: [],
         knowledgeVerificationWarnings: [],
         knowledgePromotions: [],
@@ -185,7 +192,7 @@ test('T4 fails closed when the strongest project match is ambiguous', () => {
   )
 })
 
-test('T5-T7 begin returns XBAR context, revisions, scope, owners, and validation', async () => {
+test('T5-T7 begin returns XBAR context, revisions, scope, owners, validation, and bounded prior context', async () => {
   const runtime = fakeRuntime()
   const controller = createGovernanceController({
     runtimeAccess: runtime,
@@ -205,6 +212,9 @@ test('T5-T7 begin returns XBAR context, revisions, scope, owners, and validation
   assert.deepEqual(result.context.writeScope.allowed, ['test_case_doc/xbar/**'])
   assert.deepEqual(result.context.writeScope.protected, ['pc/et_test_platform/core/**'])
   assert.equal(result.context.validation.length, 2)
+  assert.equal(result.context.priorContext.length, 1)
+  assert.equal(result.context.priorContext[0].id, 'prior-context-TASK-OLD')
+  assert.match(result.context.priorContext[0].content, /Preserve this bounded prior issue/)
   assert.equal(result.context.contributionReceipts[0].providerId, 'project.automated-testing-platform.context')
   assert.equal(runtime.calls.openTurn, 1)
 })
@@ -251,7 +261,7 @@ test('T10 thin wrappers bind task identity and preserve Runtime authority', asyn
     observationId: 'observation-01',
     observationKind: 'RESOURCE-TOUCH',
     journalStatus: 'OPEN',
-    knowledgeCaptureMode: 'OPTIONAL',
+    knowledgeCaptureMode: 'CHECK',
     knowledgeConsultationMode: 'NONE',
   })
 
@@ -271,6 +281,7 @@ test('T10 thin wrappers bind task identity and preserve Runtime authority', asyn
     semanticReflection: { contractVersion: '0.1' },
   })
   assert.equal(completed.status, 'COMPLETE')
+  assert.equal(completed.knowledge.captureMode, 'CHECK')
   assert.equal(completed.knowledge.consultationMode, 'NONE')
   assert.equal(completed.supervision.decision, 'COMPLETE')
   assert.deepEqual(completed.supervision.satisfiedObligationIds, ['OBL-BASELINE-REFLECTION'])
