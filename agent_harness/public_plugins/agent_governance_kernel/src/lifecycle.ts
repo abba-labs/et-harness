@@ -40,10 +40,9 @@ export function assertTurnTransition(from: TurnJournalStatus, to: TurnJournalSta
 }
 
 const TASK_TRANSITIONS: Readonly<Record<TaskLifecycleStatus, ReadonlySet<TaskLifecycleStatus>>> = {
-  ACTIVE: new Set(['ACTIVE', 'PAUSED', 'COMPLETED', 'ABORTED']),
-  PAUSED: new Set(['PAUSED', 'ACTIVE', 'COMPLETED', 'ABORTED']),
+  ACTIVE: new Set(['ACTIVE', 'PAUSED', 'COMPLETED']),
+  PAUSED: new Set(['PAUSED', 'ACTIVE', 'COMPLETED']),
   COMPLETED: new Set(['COMPLETED']),
-  ABORTED: new Set(['ABORTED']),
 }
 
 export function assertTaskTransition(from: TaskLifecycleStatus, to: TaskLifecycleStatus): void {
