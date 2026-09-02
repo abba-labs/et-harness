@@ -62,7 +62,6 @@ const config = {
   ...sourceConfig,
   compilerOptions: {
     ...(sourceConfig.compilerOptions ?? {}),
-    baseUrl: packageRoot,
     typeRoots: [resolve(toolchain.toolchainRoot, 'node_modules', '@types')],
     paths,
   },

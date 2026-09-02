@@ -188,6 +188,10 @@ test('all Gateway and infrastructure mjs contain no checkout-local environment o
   }
 })
 
+test('shared Toolchain TypeScript verification does not use deprecated baseUrl', () => {
+  assert.doesNotMatch(read(resolve(scriptsRoot, 'verify-environment.mjs')), /\bbaseUrl\s*:/)
+})
+
 test('release switching is explicit and guarded from a live Gateway', () => {
   const activate = read(resolve(scriptsRoot, 'activate-runtime.mjs'))
   const rollback = read(resolve(scriptsRoot, 'rollback-runtime.mjs'))
