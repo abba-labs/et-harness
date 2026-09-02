@@ -68,6 +68,38 @@ describe('Turn Journal persistence', () => {
     expect(reloaded?.reflectionInputFingerprint).toBe('sha256:test')
   })
 
+  it('persists an append-only, idempotent ABORTED terminal record', () => {
+    const store = createStore()
+    store.beginTurn({
+      taskId: 'TASK-ABORT',
+      turnId: 'TURN-1',
+      agentId: 'AGENT-ABORT',
+      projectBinding: { kind: 'BOUND', projectId: 'et-tool' },
+    })
+    const aborted = store.abortTurn('TASK-ABORT', 'TURN-1', {
+      reason: 'Gateway Context projection failed',
+      abortedAt: '2026-08-25T00:02:00.000Z',
+    })
+    expect(aborted.status).toBe('ABORTED')
+    expect(aborted.abortReason).toBe('Gateway Context projection failed')
+    expect(store.listUnresolvedTurns('TASK-ABORT')).toEqual([])
+
+    const replay = store.abortTurn('TASK-ABORT', 'TURN-1', {
+      reason: 'Gateway Context projection failed',
+    })
+    expect(replay).toEqual(aborted)
+    expect(() => store.abortTurn('TASK-ABORT', 'TURN-1', {
+      reason: 'A different failure',
+    })).toThrow('different reason')
+    expect(() => store.appendRefs('TASK-ABORT', 'TURN-1', {
+      toolEventRefs: ['tool://late'],
+    })).toThrow('sealed')
+    expect(() => store.sealTurn('TASK-ABORT', 'TURN-1')).toThrow('Illegal Turn lifecycle transition')
+
+    const reloaded = new TurnJournalStore(store.getStorageRoot()).getTurn('TASK-ABORT', 'TURN-1')
+    expect(reloaded).toEqual(aborted)
+  })
+
   it('rejects project rebinding and mutations after seal', () => {
     const store = createStore()
     store.beginTurn({ taskId: 'TASK-2', turnId: 'TURN-1', agentId: 'AGENT-2' })
