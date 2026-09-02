@@ -17,6 +17,16 @@ import { TurnReflectionStore } from './turn-reflection-store.js'
 const unique = (values: readonly string[]): string[] =>
   [...new Set(values.map(value => value.trim()).filter(Boolean))]
 
+const prospectiveSealedJournal = (
+  journal: TurnJournalRecord,
+  closingAt: string,
+): TurnJournalRecord => ({
+  ...journal,
+  status: 'SEALED',
+  closingAt,
+  revision: journal.revision + 1,
+})
+
 export class TurnReflectionController {
   private readonly providers = new Map<string, TurnReflectionProvider>()
 
@@ -49,9 +59,15 @@ export class TurnReflectionController {
     request: TurnReflectionRequest = {},
   ): Promise<TurnReflectionRecord> {
     let journal = this.requireJournal(taskId, turnId)
-    if (journal.status === 'OPEN') journal = this.journal.sealTurn(taskId, turnId)
-    const input = this.providerInput(journal, request)
+    const startedOpen = journal.status === 'OPEN'
+    const openRevision = journal.revision
+    const closingAt = startedOpen ? new Date().toISOString() : journal.closingAt
+    const reflectionJournal = startedOpen
+      ? prospectiveSealedJournal(journal, closingAt!)
+      : journal
+    const input = this.providerInput(reflectionJournal, request)
     const fingerprint = reflectionInputFingerprint(input)
+
     if (journal.status === 'CLOSED') {
       const existing = this.reflections.get(taskId, turnId, journal)
       if (!existing) throw new Error(`CLOSED Turn ${turnId} is missing its required Reflection record`)
@@ -74,16 +90,29 @@ export class TurnReflectionController {
     const provider = this.listProviders()[0]
     const attemptId = `reflection:${turnId}:${fingerprint}`
     if (!provider) {
-      this.journal.markClosurePending(taskId, turnId, {
-        attemptId,
-        reason: 'Unified Turn Reflection provider unavailable',
-      })
+      if (!startedOpen) {
+        this.journal.markClosurePending(taskId, turnId, {
+          attemptId,
+          reason: 'Unified Turn Reflection provider unavailable',
+        })
+      }
       throw new Error('Unified Turn Reflection provider unavailable')
     }
 
+    let sealedForReflection = false
     try {
       const raw = await provider.reflect(input)
-      const result = validateTurnReflectionResult(raw, journal)
+      const result = validateTurnReflectionResult(raw, reflectionJournal)
+
+      if (startedOpen) {
+        const current = this.requireJournal(taskId, turnId)
+        if (current.status !== 'OPEN' || current.revision !== openRevision) {
+          throw new Error(`Turn ${turnId} changed while Reflection was being prepared; retry with current Turn state`)
+        }
+        journal = this.journal.sealTurn(taskId, turnId, closingAt)
+        sealedForReflection = true
+      }
+
       const record = this.reflections.put({
         journal,
         providerId: provider.providerId,
@@ -97,8 +126,10 @@ export class TurnReflectionController {
       })
       return record
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      this.journal.markClosurePending(taskId, turnId, { attemptId, reason })
+      if (!startedOpen || sealedForReflection) {
+        const reason = error instanceof Error ? error.message : String(error)
+        this.journal.markClosurePending(taskId, turnId, { attemptId, reason })
+      }
       throw error
     }
   }
