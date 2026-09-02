@@ -364,7 +364,6 @@ export class GovernanceRuntimeService extends Service {
     const isCrossProcessRestore = session === undefined
     if (!session) {
       const journal = this.runtimeContext.agentGovernanceKernel.getTurn(contract.taskId, binding.turnId)
-      const reflection = this.runtimeContext.agentGovernanceKernel.getReflection(contract.taskId, binding.turnId)
       if (!journal) throw new Error('Cross-process supervised rehydration requires a durable Kernel Turn')
       if (journal.status === 'ABORTED') throw new Error('ABORTED Turn cannot be rehydrated')
       if (journal.sessionRef !== `governance-runtime://${runtimeId}`) {
@@ -728,7 +727,7 @@ export class GovernanceRuntimeService extends Service {
         reason: 'Execution Supervisor has not admitted the exact durable lifecycle Closure.',
       }
     }
-    return this.runtimeContext.autoGovernanceEngine.completeTask(session.actorId)
+    return this.runtimeContext.autoGovernanceEngine.finalizeTask(session.actorId)
   }
 
   pauseTask(runtimeIdInput: string): void {
