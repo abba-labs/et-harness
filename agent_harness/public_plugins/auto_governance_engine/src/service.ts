@@ -294,6 +294,55 @@ export class AutoGovernanceEngineService extends Service {
     return this.buildContextEnvelope(actorId)
   }
 
+  restoreCompletedTask(input: {
+    readonly actorId: string
+    readonly projectId: string
+    readonly taskId: string
+    readonly goal: string
+    readonly route: AutoGovernanceRouteSnapshot
+  }): AutoGovernanceContextEnvelope {
+    const actorId = requireIdentifier('actorId', input.actorId)
+    const projectId = requireIdentifier('projectId', input.projectId)
+    const taskId = requireIdentifier('taskId', input.taskId)
+    const goal = input.goal.trim()
+    if (!goal) throw new Error('goal cannot be empty')
+    if (!this.runtimeContext.projectManager.getProjectContext(projectId)) {
+      throw new Error(`Auto Governance project is unavailable: ${projectId}`)
+    }
+    const snapshot = this.runtimeContext.contextManager.getTask(projectId, taskId)
+    if (snapshot.session.status !== 'COMPLETED') {
+      throw new Error(`Completed task restore requires COMPLETED Context: ${projectId}/${taskId}`)
+    }
+    const route: AutoGovernanceRouteSnapshot = {
+      architectureIds: unique(input.route.architectureIds),
+      ruleIds: unique(input.route.ruleIds),
+      knowledgeIds: unique(input.route.knowledgeIds),
+      gateIds: unique(input.route.gateIds),
+    }
+    const existing = this.tasks.get(actorId)
+    if (existing) {
+      if (existing.projectId !== projectId || existing.taskId !== taskId) {
+        throw new Error(`Actor ${actorId} already owns another governed task: ${existing.projectId}/${existing.taskId}`)
+      }
+      existing.goal = goal
+      existing.route = route
+      return this.buildContextEnvelope(actorId)
+    }
+    this.tasks.set(actorId, {
+      actorId,
+      projectId,
+      taskId,
+      goal,
+      codeChangeEpoch: 0,
+      codeChangeSeen: false,
+      route,
+      contextContributions: [],
+      applicableGateIds: [],
+      currentPacketIds: [],
+    })
+    return this.buildContextEnvelope(actorId)
+  }
+
   buildContextEnvelope(actorIdInput: string): AutoGovernanceContextEnvelope {
     const actorId = requireIdentifier('actorId', actorIdInput)
     const runtime = this.requireRuntime(actorId)
@@ -539,24 +588,35 @@ export class AutoGovernanceEngineService extends Service {
     const actorId = requireIdentifier('actorId', actorIdInput)
     const runtime = this.tasks.get(actorId)
     if (!runtime) return { projectId: '', taskId: '', status: 'BLOCKED', reason: 'No active Auto Governance task.' }
+    const snapshot = this.runtimeContext.contextManager.getTask(runtime.projectId, runtime.taskId)
+    if (snapshot.session.status === 'COMPLETED') {
+      return { projectId: runtime.projectId, taskId: runtime.taskId, status: 'COMPLETED' }
+    }
+    if (snapshot.session.status === 'ABORTED') {
+      return { projectId: runtime.projectId, taskId: runtime.taskId, status: 'BLOCKED', reason: 'Context task is aborted.' }
+    }
     const reason = this.completionBlockReason(runtime)
     if (reason) return { projectId: runtime.projectId, taskId: runtime.taskId, status: 'BLOCKED', reason }
-    this.runtimeContext.contextManager.updateProgressLedger(runtime.projectId, runtime.taskId, {
-      lastAction: 'Auto Governance completion check.',
-      lastResult: 'Task completion admitted.',
-      currentProblem: '',
-      blockers: [],
-      next: [],
-    })
     this.runtimeContext.contextManager.complete(runtime.projectId, runtime.taskId)
     return { projectId: runtime.projectId, taskId: runtime.taskId, status: 'COMPLETED' }
+  }
+
+  abortTask(actorIdInput: string, reason: string): void {
+    const actorId = requireIdentifier('actorId', actorIdInput)
+    const runtime = this.tasks.get(actorId)
+    if (!runtime) return
+    this.runtimeContext.contextManager.abort(runtime.projectId, runtime.taskId, reason)
+    for (const packetId of runtime.currentPacketIds) this.pendingReviews.delete(packetId)
+    this.tasks.delete(actorId)
   }
 
   pauseTask(actorIdInput: string): void {
     const runtime = this.tasks.get(requireIdentifier('actorId', actorIdInput))
     if (!runtime) return
     const snapshot = this.runtimeContext.contextManager.getTask(runtime.projectId, runtime.taskId)
-    if (snapshot.session.status === 'COMPLETED' || snapshot.session.status === 'PAUSED') return
+    if (snapshot.session.status === 'COMPLETED'
+        || snapshot.session.status === 'PAUSED'
+        || snapshot.session.status === 'ABORTED') return
     this.runtimeContext.contextManager.updateProgressLedger(runtime.projectId, runtime.taskId, {
       lastAction: 'Governance runtime paused the task.',
       lastResult: 'Context preserved for resume.',
@@ -605,6 +665,9 @@ export class AutoGovernanceEngineService extends Service {
       if (snapshot.session.status === 'COMPLETED') {
         throw new Error(`Governed task is already completed: ${existing.projectId}/${existing.taskId}`)
       }
+      if (snapshot.session.status === 'ABORTED') {
+        throw new Error(`Governed task is aborted: ${existing.projectId}/${existing.taskId}`)
+      }
       return existing
     }
 
@@ -614,8 +677,13 @@ export class AutoGovernanceEngineService extends Service {
       if (current.session.status === 'COMPLETED') {
         throw new Error(`Governed task is already completed: ${project.projectId}/${taskId}`)
       }
+      if (current.session.status === 'ABORTED') {
+        throw new Error(`Governed task is aborted: ${project.projectId}/${taskId}`)
+      }
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('Governed task is already completed:')) throw error
+      if (error instanceof Error
+          && (error.message.startsWith('Governed task is already completed:')
+            || error.message.startsWith('Governed task is aborted:'))) throw error
       this.runtimeContext.contextManager.beginTask({
         projectId: project.projectId,
         taskId,
