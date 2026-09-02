@@ -5,7 +5,9 @@ set "NODE_EXE="
 if defined ET_HARNESS_NODE set "NODE_EXE=%ET_HARNESS_NODE%"
 if not defined NODE_EXE if defined ET_HARNESS_ENV_ROOT set "NODE_EXE=%ET_HARNESS_ENV_ROOT%\runtimes\node-v22.23.2-win-x64\node.exe"
 if not defined NODE_EXE (
-  for /f "usebackq delims=" %%I in (`powershell.exe -NoProfile -Command "$p = Get-Content -Raw -LiteralPath '%~dp0..\config\gateway.local.json' ^| ConvertFrom-Json; if ($p.runtimeReleasePointerPath) { Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $p.runtimeReleasePointerPath)) }"`) do set "ET_HARNESS_ENV_ROOT=%%I"
+  set "ET_HARNESS_GATEWAY_CONFIG=%~dp0..\config\gateway.local.json"
+  for /f "delims=" %%I in ('powershell.exe -NoProfile -Command "$p = ConvertFrom-Json -InputObject (Get-Content -Raw -LiteralPath $env:ET_HARNESS_GATEWAY_CONFIG); if ($p.runtimeReleasePointerPath) { Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $p.runtimeReleasePointerPath)) }"') do set "ET_HARNESS_ENV_ROOT=%%I"
+  set "ET_HARNESS_GATEWAY_CONFIG="
   if defined ET_HARNESS_ENV_ROOT set "NODE_EXE=%ET_HARNESS_ENV_ROOT%\runtimes\node-v22.23.2-win-x64\node.exe"
 )
 if not defined NODE_EXE (
