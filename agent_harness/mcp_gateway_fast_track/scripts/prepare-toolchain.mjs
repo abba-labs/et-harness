@@ -24,6 +24,7 @@ import {
   packageManifestPath,
   toolchainRootFor,
   verifyInstalledDependencies,
+  verifyLockfileInstallation,
   verifyToolchainAt,
 } from './toolchain.mjs'
 import { verifyRuntimeReleasePointer } from '../src/runtime-release.mjs'
@@ -42,6 +43,7 @@ try {
     toolchainId: descriptor.toolchainId,
     toolchainRoot: verified.toolchainRoot,
     preparationSource: verified.manifest.preparationSource ?? 'existing',
+    verifiedPackageCount: verified.lockfileVerification.verifiedPackageCount,
   })}\n`)
   process.exit(0)
 } catch (error) {
@@ -99,6 +101,7 @@ if (!preparationSource) {
 }
 
 const dependencyVersions = verifyInstalledDependencies(staging, descriptor)
+const lockfileVerification = verifyLockfileInstallation(staging)
 const manifest = {
   schema: TOOLCHAIN_SCHEMA,
   toolchainId: descriptor.toolchainId,
@@ -108,6 +111,8 @@ const manifest = {
   packageJsonSha256: descriptor.packageJsonSha256,
   packageLockSha256: descriptor.packageLockSha256,
   dependencies: dependencyVersions,
+  verifiedPackageCount: lockfileVerification.verifiedPackageCount,
+  skippedOptionalCount: lockfileVerification.skippedOptionalCount,
   preparationSource,
   createdAt: new Date().toISOString(),
 }
@@ -126,6 +131,8 @@ process.stdout.write(`${JSON.stringify({
   toolchainId: descriptor.toolchainId,
   toolchainRoot: verified.toolchainRoot,
   dependencyCount: Object.keys(verified.dependencyVersions).length,
+  verifiedPackageCount: verified.lockfileVerification.verifiedPackageCount,
+  skippedOptionalCount: verified.lockfileVerification.skippedOptionalCount,
   preparationSource: verified.manifest.preparationSource,
 })}\n`)
 
@@ -162,6 +169,7 @@ async function seedFromVerifiedEnvironment(stagingRoot) {
         force: false,
       })
       verifyInstalledDependencies(stagingRoot, descriptor)
+      verifyLockfileInstallation(stagingRoot)
       return `verified-seed:${seedRoot}`
     } catch {
       rmSync(resolve(stagingRoot, 'node_modules'), { recursive: true, force: true })
@@ -177,6 +185,7 @@ function compatibleSeed(seedRoot) {
     return sha256(packageJson) === descriptor.packageJsonSha256
       && sha256(packageLock) === descriptor.packageLockSha256
       && Boolean(verifyInstalledDependencies(seedRoot, descriptor))
+      && Boolean(verifyLockfileInstallation(seedRoot))
   } catch {
     return false
   }
