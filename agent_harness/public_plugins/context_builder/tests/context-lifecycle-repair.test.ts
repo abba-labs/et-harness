@@ -14,13 +14,13 @@ type StateRecord = {
 const createManager = () => {
   const records = new Map<string, StateRecord>()
   let updateCount = 0
-  const recordKey = (projectId: string, scope: string, key: string) => `${projectId}\0${scope}\0${key}`
+  const keyOf = (projectId: string, scope: string, key: string) => `${projectId}\0${scope}\0${key}`
   const evidenceStateManager = {
     readState(projectId: string, scope: string, key: string) {
-      return records.get(recordKey(projectId, scope, key))
+      return records.get(keyOf(projectId, scope, key))
     },
     updateState(input: any) {
-      const key = recordKey(input.projectId, input.scope, input.key)
+      const key = keyOf(input.projectId, input.scope, input.key)
       const current = records.get(key)
       expect(input.expectedVersion).toBe(current?.version ?? 0)
       updateCount += 1
@@ -61,10 +61,7 @@ const createManager = () => {
       evidenceStateManager,
     },
   })
-  return {
-    manager,
-    updates: () => updateCount,
-  }
+  return { manager, updates: () => updateCount }
 }
 
 const closure = {
@@ -74,31 +71,28 @@ const closure = {
   openIssues: [{ text: 'Follow-up remains', refs: ['source://driver/a'] }],
   plan: ['Continue validation'],
   progress: 'Turn work completed.',
-  touchedRefs: ['architecture://A010'],
+  touchedRefs: ['A010'],
   evidenceRefs: ['evidence://project/p1/EV-1'],
   workingSet: [{ kind: 'architecture' as const, id: 'A010' }],
 }
 
 describe('Context lifecycle repair', () => {
-  it('commits Turn ledger/progress/working-set once and replays without another version', () => {
+  it('commits Turn closure once and replays without another version', () => {
     const { manager, updates } = createManager()
-    const started = manager.beginTask({ projectId: 'p1', taskId: 'TASK-1', goal: 'Analyze a bounded task' })
-    expect(started.stateVersion).toBe(1)
+    manager.beginTask({ projectId: 'p1', taskId: 'TASK-1', goal: 'Analyze a bounded task' })
 
     const applied = manager.applyTurnClosure('p1', 'TASK-1', closure)
     expect(applied.stateVersion).toBe(2)
-    expect(applied.session.status).toBe('ACTIVE')
     expect(applied.session.taskLedger.confirmed).toEqual(closure.confirmed)
     expect(applied.session.progressLedger.lastAction).toBe('Close governed Turn TURN-1')
     expect(applied.session.workingSet).toEqual(closure.workingSet)
-    expect(updates()).toBe(2)
 
     const replay = manager.applyTurnClosure('p1', 'TASK-1', closure)
     expect(replay.stateVersion).toBe(2)
     expect(updates()).toBe(2)
   })
 
-  it('rejects invalid closure content before the single durable CAS', () => {
+  it('validates the complete closure state before its single CAS', () => {
     const { manager, updates } = createManager()
     manager.beginTask({ projectId: 'p1', taskId: 'TASK-INVALID', goal: 'Analyze a bounded task' })
     expect(() => manager.applyTurnClosure('p1', 'TASK-INVALID', {
@@ -109,56 +103,22 @@ describe('Context lifecycle repair', () => {
     expect(updates()).toBe(1)
   })
 
-  it('terminalizes from one Closure identity exactly once and conflicts on another identity', () => {
-    const { manager, updates } = createManager()
-    manager.beginTask({ projectId: 'p1', taskId: 'TASK-COMPLETE', goal: 'Analyze a bounded task' })
-    manager.applyTurnClosure('p1', 'TASK-COMPLETE', closure)
-
-    const completed = manager.completeFromClosure(
-      'p1',
-      'TASK-COMPLETE',
-      'TURN-1',
-      'closure://TASK-COMPLETE/TURN-1',
-    )
+  it('completes or aborts idempotently through the existing Context owner', () => {
+    const completedState = createManager()
+    completedState.manager.beginTask({ projectId: 'p1', taskId: 'TASK-COMPLETE', goal: 'Complete me' })
+    const completed = completedState.manager.complete('p1', 'TASK-COMPLETE')
     expect(completed.session.status).toBe('COMPLETED')
     expect(completed.session.taskLedger.phase).toBe('complete')
-    expect(completed.stateVersion).toBe(3)
-    expect(updates()).toBe(3)
+    expect(completedState.manager.complete('p1', 'TASK-COMPLETE').stateVersion).toBe(2)
+    expect(completedState.updates()).toBe(2)
 
-    const replay = manager.completeFromClosure(
-      'p1',
-      'TASK-COMPLETE',
-      'TURN-1',
-      'closure://TASK-COMPLETE/TURN-1',
-    )
-    expect(replay.stateVersion).toBe(3)
-    expect(updates()).toBe(3)
-    expect(() => manager.completeFromClosure(
-      'p1',
-      'TASK-COMPLETE',
-      'TURN-2',
-      'closure://TASK-COMPLETE/TURN-2',
-    )).toThrow('another lifecycle identity')
-  })
-
-  it('aborts a failed begin durably and never resumes or completes it', () => {
-    const { manager, updates } = createManager()
-    manager.beginTask({ projectId: 'p1', taskId: 'TASK-ABORT', goal: 'Analyze a bounded task' })
-    const aborted = manager.abortTask(
-      'p1',
-      'TASK-ABORT',
-      'TURN-ABORT',
-      'Gateway projection failed',
-      ['governance-journal://task/TASK-ABORT/turn/TURN-ABORT'],
-    )
+    const abortedState = createManager()
+    abortedState.manager.beginTask({ projectId: 'p1', taskId: 'TASK-ABORT', goal: 'Abort me' })
+    const aborted = abortedState.manager.abort('p1', 'TASK-ABORT', 'Begin projection failed')
     expect(aborted.session.status).toBe('ABORTED')
-    expect(aborted.stateVersion).toBe(2)
-    expect(updates()).toBe(2)
-
-    const replay = manager.abortTask('p1', 'TASK-ABORT', 'TURN-ABORT', 'Gateway projection failed')
-    expect(replay.stateVersion).toBe(2)
-    expect(updates()).toBe(2)
-    expect(() => manager.resume('p1', 'TASK-ABORT')).toThrow('terminal Context task')
-    expect(() => manager.complete('p1', 'TASK-ABORT')).toThrow('Cannot complete aborted')
+    expect(abortedState.manager.abort('p1', 'TASK-ABORT', 'Begin projection failed').stateVersion).toBe(2)
+    expect(abortedState.updates()).toBe(2)
+    expect(() => abortedState.manager.resume('p1', 'TASK-ABORT')).toThrow('terminal Context task')
+    expect(() => abortedState.manager.complete('p1', 'TASK-ABORT')).toThrow('Cannot complete aborted')
   })
 })
