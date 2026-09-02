@@ -2,407 +2,201 @@
 
 本目录长期保存 **ET Harness / Agent Governance** 的阶段进度、测试事实、失败根因、冻结决策和下一阶段入口。
 
-它不是 Architecture / Rule / Knowledge / Gate 的替代品，而是供后续 Agent、Codex 或新聊天快速恢复公共 Harness 工程上下文的 Handoff Archive。
+它不是 Architecture / Rule / Knowledge / Gate 的替代品，而是供后续 Agent、Codex 或新聊天快速恢复公共 Harness 工程上下文的 **Handoff Archive**。
 
 ---
 
 # 1. 当前最高优先级恢复入口
 
-从 2026-08-29 起，公共 Execution Supervisor 开发切换为 **Local Codex first**。
+从 2026-09-02 起，任何接手当前 ET Harness / ATP 工作的新聊天、Agent 或 Codex，优先按下面顺序读取：
 
-任何第一次进入该开发工作的 Codex / Agent 必须按顺序阅读：
+1. `20260902_GOVERNANCE_BEHAVIORAL_VALIDATION_AND_PROJECT_ADMISSION_HANDOFF_V0_1.md`
+2. `../../AGENTS.md`（仓库根目录 `AGENTS.md`）
+3. `../test_campaigns/governance_behavioral_validation_v1/GOVERNANCE_BEHAVIORAL_VALIDATION_REQUIREMENT.md`
+4. `../test_campaigns/governance_behavioral_validation_v1/evidence/FINAL_REPORT.md`
+5. `../test_campaigns/governance_behavioral_validation_v1/evidence/08_defect_backlog.md`
+6. `../test_campaigns/round3_p0_repair/evidence/ROUND3_P0_FINAL_REPORT.md`
+7. `20260829_CODEX_LOCAL_DEVELOPMENT_AND_VALIDATION_CHARTER_V0_1.md`
+8. `20260901_IP_ANALYSIS_AND_TEST_DEVELOPMENT_HANDOFF_V0_1.md`（需要继续真实 ATP IP 生产任务时）
 
-1. `../../AGENTS.md`（仓库根目录 `AGENTS.md`）
-2. `20260829_CODEX_LOCAL_DEVELOPMENT_AND_VALIDATION_CHARTER_V0_1.md`
-3. `20260829_EXECUTION_SUPERVISOR_PHASE1_CODEX_HANDOFF_V0_1.md`
-4. `../design/25_EXECUTION_SUPERVISOR_AND_OBLIGATION_LEDGER_V0_1.md`
-5. `20260829_EXECUTION_SUPERVISOR_PHASE0_REPAIR_WORKLOG_V0_1.md`
-6. `20260829_EXECUTION_SUPERVISOR_MAIN_IMPLEMENTATION_AUDIT_V0_1.md`
-7. `../design/21_PUBLIC_GOVERNANCE_RUNTIME_AND_EXTERNAL_BOUNDARIES_V0_1.md`
-8. `../design/21_PUBLIC_AGENT_GOVERNANCE_KERNEL_V0_1.md`
-9. `../design/20_FRAMEWORK_EFFICIENCY_OBSERVER_V0_1.md`
-10. `20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md`
-11. `20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md`
-12. `20260826_HARNESS_CURRENT_STATE.md`
-13. `20260826_TEST_STRATEGY_AND_RESULTS.md`
-14. `20260826_REAL_TASK_MATRIX_AND_HARDENING.md`
-
-优先级：
+当前事实优先级：
 
 ```text
-最新 main 源码 / Git HEAD / 实际本地命令结果
-> Local Development Charter + 当前 Phase Handoff
-> Design 25
-> 历史 Audit / Handoff
-> Agent 自述
+当前分支实际源码 / exact Git SHA / 真实机械 Evidence
+> 20260902 Current Handoff
+> 当前 Test Campaign Requirement + Evidence
+> Frozen Charter / Design
+> 历史 Handoff / Audit
+> Agent 自述或聊天记忆
 ```
 
-旧 Audit 记录的是 Phase 0 修复前事实；涉及当前 Execution Supervisor 状态时，以 Phase 0 Repair Worklog、最新 `main` 源码、Local Charter 和当前 Phase Handoff 为准。
+如果历史文档与 `20260902_GOVERNANCE_BEHAVIORAL_VALIDATION_AND_PROJECT_ADMISSION_HANDOFF_V0_1.md` 冲突，当前工作以 **2026-09-02 Handoff + 当前源码/Evidence** 为准。
 
 ---
 
-# 2. 当前公共仓库事实
+# 2. 当前两个必须区分的基线
+
+## 2.1 已验证稳定行为基线
 
 ```text
 repo: abba-labs/et-harness
-canonical branch: main
+branch: codex/fast-track-pure-mcp-atp-v0.1
+SHA: 8cb771f6f3221501dc2ad6aea1785a6e959ae65e
 ```
 
-Phase 0 源码修复已经通过 PR #15 合入：
+该基线包含 Governance Behavioral Validation V1 Evidence，当前固定 D-drive Environment / external Gateway 不应被普通开发随意扰动。
+
+## 2.2 待独立验证的 Architecture 调整
 
 ```text
-cae6c15ccea1aaa100db756bf943895e6af51e8c
-fix(supervisor): restore canonical Phase 0 contract core
+branch: architecture/project-admission-bootstrap-v0.1
+framework implementation baseline: 67676a2916b01316794da042a813d0c338d14182
 ```
 
-随后只增加了恢复/证据文档；Codex 本地启动时必须执行：
+该分支增加最小的：
 
-```bash
-git fetch --all --prune
-git checkout main
-git pull --ff-only origin main
-git rev-parse HEAD
-git status --short
+```text
+Human explicit Project
+→ Project Admission
+→ Architecture Bootstrap when context missing/stale
+→ Agent bounded TaskIntent
+→ original governed Runtime flow
 ```
 
-不要依赖本文件中的旧 SHA 代替 `git rev-parse`。
+它尚未激活到稳定 D-drive Runtime；不要把它当成已经通过真实环境验收的稳定基线。
 
 ---
 
-# 3. 当前架构方向
+# 3. 当前一句话状态
 
-Design 25 仍然冻结：
-
-```text
-Public Execution Supervisor
-= Host-neutral execution-event supervision
-+ persistent event/replay state
-+ Obligation Ledger
-+ Evidence/claim/completion evaluation
-+ bridge into existing Reflection/Knowledge/Context/Closure
-```
-
-核心所有权不变：
-
-```text
-Project Plugin  → 项目业务规则、知识、具体义务
-Host Adapter    → Host 事件翻译，不做治理判断
-Agent           → 语义分析和判断
-Supervisor      → 执行事件、义务、Evidence、Completion 机械监管
-Kernel/Managers → Reflection / Knowledge / Context / Closure
-```
-
-公共 Framework 不理解 ATP、ET6801、eTimer 等项目业务。
+> **ET Harness 的固定环境、Pure MCP 主链、Supervisor / Ledger / Trusted Evidence 已经相对稳定；当前工作已经从“链路能否跑通”进入“每个治理模块是否在正确时间做正确事情”的行为验证阶段。Governance Behavioral Validation V1 找到了任务入口语义、跨任务 Context、Closure retry、Knowledge/Experience 与可观测性问题；Architecture Owner 已在隔离分支完成 Project Admission + Architecture Bootstrap 最小实现，下一步先独立验证，不直接继续扩框架。**
 
 ---
 
-# 4. Phase 0 当前状态
-
-Phase 0 已经修回唯一 canonical contract model。
-
-生产源仅包含：
+# 4. 不可违反的当前开发原则
 
 ```text
-agent_harness/public_plugins/execution_supervisor/src/
-  baseline.ts
-  contracts.ts
-  hash.ts
-  index.ts
-  validation.ts
+可靠 > 稳定 > 轻量化 > 易扩展
 ```
 
-canonical 测试仅包含：
+必须继续遵守：
 
-```text
-committed-baseline.test.ts
-contracts.test.ts
-negative-contracts.test.ts
-performance-baseline.test.ts
-```
-
-已记录的修复证据：
-
-```text
-single canonical contract model             PASS
-conflicting PR #12 prototype removal        PASS
-isolated source compile                     PASS
-repository test logic                       PASS 17/17 (isolated)
-additional fail-closed assertions           PASS 22/22
-full benchmark                              PASS 2 x 10000 samples
-committed baseline validation               PASS
-```
-
-详细证据：
-
-```text
-20260829_EXECUTION_SUPERVISOR_PHASE0_REPAIR_WORKLOG_V0_1.md
-```
+- Agent 不负责治理自己；Framework 负责治理 Agent。
+- Agent 负责语义理解；Framework / Project Plugin 负责确定性验证与治理。
+- Agent 不能自报 PASS，也不能制造 trusted Evidence。
+- Pure MCP 继续 truthful `AUDIT`，不伪装 universal Host interception。
+- MCP `required=false`；Gateway 继续作为 Codex 外部独立进程。
+- 不回到 Plugin / Hook / Marketplace 主路线。
+- 不新增第二 Runtime / Ledger / Event Store / Closure / Context Store / Knowledge Store。
+- 不新增 watcher / polling daemon / Windows Service / custom fs-shell MCP。
+- 已稳定 D-drive environment 不因普通代码调整反复安装、重建、刷新。
+- 一个根因一个 repair campaign；不要把多个 FAIL 一次性大改。
+- Observability 缺口用现有 owner 的 bounded receipt/trace 解决，不另造监管运行时。
 
 ---
 
-# 5. 为什么开发模式从 GitHub-hosted CI 改成 Local Codex
+# 5. 当前测试结论
 
-GitHub 私有仓库 Hosted Actions 达到当前预算/计费边界后，Workflow 出现：
+## Round 3 P0
 
-```text
-job created
-runner_id = 0
-steps = []
-conclusion = failure
-```
-
-这既不是代码 FAIL，也不是可接受的 CI PASS。
-
-为避免高频开发被 Hosted Runner 费用和调度阻断，后续采用：
+核心执行闭环已经得到强证据，包括：
 
 ```text
-Local Codex + Local Repo
-→ exact tests/build/benchmark/integration
-→ evidence bound to exact Git HEAD
-→ commit/push/PR
+WRITE_SCOPE
+Required Read
+Trusted Validation
+Supervisor
+Obligation Ledger
+Event Store
+Premature Complete block
+Reflection / Context Update / Closure
+Gateway restart / active Turn rehydrate
 ```
 
-这不是降低测试要求。
-
-冻结原则：
-
-> **改变执行位置，不改变验证内容。**
-
-两个状态必须区分：
+## Governance Behavioral Validation V1
 
 ```text
-LOCAL_MECHANICAL_ACCEPTED
-HOSTED_CI_ACCEPTED
+Overall: BEHAVIORAL_VALIDATION_FAIL
+PASS: 19
+FAIL: 7
+OBSERVABILITY_GAP: 11
 ```
 
-Hosted CI 暂时不再作为高频开发的必需门禁；Codex 必须执行 Local Charter 中定义的 exact local mechanical gate。
+不要把 7 FAIL 机械当成 7 个独立 Framework Bug。Architecture Reviewer 已归并为主要根边界：
+
+```text
+P0  Task Bootstrap / ATP Classification / Contributor Contract
+P0  Cross-task Context Continuity
+P0  Closure Atomicity / Retry
+RETEST Knowledge later-consumption（当前被上游 bootstrap 阻断）
+ARCH DECISION Knowledge Observation trusted trigger
+P1  Evidence → Experience → Later Task
+P1  Governance Decision Observability
+```
+
+完整解释见当前 20260902 Handoff。
 
 ---
 
-# 6. Codex 进入开发后的第一件事
+# 6. 当前下一阶段
 
-Codex 不能直接开始 Phase 1 写代码。
-
-第一步必须在本地 `main` 做一次 **exact Phase 0 local acceptance**：
+第一阶段只验证：
 
 ```text
-execution_supervisor package npm test
-execution_supervisor package npm run build
-execution_supervisor benchmark + report validation
-public repository boundary
-public packages build/test
-public synthetic integration gates
-clean worktree / exact source HEAD evidence
+architecture/project-admission-bootstrap-v0.1
 ```
 
-通过后写：
+Codex 作为 Test Executor：
 
 ```text
-YYYYMMDD_CODEX_LOCAL_PHASE0_ACCEPTANCE_<SHORT_SHA>.md
+只测试
+只保存 Evidence
+发现 first failing boundary
+不修改 Framework
+不触碰稳定 D-drive environment
+不自行宣布 Architecture PASS
 ```
 
-状态只有：
+Project Admission 独立验证通过后，由 Architecture Owner 决定是否按：
 
 ```text
-LOCAL_MECHANICAL_ACCEPTED
-LOCAL_MECHANICAL_FAILED
-BLOCKED_BY_ENVIRONMENT
+clean commit
+→ freeze-runtime
+→ verify-environment
+→ controlled Gateway refresh
+→ real black-box
 ```
 
-只有 `LOCAL_MECHANICAL_ACCEPTED` 才授权开始真正 Phase 1。
+进行受控激活。
+
+随后再分别处理 Closure atomicity、cross-task Context 等剩余问题。
 
 ---
 
-# 7. 下一阶段与唯一授权分支
+# 7. 历史文档的使用方式
 
-Design 25 Phase 1 的真实定义是：
+本目录中的旧文档继续保留历史 Evidence 和设计演进，不删除。
 
-```text
-Persistent Event Store + Cross-Process Replay
-```
-
-授权的新分支：
+典型历史入口：
 
 ```text
-feat/execution-supervisor-phase1-event-store-replay-v0.1
+20260826_HARNESS_CURRENT_STATE.md
+20260827_ET_HARNESS_REPOSITORY_MIGRATION_HANDOFF.md
+20260827_PUBLIC_PLUGIN_VALIDATION_AND_AUTOMATED_TESTING_PLATFORM_HANDOFF.md
+20260829_CODEX_LOCAL_DEVELOPMENT_AND_VALIDATION_CHARTER_V0_1.md
+20260829_EXECUTION_SUPERVISOR_*_HANDOFF_V0_1.md
+20260830_EXECUTION_SUPERVISOR_PHASE7_*_HANDOFF_V0_1.md
+20260901_IP_ANALYSIS_AND_TEST_DEVELOPMENT_HANDOFF_V0_1.md
 ```
 
-它必须从最终包含 Codex Handoff 文档的最新干净 `main` 创建。
-
-Codex 必须 **禁止继续**：
-
-```text
-feat/execution-supervisor-phase1-event-store-v0.1
-```
-
-该旧分支停留在 Phase 0 修复前的旧状态。
-
-同时禁止继续：
-
-```text
-feat/public-execution-supervisor-phase1-contract-builder-v0.1
-```
-
-PR #13 已关闭为 `[OBSOLETE]`；Contract Builder 不是 Design 25 Phase 1。
+这些文件回答“当时为什么这样设计/测试”；当前下一步以最新 Handoff 为准。
 
 ---
 
-# 8. Phase 1 为什么做
+# 8. 总冻结原则
 
-原 Governance Runtime 主要按同进程假设工作：
+> **Agent 可以更换，模型可以更换，Host 可以更换；项目 Architecture、Rules、Knowledge、Context、Evidence 和 Governance 不能依附于某一个 Agent。**
 
-```text
-open Turn
-→ Agent work
-→ observe
-→ Reflection
-→ Closure
-```
+以及：
 
-真实外部 Agent 是跨进程：
-
-```text
-Process A opens Task/Turn
-→ external Agent/Host works
-→ Process B/C must ingest/recover the same execution
-```
-
-如果执行事件没有持久化和 replay：
-
-```text
-Framework 不知道实际发生了什么
-无法验证顺序和 identity
-无法判断 replay/tamper
-进程重启后无法可靠恢复执行状态
-后续 Obligation/Evidence/Closure 都没有可信输入
-```
-
-所以 Phase 1 是整个执行监管闭环的底座。
-
-测试意义不是“能不能写 JSON”，而是证明：
-
-> **同一个 governed execution 可以跨进程恢复为同一个有序、完整性绑定的执行历史。**
-
----
-
-# 9. Phase 1 只允许做什么
-
-允许：
-
-```text
-append-only durable execution event store
-Task/Turn/Agent/Project/Runtime identity binding
-sequence/hash integrity
-idempotent duplicate replay
-cross-process reopen / replay cursor
-corrupt-state fail closed
-bounded Host-neutral persistence
-local performance measurement
-```
-
-暂不允许：
-
-```text
-Phase 2 Obligation Ledger evaluation
-Phase 3 External Agent Bridge
-Phase 4 Claim/Evidence/Completion evaluator
-Phase 5 Reflection/Knowledge/Context/Closure integration
-ATP/eTimer 业务
-Tool Gateway enforcement
-```
-
-完整验收场景和负向测试见：
-
-```text
-20260829_EXECUTION_SUPERVISOR_PHASE1_CODEX_HANDOFF_V0_1.md
-```
-
----
-
-# 10. 分支模型
-
-```text
-main
-= 公共 Harness 唯一上游
-
-feat/<public-capability>
-= 从最新 local-mechanically-accepted main 创建的单阶段公共能力分支
-
-project/<name>
-= main + 真实项目 + Project Plugin / A/R/K/G / Project Knowledge
-
-pilot/<name>
-= 真实 Pilot 编排和证据
-```
-
-同步方向：
-
-```text
-validated main
-  ↓
-project/<name>
-  ↓
-clean pilot branch
-```
-
-项目分支和 Pilot 分支不得整体反向合入 `main`。
-
----
-
-# 11. 开发效率冻结原则
-
-```text
-one conversation = one phase
-one phase = one responsibility
-one phase = one clean branch
-focused unit tests during iteration
-package/integration tests at checkpoints
-full local public baseline only at phase completion
-no LLM/network/full reroute on event hot path
-```
-
-禁止再次发生：
-
-```text
-上一阶段未机械验证
-→ 并行开发下一阶段
-→ 多套 contract vocabulary 同时进入 main
-→ 最后靠聊天判断哪个是真的
-```
-
-效率来自更快、更局部的机械反馈，不来自减少 Evidence 或跳过负向测试。
-
----
-
-# 12. 历史 ATP Test Charter 的使用方式
-
-Codex 如果需要理解“为什么我们这么严格区分测试层”，可以只读方式查看：
-
-```bash
-git show project/automated-testing-platform:agent_harness/progress_context/20260828_ATP_CURRENT_CHATGPT_REAL_PROJECT_TEST_CHARTER_V0_1.md
-
-git show project/automated-testing-platform:agent_harness/progress_context/20260828_ATP_CURRENT_CHATGPT_CONTEXT_CONTRIBUTION_AND_PILOT_HANDOFF_V0_1.md
-```
-
-历史 Charter 的重要方法论继续沿用：
-
-```text
-冻结真实目的
-冻结被测对象
-冻结分支/输入
-不同层 PASS 不互相冒充
-失败时修负责层，不弱化测试
-Agent 自述不能替代机械 Evidence
-```
-
-但 Codex 本地开发不是 ATP current-ChatGPT Pilot 本身。
-
----
-
-# 13. 总冻结原则
-
-> **Agent 不负责治理自己。Framework 负责治理 Agent。**
-
-以及 Local Codex 开发新增不变量：
-
-> **Codex 可以让开发更快，但必须从最新 canonical main 开始、一个对话只完成一个阶段，并用 exact local mechanical evidence 证明完成，而不是用 Agent 自述或旧分支代码证明完成。**
+> **Framework 要保证该发生的治理步骤不能被 Agent 跳过，但不要把开放自然语言理解全部写成 if/else/regex；语义理解由 Agent 完成，Framework 验证结构化结果并执行确定性治理。**
