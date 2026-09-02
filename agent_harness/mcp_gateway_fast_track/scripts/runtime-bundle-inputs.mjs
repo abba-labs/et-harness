@@ -103,13 +103,18 @@ export const runtimeSourceFiles = () => {
   return [...new Set(files)].sort((left, right) => left.localeCompare(right))
 }
 
+export const canonicalRuntimeSourceBytes = value => Buffer.from(
+  (Buffer.isBuffer(value) ? value.toString('utf8') : String(value)).replace(/\r\n?/g, '\n'),
+  'utf8',
+)
+
 export const computeRuntimeSourceSignature = () => {
   const digest = createHash('sha256')
   digest.update('et-harness-runtime-source-v2\0')
   for (const path of runtimeSourceFiles()) {
     digest.update(relative(repositoryRoot, path).replaceAll('\\', '/'))
     digest.update('\0')
-    digest.update(readFileSync(path))
+    digest.update(canonicalRuntimeSourceBytes(readFileSync(path)))
     digest.update('\0')
   }
   return digest.digest('hex')
