@@ -7,5 +7,5 @@ if not exist "%NODE_EXE%" (
   echo ET Harness Node 22 runtime not found. Set ET_HARNESS_ENV_ROOT once or ET_HARNESS_NODE explicitly. 1>&2
   exit /b 1
 )
-"%NODE_EXE%" "%~dp0prepare-toolchain.mjs"
+"%NODE_EXE%" "%~dp0prepare-toolchain.mjs" %*
 exit /b %ERRORLEVEL%
