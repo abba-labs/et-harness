@@ -16,7 +16,6 @@ import { AgentGovernanceKernelService } from '@agent-harness/agent-governance-ke
 import { AgentGovernanceClosureAdaptersService } from '@agent-harness/agent-governance-closure-adapters'
 import { AutoGovernanceEngineService } from '@agent-harness/auto-governance-engine'
 import {
-  GovernanceRuntimeService,
   ScopeSafeGovernanceRuntimeService,
   compileGovernanceProjectSupervisionContractV01,
   createGovernanceHostRuntimePortV01,
@@ -73,10 +72,15 @@ interface SupervisedTurnSnapshotInput {
   projectRevision?: string
 }
 
+interface AbortSupervisedTurnInput extends SupervisedTurnSnapshotInput {
+  reason: string
+}
+
 const tick = (): Promise<void> => new Promise(resolveTick => setTimeout(resolveTick, 0))
 const storeToken = (runtimeId: string, turnId: string): string =>
   createHash('sha256').update(`${runtimeId}\0${turnId}`).digest('hex')
 const MAX_STORE_MANIFEST_BYTES = 2 * 1024 * 1024
+const MAX_ABORT_REASON_CHARS = 1_200
 
 const PURE_MCP_AUDIT_CAPABILITIES: HostCapabilityContractV01 = Object.freeze({
   schema: HOST_CAPABILITY_CONTRACT_SCHEMA,
@@ -162,7 +166,7 @@ class PureMcpRuntimeOwner {
   private readonly stores = new Map<string, ExecutionEventStoreV01>()
   private readonly opened = new Map<string, GovernanceOpenTurnResult>()
   private readonly recoveryJobs = new Map<string, Promise<void>>()
-  private runtime?: GovernanceRuntimeService
+  private runtime?: ScopeSafeGovernanceRuntimeService
   private port?: GovernanceHostRuntimePortV01
 
   constructor(private readonly config: RuntimeDeploymentConfig) {}
@@ -264,6 +268,66 @@ class PureMcpRuntimeOwner {
     }
   }
 
+  async abortSupervisedTurn(input: AbortSupervisedTurnInput) {
+    if (!this.runtime) throw new Error('Pure MCP Runtime owner is not ready')
+    const selected = await selectProjectBinding(this.config, input.cwd)
+    if (selected.projectId !== input.projectId) {
+      throw new Error('Abort projectId does not match the configured workspace')
+    }
+    const reason = input.reason.trim().slice(0, MAX_ABORT_REASON_CHARS)
+    if (!reason) throw new Error('Abort reason cannot be empty')
+    const kernel = this.context.get('agentGovernanceKernel')
+    const contextManager = this.context.get('contextManager')
+    if (!kernel || !contextManager) throw new Error('Runtime lifecycle compensation services are not ready')
+
+    let journalStatus = 'ABSENT'
+    const existingJournal = kernel.getTurn(input.taskId, input.turnId)
+    if (existingJournal) {
+      if (existingJournal.status === 'OPEN') {
+        journalStatus = kernel.abortTurn(input.taskId, input.turnId, { reason }).status
+      } else if (existingJournal.status === 'ABORTED') {
+        journalStatus = existingJournal.status
+      } else {
+        throw new Error(`Turn ${input.turnId} cannot be compensated from ${existingJournal.status}`)
+      }
+    }
+
+    let contextStatus = 'ABSENT'
+    let contextStateVersion: number | undefined
+    try {
+      const existingContext = contextManager.getTask(input.projectId, input.taskId)
+      const compensated = existingContext.session.status === 'ABORTED'
+        ? existingContext
+        : contextManager.abortTask(
+          input.projectId,
+          input.taskId,
+          input.turnId,
+          reason,
+          existingJournal ? [`governance-journal://task/${input.taskId}/turn/${input.turnId}`] : [],
+        )
+      contextStatus = compensated.session.status
+      contextStateVersion = compensated.stateVersion
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('Context task 不存在')) throw error
+    }
+
+    const key = `${input.runtimeId}::${input.turnId}`
+    const store = this.stores.get(key)
+    if (store) await store.close()
+    this.stores.delete(key)
+    this.opened.delete(key)
+    this.runtime.releaseAbortedRuntimeSession(input.runtimeId, input.turnId)
+    return {
+      status: 'ABORTED' as const,
+      runtimeId: input.runtimeId,
+      taskId: input.taskId,
+      turnId: input.turnId,
+      journalStatus,
+      contextStatus,
+      ...(contextStateVersion === undefined ? {} : { contextStateVersion }),
+    }
+  }
+
   async stop(): Promise<void> {
     await Promise.allSettled(this.recoveryJobs.values())
     this.recoveryJobs.clear()
@@ -351,7 +415,7 @@ class PureMcpRuntimeOwner {
       }
     }
 
-    this.runtime = runtime
+    this.runtime = runtime as ScopeSafeGovernanceRuntimeService
     this.port = createGovernanceHostRuntimePortV01(runtime, {
       openSupervisedTurn: input => this.openSupervisedTurn(input),
     })
@@ -379,39 +443,44 @@ class PureMcpRuntimeOwner {
       supervisionLevel: 'AUDIT',
     })
     const directory = resolve(this.config.eventStoreRoot, storeToken(input.runtimeId, input.turnId))
-    const store = await createFileExecutionEventStore({
-      directory,
-      binding: {
-        requestId: `pure-mcp-request:${storeToken(input.runtimeId, input.turnId).slice(0, 32)}`,
+    let store: ExecutionEventStoreV01 | undefined
+    try {
+      store = await createFileExecutionEventStore({
+        directory,
+        binding: {
+          requestId: `pure-mcp-request:${storeToken(input.runtimeId, input.turnId).slice(0, 32)}`,
+          runtimeId: input.runtimeId,
+          turnId: input.turnId,
+          contract,
+        },
+        limits: {
+          maxEvents: 10_000,
+          maxStoreBytes: 64 * 1024 * 1024,
+          maxReplayEvents: 250,
+        },
+      })
+      await this.runtime.bindSupervisedTurn({
+        runtimeId: input.runtimeId,
+        eventStore: store,
+        hostCapabilities: PURE_MCP_AUDIT_CAPABILITIES,
+      })
+      const taskInput = await this.runtime.ingestExecutionEvent({
         runtimeId: input.runtimeId,
         turnId: input.turnId,
-        contract,
-      },
-      limits: {
-        maxEvents: 10_000,
-        maxStoreBytes: 64 * 1024 * 1024,
-        maxReplayEvents: 250,
-      },
-    })
-    await this.runtime.bindSupervisedTurn({
-      runtimeId: input.runtimeId,
-      eventStore: store,
-      hostCapabilities: PURE_MCP_AUDIT_CAPABILITIES,
-    })
-    const taskInput = await this.runtime.ingestExecutionEvent({
-      runtimeId: input.runtimeId,
-      turnId: input.turnId,
-      eventId: `mcp-task-input-${createHash('sha256').update(input.taskText).digest('hex').slice(0, 32)}`,
-      kind: 'USER_MESSAGE',
-      payload: { text: input.taskText },
-    })
-    if (taskInput.acceptance.status === 'REJECTED') {
-      await store.close()
-      throw new Error(`Durable task input was rejected: ${taskInput.acceptance.reasons.join('; ')}`)
+        eventId: `mcp-task-input-${createHash('sha256').update(input.taskText).digest('hex').slice(0, 32)}`,
+        kind: 'USER_MESSAGE',
+        payload: { text: input.taskText },
+      })
+      if (taskInput.acceptance.status === 'REJECTED') {
+        throw new Error(`Durable task input was rejected: ${taskInput.acceptance.reasons.join('; ')}`)
+      }
+      this.stores.set(key, store)
+      this.opened.set(key, opened)
+      return opened
+    } catch (error) {
+      if (store) await store.close()
+      throw error
     }
-    this.stores.set(key, store)
-    this.opened.set(key, opened)
-    return opened
   }
 
   private async recoverSupervisedTurn(
@@ -486,6 +555,10 @@ export const createPureMcpRuntimeModule = (deploymentConfigPath: string) => {
     async ensureSupervisedTurn(input: SupervisedTurnSnapshotInput) {
       await selectProjectBinding(await config(), input.cwd)
       return (await owner()).ensureSupervisedTurn(input)
+    },
+    async abortTurn(input: AbortSupervisedTurnInput) {
+      await selectProjectBinding(await config(), input.cwd)
+      return (await owner()).abortSupervisedTurn(input)
     },
     async close() {
       if (ownerPromise) await (await ownerPromise).stop()
