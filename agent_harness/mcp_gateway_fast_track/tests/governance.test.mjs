@@ -99,16 +99,23 @@ const memoryStore = () => {
 }
 
 const fakeRuntime = (overrides = {}) => {
-  const calls = { openTurn: 0, getStatus: 0, observeWork: 0, preflightAction: 0, closeTurn: 0 }
+  const calls = {
+    openTurn: 0,
+    getStatus: 0,
+    observeWork: 0,
+    preflightAction: 0,
+    closeTurn: 0,
+    abortTurn: 0,
+  }
   return {
     calls,
     resolveProject: async (workspacePath) => ({
       workspacePath: resolve(workspacePath),
       projectId: 'et-automated-testing-platform',
     }),
-    openTurn: async () => {
+    openTurn: async (input) => {
       calls.openTurn += 1
-      return overrides.openTurn ? overrides.openTurn() : openTurnResult()
+      return overrides.openTurn ? overrides.openTurn(input) : openTurnResult()
     },
     getStatus: async () => {
       calls.getStatus += 1
@@ -161,6 +168,18 @@ const fakeRuntime = (overrides = {}) => {
         },
       }
     },
+    abortTurn: async (snapshot, reason) => {
+      calls.abortTurn += 1
+      if (overrides.abortTurn) return overrides.abortTurn(snapshot, reason)
+      return {
+        status: 'ABORTED',
+        runtimeId: snapshot.runtimeId,
+        taskId: snapshot.taskId,
+        turnId: snapshot.turnId,
+        journalStatus: 'ABORTED',
+        contextStatus: 'ABORTED',
+      }
+    },
   }
 }
 
@@ -204,6 +223,7 @@ test('T5-T7 begin returns XBAR context, revisions, scope, owners, validation, an
     intent: 'Analyze ET6801 XBAR without modifying files.',
     requestedTaskId: 'xbar-task-01',
   })
+  assert.equal(result.phase, 'ACTIVE')
   assert.equal(result.projectId, projectBinding.projectId)
   assert.equal(result.projectRevision, 'revision-atp-01')
   assert.equal(result.contextRevision, 'context-revision-xbar-01')
@@ -217,21 +237,78 @@ test('T5-T7 begin returns XBAR context, revisions, scope, owners, validation, an
   assert.match(result.context.priorContext[0].content, /Preserve this bounded prior issue/)
   assert.equal(result.context.contributionReceipts[0].providerId, 'project.automated-testing-platform.context')
   assert.equal(runtime.calls.openTurn, 1)
+  assert.equal(runtime.calls.abortTurn, 0)
 })
 
-test('T8 contributor failure fails closed and persists no snapshot', async () => {
+test('T8 contributor failure is compensated and remains publicly inspectable', async () => {
   const store = memoryStore()
-  const controller = createGovernanceController({
-    runtimeAccess: fakeRuntime({
-      openTurn: () => ({ ...openTurnResult(), context: { text: renderedContext, contextContributions: [] } }),
-    }),
-    snapshotStore: store,
+  const runtime = fakeRuntime({
+    openTurn: () => ({ ...openTurnResult(), context: { text: renderedContext, contextContributions: [] } }),
   })
+  const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: store })
   await assert.rejects(
     controller.begin({ workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-fail' }),
     (error) => error instanceof GatewayGovernanceError && error.code === 'CONTEXT_CONTRIBUTOR_UNAVAILABLE',
   )
-  assert.equal(await store.get('xbar-fail'), undefined)
+  const failed = await store.get('xbar-fail')
+  assert.equal(failed.phase, 'FAILED')
+  assert.equal(failed.failure.code, 'CONTEXT_CONTRIBUTOR_UNAVAILABLE')
+  assert.equal(failed.compensation.status, 'ABORTED')
+  assert.equal(runtime.calls.abortTurn, 1)
+
+  const status = await controller.status({ taskId: 'xbar-fail' })
+  assert.equal(status.status, 'FAILED')
+  assert.equal(status.code, 'CONTEXT_CONTRIBUTOR_UNAVAILABLE')
+  assert.equal(status.compensationStatus, 'ABORTED')
+  assert.equal(runtime.calls.getStatus, 0)
+})
+
+test('T8b snapshot finalization failure is compensated without losing task reachability', async () => {
+  const values = new Map()
+  let writes = 0
+  const store = {
+    get: async (taskId) => values.get(taskId),
+    put: async (snapshot) => {
+      writes += 1
+      if (writes === 2) throw new Error('simulated ACTIVE snapshot write failure')
+      values.set(snapshot.taskId, snapshot)
+    },
+  }
+  const runtime = fakeRuntime()
+  const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: store })
+  await assert.rejects(
+    controller.begin({ workspacePath: projectRoot, intent: 'Analyze XBAR.', requestedTaskId: 'xbar-snapshot-fail' }),
+    (error) => error instanceof GatewayGovernanceError && error.code === 'RUNTIME_UNAVAILABLE',
+  )
+  const failed = await store.get('xbar-snapshot-fail')
+  assert.equal(failed.phase, 'FAILED')
+  assert.match(failed.failure.message, /simulated ACTIVE snapshot write failure/)
+  assert.equal(failed.compensation.status, 'ABORTED')
+  assert.equal(runtime.calls.openTurn, 1)
+  assert.equal(runtime.calls.abortTurn, 1)
+})
+
+test('T8c stale PREPARING identity is compensated on status instead of opening another Turn', async () => {
+  const store = memoryStore()
+  await store.put({
+    schema: 'et-harness.gateway-task-snapshot.v0.1',
+    phase: 'PREPARING',
+    taskId: 'xbar-interrupted',
+    runtimeId: 'runtime-interrupted',
+    turnId: 'turn-interrupted',
+    workspacePath: projectRoot,
+    projectId: projectBinding.projectId,
+    intentHash: 'intent-interrupted',
+    createdAt: '2026-09-02T00:00:00.000Z',
+  })
+  const runtime = fakeRuntime()
+  const controller = createGovernanceController({ runtimeAccess: runtime, snapshotStore: store })
+  const status = await controller.status({ taskId: 'xbar-interrupted' })
+  assert.equal(status.status, 'FAILED')
+  assert.equal(status.code, 'BEGIN_INTERRUPTED')
+  assert.equal(status.compensationStatus, 'ABORTED')
+  assert.equal(runtime.calls.abortTurn, 1)
+  assert.equal(runtime.calls.openTurn, 0)
 })
 
 test('T9 status reads the existing Runtime state and exposes bounded route decision receipt', async () => {
@@ -291,6 +368,7 @@ test('T10 thin wrappers bind task identity and preserve Runtime authority', asyn
     observeWork: 1,
     preflightAction: 1,
     closeTurn: 1,
+    abortTurn: 0,
   })
 })
 
