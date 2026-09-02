@@ -9,7 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, relative, resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import {
@@ -136,15 +136,20 @@ await gatewayBundle.write({
 await gatewayBundle.close()
 writeFileSync(resolve(staging, 'gateway.mjs'), "import './src/gateway.mjs'\n", 'utf8')
 
+const releaseLocalRuntimePointer = resolve(releaseRoot, 'runtime-pointer.json')
+writeJson(resolve(staging, 'runtime-pointer.json'), {
+  schema: 'et-harness.pure-mcp-active-release.v1',
+  releaseManifestPath: resolve(releaseRoot, 'release.json'),
+  activatedAt: null,
+})
 const sourceGatewayConfig = JSON.parse(readFileSync(resolve(packageRoot, 'config', 'gateway.local.json'), 'utf8'))
 const gatewayConfig = {
   ...sourceGatewayConfig,
-  runtimeReleasePointerPath: layout.activeReleasePointer,
+  runtimeReleasePointerPath: releaseLocalRuntimePointer,
   taskSnapshotRoot: layout.taskSnapshotRoot,
 }
 mkdirSync(resolve(staging, 'config'), { recursive: true })
 writeJson(resolve(staging, 'config', 'gateway.local.json'), gatewayConfig)
-writeJson(resolve(staging, 'gateway.json'), gatewayConfig)
 
 const deployment = {
   schema: 'et-harness.pure-mcp-runtime-deployment.v1',
