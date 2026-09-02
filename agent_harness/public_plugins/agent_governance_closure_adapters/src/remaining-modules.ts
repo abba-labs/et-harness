@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import type {
-  ContextLedgerEntry,
   ContextManagementService,
   ContextReference,
 } from '@agent-harness/context-builder'
@@ -105,7 +104,7 @@ const desiredWorkingSet = (input: ClosureModuleInput, projectId: string): Contex
 }
 
 export function createContextLedgerClosureModule(
-  manager: Pick<ContextManagementService, 'getTask' | 'updateTaskLedger' | 'updateProgressLedger'>,
+  manager: Pick<ContextManagementService, 'getTask' | 'applyTurnClosure'>,
 ): ClosureModule {
   const module: ClosureModule = {
     id: 'context-closure',
@@ -121,9 +120,9 @@ export function createContextLedgerClosureModule(
         )
       }
       const projectId = input.projectBinding.projectId
-      let snapshot
+      let before
       try {
-        snapshot = manager.getTask(projectId, input.taskId)
+        before = manager.getTask(projectId, input.taskId)
       } catch (error) {
         return blockedReceipt(
           module,
@@ -133,54 +132,26 @@ export function createContextLedgerClosureModule(
       }
 
       const refs = unique(input.reflection.context.touchedRefs)
-      const confirmed: ContextLedgerEntry[] = [
-        ...input.reflection.context.decisions.map(text => ({ text: `Decision: ${text}`, refs })),
-        ...input.reflection.context.confirmed.map(text => ({ text, refs })),
-      ]
-      const assumptions = input.reflection.context.assumptions.map(text => ({ text, refs }))
-      const openIssues = input.reflection.context.openIssues.map(text => ({ text, refs }))
-      const plan = unique(input.reflection.context.next)
-
-      let changed = false
-      let stateVersion = snapshot.stateVersion
-      const taskLedgerChanged = !same(snapshot.session.taskLedger.confirmed, confirmed)
-        || !same(snapshot.session.taskLedger.assumptions, assumptions)
-        || !same(snapshot.session.taskLedger.openIssues, openIssues)
-        || !same(snapshot.session.taskLedger.plan, plan)
-      if (taskLedgerChanged) {
-        const updated = manager.updateTaskLedger(projectId, input.taskId, {
-          confirmed,
-          assumptions,
-          openIssues,
-          plan,
-        })
-        snapshot = updated
-        stateVersion = updated.stateVersion
-        changed = true
-      }
-
       const evidenceRefs = unique(input.reflection.evidence.candidates.flatMap(candidate => candidate.evidenceRefs))
-      const progressChanged = snapshot.session.progressLedger.lastAction !== `Close governed Turn ${input.turnId}`
-        || snapshot.session.progressLedger.lastResult !== input.reflection.context.progress
-        || !same(snapshot.session.progressLedger.touchedRefs, refs)
-        || !same(snapshot.session.progressLedger.next, plan)
-        || !same(snapshot.session.progressLedger.evidenceRefs, evidenceRefs)
-      if (progressChanged) {
-        const updated = manager.updateProgressLedger(projectId, input.taskId, {
-          lastAction: `Close governed Turn ${input.turnId}`,
-          lastResult: input.reflection.context.progress,
-          touchedRefs: refs,
-          next: plan,
-          evidenceRefs,
-        })
-        stateVersion = updated.stateVersion
-        changed = true
-      }
-
+      const final = manager.applyTurnClosure(projectId, input.taskId, {
+        turnId: input.turnId,
+        confirmed: [
+          ...input.reflection.context.decisions.map(text => ({ text: `Decision: ${text}`, refs })),
+          ...input.reflection.context.confirmed.map(text => ({ text, refs })),
+        ],
+        assumptions: input.reflection.context.assumptions.map(text => ({ text, refs })),
+        openIssues: input.reflection.context.openIssues.map(text => ({ text, refs })),
+        plan: unique(input.reflection.context.next),
+        progress: input.reflection.context.progress,
+        touchedRefs: refs,
+        evidenceRefs,
+        workingSet: desiredWorkingSet(input, projectId),
+      })
+      const changed = final.stateVersion !== before.stateVersion
       return successfulReceipt(module, input, {
         status: changed ? 'APPLIED' : 'NO_CHANGE',
-        writes: changed ? [`context://project/${projectId}/task/${input.taskId}/state/${stateVersion}`] : [],
-        stateVersionAfter: stateVersion,
+        writes: changed ? [`context://project/${projectId}/task/${input.taskId}/state/${final.stateVersion}`] : [],
+        stateVersionAfter: final.stateVersion,
         evidenceRefs,
       })
     },
