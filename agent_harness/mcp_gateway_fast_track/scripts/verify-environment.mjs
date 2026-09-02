@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import {
   ET_HARNESS_ENV_ROOT_VAR,
@@ -114,7 +115,12 @@ try {
   if (testFiles.length === 0) throw new Error('Gateway verification found no source .test.mjs files')
   run(
     'Gateway source regression tests',
-    ['--import', resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs'), '--test', ...testFiles],
+    [
+      '--import',
+      pathToFileURL(resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs')).href,
+      '--test',
+      ...testFiles,
+    ],
   )
 
   process.stdout.write(`${JSON.stringify({

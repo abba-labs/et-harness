@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { resolve } from 'node:path'
 import { connect } from 'node:net'
+import { pathToFileURL } from 'node:url'
 
 import { assertExternalGatewayLauncher } from './launcher-policy.mjs'
 import {
@@ -79,7 +80,7 @@ const gatewayLaunch = async () => {
       ? [gatewayEntry]
       : [
           '--import',
-          resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs'),
+          pathToFileURL(resolve(packageRoot, 'scripts', 'register-toolchain-loader.mjs')).href,
           gatewayEntry,
         ],
     bundled: false,

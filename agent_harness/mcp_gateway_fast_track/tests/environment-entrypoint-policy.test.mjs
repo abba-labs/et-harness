@@ -159,8 +159,9 @@ test('real cmd resolver fails closed when pointer is relative', { skip: process.
 
 test('direct MCP smoke loads npm dependencies from the shared Toolchain', () => {
   const smoke = read(resolve(scriptsRoot, 'smoke.cmd'))
-  assert.match(smoke, /--import "%~dp0register-toolchain-loader\.mjs"/i)
-  assert.match(smoke, /smoke\.mjs/i)
+  assert.match(smoke, /pushd "%~dp0\.\."/i)
+  assert.match(smoke, /--import "\.\/scripts\/register-toolchain-loader\.mjs"/i)
+  assert.match(smoke, /"\.\/scripts\/smoke\.mjs"/i)
 })
 
 test('all Gateway and infrastructure mjs contain no checkout-local environment owner', () => {
@@ -189,7 +190,14 @@ test('all Gateway and infrastructure mjs contain no checkout-local environment o
 })
 
 test('shared Toolchain TypeScript verification does not use deprecated baseUrl', () => {
-  assert.doesNotMatch(read(resolve(scriptsRoot, 'verify-environment.mjs')), /\bbaseUrl\s*:/)
+  const verifyEnvironment = read(resolve(scriptsRoot, 'verify-environment.mjs'))
+  assert.doesNotMatch(verifyEnvironment, /\bbaseUrl\s*:/)
+  assert.match(verifyEnvironment, /pathToFileURL\([\s\S]*register-toolchain-loader\.mjs[\s\S]*\)\.href/)
+})
+
+test('shared Toolchain fallback starts the Gateway with a file URL loader', () => {
+  const processControl = read(resolve(scriptsRoot, 'process-control.mjs'))
+  assert.match(processControl, /pathToFileURL\([\s\S]*register-toolchain-loader\.mjs[\s\S]*\)\.href/)
 })
 
 test('release switching is explicit and guarded from a live Gateway', () => {
