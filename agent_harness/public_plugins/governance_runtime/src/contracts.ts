@@ -7,6 +7,7 @@ import type {
   AutoGovernanceContextEnvelope,
   AutoGovernanceReviewDecisionInput,
   AutoGovernanceReviewDecisionResult,
+  AutoGovernanceRouteSnapshot,
   AutoGovernanceTaskStatus,
 } from '@agent-harness/auto-governance-engine'
 import type {
@@ -140,6 +141,7 @@ export interface GovernanceOpenTurnInput {
 export interface GovernanceRehydrateSupervisedTurnInput {
   readonly runtimeId: string
   readonly eventStore: ExecutionEventStoreV01
+  readonly restoredRoute?: AutoGovernanceRouteSnapshot
   readonly hostCapabilities?: HostCapabilityContractV01
   readonly semanticExecutor?: GovernanceSemanticExecutor
 }
