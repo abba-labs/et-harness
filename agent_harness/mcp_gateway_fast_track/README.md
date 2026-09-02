@@ -72,7 +72,7 @@ scripts\refresh-gateway.cmd
 Restore the prior release explicitly with:
 
 ```cmd
-scripts\restore-previous-runtime.cmd
+scripts\rollback-runtime.cmd
 ```
 
 ## Self-contained v2 releases
