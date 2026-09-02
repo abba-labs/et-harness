@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -32,17 +33,30 @@ for (const [name, values] of Object.entries(sourceConfig.compilerOptions?.paths 
   paths[name] = values.map(value => resolve(packageRoot, value))
 }
 
-const packageTypeEntry = name => {
-  const packageManifestPath = resolve(toolchain.toolchainRoot, 'node_modules', ...name.split('/'), 'package.json')
-  const manifest = JSON.parse(readFileSync(packageManifestPath, 'utf8'))
-  const entry = manifest.types ?? manifest.typings
-  if (typeof entry !== 'string' || !entry.trim()) {
-    throw new Error(`Shared Toolchain package does not declare TypeScript types: ${name}`)
-  }
-  return resolve(packageManifestPath, '..', entry)
+const cordisTypes = resolve(
+  toolchain.toolchainRoot,
+  'node_modules',
+  '@deepseek-ai',
+  'cordis',
+  'lib',
+  'types',
+  'index.d.ts',
+)
+const yamlTypes = resolve(
+  toolchain.toolchainRoot,
+  'node_modules',
+  'yaml',
+  'dist',
+  'index.d.ts',
+)
+for (const [name, path] of [
+  ['@deepseek-ai/cordis', cordisTypes],
+  ['yaml', yamlTypes],
+]) {
+  if (!existsSync(path)) throw new Error(`Shared Toolchain TypeScript entry is unavailable for ${name}: ${path}`)
 }
-paths['@deepseek-ai/cordis'] = [packageTypeEntry('@deepseek-ai/cordis')]
-paths.yaml = [packageTypeEntry('yaml')]
+paths['@deepseek-ai/cordis'] = [cordisTypes]
+paths.yaml = [yamlTypes]
 
 const config = {
   ...sourceConfig,
