@@ -248,6 +248,9 @@ const statusSummary = (snapshot, runtimeStatus) => {
     pendingObligationIds: ledger?.pendingObligationIds ?? [],
     satisfiedObligationIds: ledger?.satisfiedObligationIds ?? [],
     violatedObligationIds: ledger?.violatedObligationIds ?? [],
+    ...(runtimeStatus?.autoGovernance?.routeDecision
+      ? { routeDecision: runtimeStatus.autoGovernance.routeDecision }
+      : {}),
   }
 }
 
@@ -309,7 +312,7 @@ const observationSummary = (result) => ({
   observationKind: result?.observation?.kind,
   journalStatus: result?.journal?.status,
   knowledgeCaptureMode: result?.knowledgeDecision?.captureMode,
-  knowledgeConsultationMode: result?.knowledgeDecision?.consultationMode,
+  knowledgeConsultationMode: result?.knowledgeDecision?.consultMode,
 })
 
 const actionPreflight = (snapshot, input) => {
@@ -377,7 +380,7 @@ const closeSummary = (result) => ({
   },
   knowledge: {
     captureMode: result?.knowledgeDecision?.captureMode,
-    consultationMode: result?.knowledgeDecision?.consultationMode,
+    consultationMode: result?.knowledgeDecision?.consultMode,
     verificationCount: result?.knowledgeVerifications?.length ?? 0,
     promotionCount: result?.knowledgePromotions?.length ?? 0,
     verificationWarnings: result?.knowledgeVerificationWarnings ?? [],
