@@ -203,6 +203,21 @@ export const createFrozenRuntimeAccess = ({ releaseManifestPath, releasePointerP
       }
       return port.closeTurn(input)
     },
+    async abortTurn(snapshot, reason) {
+      const module = await runtimeModule()
+      if (typeof module.abortTurn !== 'function') {
+        throw new Error('Frozen Runtime artifact does not expose failed-begin compensation')
+      }
+      return module.abortTurn({
+        cwd: snapshot.workspacePath,
+        runtimeId: snapshot.runtimeId,
+        turnId: snapshot.turnId,
+        taskId: snapshot.taskId,
+        projectId: snapshot.projectId,
+        projectRevision: snapshot.projectRevision,
+        reason,
+      })
+    },
     async ingest(snapshot, input) {
       return (await portForSnapshot(snapshot)).ingestExecutionEvent(input)
     },
