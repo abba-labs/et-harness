@@ -87,6 +87,22 @@ Legacy v1 releases remain verifiable for migration/rollback. When a legacy relea
 
 Start the Gateway by double-clicking `start-et-harness-gateway.cmd` in Windows Explorer or from an independent terminal. The launcher fails closed when Codex Desktop, a Codex hook/plugin, or another disallowed process appears in its ancestor chain.
 
+After a reviewed launcher revision is explicitly installed with
+`scripts\install-machine-launcher.cmd`, the only stable lifecycle entry is:
+
+```text
+<ET_HARNESS_ENV_ROOT>\bin\et-harness.cmd start
+<ET_HARNESS_ENV_ROOT>\bin\et-harness.cmd stop
+<ET_HARNESS_ENV_ROOT>\bin\et-harness.cmd status
+<ET_HARNESS_ENV_ROOT>\bin\et-harness.cmd health
+```
+
+The installed launcher derives the Environment Root from its own `bin` location,
+uses the fixed machine Node, and contains the complete release verification and
+process-control implementation using only Node built-ins. It does not import or
+execute lifecycle code from a Git checkout. Editing or switching a branch cannot
+change the installed launcher; only an explicit installer run can update it.
+
 Useful commands:
 
 ```cmd

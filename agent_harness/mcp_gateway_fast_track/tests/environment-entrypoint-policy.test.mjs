@@ -34,6 +34,7 @@ const resolverEntries = [
   'activate-runtime.cmd',
   'build-runtime.cmd',
   'freeze-runtime.cmd',
+  'install-machine-launcher.cmd',
   'prepare-toolchain.cmd',
   'rollback-runtime.cmd',
   'smoke.cmd',
@@ -162,6 +163,23 @@ test('direct MCP smoke loads npm dependencies from the shared Toolchain', () => 
   assert.match(smoke, /pushd "%~dp0\.\."/i)
   assert.match(smoke, /--import "\.\/scripts\/register-toolchain-loader\.mjs"/i)
   assert.match(smoke, /"\.\/scripts\/smoke\.mjs"/i)
+})
+
+test('machine-local lifecycle entry uses only its physical Environment Root and fixed Node', () => {
+  const command = read(resolve(scriptsRoot, 'et-harness.cmd'))
+  assert.match(command, /for %%I in \("%~dp0\.\."\)/i)
+  assert.match(command, /runtimes\\node-v22\.23\.2-win-x64\\node\.exe/i)
+  assert.match(command, /%~dp0machine-launcher\.mjs/i)
+  assert.doesNotMatch(command, /resolve-node\.cmd|gateway\.local\.json|node_modules|npm|npx/i)
+
+  const launcher = read(resolve(scriptsRoot, 'machine-launcher.mjs'))
+  const importSpecifiers = [...launcher.matchAll(/from ['"]([^'"]+)['"]/g)]
+    .map(match => match[1])
+  assert.ok(importSpecifiers.length > 0)
+  assert.equal(importSpecifiers.every(specifier => specifier.startsWith('node:')), true)
+  assert.doesNotMatch(launcher, /from ['"]\.{1,2}\//)
+  assert.doesNotMatch(launcher, /import\s*\(/)
+  assert.doesNotMatch(launcher, /repositoryRoot|packageRoot|gateway\.local\.json.*checkout/i)
 })
 
 test('all Gateway and infrastructure mjs contain no checkout-local environment owner', () => {
