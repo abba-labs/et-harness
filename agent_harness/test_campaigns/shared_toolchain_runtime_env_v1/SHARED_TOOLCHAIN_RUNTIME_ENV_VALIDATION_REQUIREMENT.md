@@ -8,6 +8,7 @@ Architecture/Repair Owner: ChatGPT.
 Project Owner: user.
 
 Candidate branch: `architecture/shared-toolchain-runtime-env-v0.1`.
+Candidate public infrastructure + regression-test baseline before this requirement revision: `86aabf6def537ad23521ca57843ea919397547ed`.
 The Test Executor MUST lock the exact remote HEAD at execution time and record the exact tested SHA.
 
 This campaign validates public ET Harness infrastructure only. ATP remains the real validation project, but ATP-specific Architecture / Rules / Knowledge / Gates / Validation MUST NOT be modified to make this environment campaign pass.
@@ -24,7 +25,7 @@ Candidate build and candidate verification MUST NOT mutate the active Runtime po
 
 A v2 Runtime release MUST contain a bundled Gateway that is mechanically bound to its own Runtime release, so one process cannot mix Gateway code from release A with Runtime code from release B.
 
-Activation and rollback MUST be explicit pointer operations and MUST remain separate from build/verification.
+Activation and rollback MUST be explicit pointer operations, MUST remain separate from build/verification, and MUST be rejected while the external Gateway process is still running.
 
 ## Hard constraints for this machine
 
@@ -62,6 +63,8 @@ Prove:
 3. Two different source worktree paths resolve the exact same Node runtime root, Toolchains root, active-release pointer, persistent state root, cache and temp roots.
 4. A relative explicit environment root fails closed.
 5. Moving/creating a worktree does not create another environment/state tree adjacent to that worktree.
+6. Every operational `.cmd` entry resolves Node through the single `resolve-node.cmd` owner or delegates only to another compliant entry; no checkout-parent runtime walk remains.
+7. Gateway/infrastructure `.mjs` under `src/` and `scripts/` contain no checkout-local environment-root or npm-dependency owner.
 
 ## B. Shared immutable Toolchain
 
@@ -105,6 +108,7 @@ Expected:
 - every Gateway/infrastructure `.mjs` under `src/` and `scripts/` passes fixed-Node `--check`;
 - Runtime TypeScript verification passes using shared Toolchain paths;
 - Gateway source regression tests pass using the shared Toolchain loader;
+- direct MCP smoke entry is mechanically wired through the shared Toolchain loader;
 - active frozen Runtime behavior is NOT used as current candidate evidence.
 
 After source verification, prove active pointer bytes, stable Gateway PID, and persistent stable state are unchanged.
@@ -167,24 +171,30 @@ This is rollback safety evidence, not candidate PASS evidence.
 
 DO NOT execute until B-F PASS and Project Owner / Architecture Owner authorize activation.
 
-Run `activate-runtime.cmd <candidate release.json>`.
+First prove the negative control while the current external Gateway PID is still alive:
+
+`activate-runtime.cmd <candidate release.json>` MUST fail before pointer mutation, and active/previous pointer hashes MUST remain unchanged.
+
+Then stop the external Gateway through the approved lifecycle and run the same activation command again.
 
 Prove:
 
 1. candidate is re-verified at activation time;
 2. source change after candidate verification blocks activation;
-3. previous stable pointer is preserved before active changes;
-4. active pointer changes to candidate;
-5. activation does NOT silently restart Gateway;
-6. running Gateway remains old release until separate controlled external refresh;
-7. after refresh, command line points to release-bundled `gateway.mjs`, not checkout `src/gateway.mjs`;
+3. live Gateway PID blocks activation with zero pointer change;
+4. previous stable pointer is preserved before active changes;
+5. active pointer changes to candidate only after Gateway is stopped;
+6. activation does NOT silently restart Gateway;
+7. a separate controlled external start launches release-bundled `gateway.mjs`, not checkout `src/gateway.mjs`;
 8. bundled Gateway loads its own Runtime through release-local pointer;
 9. direct MCP initialize/tools/list/health passes and exactly 8 public tools remain;
 10. v2 running Gateway requires no checkout-local node_modules.
 
 ## H. Rollback
 
-After authorized activation validation, stop candidate Gateway through approved external lifecycle and execute rollback.
+First prove the negative control: with candidate Gateway still alive, `rollback-runtime.cmd` MUST fail with zero active/previous pointer mutation.
+
+Then stop candidate Gateway through approved external lifecycle and execute `rollback-runtime.cmd`.
 
 Prove:
 
@@ -193,7 +203,8 @@ Prove:
 3. rollback needs no candidate checkout-local dependencies;
 4. old stable v1 Gateway can start again;
 5. `/health` and direct MCP pass;
-6. persistent Runtime state remains one canonical tree.
+6. persistent Runtime state remains one canonical tree;
+7. rollback refuses a live Gateway PID before pointer mutation.
 
 Rollback failure is a release blocker.
 
@@ -218,11 +229,13 @@ Produce at minimum:
 - `FINAL_REPORT.md`
 - `baseline.json`
 - `environment_root.json`
+- `entrypoint_scan.json`
 - `toolchain.json`
 - `source_verify.json`
 - `candidate_build.json`
 - `candidate_verify.json`
 - `release_self_binding.json`
+- `release_switch_guard.json`
 - `stable_compatibility.json`
 - `activation.json` if authorized/executed
 - `rollback.json` if activation executed
@@ -238,6 +251,6 @@ Use only PASS / FAIL / NOT_EXECUTED / BLOCKED_BY_UPSTREAM / OBSERVABILITY_GAP. A
 
 Environment infrastructure is accepted only if mechanically true:
 
-> A clean ET Harness branch/worktree with no local node_modules can reuse one immutable machine Toolchain, verify/build the current candidate without touching stable Runtime, run a self-contained v2 Gateway+Runtime after explicit activation, and rollback to prior stable; worktree path and branch changes do not create or require another dependency environment.
+> A clean ET Harness branch/worktree with no local node_modules can reuse one immutable machine Toolchain, verify/build the current candidate without touching stable Runtime, run a self-contained v2 Gateway+Runtime after explicit stopped-Gateway activation, and rollback to prior stable; worktree path and branch changes do not create or require another dependency environment.
 
 Only after this campaign passes should real ET6801 SRPWM module-behavior validation resume.
