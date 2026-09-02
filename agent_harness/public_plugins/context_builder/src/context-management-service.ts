@@ -40,6 +40,10 @@ const MAX_HANDLES = 128
 const MAX_INLINE_ITEMS = 24
 const MAX_INLINE_ITEM_CHARS = 8_000
 const MAX_INLINE_TOTAL_CHARS = 16_000
+const MAX_INHERITED_CONTEXT_TASKS = 4
+const MAX_INHERITED_CONTEXT_CHARS = 4_000
+const MAX_INHERITED_ITEM_CHARS = 1_600
+const PRIOR_CONTEXT_PREFIX = 'prior-context-'
 const RESERVED_INLINE_IDS = new Set([
   'context-compass',
   'task-ledger',
@@ -164,6 +168,115 @@ const isContextSession = (value: unknown): value is ContextSession => {
     && (item.inlineItems === undefined || Array.isArray(item.inlineItems))
     && Array.isArray(item.handles)
     && Array.isArray(item.recentTail)
+}
+
+interface ContextStateRecordLike {
+  readonly scope: string
+  readonly key: string
+  readonly value: unknown
+  readonly version: number
+  readonly updatedAt: string
+}
+
+const refToken = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const tail = trimmed.split(/[\/#]/).filter(Boolean).at(-1) ?? trimmed
+  return tail.toUpperCase()
+}
+
+const sessionRefTokens = (session: ContextSession): Set<string> => new Set([
+  ...session.workingSet.map(reference => reference.id),
+  ...session.taskLedger.scopeRefs,
+  ...session.taskLedger.constraintRefs,
+  ...session.taskLedger.confirmed.flatMap(entry => entry.refs),
+  ...session.taskLedger.openIssues.flatMap(entry => entry.refs),
+  ...session.progressLedger.touchedRefs,
+].map(refToken).filter(Boolean))
+
+const matchingEntries = (
+  entries: readonly ContextLedgerEntry[],
+  currentRefs: ReadonlySet<string>,
+): ContextLedgerEntry[] => entries.filter(entry =>
+  entry.refs.some(ref => currentRefs.has(refToken(ref))),
+)
+
+const boundedLines = (lines: readonly string[], maxChars: number): string => {
+  const selected: string[] = []
+  let used = 0
+  for (const line of lines) {
+    const addition = (selected.length > 0 ? 1 : 0) + line.length
+    if (used + addition > maxChars) break
+    selected.push(line)
+    used += addition
+  }
+  return selected.join('\n')
+}
+
+export const selectRelevantContextHistory = (input: {
+  readonly projectId: string
+  readonly currentTaskId: string
+  readonly references: readonly ContextReference[]
+  readonly records: readonly ContextStateRecordLike[]
+  readonly existingInlineItems?: readonly InlineContextItem[]
+}): InlineContextItem[] => {
+  const currentRefs = new Set(input.references.map(reference => refToken(reference.id)).filter(Boolean))
+  if (currentRefs.size === 0) return []
+
+  const existingChars = (input.existingInlineItems ?? []).reduce((total, item) => total + item.content.length, 0)
+  let remaining = Math.min(
+    MAX_INHERITED_CONTEXT_CHARS,
+    Math.max(0, MAX_INLINE_TOTAL_CHARS - existingChars),
+  )
+  if (remaining <= 0) return []
+
+  const candidates = input.records
+    .filter(record => record.key === 'session' && record.scope.startsWith('context:') && isContextSession(record.value))
+    .map(record => ({ record, session: record.value as ContextSession }))
+    .filter(({ session }) => session.projectId === input.projectId
+      && session.taskId !== input.currentTaskId
+      && (session.status === 'COMPLETED' || session.status === 'PAUSED'))
+    .map(item => {
+      const historicalRefs = sessionRefTokens(item.session)
+      const matchedRefs = [...currentRefs].filter(ref => historicalRefs.has(ref))
+      return { ...item, matchedRefs }
+    })
+    .filter(item => item.matchedRefs.length > 0)
+    .sort((left, right) =>
+      right.matchedRefs.length - left.matchedRefs.length
+      || right.record.updatedAt.localeCompare(left.record.updatedAt),
+    )
+    .slice(0, MAX_INHERITED_CONTEXT_TASKS)
+
+  const result: InlineContextItem[] = []
+  for (const { record, session, matchedRefs } of candidates) {
+    const confirmed = matchingEntries(session.taskLedger.confirmed, currentRefs).slice(0, 4)
+    const openIssues = matchingEntries(session.taskLedger.openIssues, currentRefs).slice(0, 4)
+    const next = [...new Set([...session.taskLedger.plan, ...session.progressLedger.next])].slice(0, 4)
+    const lines = [
+      `SourceTask: ${session.taskId}`,
+      `MatchedRefs: ${matchedRefs.join(', ')}`,
+      `Goal: ${session.taskLedger.goal}`,
+      ...confirmed.map(entry => `Confirmed: ${entry.text}`),
+      ...openIssues.map(entry => `OpenIssue: ${entry.text}`),
+      ...(session.progressLedger.currentProblem?.trim()
+        ? [`CurrentProblem: ${session.progressLedger.currentProblem.trim()}`]
+        : []),
+      ...next.map(item => `Next: ${item}`),
+    ]
+    const content = boundedLines(lines, Math.min(MAX_INHERITED_ITEM_CHARS, remaining))
+    if (!content || (!confirmed.length && !openIssues.length && !session.progressLedger.currentProblem?.trim())) continue
+    result.push({
+      id: `${PRIOR_CONTEXT_PREFIX}${session.taskId}`,
+      title: `Relevant Prior Context — ${session.taskId}`,
+      content,
+      priority: 'high',
+      provenance: `context://project/${input.projectId}/task/${session.taskId}/state/${record.version}`,
+    })
+    remaining -= content.length
+    if (remaining <= 0) break
+  }
+  return result
 }
 
 const stateScope = (taskId: string): string => `context:${taskId}`
@@ -339,7 +452,21 @@ export class ContextManagementService extends Service {
   replaceWorkingSet(projectId: string, taskId: string, references: readonly ContextReference[]): ContextSessionSnapshot {
     const snapshot = this.getTask(projectId, taskId)
     const workingSet = normalizeReferences(references)
-    return this.commit(snapshot, { ...snapshot.session, workingSet, updatedAt: now() }, 'Replace Context Working Set')
+    const baseInlineItems = (snapshot.session.inlineItems ?? [])
+      .filter(item => !item.id.startsWith(PRIOR_CONTEXT_PREFIX))
+    const inherited = selectRelevantContextHistory({
+      projectId,
+      currentTaskId: taskId,
+      references: workingSet,
+      records: this.runtimeContext.evidenceStateManager.snapshot(projectId).records,
+      existingInlineItems: baseInlineItems,
+    })
+    const inlineItems = normalizeInlineContextItems([...baseInlineItems, ...inherited])
+    return this.commit(
+      snapshot,
+      { ...snapshot.session, workingSet, inlineItems, updatedAt: now() },
+      'Replace Context Working Set',
+    )
   }
 
   replaceInlineItems(
