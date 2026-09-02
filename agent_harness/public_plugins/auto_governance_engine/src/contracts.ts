@@ -5,6 +5,39 @@ export interface AutoGovernanceRouteSnapshot {
   readonly gateIds: readonly string[]
 }
 
+export interface AutoGovernanceRouteCandidateReceipt {
+  readonly id: string
+  readonly relevance?: number
+  readonly reasons: readonly string[]
+}
+
+export interface AutoGovernanceRouteDecisionReceipt {
+  readonly schema: 'auto-governance.route-decision.v0.1'
+  readonly phase: 'analysis' | 'implementation'
+  readonly queryPreview: string
+  readonly queryHash: string
+  readonly seeds: {
+    readonly architecture: readonly AutoGovernanceRouteCandidateReceipt[]
+    readonly rule: readonly AutoGovernanceRouteCandidateReceipt[]
+    readonly knowledge: readonly AutoGovernanceRouteCandidateReceipt[]
+    readonly gate: readonly AutoGovernanceRouteCandidateReceipt[]
+  }
+  readonly selected: AutoGovernanceRouteSnapshot
+  readonly trace: readonly {
+    readonly kind: 'architecture' | 'rule' | 'knowledge' | 'gate'
+    readonly id: string
+    readonly source: 'semantic-search' | 'explicit-relation'
+    readonly depth: number
+    readonly fromId?: string
+  }[]
+  readonly omissions: readonly {
+    readonly id: string
+    readonly reason: 'invalid-id' | 'missing-target' | 'project-mismatch' | 'kind-mismatch' | 'budget'
+    readonly fromId?: string
+  }[]
+  readonly contextContributionIds: readonly string[]
+}
+
 export interface AutoGovernanceContextContributionReceipt {
   readonly providerId: string
   readonly contributionId: string
@@ -39,6 +72,7 @@ export interface AutoGovernanceTaskStatus {
   readonly codeChangeEpoch: number
   readonly codeChangeSeen: boolean
   readonly route: AutoGovernanceRouteSnapshot
+  readonly routeDecision?: AutoGovernanceRouteDecisionReceipt
   readonly contextContributions: readonly AutoGovernanceContextContributionReceipt[]
   readonly applicableGateIds: readonly string[]
   readonly pendingReviews: readonly AutoGovernancePendingReview[]
