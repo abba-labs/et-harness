@@ -103,6 +103,13 @@ export const createFrozenRuntimeAccess = ({ releasePointerPath }) => {
     async resolveProject(workspacePath) {
       return (await runtimeModule()).resolveProject(workspacePath)
     },
+    async projectBootstrap(workspacePath) {
+      const module = await runtimeModule()
+      if (typeof module.projectBootstrap !== 'function') {
+        throw new Error('Frozen Runtime artifact does not expose project Architecture bootstrap')
+      }
+      return module.projectBootstrap(workspacePath)
+    },
     async openTurn(input) {
       return (await portFor(input.workspacePath)).openTurn(input)
     },

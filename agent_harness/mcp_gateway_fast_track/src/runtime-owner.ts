@@ -31,6 +31,7 @@ import {
   type ExecutionEventStoreV01,
   type HostCapabilityContractV01,
 } from '@agent-harness/execution-supervisor'
+import { buildProjectBootstrap } from './project-bootstrap.js'
 
 interface DisposableFiber { dispose(): Promise<void> | void }
 
@@ -176,6 +177,23 @@ class PureMcpRuntimeOwner {
   runtimePort(): GovernanceHostRuntimePortV01 {
     if (!this.port) throw new Error('Pure MCP Runtime owner is not ready')
     return this.port
+  }
+
+  async projectBootstrap(workspacePath: string) {
+    const selected = await selectProjectBinding(this.config, workspacePath)
+    const projectManager = this.context.get('projectManager')
+    const architectureNavigator = this.context.get('architectureNavigator')
+    if (!projectManager || !architectureNavigator) {
+      throw new Error('Project Architecture bootstrap services are not ready')
+    }
+    const project = projectManager.getProjectContext(selected.projectId)
+    if (!project) throw new Error(`Project disappeared during Architecture bootstrap: ${selected.projectId}`)
+
+    // Project understanding is a bounded read-only bootstrap. Refresh only the
+    // Architecture index so a stale Agent context cannot silently survive a
+    // project-map change. No task, Ledger, Event Store or Closure state is opened.
+    architectureNavigator.refreshProject(project.projectId)
+    return buildProjectBootstrap(project, architectureNavigator)
   }
 
   async ingestTrustedValidationSpan(input: TrustedValidationSpanInput) {
@@ -452,6 +470,10 @@ export const createPureMcpRuntimeModule = (deploymentConfigPath: string) => {
     async resolveProject(workspacePath: string) {
       const selected = await selectProjectBinding(await config(), workspacePath)
       return { workspacePath: selected.workspacePath, projectId: selected.projectId }
+    },
+    async projectBootstrap(workspacePath: string) {
+      const selected = await selectProjectBinding(await config(), workspacePath)
+      return (await owner()).projectBootstrap(selected.workspacePath)
     },
     async createGovernanceHostRuntimePort(input: { cwd: string }) {
       await selectProjectBinding(await config(), input.cwd)

@@ -21,6 +21,7 @@ import {
   createGovernanceController,
   governanceToolError,
 } from './governance.mjs'
+import { createProjectAdmissionController } from './project-admission.mjs'
 import { createFrozenRuntimeAccess } from './runtime-release.mjs'
 import {
   createTrustedCheckpointController,
@@ -28,7 +29,7 @@ import {
 } from './trusted-checkpoint.mjs'
 
 export const MCP_INSTRUCTIONS =
-  'For governed work, call harness_begin first. Read required filesystem mustRead only with harness_read_required. Follow ruleOwners/writeScope; use harness_observe for facts and harness_preflight before mutations. Use harness_checkpoint to run frozen validations and emit trusted evidence. Query harness_status, then harness_complete with truthful reflection. Never submit PASS, receipts, provider IDs, commands, raw events, or self-declare COMPLETE. Do not expose Runtime, Ledger, auth, or raw Closure data.'
+  'For governed work, copy human-declared project into harness_begin.project. If PROJECT_CONTEXT_REQUIRED, inspect bounded Architecture bootstrap and call harness_begin again with returned projectContextFingerprint plus structured taskIntent. Then follow mustRead/ruleOwners/writeScope; use harness_observe, harness_preflight and harness_checkpoint; check harness_status before harness_complete. Never submit PASS, receipts, provider IDs, commands, raw events, or self-declare COMPLETE.'
 
 const CONFIG_URL = new URL('../config/gateway.local.json', import.meta.url)
 
@@ -116,11 +117,23 @@ const createProtocolServer = (governance) => {
     {
       title: 'Begin an ET Harness governed task',
       description:
-        'Resolve workspacePath to a configured project, open one existing Runtime Turn, invoke the existing Project Context Contributor, and return bounded structured Task Context.',
+        'Admit the human-declared project, require bounded Architecture bootstrap when project context is absent or stale, require Agent-structured TaskIntent, then open the existing governed Runtime Turn.',
       inputSchema: {
         workspacePath: z.string().min(1).max(1024),
+        project: z.string().min(1).max(160),
         intent: z.string().min(1).max(8000),
         requestedTaskId: z.string().min(1).max(160).optional(),
+        projectContextFingerprint: z.string().min(1).max(128).optional(),
+        taskIntent: z.object({
+          schema: z.literal('et-harness.task-intent.v0.1'),
+          taskType: z.string().min(1).max(96),
+          objective: z.string().min(1).max(1600),
+          entities: z.array(z.object({
+            kind: z.string().min(1).max(96),
+            id: z.string().min(1).max(96),
+          })).max(24),
+          constraints: z.array(z.string().min(1).max(800)).max(24).optional(),
+        }).optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -315,11 +328,15 @@ export const createGatewayServer = async (overrides = {}) => {
       snapshotStore: createFileSnapshotStore(options.taskSnapshotRoot),
       projects: options.projects,
     })
+    const admitted = createProjectAdmissionController({
+      baseGovernance: base,
+      runtimeAccess,
+    })
     const trusted = createTrustedCheckpointController({
       runtimeAccess,
       taskSnapshotRoot: options.taskSnapshotRoot,
     })
-    governance = Object.freeze({ ...base, ...trusted })
+    governance = Object.freeze({ ...admitted, ...trusted })
   }
   const transports = new Map()
   const protocolServers = new Map()

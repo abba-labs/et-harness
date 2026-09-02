@@ -39,6 +39,7 @@ export const localPackageAliases = Object.freeze(
 )
 
 export const runtimeOwnerEntry = resolve(packageRoot, 'src', 'runtime-owner.ts')
+export const runtimeBootstrapEntry = resolve(packageRoot, 'src', 'project-bootstrap.ts')
 export const atpProjectPluginEntry = resolve(
   repositoryRoot,
   'agent_harness',
@@ -65,6 +66,7 @@ export const runtimeSourceFiles = () => {
   packageDirectories.add(resolve(atpProjectPluginEntry, '..', '..'))
   const files = [
     runtimeOwnerEntry,
+    runtimeBootstrapEntry,
     resolve(packageRoot, 'package.json'),
     resolve(packageRoot, 'package-lock.json'),
     resolve(packageRoot, 'scripts', 'freeze-runtime.mjs'),
