@@ -12,6 +12,7 @@ const session = (
   status: ContextSession['status'],
   refs: readonly string[],
   openIssue: string,
+  closedTurn = false,
 ): ContextSession => ({
   projectId: 'p1',
   taskId,
@@ -33,6 +34,7 @@ const session = (
     updatedAt: '2026-09-02T00:00:00.000Z',
   },
   progressLedger: {
+    ...(closedTurn ? { lastAction: 'Close governed Turn TURN-1' } : {}),
     touchedRefs: [...refs],
     currentProblem: openIssue,
     blockers: [],
@@ -55,7 +57,7 @@ const record = (value: ContextSession, version = 3) => ({
 })
 
 describe('cross-task Context continuity', () => {
-  it('inherits only relevant completed/paused task facts and open issues', () => {
+  it('inherits only relevant completed/paused or closed-turn task facts and open issues', () => {
     const references: ContextReference[] = [{ kind: 'architecture', id: 'A010.020', priority: 'high' }]
     const items = selectRelevantContextHistory({
       projectId: 'p1',
@@ -63,17 +65,19 @@ describe('cross-task Context continuity', () => {
       references,
       records: [
         record(session('TASK-RELATED', 'COMPLETED', ['architecture://project/p1/A010.020'], 'Carry this issue forward')),
+        record(session('TASK-CLOSED-TURN', 'ACTIVE', ['A010.020'], 'Turn-closed issue must be inherited', true)),
         record(session('TASK-UNRELATED', 'COMPLETED', ['A099'], 'Do not inherit this issue')),
-        record(session('TASK-ACTIVE', 'ACTIVE', ['A010.020'], 'Do not inherit active task state')),
+        record(session('TASK-ACTIVE', 'ACTIVE', ['A010.020'], 'Do not inherit live active task state')),
       ],
     })
 
-    expect(items).toHaveLength(1)
-    expect(items[0]?.id).toBe('prior-context-TASK-RELATED')
-    expect(items[0]?.content).toContain('Carry this issue forward')
-    expect(items[0]?.content).toContain('Confirmed TASK-RELATED')
-    expect(items[0]?.content).not.toContain('Do not inherit this issue')
-    expect(items[0]?.provenance).toBe('context://project/p1/task/TASK-RELATED/state/3')
+    expect(items).toHaveLength(2)
+    expect(items.map(item => item.id)).toContain('prior-context-TASK-RELATED')
+    expect(items.map(item => item.id)).toContain('prior-context-TASK-CLOSED-TURN')
+    expect(items.map(item => item.id)).not.toContain('prior-context-TASK-ACTIVE')
+    expect(items.some(item => item.content.includes('Carry this issue forward'))).toBe(true)
+    expect(items.some(item => item.content.includes('Turn-closed issue must be inherited'))).toBe(true)
+    expect(items.every(item => !item.content.includes('Do not inherit live active task state'))).toBe(true)
   })
 
   it('does not inherit when the current route has no shared refs', () => {
