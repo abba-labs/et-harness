@@ -57,7 +57,7 @@ const record = (value: ContextSession, version = 3) => ({
 })
 
 describe('cross-task Context continuity', () => {
-  it('inherits only relevant completed/paused or closed-turn task facts and open issues', () => {
+  it('inherits only relevant completed/paused or legacy closed-turn task facts and open issues', () => {
     const references: ContextReference[] = [{ kind: 'architecture', id: 'A010.020', priority: 'high' }]
     const items = selectRelevantContextHistory({
       projectId: 'p1',
@@ -68,6 +68,7 @@ describe('cross-task Context continuity', () => {
         record(session('TASK-CLOSED-TURN', 'ACTIVE', ['A010.020'], 'Turn-closed issue must be inherited', true)),
         record(session('TASK-UNRELATED', 'COMPLETED', ['A099'], 'Do not inherit this issue')),
         record(session('TASK-ACTIVE', 'ACTIVE', ['A010.020'], 'Do not inherit live active task state')),
+        record(session('TASK-ABORTED', 'ABORTED', ['A010.020'], 'Do not inherit aborted task state')),
       ],
     })
 
@@ -75,9 +76,34 @@ describe('cross-task Context continuity', () => {
     expect(items.map(item => item.id)).toContain('prior-context-TASK-RELATED')
     expect(items.map(item => item.id)).toContain('prior-context-TASK-CLOSED-TURN')
     expect(items.map(item => item.id)).not.toContain('prior-context-TASK-ACTIVE')
+    expect(items.map(item => item.id)).not.toContain('prior-context-TASK-ABORTED')
     expect(items.some(item => item.content.includes('Carry this issue forward'))).toBe(true)
     expect(items.some(item => item.content.includes('Turn-closed issue must be inherited'))).toBe(true)
     expect(items.every(item => !item.content.includes('Do not inherit live active task state'))).toBe(true)
+    expect(items.every(item => !item.content.includes('Do not inherit aborted task state'))).toBe(true)
+  })
+
+  it('keeps bounded source-backed facts after a task-level route match', () => {
+    const prior = session('TASK-SOURCE-FACTS', 'COMPLETED', ['A010.020'], 'Driver result needs follow-up')
+    prior.taskLedger.confirmed = [{
+      text: 'Source-backed hardware fact',
+      refs: ['source://firmware/svd/ET6801.svd'],
+    }]
+    prior.taskLedger.openIssues = [{
+      text: 'Source-backed driver gap',
+      refs: ['source://firmware/driver/srpwm.c'],
+    }]
+
+    const items = selectRelevantContextHistory({
+      projectId: 'p1',
+      currentTaskId: 'TASK-NOW',
+      references: [{ kind: 'architecture', id: 'A010.020' }],
+      records: [record(prior)],
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0]?.content).toContain('Source-backed hardware fact')
+    expect(items[0]?.content).toContain('Source-backed driver gap')
   })
 
   it('does not inherit when the current route has no shared refs', () => {
