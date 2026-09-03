@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import math
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -26,6 +28,33 @@ class DebugAction:
     requested_hold_s: float | None = None
 
 
+# Profile提供停核状态位和只读采样地址；公共控制器不包含芯片或IP寄存器布局。
+@dataclass(frozen=True, slots=True)
+class HaltSampleSpec:
+    status_address: int
+    halted_mask: int
+    register_addresses: tuple[int, ...]
+
+
+# 两组原始读数均来自停核期间；interval_s为探针请求等待时间，不是进程运行时间。
+@dataclass(frozen=True, slots=True)
+class HaltSamples:
+    before: tuple[int, ...]
+    after: tuple[int, ...]
+    halt_status: tuple[int, ...]
+    resumed_status: int
+    interval_s: float
+    action: DebugAction
+
+
+# 只接受按命令顺序返回的单字32位读数，缺失、重复或地址错位均拒绝。
+def _parse_debug_words(text: str, addresses: tuple[int, ...]) -> tuple[int, ...]:
+    rows = re.findall(r"^\s*([0-9a-fA-F]{8})\s*=\s*([0-9a-fA-F]{8})\s*$", text, re.MULTILINE)
+    if tuple(int(address, 16) for address, _ in rows) != addresses:
+        raise TransportError("J-Link halted sampling returned missing or mismatched register reads")
+    return tuple(int(value, 16) for _, value in rows)
+
+
 # 定义 Formal Case 可依赖的最小调试控制语义；实现不得把软件等待冒充 Debugger Halt。
 @runtime_checkable
 class DebugController(Protocol):
@@ -41,6 +70,9 @@ class DebugController(Protocol):
 
     # 在同一调试会话内暂停目标指定时长并恢复，避免探针断开改变CPU暂停状态。
     def hold_for(self, duration_s: float) -> DebugAction: ...
+
+    # 确认停核，在同一会话读取两组只读寄存器并恢复；不判断IP功能是否通过。
+    def sample_while_halted(self, spec: HaltSampleSpec, duration_s: float) -> HaltSamples: ...
 
 
 # 通过 J-Link Commander 的固定 Halt/Go 命令实现公共 DebugController，不执行其他动作。
@@ -99,6 +131,74 @@ class JLinkDebugController:
             requested_hold_s=duration_s,
             execution_timeout_s=self._command_timeout_s + duration_s,
         )
+
+    # 采样前后都核对停核位；只读地址由已审核Profile提供，禁止传入任意命令。
+    def sample_while_halted(self, spec: HaltSampleSpec, duration_s: float) -> HaltSamples:
+
+        addresses = (spec.status_address, *spec.register_addresses)
+        if (
+            not math.isfinite(duration_s)
+            or duration_s <= 0
+            or not spec.register_addresses
+            or any(
+                type(address) is not int or not 0 <= address <= 0xFFFFFFFC or address % 4
+                for address in addresses
+            )
+            or type(spec.halted_mask) is not int
+            or not 0 < spec.halted_mask <= 0xFFFFFFFF
+        ):
+            raise ValueError(
+                "halted sampling requires aligned 32-bit addresses, a mask and positive duration"
+            )
+
+        # 每组读数由状态读取包围；等待位于两组之间，go只出现在全部采样完成后。
+        interval_ms = max(1, round(duration_s * 1000))
+        snapshot_addresses = (spec.status_address, *spec.register_addresses, spec.status_address)
+        snapshot = "\n".join(f"mem32 0x{address:08X} 1" for address in snapshot_addresses)
+        command = (
+            f"halt\n{snapshot}\nSleep {interval_ms}\n{snapshot}\n"
+            f"go\nmem32 0x{spec.status_address:08X} 1"
+        )
+        try:
+            action = self._run_action(
+                "sample",
+                command,
+                requested_hold_s=interval_ms / 1000,
+                execution_timeout_s=self._command_timeout_s + interval_ms / 1000,
+            )
+            values = _parse_debug_words(
+                action.stdout_path.read_text(encoding="utf-8", errors="replace"),
+                (*snapshot_addresses, *snapshot_addresses, spec.status_address),
+            )
+            size = len(snapshot_addresses)
+            status = (values[0], values[size - 1], values[size], values[2 * size - 1])
+            if any(value & spec.halted_mask != spec.halted_mask for value in status):
+                raise TransportError(f"J-Link CPU was not halted throughout sampling: {status!r}")
+            if values[-1] & spec.halted_mask:
+                raise TransportError(f"J-Link CPU did not resume: status=0x{values[-1]:08X}")
+            return HaltSamples(
+                values[1 : size - 1],
+                values[size + 1 : 2 * size - 1],
+                status,
+                values[-1],
+                interval_ms / 1000,
+                action,
+            )
+        except BaseException as primary:
+            # 工具中止可能没执行go；独立恢复一次并保留恢复失败，不重试采样或复位芯片。
+            try:
+                recovery = self._run_action(
+                    "sample_recover", f"go\nmem32 0x{spec.status_address:08X} 1"
+                )
+                recovered = _parse_debug_words(
+                    recovery.stdout_path.read_text(encoding="utf-8", errors="replace"),
+                    (spec.status_address,),
+                )[0]
+                if recovered & spec.halted_mask:
+                    raise TransportError("CPU remains halted after recovery")
+            except BaseException as recovery_error:
+                primary.add_note(f"CPU resume recovery also failed: {recovery_error}")
+            raise
 
     # 生成受控命令文件并执行一次 J-Link Commander；失败时保留完整日志并明确上抛。
     def _run_action(
@@ -170,4 +270,10 @@ class JLinkDebugController:
         )
 
 
-__all__ = ["DebugAction", "DebugController", "JLinkDebugController"]
+__all__ = [
+    "DebugAction",
+    "DebugController",
+    "HaltSampleSpec",
+    "HaltSamples",
+    "JLinkDebugController",
+]
