@@ -14,6 +14,7 @@ from .framework_communication.case_registry import FRAMEWORK_COMMUNICATION_CASE_
 from .ipcm.case_registry import IPCM_CASE_REGISTRY
 from .spinlock.case_registry import SPINLOCK_CASE_REGISTRY
 from .stimer.case_registry import STIMER_CASE_REGISTRY
+from .syscnt.case_registry import SYSCNT_CASE_REGISTRY
 from .uart.case_registry import UART_CASE_REGISTRY
 from .wdg.case_registry import WDG_CASE_REGISTRY
 
@@ -32,4 +33,5 @@ IP_REGISTRY = (
     IpRegistration(ip_id="stimer", case_ids=STIMER_CASE_REGISTRY),
     IpRegistration(ip_id="spinlock", case_ids=SPINLOCK_CASE_REGISTRY),
     IpRegistration(ip_id="ipcm", case_ids=IPCM_CASE_REGISTRY),
+    IpRegistration(ip_id="syscnt", case_ids=SYSCNT_CASE_REGISTRY),
 )

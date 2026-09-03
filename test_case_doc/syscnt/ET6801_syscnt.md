@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 05:35 CST。
+更新时间：2026-09-04 06:00 CST。
 
-当前处于Driver实施阶段，尚无SYSCNT烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前固件已编译通过，PC九条原子命令及七条正式Case已实现、正在统一软件验证，尚无SYSCNT烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -129,6 +129,14 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 原始生成与审计位于`artifacts/runs/20260904_syscnt_capability/`，CLI质量检查通过；新增5项专项测试验证真实字段、重命名/换地址、字段缺失和命名歧义，全部通过。能力生成不证明硬件PASS，也不确认实际时钟频率。
 
+### 2.5 PC实施与待测事实
+
+2026-09-04：PC Driver只封装九条原子请求，严格验证实例前缀、长度、保留位和枚举；没有新增公共层逻辑。Case注册为7个逻辑ID，按P0～P3分文件；参数包括六种装载位型、两类回绕边界、每个可用时钟源的五个时间窗口、两种停核策略。P3为20轮短重复，不是20个逻辑Case。
+
+`syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`；SYSCNT各源实际频率尚未确认，因此`SYSCNT_CLOCK_HZ`暂为空，正式Case失败关闭而不是SKIP。部署后先做独立参考频率确认，再填入经确认映射，不将CNTFID0当实际时钟。
+
+16项PC软件合同测试已通过（guard `20260904_055613_fc45c484`），覆盖九条Wire命令、参数边界、非法响应、参考计数回绕和停核读数撕裂；这些不是硬件结果。七条SPEC/REPORT、注册、注释和编排专项检查通过。尚未执行HIL，G02/G05/G07仍未解除。
+
 ## 第三章 寄存器与配置事实
 
 ### 3.1 本IP寄存器
@@ -242,14 +250,14 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 | Public Feature | Hardware | 参数/差异 | Platform | Public Case |
 |---|---|---|---|---|
-| SYSCNT_F_001 | SUPPORTED | CTRL窗口32+32位，停止后低→高装载；旧API有自动启动副作用 | IMPLEMENTATION_GAP | SYSCNT_P0_001、SYSCNT_P3_001 |
-| SYSCNT_F_002 | SUPPORTED | CNTCR.EN bit0；旧start清零不能用于resume | IMPLEMENTATION_GAP | SYSCNT_P0_002、SYSCNT_P3_001 |
-| SYSCNT_F_003 | SUPPORTED | SVD声明64位递增计数；边界实测仍未执行 | IMPLEMENTATION_GAP | SYSCNT_P1_001 |
-| SYSCNT_F_004 | SUPPORTED | 两个窗口指向同一计数，运行读数需连贯性保护 | IMPLEMENTATION_GAP | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
-| SYSCNT_F_005 | SUPPORTED | CNTFID0.FREQ是信息登记，不改变输入频率 | IMPLEMENTATION_GAP | SYSCNT_P1_002 |
-| SYSCNT_F_006 | SUPPORTED | CNTCR.HDBG、CNTSR.DBGH及SYSC.SCNT路由；FPGA响应未验证 | IMPLEMENTATION_GAP | SYSCNT_P2_002 |
-| SYSCNT_F_007 | SUPPORTED | Tick计时；参考频率和当前FPGA时钟映射G02/G06待闭合 | IMPLEMENTATION_GAP | SYSCNT_P2_001 |
-| SYSCNT_F_008 | SUPPORTED | SYSC.CLK_SCNT.bit0选择两路；当前FPGA两路物理实现需确认 | IMPLEMENTATION_GAP | SYSCNT_P2_001 |
+| SYSCNT_F_001 | SUPPORTED | CTRL窗口32+32位，停止后低→高装载；旧API有自动启动副作用 | PARTIAL_ADAPTATION | SYSCNT_P0_001、SYSCNT_P3_001 |
+| SYSCNT_F_002 | SUPPORTED | CNTCR.EN bit0；旧start清零不能用于resume | PARTIAL_ADAPTATION | SYSCNT_P0_002、SYSCNT_P3_001 |
+| SYSCNT_F_003 | SUPPORTED | SVD声明64位递增计数；边界实测仍未执行 | PARTIAL_ADAPTATION | SYSCNT_P1_001 |
+| SYSCNT_F_004 | SUPPORTED | 两个窗口指向同一计数，运行读数需连贯性保护 | PARTIAL_ADAPTATION | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
+| SYSCNT_F_005 | SUPPORTED | CNTFID0.FREQ是信息登记，不改变输入频率 | PARTIAL_ADAPTATION | SYSCNT_P1_002 |
+| SYSCNT_F_006 | SUPPORTED | CNTCR.HDBG、CNTSR.DBGH及SYSC.SCNT路由；FPGA响应未验证 | PARTIAL_ADAPTATION | SYSCNT_P2_002 |
+| SYSCNT_F_007 | SUPPORTED | Tick计时；参考频率和当前FPGA时钟映射G02/G06待闭合 | PARTIAL_ADAPTATION | SYSCNT_P2_001 |
+| SYSCNT_F_008 | SUPPORTED | SYSC.CLK_SCNT.bit0选择两路；当前FPGA两路物理实现需确认 | PARTIAL_ADAPTATION | SYSCNT_P2_001 |
 
 SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明不得因读数异常被静默改成较小位宽以规避FAIL。
 
@@ -257,13 +265,13 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| SYSCNT_P0_001 | IMPLEMENTATION_GAP | 缺停止装载、双窗口读取和自动化链路；G01基线批准、G03测试扩展。 |
-| SYSCNT_P0_002 | IMPLEMENTATION_GAP | 缺不清零的Enable/Resume；G01/G03。 |
-| SYSCNT_P1_001 | IMPLEMENTATION_GAP | 缺有界连贯读取；G01/G02/G03。 |
-| SYSCNT_P1_002 | IMPLEMENTATION_GAP | 缺独立频率标识设置与读回；G01/G03。 |
-| SYSCNT_P2_001 | IMPLEMENTATION_GAP | 缺时钟源接口适配和短参考采样；G01/G02/G06，不能以固定频率开始HIL。 |
-| SYSCNT_P2_002 | IMPLEMENTATION_GAP | 缺本IP暂停配置/系统路由映射与调试观测映射；G01/G03/G05。 |
-| SYSCNT_P3_001 | IMPLEMENTATION_GAP | 依赖已闭合的P0原子动作；G01/G03。 |
+| SYSCNT_P0_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P0_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P1_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P1_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P2_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P2_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P3_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
 
 ### 6.1 实施前必须裁决的Gap
 

@@ -2,7 +2,7 @@
 
 更新时间：2026-09-04 04:57 CST。
 
-本文件是SYSCNT公共测试设计，不是已实现或已实测声明。7条Case全部为PLAN；硬件事实、历史资料处置及实施前缺口见同目录芯片文档。遵循R100、R110、R120、R130、R140，不新增规则。
+本文件定义SYSCNT公共测试契约。7条Case已实现并注册，尚未形成HIL结论；硬件事实、历史资料处置及待确认映射见同目录芯片文档。遵循R100、R110、R120、R130、R140，不新增规则。
 
 ## 0. Stable IP Contract
 
@@ -101,13 +101,13 @@ Feature flags依次对应计数使能、停止装载、双窗口读取、频率�
 
 | Case ID | 测试名称 | 等级 | 核心方法 | 最低资源 | 当前状态 |
 |---|---|---|---|---|---|
-| SYSCNT_P0_001 | 停止装载与双窗口读回 | P0 | 6类位型停止装载，两个窗口精确比对 | R0 | PLANNED |
-| SYSCNT_P0_002 | 启停与续计数 | P0 | 运行增加→停止不变→继续增加且不清零 | R0 | PLANNED |
-| SYSCNT_P1_001 | 低字进位与最大值回绕 | P1 | 两个边界附近装载，运行态跨边界读取 | R0 | PLANNED |
-| SYSCNT_P1_002 | 频率标识设置与读取 | P1 | 停止时设置2个合法非零标识，读回且计数不变 | R0 | PLANNED |
-| SYSCNT_P2_001 | 时钟源与独立参考计时 | P2 | 每个支持时钟源下10/50/100/1000/10000ms窗口，对比参考计数 | R0 | PLANNED |
-| SYSCNT_P2_002 | CPU停核时的计数策略 | P2 | PAUSE/RUN_FREE下真实Halt并在停核期间读取 | R4 | PLANNED |
-| SYSCNT_P3_001 | 20轮装载启停重复验证 | P3 | 固定20轮短流程，每轮重新建立基线 | R0 | PLANNED |
+| SYSCNT_P0_001 | 停止装载与双窗口读回 | P0 | 6类位型停止装载，两个窗口精确比对 | R0 | IMPLEMENTED |
+| SYSCNT_P0_002 | 启停与续计数 | P0 | 运行增加→停止不变→继续增加且不清零 | R0 | IMPLEMENTED |
+| SYSCNT_P1_001 | 低字进位与最大值回绕 | P1 | 两个边界附近装载，运行态跨边界读取 | R0 | IMPLEMENTED |
+| SYSCNT_P1_002 | 频率标识设置与读取 | P1 | 停止时设置2个合法非零标识，读回且计数不变 | R0 | IMPLEMENTED |
+| SYSCNT_P2_001 | 时钟源与独立参考计时 | P2 | 每个支持时钟源下10/50/100/1000/10000ms窗口，对比参考计数 | R0 | IMPLEMENTED |
+| SYSCNT_P2_002 | CPU停核时的计数策略 | P2 | PAUSE/RUN_FREE下真实Halt并在停核期间读取 | R4 | IMPLEMENTED |
+| SYSCNT_P3_001 | 20轮装载启停重复验证 | P3 | 固定20轮短流程，每轮重新建立基线 | R0 | IMPLEMENTED |
 
 统计：8个Feature、7条逻辑Case，P0=2、P1=2、P2=2、P3=1。6条R0使用片内数字资源，1条R4使用现有外部调试仪器；现有7条不需要示波器、逻辑分析仪或新增引脚连线。历史外部脉冲测时尚未由这7条完整覆盖，见第5节。全部Case未实现、未执行，不统计为PASS/FAIL/SKIP；20轮属于单Case内部重复，不计20条Case。
 
@@ -115,10 +115,9 @@ Feature flags依次对应计数使能、停止装载、双窗口读取、频率�
 
 ### SYSCNT_P0_001：停止装载与双窗口读回
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P0_001
 case_name: 停止装载与双窗口读回
 report_feature: |-
@@ -154,17 +153,16 @@ failure_observations:
   - {key: expected_count, label: 期望装载计数, source: oracle, role: expected, format: hex64}
   - {key: control_count, label: CONTROL窗口计数, source: dut, role: actual, format: hex64, semantic_ref: syscnt.feature.counter}
   - {key: read_count, label: READ窗口计数, source: dut, role: actual, format: hex64, semantic_ref: syscnt.feature.counter}
-  - {key: enabled, label: 计数使能, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.counter_enable}
-gap: [implementation_gap, baseline_mapping_review]
+  - {key: enabled, label: 计数使能, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.counter}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P0_002：启停与续计数
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P0_002
 case_name: 启停与续计数
 report_feature: |-
@@ -199,16 +197,15 @@ failure_observations:
   - {key: stopped_count, label: 停止计数, source: dut, role: actual, format: hex64}
   - {key: held_count, label: 停止后复读计数, source: dut, role: actual, format: hex64}
   - {key: resumed_count, label: 恢复计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, baseline_mapping_review]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P1_001：低字进位与最大值回绕
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P1_001
 case_name: 低字进位与最大值回绕
 report_feature: |-
@@ -218,13 +215,13 @@ p_level: P1
 feature_refs: [SYSCNT_F_003, SYSCNT_F_004]
 method:
   inputs:
-    - 边界矩阵：分别选择低字进位边界和完整有效位回绕边界；起点为边界前K个Tick，K=ceil(actual_clock_hz/20)，两类独立参数化。
+    - 边界矩阵：分别选择低字进位边界和完整有效位回绕边界；起点为边界前K个Tick，K=max(1,floor(actual_clock_hz/20))，两类独立参数化。
     - 采样约束：Capability给出计数位宽和字宽；两种边界、读数间最大时间及频率共同限定合法增量，不能从本次异常读数反推容差。
   steps:
     - 基线与选点：重建停止基线，检查counter_bits大于低字宽且K小于边界跨度。
     - 边界前装载：写入本次起点，读取两个窗口均等于Expected后才开始计数。
-    - 运行态采样：在1秒内交替读取两个窗口的连贯计数，记录顺序和PC采样时间界限，不人为停止以避开读数撕裂。
-    - 跨边界等待：低字场景等待高字增加，最大值场景等待模M后的低计数；发现异常仍保存已有样本。
+    - 跨界窗口：启动后连续运行约100ms，跨过约50ms余量；等待只形成采样窗口，不用于伪造实际计数。
+    - 运行态采样：在1秒总预算内依次读取READ与CONTROL的连贯计数，记录顺序；两次读数时均不停止计数器。
     - 终态采集：停止计数、等待窗口稳定，分别读取COUNT.CONTROL和COUNT.READ。
     - 数学判定：PC按初值与模M展开序列，检查确实跨越目标边界、无不合理倒退或整字跳变，最后两个窗口相等。
     - 参数汇总：两类边界都执行并记录原始采样序列，任何一类未跨界或数据异常都不能PASS。
@@ -235,26 +232,25 @@ method:
     - 边界确实触发：两类参数均取得真实边界前装载读数和边界后运行读数。
     - 增量合法：模M展开后不倒退，增量不超过由采样时间上界和经确认最高频率给出的上限。
     - 窗口一致：停止稳定后的两个计数值完全一致。
-timeout: 每个边界PC统一deadline为2秒，其中跨界观测窗口最多1秒。
+timeout: 每个边界PC统一deadline为1秒，包含约100ms跨界观测窗口。
 cleanup: [停止计数并重新装载基线，资源池整池复位。]
 resources: {minimum_level: R0, full_coverage_level: R0, board: 无新增接线, bench: 无外部设备}
 backend: [FPGA, Silicon]
 evidence: [canonical observations, 有序运行样本与模数展开结果附件]
 failure_observations:
-  - {key: initial_count, label: 跨界前计数, source: dut, role: actual, format: hex64}
-  - {key: after_boundary_count, label: 跨界后计数, source: dut, role: actual, format: hex64}
-  - {key: final_control_count, label: 停止后CONTROL计数, source: dut, role: actual, format: hex64}
-  - {key: final_read_count, label: 停止后READ计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, coherent_read_extension, clock_mapping, baseline_mapping_review]
+  - {key: loaded_count, label: 跨界前计数, source: dut, role: actual, format: hex64}
+  - {key: running_count, label: 跨界后计数, source: dut, role: actual, format: hex64}
+  - {key: stopped_control, label: 停止后CONTROL计数, source: dut, role: actual, format: hex64}
+  - {key: stopped_count, label: 停止后READ计数, source: dut, role: actual, format: hex64}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P1_002：频率标识设置与读取
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P1_002
 case_name: 频率标识设置与读取
 report_feature: |-
@@ -286,16 +282,15 @@ failure_observations:
   - {key: expected_frequency_id, label: 期望频率标识, source: oracle, role: expected, format: hex32}
   - {key: frequency_id, label: 硬件频率标识, source: dut, role: actual, format: hex32, semantic_ref: syscnt.feature.frequency_id}
   - {key: count, label: 停止计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, baseline_mapping_review]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P2_001：时钟源与独立参考计时
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P2_001
 case_name: 时钟源与独立参考计时
 report_feature: |-
@@ -333,16 +328,15 @@ failure_observations:
   - {key: count_before, label: 起点计数, source: dut, role: actual, format: hex64}
   - {key: count_after, label: 终点计数, source: dut, role: actual, format: hex64}
   - {key: reference_count, label: 独立参考计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, reference_sample_extension_review, clock_mapping, baseline_mapping_review]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P2_002：CPU停核时的计数策略
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P2_002
 case_name: CPU停核时的计数策略
 report_feature: |-
@@ -379,16 +373,15 @@ failure_observations:
   - {key: debug_halted, label: SYSCNT实际暂停状态, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.debug_halt}
   - {key: halted_count_before, label: 停核起点计数, source: dut, role: actual, format: hex64}
   - {key: halted_count_after, label: 停核终点计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, halt_execution_mapping, baseline_mapping_review]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SYSCNT_P3_001：20轮装载启停重复验证
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SYSCNT_P3_001
 case_name: 20轮装载启停重复验证
 report_feature: |-
@@ -420,17 +413,15 @@ resources: {minimum_level: R0, full_coverage_level: R0, board: 无新增接线, 
 backend: [FPGA, Silicon]
 evidence: [canonical observations, 20轮逐轮原始计数附件与完成轮数Measurement]
 failure_observations:
-  - {key: loaded_count, label: 本轮装载计数, source: dut, role: actual, format: hex64}
-  - {key: running_count, label: 本轮运行计数, source: dut, role: actual, format: hex64}
-  - {key: stopped_count, label: 本轮停止计数, source: dut, role: actual, format: hex64}
-  - {key: held_count, label: 本轮保持计数, source: dut, role: actual, format: hex64}
-gap: [implementation_gap, baseline_mapping_review]
+  - {key: rounds_completed, label: 已取得证据轮数, source: oracle, role: actual, format: decimal}
+  - {key: final_count, label: 本轮停止CONTROL计数, source: dut, role: actual, format: hex64}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### 3.1 实现阶段的报告字段选择
 
-当前无SPEC，不提前添加ET_CASE_REPORT。以下是实现时应绑定的1～4项展示内容，不是第二套机器Schema；完整硬件Observation仍按各PLAN记录，PASS与FAIL使用相同字段。
+下列ET_CASE_REPORT只绑定代码实际保存的字段；完整硬件Observation按各SPEC记录，PASS与FAIL使用相同字段。
 
 | Case | 简短备注主题 | 建议展示字段 |
 |---|---|---|
@@ -444,15 +435,69 @@ gap: [implementation_gap, baseline_mapping_review]
 
 派生误差/差值/比较结果使用Measurement或已绑定Artifact，不能标为硬件寄存器。参数化Case按参数分别保留原子事实再聚合，不把不同端点拼成一个Observation。
 
+<!-- ET_CASE_REPORT_BEGIN -->
+```yaml
+schema: et.case-report-note.v1
+cases:
+  SYSCNT_P0_001:
+    summary: 停止装载后核对双窗口与ENABLE。
+    fields:
+      - {source: measurement, path: expected_count, label: 装载输入, format: hex64, aggregate: all}
+      - {source: observation, path: control_count, label: CONTROL计数, format: hex64, aggregate: all}
+      - {source: observation, path: read_count, label: READ计数, format: hex64, aggregate: all}
+      - {source: observation, path: enabled, label: 计数使能, format: bool, aggregate: all}
+  SYSCNT_P0_002:
+    summary: 核对运行、停止保持及续计数。
+    fields:
+      - {source: observation, path: running_count, label: 运行计数, format: hex64, aggregate: all}
+      - {source: observation, path: stopped_count, label: 停止计数, format: hex64, aggregate: all}
+      - {source: observation, path: held_count, label: 保持计数, format: hex64, aggregate: all}
+      - {source: observation, path: resumed_count, label: 恢复计数, format: hex64, aggregate: all}
+  SYSCNT_P1_001:
+    summary: 核对自然跨界及停止后的双窗口一致性。
+    fields:
+      - {source: observation, path: loaded_count, label: 跨界前计数, format: hex64, aggregate: all}
+      - {source: observation, path: running_count, label: 跨界后计数, format: hex64, aggregate: all}
+      - {source: observation, path: stopped_control, label: 停止CONTROL计数, format: hex64, aggregate: all}
+      - {source: observation, path: stopped_count, label: 停止READ计数, format: hex64, aggregate: all}
+  SYSCNT_P1_002:
+    summary: 登记两个频率标识后恢复，检查计数没有被启动。
+    fields:
+      - {source: measurement, path: expected_frequency_id, label: 输入标识, format: hex32, aggregate: all}
+      - {source: observation, path: frequency_id, label: 实际标识, format: hex32, aggregate: all}
+      - {source: observation, path: count, label: 停止计数, format: hex64, aggregate: all}
+      - {source: observation, path: enabled, label: 计数使能, format: bool, aggregate: all}
+  SYSCNT_P2_001:
+    summary: 用独立参考夹取SYSCNT计时区间。
+    fields:
+      - {source: observation, path: clock_source, label: 时钟选择, format: decimal, aggregate: all}
+      - {source: measurement, path: measured_s, label: 实际计时秒数, format: decimal, aggregate: all}
+      - {source: measurement, path: worst_error_s, label: 最坏误差秒数, format: decimal, aggregate: all}
+      - {source: measurement, path: uncertainty_s, label: 采样区间宽度秒数, format: decimal, aggregate: all}
+  SYSCNT_P2_002:
+    summary: 真实CPU停核期间核对暂停状态与计数。
+    fields:
+      - {source: observation, path: cpu_halted, label: CPU停核, format: bool, aggregate: all}
+      - {source: observation, path: debug_halted, label: SYSCNT暂停状态, format: bool, aggregate: all}
+      - {source: observation, path: halted_count_before, label: 停核起点计数, format: hex64, aggregate: all}
+      - {source: observation, path: halted_count_after, label: 停核终点计数, format: hex64, aggregate: all}
+  SYSCNT_P3_001:
+    summary: 逐轮核对装载、运行、保持和双窗口。
+    fields:
+      - {source: measurement, path: rounds_completed, label: 已执行轮数, format: decimal, aggregate: all}
+      - {source: observation, path: final_count, label: 本轮停止CONTROL计数, format: hex64, aggregate: all}
+```
+<!-- ET_CASE_REPORT_END -->
+
 ## 4. Chip Adaptation Summary
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=8 | IMPLEMENTATION_GAP=7 | 复位基线、时钟事实和停核映射待裁决；尚未实现公共测试链路 | `ET6801_syscnt.md` |
+| ET6801 | PARTIAL_ADAPTATION=8 | MAPPING_GAP=7 | 七条Case代码已实现但HIL未执行；时钟G02和停核G05仍须独立确认 | `ET6801_syscnt.md` |
 
 ## 5. Common Gap / Evolution
 
-- `implementation_gap`：本轮没有PC Driver/Case、Firmware Service/Wrap或运行注册，不把PLAN算成已实现。
+- `implementation_gap`：七条SPEC已经具有Driver、Case、Service、Wrap与注册；当前代码完成不等于硬件PASS。
 - `baseline_mapping_review`：没有独立复位的目标必须先批准可证明的状态归一基线；禁止用错误CRG编号凑齐流程。
 - `coherent_read_extension`：需要有界连贯读取，防止低字进位时读数撕裂。
 - `clock_mapping`：实际Tick频率、参考频率与可用源必须来自目标事实；不能采用历史固定频率或由待测值校准自身。
@@ -460,4 +505,4 @@ gap: [implementation_gap, baseline_mapping_review]
 - `halt_execution_mapping`：复用已有调试器能力；需明确CPU停核到计数暂停请求的实际连接，不能继承其他定时器的HIL结论。
 - `external_timing_observation`：历史外部脉冲测时与片内参考比较不是等价证据。外部参考时间基准、脉冲与计数的绑定及误差预算未闭合前，不宣称完整覆盖该测试要求；闭合后使用独立Observer Case承接，不把片内DWT结果当作外部测量。
 
-覆盖结论：8项已确认数字Feature都有PLAN；历史50ms/10s参数已补入同一计时Case。外部脉冲测时仅有Gap，尚无等价Case，因此不能宣称参考资料全部覆盖或整体Implementation Ready。RO窗口写属性、未列入目标SVD的识别寄存器和未证实的独立复位继续在芯片文档保留边界，不以SKIP掩盖缺口。
+覆盖结论：8项已确认数字Feature都有SPEC；历史50ms/10s参数已补入同一计时Case。外部脉冲测时仅有Gap，尚无等价Case，因此不能宣称参考资料全部覆盖或整体Implementation Ready。RO窗口写属性、未列入目标SVD的识别寄存器和未证实的独立复位继续在芯片文档保留边界，不以SKIP掩盖缺口。
