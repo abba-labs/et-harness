@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 06:00 CST。
+更新时间：2026-09-04 06:15 CST。
 
-当前固件已编译通过，PC九条原子命令及七条正式Case已实现、正在统一软件验证，尚无SYSCNT烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前固件已编译通过，PC九条原子命令及七条正式Case已实现并通过统一软件验证；bitfile、BootROM与PFLASH部署通过，正在执行SYSCNT HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -133,7 +133,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 2026-09-04：PC Driver只封装九条原子请求，严格验证实例前缀、长度、保留位和枚举；没有新增公共层逻辑。Case注册为7个逻辑ID，按P0～P3分文件；参数包括六种装载位型、两类回绕边界、每个可用时钟源的五个时间窗口、两种停核策略。P3为20轮短重复，不是20个逻辑Case。
 
-`syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`；SYSCNT各源实际频率尚未确认，因此`SYSCNT_CLOCK_HZ`暂为空，正式Case失败关闭而不是SKIP。部署后先做独立参考频率确认，再填入经确认映射，不将CNTFID0当实际时钟。
+`syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`。2026-09-04 06:13部署后，以DWT独立参考分别在两个源下采样0.1/0.5/1s，计数比均符合1/2：五组精确为0.5，首次短窗口为0.4999885（采样开销）。因此当前FPGA映射两源均为12.5MHz，不将CNTFID0当实际时钟；不宣称两个物理振荡器不同，也不证明绝对晶振精度。原始计数见`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。
 
 16项PC软件合同测试已通过（guard `20260904_055613_fc45c484`），覆盖九条Wire命令、参数边界、非法响应、参考计数回绕和停核读数撕裂；这些不是硬件结果。七条SPEC/REPORT、注册、注释和编排专项检查通过。尚未执行HIL，G02/G05/G07仍未解除。
 

@@ -24,6 +24,7 @@ SYSCNT_REFERENCE_EVIDENCE = (
     "firmware/chips/et6801/sdk/CMSIS/Device/Source/system_et6x.c:FPGA_VERSION SystemCoreClock"
 )
 
-# 必须以当前镜像的独立参考测量闭合G02后填入；空表不是硬件不支持。
-SYSCNT_CLOCK_HZ = MappingProxyType({})
-SYSCNT_CLOCK_EVIDENCE = "G02: current FPGA source frequencies not yet measured"
+# 当前FPGA两路均为DWT/2；0.1/0.5/1s独立参考诊断确认，不据CNTFID0推算。
+# 这是FPGA镜像事实，不宣称Silicon两种振荡源相同或已测得绝对晶振精度。
+SYSCNT_CLOCK_HZ = MappingProxyType({0: 12_500_000, 1: 12_500_000})
+SYSCNT_CLOCK_EVIDENCE = "artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json"
