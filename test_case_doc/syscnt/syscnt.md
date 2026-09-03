@@ -46,7 +46,7 @@ SYSCNT是持续递增的系统时间戳计数器，不是带周期比较中断�
 
 公共链路保持`Case -> Own Driver -> TargetClient -> Own Service -> Own Wrap -> Own Chip Driver`。实例解析、位布局和SDK符号在芯片层。Service只校验长度/参数并调用SYSCNT动作，不做Case循环、数学判定或跨IP编排。
 
-下表是待实现命令语义；不在本轮修改已发布协议或注册表。使用现有ET-Frame，全部整数小端；每个Request以`instance_id:u8`起始，保留字段必须为0。响应沿用公共Status，失败不返回伪造观测。
+下表为本IP命令契约；Service ID为`0x010A`。使用现有ET-Frame，全部整数小端；每个Request以`instance_id:u8`起始，必须与公共消息头的实例一致，保留字段必须为0。响应沿用公共Status，失败不返回伪造观测。当前已实现Own Service/Wrap，Application注册和PC链路尚待接入，不能把文件存在当作可运行Case。
 
 | 局部Command | Request（实例之后） | Success Response | 稳定动作 |
 |---|---|---|---|

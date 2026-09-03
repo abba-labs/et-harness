@@ -292,7 +292,19 @@ G06实现决策：SYSCNT测试扩展仍位于原Cortex Driver，DWT作为同一C
 
 2026-09-04 05:02 CST：本批次统一软件门禁通过（928 PASS、13条件软件SKIP，guard `20260904_045955_bf83dba1`）。其中新增Native测试在Windows因无C编译器SKIP，已由上面的WSL执行单独补证；仍未执行SYSCNT Keil/HIL。
 
-### 6.3 下一阶段最短路径
+### 6.3 Wrap/Service实施记录
+
+2026-09-04：新增一对公共SYSCNT Wrap和Service文件，九条命令只执行本IP原子动作。Chip Config将唯一逻辑实例0映射为64位计数、两读取窗口、32位参考；不内置12.5/25MHz猜测值。Service ID为0x010A，消息实例与请求首字节强制一致，长度和响应容量在硬件调用前验证。
+
+SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实现就在`et6x_cortex`内，不新增SDK转接层；CRG/SYSCTRL/UART/DMA Driver依赖仍被ETFW201拒绝。该独立门禁批次于2026-09-04 05:11 CST通过统一软件验证（929 PASS、13条件软件SKIP，guard `20260904_050945_de791109`）。未更改规则正文、协议公共层或其他IP执行代码。
+
+新增`test_syscnt_service_native.py`从真实Descriptor进入命令处理、真实Wrap进入记录参数的SDK替身，验证九条命令的长度/实例/容量边界、Golden响应、错误码和无隐式初始化。当前没有Application注册，也尚未形成正式HIL结果。
+
+2026-09-04 05:15 CST：该Native契约测试编译执行通过（guard `20260904_051519_f442ba9a`）；四个新C/H文件的严格语义数字、Doxygen与架构门禁通过。测试仅模拟本IP的底层Driver，其他IP没有运行。
+
+2026-09-04 05:18 CST：Wrap/Service批次总软件门禁通过（929 PASS、14条件软件SKIP，guard `20260904_051600_98b1e87e`）。新增Native测试已在WSL单独执行通过，不把Windows缺编译器的条件SKIP记为IP硬件SKIP。
+
+### 6.4 下一阶段最短路径
 
 1. G01替代基线已获人工批准；实现前确认本次SYSCNT不是平台活动时间源。
 2. 先按2.3节整改Chip Driver并做定向验证，再封装停止装载、读回、Enable/Disable和P0；禁止先堆Service再回头补驱动风险。

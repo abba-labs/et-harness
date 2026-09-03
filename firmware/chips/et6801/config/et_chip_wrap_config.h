@@ -26,6 +26,28 @@
  */
 
 /* -------------------------------------------------------------------------- */
+/* SYSCNT                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * SVD SYSCNT_CTRL/RO describe one 64-bit counter, not two instances.
+ * Table order: logical ID, {action flags, counter bits, public view bitmask,
+ * reference bits, counter word bits}. Cortex DWT CYCCNT is a 32-bit reference.
+ * The SDK word-width symbol comes from the paired 32-bit SVD count registers.
+ * These facts feed et_syscnt_mapping_t; frequencies are lane facts, not here.
+ */
+#define ET_CHIP_SYSCNT_FEATURE_FLAGS \
+    (ET_SYSCNT_CAP_ENABLE | ET_SYSCNT_CAP_LOAD | ET_SYSCNT_CAP_DUAL_VIEW | \
+     ET_SYSCNT_CAP_FREQUENCY_ID | ET_SYSCNT_CAP_HALT | ET_SYSCNT_CAP_REFERENCE)
+#define ET_CHIP_SYSCNT_MAP_TABLE \
+    {{0u, {ET_CHIP_SYSCNT_FEATURE_FLAGS, 2u * SYSCNT_TEST_WORD_BITS, \
+           (1u << ET_SYSCNT_VIEW_CONTROL) | (1u << ET_SYSCNT_VIEW_READ), \
+           SYSCNT_TEST_WORD_BITS, SYSCNT_TEST_WORD_BITS}}}
+/* Public view ordinal -> SDK view enum. No register access in this table. */
+#define ET_CHIP_SYSCNT_READ_VIEW_MAP_TABLE \
+    {SYSCNT_TEST_VIEW_CONTROL, SYSCNT_TEST_VIEW_READ}
+
+/* -------------------------------------------------------------------------- */
 /* UART                                                                       */
 /* -------------------------------------------------------------------------- */
 
