@@ -113,6 +113,17 @@ Capture的4个Slot、每Slot128字节是Service软件预算，不是芯片Featur
 
 当前这些为本核原子执行接口；跨核Peer提交/结果接口尚未接入，不得据此把同核双Channel诊断宣称为真实双核Case。13条PLAN仍保持PLANNED，待Peer、Capability、PC和Smoke闭环后按同一语义落实SPEC。
 
+### 0.7 PC原子Driver
+
+`pc/et_test_platform/drivers/ipcm/`使用现有`Model / Contract / Codec / Driver`分层，无公共层改动。`IpcmConfig`显式给出Mailbox范围、单Source、Destination集合、IRQ集合和ACK/Link模式；公共API只接收逻辑标识和稳定配置。
+
+- `configure / mailbox_release / mailbox_snapshot_get / pending_snapshot_get`分别配置、释放和读取真实状态。
+- `payload_write / payload_read / message_send / ack_send / interrupt_clear / destination_release`保持独立；更新ACK内容先显式`payload_write`，再`ack_send`，不隐式切换模式。
+- `capture_arm / capture_get / capture_abort / state_reset`与本核Service一一对应。`capture_wait(timeout_s)`等待READY，FAULT保留原始事件并报错，超时保留最后状态摘要。
+- `capture_observe(window_s, timeout_s)`用于负向观察；总预算必须大于观察窗，结束后再发起一次有效查询。通信超时不能解释成“没有ACK”。Case仍负责检查返回事件、原始Pending和计数是否满足预期。
+- 每个动作可传入当前Case剩余`timeout_s`。有界等待只建立一个Deadline；仅无副作用查询允许Target安全重试，配置、发送、ACK、ARM、Abort和Reset不自动重发。
+- 当前PC Driver只支持已有本核命令。真实Core1 Peer、Capability语义和13条Formal Case仍需继续集成；未把PLANNED注册为Formal或声称硬件通过。
+
 ## 1. Feature Catalog
 
 | Feature ID | 报告名称 | 稳定语义 | 关联 Case |
@@ -790,7 +801,7 @@ gap: [case_implementation_gap, dualcore_execution_mapping_gap]
 
 ## 5. Common Gap / Evolution
 
-- `case_implementation_gap`：已增加本核IPCM Wrap、Service及注册；PC Driver、Core1 Peer执行入口和13条Formal Case仍待完成，不以底层代码存在冒充Case实现。
+- `case_implementation_gap`：已增加本核IPCM Wrap、Service、注册和对应PC原子Driver；Core1 Peer执行入口、PC Peer接口和13条Formal Case仍待完成，不以底层代码存在冒充Case实现。
 - `capability_semantic_gap`：需要由芯片能力声明Mailbox、Channel、Data Word、模式、Linked、Multi-destination及AUTO下显式ACK；当前适配缺口见芯片文档。
 - `dualcore_execution_mapping_gap`：必须建立逻辑Initiator/Responder、事件Endpoint和Core1 Peer部署映射；公共Case不得硬编码Core或IRQ编号。
 - `linked_range_driver_gap`、`multi_destination_driver_gap`、`driver_api_gap`：底层测试扩展已补齐，等待双核Case集成及真实硬件确认；不改变历史SDK API。
