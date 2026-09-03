@@ -2,6 +2,8 @@
 
 <!-- Contract sync 2026-09-03: append IPCM clock/reset category without changing existing values or Wire layout. -->
 
+更新时间：2026-09-03 21:46 CST。新增独立计数器时钟命令，旧命令和类别编号不变。
+
 > 本文件只定义跨芯片稳定的 CRG 公共动作；芯片 Driver 的物理外设选择值仅允许出现在 Chip Config 映射中。
 
 ## 0. Stable IP Contract
@@ -19,6 +21,8 @@
 | `RESET` | `0x0002` | 4 | 0 | `peripheral:u8, instance:u8, reserved[2]=0` |
 | `WDG_CLOCK_SET` | `0x0003` | 4 | 0 | `wdg_id:u8, source:u8, divider:u8, reserved=0`；选择逻辑 WDG 时钟，不启动 WDG |
 | `WDG_CLOCK_GET` | `0x0004` | 4 | 4 | Request 同 SET 但未使用字段为 0；Response 为 `source:u8, divider:u8, reserved[2]=0` |
+| `SYSCNT_CLOCK_SET` | `0x0005` | 4 | 0 | `instance:u8, enabled:u8, reserved[2]=0`；只改系统计数器时钟门控，不暗含复位或时钟源切换 |
+| `SYSCNT_CLOCK_GET` | `0x0006` | 4 | 4 | Request为`instance:u8, reserved[3]=0`；Response为`enabled:u8, reserved[3]=0`，enabled必须为0/1 |
 
 ### 0.2 Stable Peripheral Categories
 
@@ -42,6 +46,7 @@
 - Firmware Service 只校验固定长度、保留位并调用 CRG Wrap。
 - CRG Wrap 只查找 Chip Config 映射并调用 CRG Chip Driver。
 - Case 负责跨 IP 执行顺序；CRG Service/Wrap 不保存测试流程和 PASS/FAIL。
+- 计数器时钟门控独立于复位支持。新命令不增加通用RESET类别，不能由存在时钟门控推定存在独立复位。
 
 ### 1.1 WDG Clock Owner Boundary
 

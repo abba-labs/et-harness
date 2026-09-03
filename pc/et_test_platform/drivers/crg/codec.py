@@ -46,3 +46,22 @@ def decode_wdg_clock(body: bytes) -> tuple[int, int]:
         raise ValueError("CRG WDG clock response contains non-zero reserved bytes")
 
     return source, divider
+
+
+# 编码独立的系统计数器时钟命令；GET把enabled保留字段置零。
+def encode_syscnt_clock(instance: int, enabled: int = 0) -> bytes:
+
+    return CRG_CONTROL.pack(instance, enabled, 0, 0)
+
+
+# 精确校验时钟门控读回，拒绝非Boolean和非零保留字段。
+def decode_syscnt_clock(body: bytes) -> bool:
+
+    if len(body) != CRG_CONTROL.size:
+        raise ValueError("invalid CRG SYSCNT clock response length")
+
+    enabled, *reserved = CRG_CONTROL.unpack(body)
+    if enabled not in (0, 1) or any(reserved):
+        raise ValueError("invalid CRG SYSCNT clock response fields")
+
+    return bool(enabled)

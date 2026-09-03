@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from ...clients.target import TargetClient
 from .codec import (
+    decode_syscnt_clock,
     decode_wdg_clock,
     encode_clock_set,
     encode_reset,
+    encode_syscnt_clock,
     encode_wdg_clock_get,
     encode_wdg_clock_set,
 )
@@ -95,3 +97,28 @@ class CrgDriver:
             raise ValueError(f"unsupported CRG WDG clock source: {source}") from error
 
         return CrgWdgClockConfig(source=normalized_source, divider=divider)
+
+    # 只设置系统计数器时钟门控，不复位计数器，也不改变时钟源。
+    # 仅等待单次命令响应，不轮询；通信超时或固件拒绝按平台异常上抛，非法响应体抛ValueError。
+    def syscnt_clock_set(self, instance: int, *, enabled: bool) -> None:
+
+        message, _ = self._target.request(
+            CRG_SERVICE_ID,
+            CrgCommand.SYSCNT_CLOCK_SET,
+            body=encode_syscnt_clock(instance_value(instance), enabled_value(enabled)),
+        )
+        if message.body:
+            raise ValueError("CRG SYSCNT clock SET returned an unexpected body")
+
+    # 读取实际门控状态；不得用该Boolean或请求值推导计数频率。
+    # 仅等待单次只读请求，不等待状态变化；通信超时、固件拒绝或无效响应直接上抛。
+    def syscnt_clock_get(self, instance: int) -> bool:
+
+        message, _ = self._target.request(
+            CRG_SERVICE_ID,
+            CrgCommand.SYSCNT_CLOCK_GET,
+            body=encode_syscnt_clock(instance_value(instance)),
+            retry_safe=True,
+        )
+
+        return decode_syscnt_clock(message.body)

@@ -15,3 +15,5 @@ class CrgCommand(IntEnum):
     RESET = 0x0002
     WDG_CLOCK_SET = 0x0003
     WDG_CLOCK_GET = 0x0004
+    SYSCNT_CLOCK_SET = 0x0005
+    SYSCNT_CLOCK_GET = 0x0006

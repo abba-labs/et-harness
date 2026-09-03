@@ -50,6 +50,57 @@ static uint16_t status_from_wrap(et_wrap_status_t status)
 }
 
 /**
+ * @brief Decode the counter clock action after the common body-length check.
+ * @param[in] command_id SET or GET counter clock command.
+ * @param[in] request_body Validated fixed-size request.
+ * @param[out] response_body Storage for the Boolean readback.
+ * @param[in] response_capacity Available response bytes.
+ * @param[out] response_length Produced byte count; already zero on entry.
+ * @return ET status for the atomic Wrap action.
+ * @note No counter access, reset, frequency selection or test sequence is performed.
+ */
+static uint16_t handle_syscnt_clock(uint16_t command_id, const uint8_t *request_body,
+                                    uint8_t *response_body, uint16_t response_capacity,
+                                    uint16_t *response_length)
+{
+    uint8_t enabled;
+    et_wrap_status_t status;
+
+    if ((request_body[ET_CRG_SERVICE_SYSCNT_RESERVED0_OFFSET] != 0u) ||
+        (request_body[ET_CRG_SERVICE_SYSCNT_RESERVED1_OFFSET] != 0u))
+    {
+        return ET_STATUS_INVALID_PARAM;
+    }
+
+    if (command_id == ET_CRG_COMMAND_SYSCNT_CLOCK_SET)
+    {
+        return status_from_wrap(
+            et_crg_wrap_set_syscnt_clock(request_body[ET_CRG_SERVICE_SYSCNT_INSTANCE_OFFSET],
+                                         request_body[ET_CRG_SERVICE_SYSCNT_ENABLED_OFFSET]));
+    }
+
+    if ((request_body[ET_CRG_SERVICE_SYSCNT_ENABLED_OFFSET] != 0u) || (response_body == NULL) ||
+        (response_capacity < ET_CRG_SERVICE_SYSCNT_RESPONSE_SIZE))
+    {
+        return ET_STATUS_INVALID_PARAM;
+    }
+
+    status =
+        et_crg_wrap_get_syscnt_clock(request_body[ET_CRG_SERVICE_SYSCNT_INSTANCE_OFFSET], &enabled);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status_from_wrap(status);
+    }
+
+    (void)memset(response_body, 0, ET_CRG_SERVICE_SYSCNT_RESPONSE_SIZE);
+    response_body[ET_CRG_SERVICE_SYSCNT_RESPONSE_ENABLED_OFFSET] = enabled;
+    *response_length = ET_CRG_SERVICE_SYSCNT_RESPONSE_SIZE;
+
+    return ET_STATUS_OK;
+}
+
+/**
  * @brief Validate one fixed CRG request and execute exactly one CRG Wrap action.
  *
  * @param[in,out] context CRG Service context retained by the common router.
@@ -80,6 +131,13 @@ static uint16_t crg_handle(void *context, uint16_t command_id, const uint8_t *re
     }
 
     *response_length = 0u;
+
+    if ((command_id == ET_CRG_COMMAND_SYSCNT_CLOCK_SET) ||
+        (command_id == ET_CRG_COMMAND_SYSCNT_CLOCK_GET))
+    {
+        return handle_syscnt_clock(command_id, request_body, response_body, response_capacity,
+                                   response_length);
+    }
 
     /* Phase 1: validate the fixed CRG request and reject reserved bytes. */
 

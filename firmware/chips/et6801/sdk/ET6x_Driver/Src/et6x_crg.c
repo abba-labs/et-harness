@@ -633,6 +633,42 @@ DRV_Status CRG_testGetWDGClockConfig(WDG_Type *WDGx, CRG_TestWdgClockSnapshot *s
     return DRV_OK;
 }
 
+/**
+ * @brief Set only the SYSCNT clock gate using the generated SVD field.
+ * @param[in] enabled Boolean clock gate state.
+ * @return DRV_OK, or DRV_PARAM_ERR for a non-Boolean value.
+ * @note Caller owns the CRG configuration lock. The legacy peripheral index
+ *       is not used: its bit selects CORDIC1, not SYSCNT. No reset is issued.
+ */
+DRV_Status CRG_testSetSYSCNTClock(uint8_t enabled)
+{
+    if (enabled > 1u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    MODIFY_REG(CRG->GTEN0, CRG_GTEN0_CRG_CLK_GTEN_SYSCNT_Msk,
+               enabled != 0u ? CRG_GTEN0_CRG_CLK_GTEN_SYSCNT_Msk : 0u);
+    return DRV_OK;
+}
+
+/**
+ * @brief Read the physical SYSCNT clock gate, not its nominal frequency.
+ * @param[out] enabled Boolean gate readback.
+ * @return DRV_OK, or DRV_PARAM_ERR for a NULL destination.
+ * @note Reads CRG only; it does not access a potentially clock-gated SYSCNT.
+ */
+DRV_Status CRG_testGetSYSCNTClock(uint8_t *enabled)
+{
+    if (enabled == NULL)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    *enabled = READ_BIT(CRG->GTEN0, CRG_GTEN0_CRG_CLK_GTEN_SYSCNT_Msk) != 0u;
+    return DRV_OK;
+}
+
 /********************* TEST DRIVER EXTENSION END *********************/
 
 #endif

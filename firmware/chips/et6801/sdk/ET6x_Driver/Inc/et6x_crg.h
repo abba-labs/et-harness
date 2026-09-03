@@ -316,6 +316,10 @@ typedef struct
 
 DRV_Status CRG_testGetWDGClockConfig(WDG_Type *WDGx, CRG_TestWdgClockSnapshot *snapshot);
 
+/** SYSCNT has a clock gate but no independently documented SRST field. */
+DRV_Status CRG_testSetSYSCNTClock(uint8_t enabled);
+DRV_Status CRG_testGetSYSCNTClock(uint8_t *enabled);
+
 /********************* TEST DRIVER EXTENSION END *********************/
 
 #endif

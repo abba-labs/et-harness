@@ -45,4 +45,8 @@ et_wrap_status_t et_crg_wrap_set_wdg_clock(uint8_t wdg_id, uint8_t source, uint8
 /** Read one logical WDG clock configuration through the CRG Driver. */
 et_wrap_status_t et_crg_wrap_get_wdg_clock(uint8_t wdg_id, et_crg_wrap_wdg_clock_t *clock);
 
+/** Set/read a system counter clock gate independently from reset support. */
+et_wrap_status_t et_crg_wrap_set_syscnt_clock(uint8_t instance_id, uint8_t enabled);
+et_wrap_status_t et_crg_wrap_get_syscnt_clock(uint8_t instance_id, uint8_t *enabled);
+
 #endif

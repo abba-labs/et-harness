@@ -161,6 +161,8 @@ enum
 
 /* -------------------------------------------------------------------------- */
 /* CRG                                                                        */
+/* ET6801 SVD exposes one SYSCNT gate. Field: logical instance ID (no reset ID). */
+#define ET_CHIP_CRG_SYSCNT_MAP_TABLE {0u}
 /* -------------------------------------------------------------------------- */
 
 /*

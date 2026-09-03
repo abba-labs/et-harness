@@ -15,6 +15,80 @@ typedef struct
 
 static const et_crg_mapping_t peripheral_map[] = ET_CHIP_CRG_MAP_TABLE;
 
+static const uint8_t syscnt_clock_map[] = ET_CHIP_CRG_SYSCNT_MAP_TABLE;
+
+/**
+ * @brief Check whether the chip exposes the requested logical counter clock.
+ * @param[in] instance_id Logical counter instance.
+ * @return Nonzero when the static map contains the instance.
+ * @note Read-only map lookup; no clock or reset action is performed.
+ */
+static uint8_t has_syscnt_clock(uint8_t instance_id)
+{
+    size_t index;
+
+    for (index = 0u; index < sizeof(syscnt_clock_map) / sizeof(syscnt_clock_map[0]); ++index)
+    {
+        if (syscnt_clock_map[index] == instance_id)
+        {
+            return 1u;
+        }
+    }
+
+    return 0u;
+}
+
+/**
+ * @brief Change one system counter clock gate without asserting any reset.
+ * @param[in] instance_id Logical counter instance from Chip Config.
+ * @param[in] enabled Boolean gate state.
+ * @return Stable argument, support or execution status.
+ * @note Unlocks CRG only around the Driver write; other gates remain unchanged.
+ */
+et_wrap_status_t et_crg_wrap_set_syscnt_clock(uint8_t instance_id, uint8_t enabled)
+{
+    DRV_Status result;
+
+    if (enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (has_syscnt_clock(instance_id) == 0u)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CRG_unlockClockConfig();
+    result = CRG_testSetSYSCNTClock(enabled);
+    CRG_lockClockConfig();
+
+    return result == DRV_OK ? ET_WRAP_STATUS_OK : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read one system counter clock gate through its owning Driver.
+ * @param[in] instance_id Logical counter instance.
+ * @param[out] enabled Boolean hardware gate state.
+ * @return Stable argument, support or execution status.
+ * @note Does not access the counter, change the gate, or infer clock frequency.
+ */
+et_wrap_status_t et_crg_wrap_get_syscnt_clock(uint8_t instance_id, uint8_t *enabled)
+{
+    if (enabled == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (has_syscnt_clock(instance_id) == 0u)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CRG_testGetSYSCNTClock(enabled) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                     : ET_WRAP_STATUS_STATE_ERROR;
+}
+
 typedef struct
 {
     uint8_t wdg_id;

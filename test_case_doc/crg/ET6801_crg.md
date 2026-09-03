@@ -2,7 +2,7 @@
 
 > 本文件只保存 ET6801 对公共 `crg.md` 的芯片适配事实，不定义第二套公共命令、Feature 或 Case。
 
-更新时间：2026-09-03 CST。
+更新时间：2026-09-03 21:46 CST。
 
 ## 1. Source Basis
 
@@ -22,6 +22,7 @@
 | WDG source `HSOSC` | `CRG_WDG_CLKSRC_HSOSC` |
 | WDG source `APB1` | `CRG_WDG_CLKSRC_APB1` |
 | WDG divider maximum | 由 `CRG_PLLCLK_CFG3_CRG_WDG0_STB_Msk/Pos` 推导，不在公共层写死 |
+| SYSCNT clock logical instance `0` | `CRG.GTEN0.CRG_CLK_GTEN_SYSCNT` bit16；使用生成宏`CRG_GTEN0_CRG_CLK_GTEN_SYSCNT_Msk`。SVD没有独立SYSCNT SRST位，故不加入通用RESET映射 |
 
 ## 3. Driver Extension Boundary
 
@@ -29,6 +30,7 @@
 - 测试扩展 `CRG_testGetWDGClockConfig()`只读取源选择和分频字段，供公共 CRG Wrap 返回真实硬件读回。
 - 测试扩展位于 SDK Driver 的测试扩展区域，仅在 `ET_ENABLE_TEST_DRIVER_EXTENSIONS` 构建中启用。
 - 公共 Service/Wrap 不出现 ET6801 寄存器、SDK 枚举或物理地址。
+- `CRG_testSetSYSCNTClock`和`CRG_testGetSYSCNTClock`只写/读GTEN0的SYSCNT位，绕开旧`CRG_PERIPH_SYSCNT=0x15`错误选择。保留旧枚举以免改变其他使用者ABI，但自动化路径禁止使用它；旧通用SDK接口风险尚存在，不宣称已经整体修复旧SDK。
 
 ### 3.1 Reset Selector Correction
 
