@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 06:25 CST。
+更新时间：2026-09-04 06:42 CST。
 
-当前固件已编译通过，PC九条原子命令及七条正式Case已实现并通过统一软件验证；bitfile、BootROM与PFLASH部署通过；首轮7条Case/23项参数执行全部PASS，报告字段形状修复后待重新验证导出。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前固件、PC九条原子命令及七条正式Case已完成；bitfile、BootROM与PFLASH部署通过。最终统一门禁951 PASS/14条件软件SKIP；7条硬件Case、23项参数执行全部PASS，Excel报告与流水线均通过。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -165,7 +165,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 ### 3.3 公共观测映射
 
-| 公共Endpoint | ET6801实际端点 | 读取/展示约束 |
+| 公共稳定语义 | ET6801实际端点 | 读取/展示约束 |
 |---|---|---|
 | CONTROL.ENABLE | SYSCNT_CTRL.CNTCR.EN[0] | bool；读回配置。 |
 | CONTROL.HALT_ON_DEBUG | SYSCNT_CTRL.CNTCR.HDBG[1] | bool；另记录系统Halt路由。 |
@@ -339,17 +339,21 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-04 06:25 CST`
+状态更新时间：`2026-09-04 06:42 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-04 06:18 CST` | `16c806b3a263f469199a17b5d46461871c498faf` | `true` | `artifacts/runs/20260904_061830_681878_syscnt_formal_cases/tests/syscnt/` |
+| FPGA | `2026-09-04 06:39 CST` | `2157037e3937d1d26a01390ae0bd652f40f788dd` | `true` | `artifacts/runs/20260904_063646_997568_local_et6801_fpga_atp_testing/tests/syscnt/` |
 
 Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`6880b515`；COM12@115200；实际为XC7VX980T FPGA/Core0。Build ID不是Silicon实测声明。
 
-部署证据：`artifacts/runs/20260904_060932_071362_local_et6801_fpga_atp_testing/`，同次bitfile→BootROM→PFLASH Verify→Flash运行全部通过。时钟独立诊断：`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。软件门禁950 PASS/14条件软件SKIP，不与硬件统计混合。
+部署证据：`artifacts/runs/20260904_060932_071362_local_et6801_fpga_atp_testing/`，同次bitfile→BootROM→PFLASH Verify→Flash运行全部通过。时钟独立诊断：`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。最终软件门禁951 PASS/14条件软件SKIP，不与硬件统计混合。
+
+最终Excel：`artifacts/reports/20260904_064000_167713_ET6801_SYSCNT测试报告.xlsx`。三个Sheet分别为测试报告、执行明细、规格追溯；已只读核对7条Case均为PASS且备注非空，执行明细23条，寄存器名称和十六进制值均由真实结果及芯片映射生成。
+
+Session Spec SHA256：`a9bfba50840b79c18a3b9d1c08b296bf39c1b985cbc5f08eaae5f85767218069`。运行时Dirty为文档中的M/4初值说明及观测表头修正，测试代码仍为上述Commit。之后只回写本芯片文档的运行事实，不改已测试公共SPEC/报告模板。
 
 ### 当前结果汇总
 
@@ -365,7 +369,11 @@ Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`6880b515`；
 - SYSCNT_P2_002：PAUSE和RUN_FREE，实际DHCSR停核读回；2项PASS。
 - SYSCNT_P3_001：每轮重建基线的20轮装载/启停；1项PASS。
 
-首轮Report导出失败（不是硬件FAIL）：P1数组被重复聚合，P2暂停数组存在同类形状问题，P3重复使用final_count键。修复限于本IP Observation形状和文档模板，不修改断言、公共报告器或原始结果。修复后重新运行SYSCNT确认报告与新SPEC身份一致。
+首轮Report导出失败（不是硬件FAIL）：P1数组被重复聚合，P2暂停数组存在同类形状问题，P3重复使用final_count键。修复限于本IP Observation形状和文档模板，不修改断言、公共报告器或原始结果。新增真实数组形状软件测试；最终重跑全部SYSCNT及报告阶段成功，旧失败Run保留原状态。
+
+关键实测：PAUSE两次计数均为`0x0000000100455EAF`；RUN_FREE从`0x00000001002FAF1E`增加到`0x00000001004419A4`。两个参数各四次DHCSR均为`0x00030003`，bit17 S_HALT=1。DBGH在PAUSE为1、RUN_FREE为0，恢复后为0且计数继续推进。原始DHCSR按参数保存，不依赖调试工具可能重名的日志附件。
+
+两源五窗口的最坏相对参考误差不超过8.12µs，采样区间宽度不超过15.68µs，分别低于1ms/0.1ms预算。10ms等参数是PC等待窗口，实际两次硬件采样间隔还含通信时间；比较的是DWT实际测得间隔，不把PC睡眠值当精度Golden。不据此宣称绝对晶振精度已测试。
 
 ### 当前非PASS Case
 
@@ -378,6 +386,6 @@ Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`6880b515`；
 - 7条已注册Case及8个准入数字Feature均已执行；23为参数Execution数，不是23条Case。
 - 当前FPGA/Core0的Halt响应已证实；不据此改变STIMER结论，也不宣称双Core活动组合已覆盖。
 - G07历史外部脉冲观测仍未形成等价Case，没有外部仪器结果；不是运行SKIP，不能宣称参考要求全集已经100%覆盖。G04只读窗口访问属性争议仍保留。
-- 当前顶层Pipeline缺少单IP选择，会遍历全部Registry。本轮部署使用正式配置流水线，测试使用其既有`run_ip_tests.py --ip syscnt`入口；连接事实由同一run_config加载。未修改公共Runner、未屏蔽注册项、未测试其他IP。
+- 当前顶层Pipeline缺少单IP选择，会遍历全部Registry。本轮仅在调用进程中把Registry选择限制为原注册表的syscnt条目，再调用原Pipeline main；其全部Case仍由既有`run_ip_tests.py --ip syscnt`执行。选择入口留在诊断Artifact的`run_selected_ip.py`，不是新的平台Runner。连接和动作仍取同一run_config，源码注册表、公共Runner均未修改；没有运行其他IP HIL。
 - 编码环境设置PYTHONUTF8=1，修复Windows GBK读取UTF-8 Git Diff的启动环境问题；没有修改公共Checker。
 <!-- ET_CHIP_TEST_STATUS_END -->

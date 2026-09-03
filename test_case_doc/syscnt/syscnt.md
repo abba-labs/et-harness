@@ -1,6 +1,6 @@
 # SYSCNT Stable IP Contract
 
-更新时间：2026-09-04 06:25 CST。
+更新时间：2026-09-04 06:36 CST。
 
 本文件定义SYSCNT公共测试契约。7条Case已实现并注册，当前芯片执行结果见同目录芯片文档；硬件事实、历史资料处置及待确认映射不在公共Case中硬编码。遵循R100、R110、R120、R130、R140，不新增规则。
 
@@ -171,10 +171,10 @@ p_level: P0
 feature_refs: [SYSCNT_F_002]
 method:
   inputs:
-    - 起始计数：装载M/2，观察窗口10ms，总观察增量必须远小于M/2以排除回绕歧义。
+    - 起始计数：装载M/4，观察窗口10ms，总观察增量必须远小于M/2以排除回绕歧义。
   steps:
     - 建立基线：确认独占并归一硬件、Service和资源池，停止状态装载起始计数。
-    - 开始计数：只置CONTROL.ENABLE，读取使能位及起始COUNT.READ。
+    - 开始计数：只置CONTROL.ENABLE并读回使能位，不再次装载计数。
     - 运行观测：PC等待10ms，读取COUNT.READ，检查相对起始值增加。
     - 停止计数：清CONTROL.ENABLE并读回0；等待同步稳定后保存COUNT.READ为停止值。
     - 保持检查：间隔10ms再次读取COUNT.READ，要求与停止值完全相同。
