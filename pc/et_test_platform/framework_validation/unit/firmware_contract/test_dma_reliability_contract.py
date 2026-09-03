@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).parents[5]
 DMA_SERVICE = ROOT / "firmware/services/src/et_dma_service.c"
@@ -16,6 +19,11 @@ DMA_DRIVER = ROOT / "pc/et_test_platform/drivers/dma/driver.py"
 DMA_CONTRACT = ROOT / "pc/et_test_platform/drivers/dma/contract.py"
 SYSCTRL_SERVICE = ROOT / "firmware/services/src/et_sysctrl_service.c"
 SYSCTRL_WRAP = ROOT / "firmware/wrap/src/et_sysctrl_wrap.c"
+SYSCTRL_DMA_FUNCTIONS = (
+    "find_controller_mapping",
+    "et_sysctrl_wrap_configure_dma_request",
+    "et_sysctrl_wrap_release_dma_request",
+)
 
 
 def _source(path: Path) -> str:
@@ -78,6 +86,26 @@ def test_dma_service_has_no_cross_ip_resource_or_route_registry() -> None:
     assert "et_dma_wrap_deconfigure_channel(" in service
 
 
+# 检查DMA专属入口；其他SYSCTRL功能可以合法使用自己的逻辑实例ID。
+def _assert_direct_dma_request_wrap(wrap: str) -> None:
+    source = re.sub(r"/\*.*?\*/|//[^\n]*", "", wrap, flags=re.DOTALL)
+    for forbidden in ("ET_CHIP_UART_DMA_REQUEST_TABLE", "uart_dma_requests", "map_request"):
+        assert forbidden not in source
+
+    for name in SYSCTRL_DMA_FUNCTIONS:
+        # 固件采用Allman格式：顶层函数的结束大括号独占第0列，不按相邻函数名切片。
+        match = re.search(
+            rf"\b{name}\s*\([^;{{}}]*\)\s*\{{.*?^\}}", source, re.DOTALL | re.MULTILINE
+        )
+        assert match is not None, f"missing SYSCTRL DMA function: {name}"
+        block = match.group(0)
+        for forbidden in ("endpoint", "instance_id"):
+            assert forbidden not in block, f"DMA route inference forbidden in {name}: {forbidden}"
+        if name == "et_sysctrl_wrap_configure_dma_request":
+            assert "(SYSCTRL_DMAReqIdx)request_id" in block
+
+
+# 旧DMA命令必须直接传递Request ID，不在固件推导外设端点或分配资源。
 def test_sysctrl_service_and_wrap_execute_direct_request_id_only() -> None:
     service = _source(SYSCTRL_SERVICE)
     wrap = _source(SYSCTRL_WRAP)
@@ -88,12 +116,23 @@ def test_sysctrl_service_and_wrap_execute_direct_request_id_only() -> None:
     assert "et_resource_wrap" not in service
     assert "read_u64" not in service
 
-    assert "(SYSCTRL_DMAReqIdx)request_id" in wrap
-    assert "ET_CHIP_UART_DMA_REQUEST_TABLE" not in wrap
-    assert "uart_dma_requests" not in wrap
-    assert "map_request" not in wrap
-    assert "endpoint" not in wrap
-    assert "instance_id" not in wrap
+    _assert_direct_dma_request_wrap(wrap)
+
+
+# 回归：新增计数器路由的instance_id不能触发DMA专属约束。
+def test_dma_contract_allows_unrelated_sysctrl_instance_id() -> None:
+    wrap = _source(SYSCTRL_WRAP)
+    counter_api = "\nvoid counter_route(uint8_t instance_id)\n{\n    (void)instance_id;\n}\n"
+    _assert_direct_dma_request_wrap(wrap + counter_api)
+
+
+# 回归：配置、释放和映射入口均不得恢复按外设实例或端点推导DMA请求的逻辑。
+@pytest.mark.parametrize("name", SYSCTRL_DMA_FUNCTIONS)
+@pytest.mark.parametrize("forbidden", ("endpoint", "instance_id"))
+def test_dma_contract_rejects_route_inference(name: str, forbidden: str) -> None:
+    wrap = _source(SYSCTRL_WRAP).replace(f"{name}(", f"{name}(uint8_t {forbidden}, ", 1)
+    with pytest.raises(AssertionError, match="DMA route inference forbidden"):
+        _assert_direct_dma_request_wrap(wrap)
 
 
 def test_deprecated_sysctrl_v1_is_not_silently_reinterpreted() -> None:

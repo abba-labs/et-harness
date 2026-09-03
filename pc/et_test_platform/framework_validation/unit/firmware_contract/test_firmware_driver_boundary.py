@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parents[5]
@@ -60,7 +61,48 @@ def test_wrap_sources_do_not_encode_selected_chip_topology() -> None:
     assert violations == [], "Wrap contains selected-chip topology:\n" + "\n".join(violations)
 
 
-# Catch any current or future Test Driver API outside its guarded block.
+# 扫描全部Driver文件；既有扩展不得丢失，新增扩展也必须满足相同的隔离约束。
+def _assert_test_driver_extensions_isolated(
+    driver_root: Path, required_paths: tuple[Path, ...]
+) -> None:
+    test_api = re.compile(r"\b[A-Za-z_]\w*_test[A-Z]\w*\s*\(")
+    paths_with_extensions: set[Path] = set()
+
+    for path in sorted(driver_root.rglob("*.[ch]")):
+        source = path.read_text(encoding="utf-8")
+        matches = tuple(test_api.finditer(source))
+        if not matches:
+            continue
+
+        paths_with_extensions.add(path)
+        begin = source.find(TEST_DRIVER_BEGIN)
+        end = source.find(TEST_DRIVER_END)
+        assert begin >= 0, f"missing Test Driver begin marker: {path}"
+        assert end > begin, f"missing Test Driver end marker: {path}"
+
+        # 底部隔离按函数边界判断，不按文件长度比例判断，避免扩展增长造成误报。
+        trailing = _without_c_comments(source[end + len(TEST_DRIVER_END) :])
+        function_definition = re.compile(
+            r"\b[A-Za-z_]\w*\s*\([^;{}]*\)\s*\{",
+            flags=re.DOTALL,
+        )
+        assert function_definition.search(trailing) is None, (
+            f"production function found after Test Driver block: {path}"
+        )
+        guard = source.rfind("#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)", 0, begin)
+        assert guard >= 0, f"missing Test Driver compile guard: {path}"
+        assert source.find("#endif", end) > end, f"missing Test Driver compile guard end: {path}"
+
+        for match in matches:
+            assert begin < match.start() < end, (
+                f"Test Driver API outside extension block: {path}:{match.group(0)}"
+            )
+
+    missing = set(required_paths) - paths_with_extensions
+    assert not missing, f"missing required Test Driver extensions: {sorted(missing)}"
+
+
+# 保护已发布的测试API和编译开关；文件清单是最低保留范围，不是禁止新增的白名单。
 def test_test_driver_extensions_are_isolated() -> None:
     required_paths = (
         DRIVER_ROOT / "Inc" / "et6x_uart.h",
@@ -88,42 +130,7 @@ def test_test_driver_extensions_are_isolated() -> None:
         DRIVER_ROOT / "Inc" / "et6x_ipcm.h",
         DRIVER_ROOT / "Src" / "et6x_ipcm.c",
     )
-    test_api = re.compile(r"\b[A-Za-z_]\w*_test[A-Z]\w*\s*\(")
-    paths_with_extensions: set[Path] = set()
-
-    for path in sorted(DRIVER_ROOT.rglob("*.[ch]")):
-        source = path.read_text(encoding="utf-8")
-        matches = tuple(test_api.finditer(source))
-        if not matches:
-            continue
-
-        paths_with_extensions.add(path)
-        begin = source.find(TEST_DRIVER_BEGIN)
-        end = source.find(TEST_DRIVER_END)
-        assert begin >= 0, f"missing Test Driver begin marker: {path}"
-        assert end > begin, f"missing Test Driver end marker: {path}"
-        # The extension may legitimately grow beyond one quarter of a Driver
-        # file.  "At the bottom" therefore means that no production function
-        # definition is allowed after the guarded extension, rather than a
-        # fragile source-length percentage.
-        trailing = _without_c_comments(source[end + len(TEST_DRIVER_END) :])
-        function_definition = re.compile(
-            r"\b[A-Za-z_]\w*\s*\([^;{}]*\)\s*\{",
-            flags=re.DOTALL,
-        )
-        assert function_definition.search(trailing) is None, (
-            f"production function found after Test Driver block: {path}"
-        )
-        guard = source.rfind("#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)", 0, begin)
-        assert guard >= 0, f"missing Test Driver compile guard: {path}"
-        assert source.find("#endif", end) > end, f"missing Test Driver compile guard end: {path}"
-
-        for match in matches:
-            assert begin < match.start() < end, (
-                f"Test Driver API outside extension block: {path}:{match.group(0)}"
-            )
-
-    assert paths_with_extensions == set(required_paths)
+    _assert_test_driver_extensions_isolated(DRIVER_ROOT, required_paths)
 
     uart_header = required_paths[0].read_text(encoding="utf-8")
     dma_header = required_paths[2].read_text(encoding="utf-8")
@@ -170,3 +177,66 @@ def test_test_driver_extensions_are_isolated() -> None:
         "ET6801_SILICON_CORE1_LAUNCHER_FLASH",
     }
     assert all("ET_ENABLE_TEST_DRIVER_EXTENSIONS" in target["defines"] for target in targets)
+
+
+# 构造最小Driver夹具；同一校验路径同时覆盖头文件声明和源文件定义。
+@pytest.fixture
+def extension_source() -> str:
+    return (
+        "#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)\n"
+        f"{TEST_DRIVER_BEGIN}\n"
+        "void DEMO_testAction(void);\n"
+        f"{TEST_DRIVER_END}\n"
+        "#endif\n"
+    )
+
+
+# 回归：任意新IP的合规扩展可加入，不需要逐个修改门禁白名单。
+@pytest.mark.parametrize("suffix", (".h", ".c"))
+def test_extension_scan_accepts_new_driver(
+    tmp_path: Path, extension_source: str, suffix: str
+) -> None:
+    existing = tmp_path / "existing.h"
+    existing.write_text(extension_source, encoding="utf-8")
+    new_source = extension_source.replace(
+        "void DEMO_testAction(void);", "void NEW_testAction(void) {}"
+    )
+    (tmp_path / f"new_driver{suffix}").write_text(new_source, encoding="utf-8")
+    _assert_test_driver_extensions_isolated(tmp_path, (existing,))
+
+
+# 回归：新增文件并不豁免标记、编译开关、API位置以及底部隔离检查。
+@pytest.mark.parametrize(
+    ("old", "new", "diagnostic"),
+    (
+        (TEST_DRIVER_BEGIN, "", "missing Test Driver begin marker"),
+        (TEST_DRIVER_END, "", "missing Test Driver end marker"),
+        ("#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)", "", "missing Test Driver compile guard"),
+        ("#endif", "", "missing Test Driver compile guard end"),
+        (
+            "#endif",
+            "#endif\nvoid NEW_testOutside(void);",
+            "Test Driver API outside extension block",
+        ),
+        (
+            "#endif",
+            "#endif\nvoid production(void) {}",
+            "production function found after Test Driver",
+        ),
+    ),
+)
+def test_extension_scan_rejects_invalid_new_driver(
+    tmp_path: Path, extension_source: str, old: str, new: str, diagnostic: str
+) -> None:
+    existing = tmp_path / "existing.h"
+    existing.write_text(extension_source, encoding="utf-8")
+    (tmp_path / "new_driver.c").write_text(extension_source.replace(old, new), encoding="utf-8")
+    with pytest.raises(AssertionError, match=diagnostic):
+        _assert_test_driver_extensions_isolated(tmp_path, (existing,))
+
+
+# 回归：允许新增扩展的同时，仍拒绝删除或清空已发布的扩展。
+def test_extension_scan_requires_existing_driver(tmp_path: Path, extension_source: str) -> None:
+    (tmp_path / "new_driver.h").write_text(extension_source, encoding="utf-8")
+    with pytest.raises(AssertionError, match="missing required Test Driver extensions"):
+        _assert_test_driver_extensions_isolated(tmp_path, (tmp_path / "existing.h",))
