@@ -304,7 +304,13 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 
 2026-09-04 05:18 CST：Wrap/Service批次总软件门禁通过（929 PASS、14条件软件SKIP，guard `20260904_051600_98b1e87e`）。新增Native测试已在WSL单独执行通过，不把Windows缺编译器的条件SKIP记为IP硬件SKIP。
 
-### 6.4 下一阶段最短路径
+### 6.4 固件注册与构建
+
+2026-09-04：Application静态Manifest增加SYSCNT组，FPGA/Silicon Board各声明逻辑实例0，既有工程Manifest加入本IP Service/Wrap源文件。保持main与公共注册算法不变，不在初始化时开启SYSCNT时钟或计数。构建与后续PFLASH部署仍使用现有配置流水线。
+
+2026-09-04 05:20 CST：通过当前仓库`run_config.yaml`构建`ET6801_SILICON_FLASH`（该现有目标含FPGA_VERSION，用于当前FPGA的PFLASH流程），Keil结果0 Error/0 Warning。证据：`artifacts/runs/20260904_051954_352183_local_et6801_fpga_atp_testing/stages/build_firmware_silicon/keil_silicon.log`。编译通过不代表下载或HIL通过。
+
+### 6.5 下一阶段最短路径
 
 1. G01替代基线已获人工批准；实现前确认本次SYSCNT不是平台活动时间源。
 2. 先按2.3节整改Chip Driver并做定向验证，再封装停止装载、读回、Enable/Disable和P0；禁止先堆Service再回头补驱动风险。

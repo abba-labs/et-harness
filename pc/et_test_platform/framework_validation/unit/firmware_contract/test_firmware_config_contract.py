@@ -397,6 +397,7 @@ def test_service_registration_uses_declarative_groups_and_fails_closed() -> None
         "wdg",
         "spinlock",
         "ipcm",
+        "syscnt",
     )
 
     for ip in registered_ips:
@@ -478,8 +479,14 @@ def test_generated_keil_project_has_all_target_specific_builds() -> None:
             for group in target.findall("Groups/Group")
         }
         assert len(group_files["Wrap"]) == len(set(group_files["Wrap"]))
-        assert len(group_files["Wrap"]) == 18
-        assert len(group_files["Services"]) == 16
+        assert len(group_files["Wrap"]) == 19
+        assert len(group_files["Services"]) == 17
+        # SYSCNT使用现有Cortex SDK，不能遗漏新Service/Wrap或另造SDK转接文件。
+        assert any(path and path.endswith("et_syscnt_wrap.c") for path in group_files["Wrap"])
+        assert any(
+            path and path.endswith("et_syscnt_service.c") for path in group_files["Services"]
+        )
+        assert any(path and path.endswith("et6x_cortex.c") for path in group_files["Chip_Drivers"])
         # 新增IPCM必须同时纳入本IP Driver、Wrap及Service，不能只增加文件计数。
         assert any(path and path.endswith("et_ipcm_wrap.c") for path in group_files["Wrap"])
         assert any(path and path.endswith("et_ipcm_service.c") for path in group_files["Services"])

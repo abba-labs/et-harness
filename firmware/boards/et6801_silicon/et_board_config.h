@@ -63,5 +63,7 @@
 /* Logical IPCM controller and default NVIC capture priority; no mailbox Case policy. */
 #define ET_TEST_IPCM_INSTANCE_IDS 0u
 #define ET_TEST_IPCM_IRQ_PRIORITY 3u
+/* One logical system counter; both register views refer to this instance. */
+#define ET_TEST_SYSCNT_INSTANCE_IDS 0u
 #define ET_TEST_STIMER_IRQ_PRIORITY 3u
 #endif

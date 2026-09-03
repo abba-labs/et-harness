@@ -521,6 +521,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_ipcm_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_syscnt_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -615,6 +620,11 @@
               <FileName>et_ipcm_wrap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_ipcm_wrap.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_syscnt_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -2051,6 +2061,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_ipcm_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_syscnt_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -2145,6 +2160,11 @@
               <FileName>et_ipcm_wrap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_ipcm_wrap.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_syscnt_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -3581,6 +3601,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_ipcm_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_syscnt_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -3675,6 +3700,11 @@
               <FileName>et_ipcm_wrap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_ipcm_wrap.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_syscnt_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -4500,6 +4530,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_ipcm_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_syscnt_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -4594,6 +4629,11 @@
               <FileName>et_ipcm_wrap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_ipcm_wrap.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_syscnt_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -5775,6 +5815,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_ipcm_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_syscnt_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -5869,6 +5914,11 @@
               <FileName>et_ipcm_wrap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_ipcm_wrap.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_syscnt_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
           </Files>
         </Group>

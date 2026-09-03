@@ -221,6 +221,7 @@ project_groups:
     - firmware/services/src/et_stimer_service.c
     - firmware/services/src/et_spinlock_service.c
     - firmware/services/src/et_ipcm_service.c
+    - firmware/services/src/et_syscnt_service.c
   Wrap:
     - firmware/wrap/src/et_resource_wrap.c
     - firmware/wrap/src/et_system_wrap.c
@@ -240,6 +241,7 @@ project_groups:
     - firmware/wrap/src/et_stimer_wrap.c
     - firmware/wrap/src/et_spinlock_wrap.c
     - firmware/wrap/src/et_ipcm_wrap.c
+    - firmware/wrap/src/et_syscnt_wrap.c
   Chip_Startup:
     - firmware/chips/et6801/sdk/CMSIS/Device/Source/ARM/startup_et6801.s
   Chip_System:
