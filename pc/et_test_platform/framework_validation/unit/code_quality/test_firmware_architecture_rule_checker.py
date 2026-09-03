@@ -112,6 +112,21 @@ def test_firmware_checker_accepts_wrap_without_chip_driver(tmp_path: Path) -> No
     assert checker.check_wrap_driver_boundary(path) == []
 
 
+# 测试Feature：SYSCNT可以调用承载其实现的Cortex Driver，但仍禁止跨IP Driver。
+# 测试方法：先验证真实SDK归属，再逐一注入时钟、系统路由和UART的非法依赖。
+# 通过条件：仅Cortex依赖通过，其他依赖均产生ETFW201。
+def test_firmware_checker_maps_syscnt_driver_owner(tmp_path: Path) -> None:
+
+    checker = load_checker()
+    path = tmp_path / "et_syscnt_wrap.c"
+    path.write_text('#include "et6x_cortex.h"\n', encoding="utf-8")
+    assert checker.check_wrap_driver_boundary(path) == []
+
+    for family in ("crg", "sysctrl", "uart", "ahbdma"):
+        path.write_text(f'#include "et6x_{family}.h"\n', encoding="utf-8")
+        assert any("ETFW201" in error for error in checker.check_wrap_driver_boundary(path))
+
+
 # 测试Feature：所有芯片的Chip Config必须保持为公共Wrap消费的纯编译期事实。
 #
 # 测试方法：

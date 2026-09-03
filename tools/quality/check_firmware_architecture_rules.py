@@ -40,6 +40,8 @@ _WRAP_DRIVER_FAMILIES = {
     "gpio": {"gpio"},
     "irq": {"interrupt"},
     "sysctrl": {"sysctrl"},
+    # SDK的SYSCNT原子接口归属Cortex Driver；不接受其他IP Driver。
+    "syscnt": {"cortex"},
     "uart": {"uart"},
 }
 
