@@ -28,6 +28,27 @@ always:
     - firmware/wrap/**
 
 changes:
+  capability-generator:
+    read:
+      - path: tools/capabilities/generate_capabilities.py
+        reason: 唯一SVD能力生成入口
+        required: true
+      - path: tools/capabilities/svd_semantics.py
+        reason: 通用事实IR到能力语义的确定性转换
+        required: true
+      - path: report/design/rules/R410_capability_v2.md
+        reason: 生成器、证据、版本及芯片中立边界
+        required: true
+    rules:
+      - capability_v2
+      - python_style_documentation
+    write_scopes:
+      - tools/capabilities/**
+      - pc/et_test_platform/framework_validation/unit/profiles/test_svd_*.py
+      - pc/et_test_platform/framework_validation/unit/profiles/test_capability_v2_contract.py
+    validation:
+      - python -m pytest -q pc/et_test_platform/framework_validation/unit/profiles/test_svd_capability_generator.py pc/et_test_platform/framework_validation/unit/profiles/test_capability_v2_contract.py
+
   manual-capture:
     read:
       - path: report/design/rules/R340_firmware_manual_diagnostics.md

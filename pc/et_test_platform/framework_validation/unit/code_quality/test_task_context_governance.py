@@ -118,6 +118,33 @@ def test_ip_task_context_is_focused_and_chip_neutral() -> None:
     ]
 
 
+# 测试Feature：能力生成工具具有独立于公共运行时的最小开发路由。
+# 测试方法：编译生成器与IPCM能力组合任务，核对规则及最小写入范围。
+# 通过条件：路由包含R410、生成器和生成合同测试，不授权PC运行时或其他IP的YAML。
+def test_capability_generator_route_is_separate_from_runtime() -> None:
+
+    compiler = _load_compiler()
+    context = compiler.build_task_context(
+        task_id="CAPABILITY-GENERATOR-001",
+        intent="补全通用能力语义并生成目标IP能力",
+        modules=["operator-pipeline", "ip-package"],
+        changes=["capability-generator", "capability"],
+        ip="ipcm",
+        chip="et6801",
+        lanes=["tooling"],
+    )
+
+    # 工具开发与目标YAML分别授权，不能借工具路由修改所有芯片能力。
+    allowed = context["write_scope"]["allowed"]
+    owners = {entry["owner_id"] for entry in context["rule_owners"]}
+    assert "tools/capabilities/**" in allowed
+    assert "capability_v2" in owners
+    assert "pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml" in allowed
+    assert not any(path.endswith("profiles/**") or path.endswith("core/**") for path in allowed)
+    assert "pc/et_test_platform/test_cases/**" in context["write_scope"]["protected"]
+    assert "firmware/services/**" in context["write_scope"]["protected"]
+
+
 # 测试Feature：周报任务只路由到周报规则和正式报告目录。
 #
 # 测试方法：为周报编写任务生成Task Context，并检查Owner、必读规则和写入边界。

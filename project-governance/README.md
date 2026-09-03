@@ -79,6 +79,7 @@ Service、Wrap和Capability任务会失败关闭。
 | 芯片IP真实测试结果回写 | `ip-package/test-result` | `--ip --chip` |
 | IP Formal Case、PC Driver、Firmware Service/Wrap | `ip-package/case|driver|service|wrap` | `--ip` |
 | 某芯片IP能力与执行映射 | `ip-package/capability` | `--ip --chip` |
+| 通用SVD能力生成器及生成合同测试 | `operator-pipeline/capability-generator` | 无；写回某IP能力时另选`ip-package/capability` |
 | 某芯片SDK中补充本IP Driver/Test Extension | `ip-package/chip-driver` | `--ip --chip` |
 | PC Core、Backend、通信、调度、结果 | `pc-platform/core|backend|communication|scheduling|result` | 无 |
 | PC公共Profile、Bench、Case Runtime、CLI | `pc-platform/profile|bench|case-runtime|package` | Bench必须`--chip` |
