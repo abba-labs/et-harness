@@ -3,6 +3,7 @@
 > 本文件只分析 ET6801 的 IPCM 硬件事实、Driver、历史测试和公共 Contract 适配。
 > 3101与6003为单核芯片，本轮不读取、不引用，也不作为IPCM Feature或Case证据。
 > 当前文档是开发输入；没有当前提交的实现或HIL证据时，不得填写PASS。
+> 资料复核与修订时间：2026-09-03 15:30 CST。此次仅修订设计，未编码、未运行硬件。
 
 # 第一章 IP分析与Source Coverage
 
@@ -20,6 +21,8 @@
 
 ## 1.2 Source Map Coverage
 
+本地查询使用`project-governance/ip-analysis-sources.yaml`的`roots1`和`chip_parameters.et6801`，不再仅查云盘路径。下表`<et6801-verification>`展开为`D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification`；`<BOOT_ROM>`展开为`D:/lihuan/vibe_code/code/boot_rom`。`NO_MATCH`只表示所列路径和关键字未找到对应资料，不证明所有历史资料中都不存在。
+
 | 来源 | 路径 | 状态 | 用途与证据边界 |
 |---|---|---:|---|
 | ET6801 IPCM SVD | `<et6801-verification>/Tools/RegGen/svd/ipcm_cfg.svd` | FOUND | Target Direct Evidence；确认16个Mailbox、16个事件Channel、7个Data Word、4种Mode、Pending和多目标位图。 |
@@ -28,11 +31,17 @@
 | ET6801 IPCM Driver | `<et6801-verification>/DFP/Drivers/ET6x_Driver/{Inc,Src}/et6x_ipcm.*` | FOUND | Target Current Driver Evidence；确认正式API、参数、截断行为和中断位集合缺陷。 |
 | ET6801 DualCore Driver | `<et6801-verification>/DFP/Drivers/ET6x_Driver/{Inc,Src}/et6x_dualcore.*` | FOUND | Target Current Driver Evidence；确认Core ID读取和Core1启动能力；不把CORE2CORE门铃并入IPCM。 |
 | ET6801 FPGA测试源码 | `<et6801-verification>/DFP/Test/FPGATest/ipcm_fpga_test.c` | FOUND | Target Historical Test；Case0~9为IPCM测试思想，当前入口只执行非IPCM的Case10。 |
-| ET6801 requirements | Source Map登记`test_case`根下定向检索 | NOT_FOUND | 未找到独立IPCM需求文档；不凭空补充SVD/Driver未表达的Feature。 |
+| ET6801寄存器扫描 | `<et6801-verification>/DFP/Test/FPGATest/regscan_smoke_test.c::IPCM_Test` | FOUND | 断言CFGSTAT=`0x00101007`，由P0_001逐字段比较承接。 |
+| ET6801压力测试入口 | `<et6801-verification>/DFP/Test/StressTest/Integrated_StressTest.c::IPCM_entry`调用及`DFP/Test/ChipSieveTest/ChipSieveTest_config.h`声明 | FOUND | 只找到调用与声明，不能推断具体激励、循环次数或Oracle。 |
+| ET6801压力测试正文 | `<et6801-verification>`的C/H文件定向查找`IPCM_entry`定义 | NO_MATCH | 需要补充正文或原测试需求；当前覆盖结论不包含未知正文。 |
+| 本地SDK需求 | `D:/lihuan/vibe_code/code/SDK/git/test_case/6801/ipcm.json`及`test_case`下IPCM文件名 | NO_MATCH | 精确路径未命中，定向检索未找到独立IPCM需求。 |
+| 本地SVN需求 | `D:/lihuan/vibe_code/SVN/Software/ET6801/04 测试用例/01 回片验证/02 测试用例/ipcm_testcase.xlsx`及该测试用例目录的IPCM文件名 | NO_MATCH | 主路径和`驱动开发-测试用例/01 已评审/ipcm_testcase.xlsx`回退路径均未命中。 |
+| 云盘本地需求副本 | `G:/我的云端硬盘/ET_FILE/CODE/sdk/test_case`下IPCM文件名 | NO_MATCH | 根目录存在，未找到IPCM独立需求；不能替代本地SDK/SVN查询。 |
+| BootROM复位映射 | `<BOOT_ROM>/bootrom-dev-et6801/source/Drivers/ET6801/ET6x_Driver/Inc/et6x_crg.h` | FOUND | 有`CRG_PERIPH_IPCM`映射，可与本项目SVD/CMSIS的SRST1 bit25交叉核对；不是IPCM测试证据。 |
 | current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml` | FOUND | 仅表达实例、Base和16条IRQ；全部IPCM Field仍未进入语义层。 |
 | capability audit | `test_case_doc/reference_data/et6801/capability_generation/audit/ipcm.yaml` | FOUND | IPCM寄存器Field均为`no_semantic_mapping`，证明当前YAML不是完整能力声明。 |
 | current Core1 Peer | `firmware/chips/et6801/core1_peer`与`firmware/build/et6801/core1_peer` | FOUND | 已有ET6801 Core1映像和部署基础；IPCM Peer Job尚未实现。 |
-| current platform IPCM code | `firmware/{wrap,services}`与`pc/et_test_platform/{drivers,test_cases}` | NOT_FOUND | 当前没有IPCM公共实现和Formal Case。 |
+| current platform IPCM code | `firmware/{wrap,services}`与`pc/et_test_platform/{drivers,test_cases}` | NO_MATCH | 当前没有IPCM公共实现和Formal Case。 |
 
 本轮没有扫描或读取3101、6003。ET6801 SDK检索限定在IPCM、DualCore和对应历史测试文件，没有对整个代码库或文档库做无目标扫描。
 
@@ -66,10 +75,14 @@ IPCM应用包括双Core控制命令、轻量状态通知、短Payload交换和�
 | Auto ACK Link | VERIFIED | 两个MODE位组合 | `AUTO_ACK_LINK`硬件组合存在；当前无执行证据。 |
 | IRQ/Polling | VERIFIED | `MSTATUS`描述、MIS/RIS | MSTATUS bit=1表示IRQ enabled，bit=0表示disabled并使用Polling。 |
 | Multi-destination | VERIFIED | DSET/DSTATUS 32-bit与SEND描述`destination core(s)` | 一个Mailbox可设置多个Destination事件位；正式Driver未暴露集合接口。 |
-| Mailbox释放清配置 | DRIVER_CLAIM | Driver注释与`SOURCE=0` | Driver声称清Source释放Mailbox并清全部Mailbox寄存器；SVD未明示，必须HIL读回。 |
-| 双Core功能 | SOURCE_ONLY | 历史`IPCM_9`与DualCore Driver | 存在双核测试意图，但历史配置/发送不一致且无Ready握手，不能继承PASS。 |
-| DMA/FIFO | NOT_APPLICABLE | ET6801 IPCM SVD/Driver | 没有DMA或FIFO寄存器/API。 |
-| CORE2CORE门铃 | OUT_OF_SCOPE | `IPCM_10`直接操作SYSC | 属于Dual-Core/CPU系统中断，不是IPCM Mailbox Feature。 |
+| AUTO下显式ACK | VERIFIED | SVD `SEND=10b`、Driver无Mode限制、历史`IPCM_6` | 保持MODE.bit0=1，直接SEND=2，不执行DCLEAR；测试意图由P1_008承接，尚无当前HIL结果。 |
+| Linked链尾ACK预期 | INFERRED | 历史`IPCM_7/8`的Source ISR均断言`mboxID==MAILBOX15` | 16次Destination接收、1次Source链尾ACK；用于恢复历史Oracle，不是当前硬件实测事实。 |
+| Mailbox释放清配置 | UNKNOWN | Driver注释与`SOURCE=0` | Driver声称清Source会清全部Mailbox寄存器，SVD未明示；P0_001开发前须用最小读写/释放读回确认，不以CRG复位伪装成功。 |
+| 多目标AUTO聚合ACK | UNKNOWN | DSET位集合与MODE.bit0只能分别证明能力存在 | 未说明首次或最后一次DCLEAR触发ACK；无历史Case，不能预设最后释放才ACK。P1_007改为MANUAL路由验证。 |
+| 双Core功能 | INFERRED | 历史`IPCM_9`与DualCore Driver | 存在双核测试意图，但历史配置/发送不一致且无Ready握手；必须验证真实Core0/Core1，不能继承PASS。 |
+| IPCM全实例复位位 | VERIFIED | 本项目CMSIS `CRG_SRST1_CRG_SRST_N_IPCM_Pos`及merged SVD | `CRG.SRST1[25]`低有效复位，当前CRG Driver枚举未暴露，属映射缺口。 |
+| DMA/FIFO不存在 | VERIFIED | ET6801 IPCM SVD/Driver定向核对 | 未描述DMA/FIFO寄存器或API；不为此IP规划DMA/FIFO Case。 |
+| CORE2CORE门铃归属 | VERIFIED | `IPCM_10`直接操作SYSC | 属于Dual-Core/CPU系统中断，不是IPCM Mailbox Feature。 |
 
 # 第二章 Driver分析
 
@@ -86,7 +99,7 @@ IPCM应用包括双Core控制命令、轻量状态通知、短Payload交换和�
 | `IPCM_sendDataLinked` | 从起始Mailbox连续写入并触发首Mailbox | 会按剩余Mailbox静默截断，未核对实际配置链长。 |
 | `IPCM_clearDestination` | 清指定Destination和IRQ Enable位 | 可承接Auto ACK触发动作；公共输入应使用逻辑Endpoint。 |
 | `IPCM_getMailboxInterrupt` | 从指定Channel的RIS寻找单个Mailbox | 多bit Pending时返回无效，不能用于Formal多Pending Case。 |
-| `IPCM_clearMailboxInterruptAndSendAck` | `SEND=ACK_TO_SOURCE` | 可承接Manual ACK，但参数断言误用了Channel宏。 |
+| `IPCM_clearMailboxInterruptAndSendAck` | `SEND=ACK_TO_SOURCE`，未限制Mode | 承接MANUAL或AUTO下的显式ACK，不得在Wrap中误拒绝AUTO；参数断言误用了Channel宏。 |
 | `IPCM_clearMailboxInterrupt` | `SEND=INACTIVE` | 可承接仅清中断动作，但参数断言误用了Channel宏。 |
 
 ## 2.2 Driver Gap与最小补齐
@@ -101,9 +114,13 @@ Wrap必须只调用IPCM Driver。当前正式Driver未暴露的硬件Feature，�
 4. `pending_snapshot_get`：一次返回指定Channel完整RIS/MIS位集合；
 5. `destination_release`、`interrupt_clear`和`ack_send`：动作语义分开，禁止隐式组合；
 6. `linked_configure/send_exact`：校验`start_mailbox + linked_count <= mailbox_count`，拒绝截断；
-7. `peer_job`：在已部署Core1 Peer中提供有界接收、ACK、双向、多Pending和Linked Job；Core1启动/烧录仍由部署层负责，不由IPCM Wrap调用DualCore Driver。
+7. 事件采样复用上述快照与读数据接口：在ACK/Clear/Release前采集，不另增测试判定Driver。
 
-返回值使用平台稳定状态和实际处理字节数，公共头文件不暴露`IPCM_Type`、ET6801 Channel宏或寄存器位图类型。
+Chip Driver返回值和类型遵循SDK；Wrap转换为平台稳定状态和实际处理字节数，Wrap公共头文件不暴露`IPCM_Type`、ET6801 Channel宏或寄存器位图类型。两者不能混写成同一接口规范。
+
+`peer_job`是现有Core1执行框架的扩展，不是IPCM SDK Driver函数：只执行PC请求的接收、数据写入、ACK或释放动作，保存原始快照；Case顺序和Expected比较仍在PC。IPCM Service只调用本IP Wrap，Core1部署和启动由既有部署层负责，禁止IPCM Wrap调用DualCore Driver。
+
+每个Case还需要PC调用CRG Driver进行IPCM全实例复位。当前工程`firmware/chips/et6801/sdk/ET6x_Driver/Inc/et6x_crg.h`未暴露IPCM复位枚举；开发时应在CRG自己的芯片映射补齐`SRST1[25]`，先审核范围再编码。此项不能藏入IPCM Driver或Wrap，不能拿`IPCM_mailboxDeInit`代替IP复位。
 
 ## 2.3 当前Driver风险
 
@@ -150,7 +167,7 @@ Wrap必须只调用IPCM Driver。当前正式Driver未暴露的硬件Feature，�
 |---|---:|---|---|
 | `SOURCE` | 31:0 | Source与ACK事件Channel位集合 | `MAILBOX.SOURCE_ENDPOINTS` / `F_002` |
 | `DSET/DCLEAR/DSTATUS` | 31:0 | Destination位集合的设置、清除和状态 | `MAILBOX.DESTINATION_ENDPOINTS` / `F_002`, `F_014` |
-| `MODE.AutoAcknowledge` | 0 | 0 Manual ACK，1 Auto ACK | `MAILBOX.ACK_MODE` / `F_006`~`F_008`, `F_013` |
+| `MODE.AutoAcknowledge` | 0 | 0 Manual ACK，1 Auto ACK；显式SEND=2不要求清此位 | `MAILBOX.ACK_MODE` / `F_006`~`F_008`, `F_013`, `F_016` |
 | `MODE.AutoLink` | 1 | 0 Single，1与下一Mailbox链接 | `MAILBOX.LINK_MODE` / `F_012`, `F_013` |
 | `MSTATUS`目标位 | 31:0 | 1 IRQ enabled，0 Polling | `MAILBOX.IRQ_ENABLED_ENDPOINTS` / `F_005` |
 | `SEND` | 1:0 | 0 Inactive，1 Send，2 ACK，3 Invalid | 消息、ACK和Clear动作内部映射 |
@@ -170,9 +187,12 @@ Wrap必须只调用IPCM Driver。当前正式Driver未暴露的硬件Feature，�
 - `SEND=3`由SVD明确标记为非法且行为不可预测，任何自动化Case都禁止写入该值。
 - `MSET/MCLEAR`是写动作，实际中断Enable状态必须从`MSTATUS`读取；不要根据“Mask”名称反向解释。
 - `MIS/RIS`是Mailbox位集合，不是单一Mailbox编号；多Pending Case必须保留完整32-bit事实。
+- `SEND=2`会结束Destination消息阶段，`SEND=0`会清Pending，`DCLEAR`也会改变接收路由；必须在这些动作之前采样RIS/MIS及Data。ISR快照与清除后的即时读回使用不同阶段标识，不能用后者否认前者发生过。
 - Data寄存器不保存有效字节数，Wire/Peer Job必须显式携带Payload长度；否则最后一个Data Word的无效字节无法区分。
 - Linked总容量等于实际链成员数乘以单Mailbox容量；起始Mailbox非0时最大链长必须相应缩短。
-- 多Destination是否在最后一个Destination释放后才产生Auto ACK，是由寄存器语义推导出的待验证行为，`IPCM_P1_007`必须给出HIL证据。
+- 多Destination的AUTO聚合时序没有直接证据。`IPCM_P1_007`使用MANUAL+POLLING，两目标均读取后分别DCLEAR，最后SEND=2；不使用未经证实的“最后DCLEAR才ACK”作为PASS条件。该组合语义须补目标设计说明后再决定扩展，当前不记为已覆盖或SKIP。
+- 历史Linked Case中`linkedMboxNum=15`是首Mailbox之外的15项，实际N=16；公共`linked_count`必须表示总成员数N。尾项MODE.AutoLink清0，Source ACK应落在尾项；Driver负责N到SDK参数N-1的转换。
+- 每轮配置前的全实例复位由CRG Driver对`CRG.SRST1[25]`执行低有效复位并释放；单Mailbox的SOURCE=0仅验证释放语义，不具有全IP或跨Core软件状态复位的含义。
 - IPCM无DMA和FIFO；不能为了复用DMA/队列Case而创造不存在的Feature。
 
 ## 3.4 当前Capability语义缺口
@@ -184,12 +204,12 @@ features:
   manual_ack: true
   ack_payload_update: true
   auto_ack: true
+  explicit_ack_in_auto: true
   auto_link: true
   auto_ack_link: true
   irq_delivery: true
   polling: true
   multi_destination: true
-  dualcore_peer: true
 limits:
   mailbox_count: 16
   channel_count: 16
@@ -201,7 +221,7 @@ options:
   link_modes: [single, linked]
 ```
 
-具体YAML键必须通过现有Capability Schema和生成规则落地，以上仅说明必须表达的语义，不授权手工绕过生成链。
+具体YAML键必须通过现有Capability Schema和生成规则落地，以上仅说明必须表达的语义，不授权手工绕过生成链。Peer是否已部署/Ready属于Execution Mapping与Runtime资格，不能把`dualcore_peer: true`硬填进IPCM硅能力来伪造可运行条件。
 
 # 第四章 当前测试代码与历史覆盖分析
 
@@ -212,14 +232,16 @@ options:
 | `IPCM_0` | Manual ACK返回原Payload | 同一Core使用Channel0/1自发自收；入口被注释 | `IPCM_P0_002`，升级为真实双Core |
 | `IPCM_1` | Manual ACK前更新Payload | 同一Core自发自收；入口被注释 | `IPCM_P1_001` |
 | `IPCM_2` | 两个Mailbox一收一发 | 同一Core两个Channel；入口被注释 | `IPCM_P1_005`，升级为双Core双向 |
-| `IPCM_3` | 同一Mailbox分段发送100字节 | 固定忙等、没有deadline；入口被注释 | `IPCM_P2_003` |
+| `IPCM_3` | 同一Mailbox分段发送100字节 | 接收端每次按28字节追加，100字节Buffer的尾段可能越界；入口被注释 | `IPCM_P2_003`按实际段长重组，不照抄错误尾段 |
 | `IPCM_4` | Auto ACK由Destination Clear触发 | 同一Core；入口被注释 | `IPCM_P1_002`正向场景 |
 | `IPCM_5` | Auto ACK模式只清中断不产生ACK | 同一Core；入口被注释 | `IPCM_P1_002`反向场景 |
-| `IPCM_6` | Auto ACK模式下显式Manual ACK | 同一Core；与纯Auto ACK语义混合 | 不单独保留；Manual ACK与Auto ACK分别原子验证 |
-| `IPCM_7` | Auto Link、16个Mailbox、445字节、Manual ACK | 注释误写32个Mailbox；入口被注释 | `IPCM_P2_001` |
-| `IPCM_8` | Auto ACK Link、16个Mailbox、445字节 | 入口被注释 | `IPCM_P2_002` |
+| `IPCM_6` | Auto ACK模式下显式ACK | MODE=AUTO_ACK，接收端直接SEND=2；这不是Case0或4的重复点，不能合并丢失 | `IPCM_P1_008` |
+| `IPCM_7` | Auto Link、16个Mailbox、445字节、Manual ACK | 注释误写32；Source ISR只预期Mailbox15，接收端每项ACK推进链 | `IPCM_P2_001`，N次Destination+1次Source链尾ACK |
+| `IPCM_8` | Auto ACK Link、16个Mailbox、445字节 | Source ISR只预期Mailbox15；接收端每项DCLEAR推进链 | `IPCM_P2_002`，N次Destination+1次Source链尾ACK |
 | `IPCM_9` | Core0/Core1通过两个Mailbox双向通信 | Mailbox12/13配置与发送方向不一致、无Peer Ready握手；入口被注释 | `IPCM_P1_005`，重新设计 |
-| `IPCM_10` | CORE2CORE门铃中断 | 当前入口唯一启用项，但直接操作SYSC，不使用IPCM Mailbox | `REJECTED`，转Dual-Core/CPU Contract |
+| `IPCM_10` | CORE2CORE门铃中断 | 当前入口唯一启用项，但直接操作SYSC，不使用IPCM Mailbox | `NOT_APPLICABLE`于本IP，归Dual-Core/CPU Contract |
+| `regscan_smoke_test.c::IPCM_Test` | CFGSTAT整体值读回 | 检查`0x00101007`，没有消息/ACK测试 | `IPCM_P0_001`逐字段核对16/16/7 |
+| `Integrated_StressTest.c::IPCM_entry` | IPCM压力子项入口 | 只见调用和头文件声明，未找到函数正文 | `UNKNOWN`，保留资料缺口，不编造压力Feature或Case |
 
 历史入口`IPCM_FPGATest()`将`IPCM_0`~`IPCM_9`全部注释，只执行`IPCM_10`。因此没有任何历史IPCM Mailbox Case可以认定为已执行PASS。
 
@@ -230,28 +252,34 @@ options:
 - `IPCM_getMailboxInterrupt`不能处理多bit Pending；新Case必须直接取得完整Raw/Masked位集合。
 - 历史Linked Case始终从Mailbox0开始，未暴露Driver的起始点加链长越界风险；开发接口必须先补边界校验。
 - 历史Payload比较没有显式有效长度协议；Formal Peer Job必须同时记录长度和字节内容。
+- `IPCM_3`固定28字节读写尾段、`IPCM_7/8`读取最后Mailbox整容量，不能作为新Case的有效长度规则。当前长数据选择可复现Pattern，末项只保留真实字节；与历史相同的是分段/链路Feature，不是其Buffer越界。
+- `IPCM_6`必须保持AUTO配置再显式ACK，不能拆成两个互不相关的MANUAL和AUTO Case声称覆盖。
+- `IPCM_7/8`必须区分接收端每次ACK动作和Source只收到最终ACK；Source ISR读取的历史Mailbox15不是“所有Mailbox都向Source发ACK”的证据。
 - `IPCM_9`不能照抄：两核必须先分别完成正向/反向Mailbox配置和Ready握手，再允许任一方向发送。
 
 ## 4.3 Source Item Trace
 
 | Source Item | 判定 | Public Feature | Public Case | 说明 |
 |---|---|---|---|---|
-| CFGSTAT 16 Mailbox/16 Channel/7 Data Word | RETAINED | `F_001` | `P0_001`, `P1_004` | 数量进入Capability，Case不写死。 |
-| SOURCE/DSET/DSTATUS路由 | RETAINED | `F_002`, `F_014` | `P0_001`, `P0_002`, `P1_007` | 公共层使用逻辑Endpoint集合。 |
-| DR0..DR6变长Payload | RETAINED_WITH_STRONGER_ORACLE | `F_003` | `P0_002`, `P2_003` | 增加非4字节长度和严格不截断。 |
-| MIS/RIS/MSTATUS | RETAINED | `F_004`, `F_005`, `F_010` | `P0_002`, `P1_003`, `P1_006` | 完整位集合、IRQ和Polling分别验证。 |
-| Manual ACK原Payload | RETAINED | `F_006` | `P0_002` | 升级为真实双Core。 |
-| Manual ACK更新Payload | RETAINED | `F_007` | `P1_001` | 请求与ACK使用不同Pattern。 |
-| Auto ACK正反触发条件 | RETAINED | `F_008` | `P1_002` | 合并历史Case4/5，正反条件同Case闭合。 |
-| 两Mailbox双向通信 | RETAINED_WITH_CORRECTION | `F_009` | `P1_005` | 修正历史Case9的配置/发送不一致和启动竞态。 |
-| 多Mailbox同时Pending | NEW_FROM_HARDWARE | `F_010` | `P1_006` | SVD位集合能力，历史Driver实现无法正确识别。 |
-| Mailbox释放复用 | RETAINED_WITH_STRONGER_ORACLE | `F_011` | `P1_004`, `P2_003` | 验证Driver“SOURCE=0清全部状态”的声明。 |
-| Auto Link | RETAINED | `F_012` | `P2_001` | 承接历史Case7，严格记录全链成员。 |
-| Auto ACK Link | RETAINED | `F_013` | `P2_002` | 承接历史Case8。 |
-| Multi-destination | NEW_FROM_HARDWARE | `F_014` | `P1_007` | 来自DSET/DSTATUS位集合和SVD复数语义。 |
-| 同Mailbox连续分段 | RETAINED_WITH_STRONGER_ORACLE | `F_015` | `P2_003` | 承接历史Case3，去除无限忙等。 |
-| `SEND=3` | REJECTED_UNSAFE | — | — | SVD明确非法且不可预测。 |
-| `IPCM_10` CORE2CORE中断 | REJECTED_OUT_OF_SCOPE | — | — | 不使用IPCM寄存器，属于系统双核门铃。 |
+| CFGSTAT及`regscan_smoke_test.c::IPCM_Test` | MERGED | `F_001` | `P0_001`, `P1_004` | 整值0x00101007转成16/16/7逐字段核对，数量进入Capability。 |
+| SOURCE/DSET/DSTATUS路由 | SPLIT | `F_002`, `F_014` | `P0_001`, `P0_002`, `P1_007` | 单目标路由与多目标释放分开，公共输入为逻辑Endpoint。 |
+| DR0..DR6变长Payload | MAPPED | `F_003` | `P0_002`, `P2_003` | 非4字节长度和严格不截断。 |
+| MIS/RIS/MSTATUS | SPLIT | `F_004`, `F_005`, `F_010` | `P0_002`, `P1_003`, `P1_006` | 完整位集合、IRQ、Polling分别验证，清除前采样。 |
+| `IPCM_0` Manual ACK原Payload | MAPPED | `F_006` | `P0_002` | 真实双Core，替换同核自发自收。 |
+| `IPCM_1` Manual ACK更新Payload | MAPPED | `F_007` | `P1_001` | 请求A和ACK B独立核对。 |
+| `IPCM_4/5` Auto ACK正反触发 | MERGED | `F_008` | `P1_002` | 同Case两个独立参数：clear_only/release。 |
+| `IPCM_2/9` 两Mailbox双向 | MERGED | `F_009` | `P1_005` | 保留双向思想，修正Case9配置/发送不一致和Ready竞态。 |
+| 多Mailbox同时Pending | MAPPED | `F_010` | `P1_006` | SVD位集合能力；IRQ关闭时Raw含两位、Masked为0。 |
+| Driver Mailbox释放声明 | MAPPED | `F_011` | `P0_001`, `P1_004` | 清Source后读回，用实测确认未知语义；连续分段Case不等于释放测试。 |
+| `IPCM_7` Auto Link | MAPPED | `F_012` | `P2_001` | 保留全链成员和唯一Source链尾ACK的历史预期。 |
+| `IPCM_8` Auto ACK Link | MAPPED | `F_013` | `P2_002` | 逐Destination释放推进，Source只接收链尾ACK。 |
+| Multi-destination位集合 | MAPPED | `F_014` | `P1_007` | MANUAL逐目标释放，不叠加未知AUTO聚合规则。 |
+| `IPCM_3` 同Mailbox连续分段 | MAPPED | `F_015` | `P2_003` | 保留4段思想，移除无界等待与尾段越界。 |
+| `IPCM_6` AUTO下显式ACK | MAPPED | `F_016` | `P1_008` | 不改变MODE.bit0，不执行DCLEAR，直接SEND=2。 |
+| `IPCM_entry`调用/声明 | UNKNOWN | — | — | 需获取压力测试正文或需求后再判断增量覆盖；不能凭入口名生成Case。 |
+| 多目标AUTO聚合ACK | UNKNOWN | — | — | 需目标设计说明确认触发条件，不计入已覆盖。 |
+| `SEND=3` | REJECTED | — | — | SVD明确非法且不可预测，禁止刺激。 |
+| `IPCM_10` CORE2CORE中断 | NOT_APPLICABLE | — | — | 不使用IPCM寄存器，属于系统双核门铃。 |
 | DMA/FIFO | NOT_APPLICABLE | — | — | ET6801 IPCM没有该硬件能力。 |
 
 # 第五章 Chip -> Public Feature Mapping
@@ -259,7 +287,7 @@ options:
 | Public Feature | Hardware | ET6801参数/差异 | Platform | Public Case |
 |---|---|---|---|---|
 | IPCM_F_001 | SUPPORTED | CFGSTAT=`16/16/7`，28字节单Mailbox | IMPLEMENTATION_GAP | `P0_001`, `P1_004` |
-| IPCM_F_002 | SUPPORTED | SOURCE/DSET/DSTATUS为32-bit Endpoint位集合 | IMPLEMENTATION_GAP | `P0_001`, `P0_002`, `P1_005` |
+| IPCM_F_002 | SUPPORTED | SOURCE/DSET/DSTATUS为32-bit Endpoint位集合 | IMPLEMENTATION_GAP | `P0_001`, `P0_002`, `P1_004`, `P1_005` |
 | IPCM_F_003 | SUPPORTED | DR[7]，有效长度由协议携带 | IMPLEMENTATION_GAP | `P0_002`, `P2_003` |
 | IPCM_F_004 | SUPPORTED | 16组MIS/RIS，每bit对应Mailbox | IMPLEMENTATION_GAP | `P0_002`, `P1_003` |
 | IPCM_F_005 | SUPPORTED | MSTATUS=1启用IRQ，0仅Polling | IMPLEMENTATION_GAP | `P1_003` |
@@ -268,28 +296,30 @@ options:
 | IPCM_F_008 | SUPPORTED | MODE.bit0，Destination Clear触发语义需HIL | IMPLEMENTATION_GAP | `P1_002` |
 | IPCM_F_009 | SUPPORTED | ET6801 Core0/Core1，两个独立Mailbox | IMPLEMENTATION_GAP | `P1_005` |
 | IPCM_F_010 | SUPPORTED | RIS/MIS完整Mailbox位集合 | IMPLEMENTATION_GAP | `P1_006` |
-| IPCM_F_011 | NEEDS_VERIFICATION | Driver声称SOURCE=0释放并清全部状态 | IMPLEMENTATION_GAP | `P1_004`, `P2_003` |
+| IPCM_F_011 | NEEDS_VERIFICATION | Driver声称SOURCE=0释放并清全部状态 | IMPLEMENTATION_GAP | `P0_001`, `P1_004` |
 | IPCM_F_012 | SUPPORTED | MODE.bit1，最多连续16个Mailbox | IMPLEMENTATION_GAP | `P2_001` |
 | IPCM_F_013 | SUPPORTED | MODE.bit1+bit0 | IMPLEMENTATION_GAP | `P2_002` |
 | IPCM_F_014 | SUPPORTED | DSET/DSTATUS 32-bit Multi-destination | IMPLEMENTATION_GAP | `P1_007` |
 | IPCM_F_015 | SUPPORTED | Manual ACK完成后复用同一Mailbox | IMPLEMENTATION_GAP | `P2_003` |
+| IPCM_F_016 | SUPPORTED | MODE.bit0=1时直接SEND=2；有历史Case6测试意图，无当前PASS证据 | IMPLEMENTATION_GAP | `P1_008` |
 
 # 第六章 Chip -> Public Case Adaptation
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| IPCM_P0_001 | IMPLEMENTATION_GAP | 需要Capability语义、配置快照和严格释放读回Driver。 |
+| IPCM_P0_001 | IMPLEMENTATION_GAP | 先补CRG SRST1[25]复位映射；开发前用最小读写/释放诊断核对SOURCE=0影响，再落实Capability与快照。 |
 | IPCM_P0_002 | MAPPING_GAP | 需要Core0 Initiator、Core1 Responder和两个逻辑事件Endpoint；每个Payload长度形成独立parameter_id。 |
 | IPCM_P1_001 | MAPPING_GAP | 需要Peer Manual ACK Update Job。 |
-| IPCM_P1_002 | MAPPING_GAP | 需要Peer将interrupt_clear与destination_release分成两个原子动作。 |
-| IPCM_P1_003 | MAPPING_GAP | 需要Peer分别执行Polling和IRQ接收并回报完整RIS/MIS。 |
+| IPCM_P1_002 | MAPPING_GAP | 两独立参数clear_only/release；动作前保存Peer快照，Source用100 ms无ACK窗口或ACK前锁存值。 |
+| IPCM_P1_003 | MAPPING_GAP | 两独立参数polling/irq，清除前保存完整RIS/MIS；两模式均只清消息、不发ACK。 |
 | IPCM_P1_004 | MAPPING_GAP | 需要全16 Mailbox参数矩阵、释放快照和双核消息Job；每个mailbox_id形成独立parameter_id。 |
 | IPCM_P1_005 | MAPPING_GAP | 需要两个方向Mailbox均Ready后再开始发送。 |
 | IPCM_P1_006 | MAPPING_GAP | 需要禁止Peer提前处理，保留两个Raw Pending位后再逐项处理。 |
-| IPCM_P1_007 | MAPPING_GAP | 需要Core1提供两个逻辑事件Endpoint，并补Multi-destination Driver接口。 |
-| IPCM_P2_001 | MAPPING_GAP | 需要全链Manual ACK Peer Job和严格Linked边界Driver。 |
-| IPCM_P2_002 | MAPPING_GAP | 需要全链Destination Release/Auto ACK Peer Job。 |
-| IPCM_P2_003 | MAPPING_GAP | 需要连续分段接收与重组Peer Job。 |
+| IPCM_P1_007 | MAPPING_GAP | Core1的两个事件Endpoint以MANUAL+POLLING接收，分别DCLEAR后最后SEND=2；需多目标Driver，不需要第三个Core。 |
+| IPCM_P1_008 | MAPPING_GAP | 需要AUTO下显式ACK动作，ACK前保存MODE、DSTATUS和RIS/MIS；不执行DCLEAR。 |
+| IPCM_P2_001 | MAPPING_GAP | 需要N次Destination消息与一次Source链尾ACK证据，以及严格Linked边界Driver。 |
+| IPCM_P2_002 | MAPPING_GAP | 逐成员DCLEAR；与P2_001相同，仅链尾产生Source ACK，不得按N次Source IRQ实现。 |
+| IPCM_P2_003 | MAPPING_GAP | C=28时87字节分28/28/28/3，共4段；Peer回报有效片段，PC重组，不能照抄历史尾段越界。 |
 
 ## 6.1 ET6801 Execution Mapping
 
@@ -306,39 +336,45 @@ options:
 
 Channel10/11只来自ET6801历史双核测试的候选映射，不能在公共Case中写死。开发时必须先做一个双核消息Smoke验证逻辑Endpoint到实际IRQn的映射，再开放完整Case。
 
+复位是共享IP级动作：先停止Core1 IPCM Job并关闭其IPCM事件处理，再由Core0侧CRG命令复位IPCM，最后清两端Service状态和Resource Pool；不能让Core1还在读写Mailbox时复位。本文不授权改双核公共协议；若现有Peer接口缺少停止/Ready/原始事件回报，编码前另列最小扩展范围。
+
 ## 6.2 实现顺序
 
-1. 补齐ET6801 IPCM Capability语义，并验证CFGSTAT与YAML一致；
+1. 确认CRG IPCM复位映射和单Mailbox释放语义，补齐ET6801 IPCM Capability语义并验证CFGSTAT；
 2. 在SDK Driver底部测试扩展区补严格边界、快照、完整Pending位集合和Multi-destination接口；
-3. 实现芯片中立IPCM Wrap、Service和命令注册，Service只做命令解析与Driver调用；
+3. 实现芯片中立IPCM Wrap、Service和命令注册，Service只解析命令、调用本IP Wrap并回报原始事实；IRQ先采样后清除，不能直接调Chip Driver；
 4. 在现有Core1 Peer工程中增加IPCM异步Job，不新建第二套双核部署框架；
-5. 实现PC IPCM Driver和12个Formal Case，Case只使用逻辑Endpoint和Capability；
+5. 实现PC IPCM Driver和13个Formal Case，Case只使用逻辑Endpoint和Capability；同一批同步Registry、SPEC和REPORT，按R120/R130验证每个参数的报告字段真实可解析；
 6. 先执行`P0_001`和真实双核`P0_002` Smoke，再按P1、P2扩展；
 7. FPGA与Silicon分别取得独立HIL证据并更新本文件测试状态。
 
 ## 6.3 当前覆盖结论
 
 ```text
-Public Feature: 15
-- ET6801 Hardware SUPPORTED: 14
+Public Feature: 16
+- ET6801 Hardware SUPPORTED: 15
 - ET6801 Hardware NEEDS_VERIFICATION: 1
-- Platform IMPLEMENTATION_GAP: 15
+- Platform IMPLEMENTATION_GAP: 16
 
-Formal Case: 12
-- PLANNED: 12
+Case Plan: 13 (P0=2, P1=8, P2=3, P3=0)
+- PLANNED: 13
 - IMPLEMENTED: 0
 - FPGA PASS/FAIL/SKIP: 0/0/0
 - Silicon PASS/FAIL/SKIP: 0/0/0
 
 External wiring required: 0
-On-chip peer required: 11
+On-chip peer required: 12
 R0 self-contained Case: IPCM_P0_001
 ```
+
+已找到正文的`IPCM_0~9`共10项历史测试思想全部映射至当前PLAN，另包含寄存器扫描。此为设计覆盖，不是实测通过率；`IPCM_entry`压力正文未知、多目标AUTO聚合时序未定义，均不能计入“全需求覆盖”。注册数和实际执行数仍为0，未执行不能写SKIP。
 
 ## 6.4 剩余风险
 
 - 当前Capability没有任何IPCM Feature/Limit语义；若不先补齐，公共Case会被迫写死ET6801数量。
 - 历史双核Case没有Ready握手且Mailbox12/13配置与发送不一致，不能作为可运行模板。
 - 正式Driver的静默截断、非对齐访问和Linked越界可能导致Fault或假通过，必须在Wrap开发前修复。
-- Mailbox释放是否由`SOURCE=0`清除全部状态、多Destination最后释放是否触发Auto ACK，均需要最小HIL实证。
+- Mailbox释放是否由`SOURCE=0`清除全部状态需要最小HIL读回；多Destination AUTO触发须先取得目标设计定义，不应靠试出的现象反向制定Oracle。
+- CRG SRST1[25]映射、双端事件快照和Core1 IPCM Job均未实现；这是软件缺口，不是外部接线缺口。
+- 压力入口正文未找到，不能将13条PLAN宣称为所有历史需求的完整覆盖。补到正文后按有效Feature做增量映射，禁止凭函数名扩写复杂压力Case。
 - Core1 Peer是片内配测执行实体，不是外部接线；Peer未部署属于Mapping/Implementation Gap，不能把Case删除或标成硬件不支持。
