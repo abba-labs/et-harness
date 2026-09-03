@@ -1,6 +1,6 @@
 # SYSCTRL Stable IP Contract
 
-更新时间：2026-09-03 21:58 CST。
+更新时间：2026-09-03 22:05 CST。上述路由已接入PC Driver、Service及Wrap；HIL未执行。
 
 本文件约束已有DMAMUX接口及本轮批准的系统计数器路由接口，不代表SYSCTRL全部Feature分析完成。计数器测试方法唯一位于`../syscnt/syscnt.md`。
 

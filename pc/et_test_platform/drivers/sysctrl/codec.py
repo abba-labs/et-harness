@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import struct
 
+from .contract import SyscntClockSource
 from .models import DmaEndpoint, DmaRequestRoute
 from .validation import (
     require_nonzero_uint64,
@@ -18,6 +19,26 @@ from .validation import (
 DMA_ROUTE = struct.Struct("<4BQ")
 DMA_ROUTE_RELEASE = struct.Struct("<2B2x")
 DMA_ROUTE_V2 = struct.Struct("<4B")
+SYSCNT_ROUTING = struct.Struct("<4B")
+
+
+# 编码计数器路由请求；此处只校验字段宽度，动作值语义由Driver校验。
+def encode_syscnt_routing(instance: int, value: int = 0) -> bytes:
+
+    return SYSCNT_ROUTING.pack(
+        require_uint8(instance, "instance"), require_uint8(value, "value"), 0, 0
+    )
+
+
+# 解码硬件读回；非法源、Boolean或非零保留位均拒绝，不能默认成某个时钟源。
+def decode_syscnt_routing(body: bytes) -> tuple[SyscntClockSource, bool]:
+
+    if len(body) != SYSCNT_ROUTING.size:
+        raise ValueError("SYSCTRL counter routing response must be four bytes")
+    source, halted, reserved0, reserved1 = SYSCNT_ROUTING.unpack(body)
+    if halted not in (0, 1) or reserved0 or reserved1:
+        raise ValueError("SYSCTRL counter routing response has invalid fields")
+    return SyscntClockSource(source), bool(halted)
 
 
 # 编码旧版 Endpoint/Instance/Address 请求，不改变既有 Wire。

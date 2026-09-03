@@ -159,6 +159,14 @@ enum
     {{ET6801_DMA_LOGICAL_0, AHBDMA0, ET_CHIP_SYSCTRL_DMA_LIMITS}, \
      {ET6801_DMA_LOGICAL_1, AHBDMA1, ET_CHIP_SYSCTRL_DMA_LIMITS}}
 
+/*
+ * SYSC.CLK_SCNT has one counter route. Fields: logical counter ID,
+ * SDK source for public INTERNAL, SDK source for public EXTERNAL.
+ * Source names describe selection only, not the FPGA's measured frequency.
+ */
+#define ET_CHIP_SYSCTRL_SYSCNT_MAP_TABLE \
+    {{0u, SYSCTRL_SYSCNT_CLKSRC_OSC25M, SYSCTRL_SYSCNT_CLKSRC_XO25M}}
+
 /* -------------------------------------------------------------------------- */
 /* CRG                                                                        */
 /* ET6801 SVD exposes one SYSCNT gate. Field: logical instance ID (no reset ID). */

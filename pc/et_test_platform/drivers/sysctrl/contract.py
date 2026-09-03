@@ -14,3 +14,12 @@ class SysctrlCommand(IntEnum):
     DMA_REQUEST_CONFIGURE = 0x0001
     DMA_REQUEST_RELEASE = 0x0002
     DMA_REQUEST_CONFIGURE_V2 = 0x0003
+    SYSCNT_SOURCE_SET = 0x0004
+    SYSCNT_HALT_SET = 0x0005
+    SYSCNT_ROUTING_GET = 0x0006
+
+
+# 计数器的公共时钟源身份；实际频率及SDK编码由芯片适配提供。
+class SyscntClockSource(IntEnum):
+    INTERNAL = 0
+    EXTERNAL = 1

@@ -100,6 +100,65 @@ static uint16_t release_dma_request(const uint8_t *request_body, uint16_t reques
 }
 
 /**
+ * @brief Decode one fixed counter routing command and return its hardware facts.
+ * @param[in] command_id Validated counter routing command ID.
+ * @param[in] body Raw request with instance, value and reserved bytes.
+ * @param[in] length Request length in bytes.
+ * @param[out] response Fixed routing response buffer.
+ * @param[in] capacity Response capacity in bytes.
+ * @param[out] produced Response size, initially zero.
+ * @return Stable validation or Own Wrap execution status.
+ * @note Does not stop, start or configure the counter itself.
+ */
+static uint16_t handle_syscnt_routing(uint16_t command_id, const uint8_t *body, uint16_t length,
+                                      uint8_t *response, uint16_t capacity, uint16_t *produced)
+{
+    et_sysctrl_syscnt_routing_t routing;
+    et_wrap_status_t status;
+
+    /* Phase 1: Validate the fixed payload before any hardware action. */
+    if ((body == NULL) || (length != ET_SYSCTRL_SYSCNT_REQUEST_SIZE) ||
+        (body[ET_SYSCTRL_SYSCNT_RESERVED0_OFFSET] != 0u) ||
+        (body[ET_SYSCTRL_SYSCNT_RESERVED1_OFFSET] != 0u))
+    {
+        return ET_STATUS_INVALID_PARAM;
+    }
+
+    if (command_id == ET_SYSCTRL_COMMAND_SYSCNT_SOURCE_SET)
+    {
+        return status_from_wrap(et_sysctrl_wrap_set_syscnt_source(
+            body[ET_SYSCTRL_SYSCNT_INSTANCE_OFFSET], body[ET_SYSCTRL_SYSCNT_VALUE_OFFSET]));
+    }
+
+    if (command_id == ET_SYSCTRL_COMMAND_SYSCNT_HALT_SET)
+    {
+        return status_from_wrap(et_sysctrl_wrap_set_syscnt_halt(
+            body[ET_SYSCTRL_SYSCNT_INSTANCE_OFFSET], body[ET_SYSCTRL_SYSCNT_VALUE_OFFSET]));
+    }
+
+    /* Phase 2: Read actual routing and encode the public response. */
+    if ((body[ET_SYSCTRL_SYSCNT_VALUE_OFFSET] != 0u) || (response == NULL) ||
+        (capacity < ET_SYSCTRL_SYSCNT_RESPONSE_SIZE))
+    {
+        return ET_STATUS_INVALID_PARAM;
+    }
+
+    status = et_sysctrl_wrap_get_syscnt_routing(body[ET_SYSCTRL_SYSCNT_INSTANCE_OFFSET], &routing);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status_from_wrap(status);
+    }
+
+    (void)memset(response, 0, ET_SYSCTRL_SYSCNT_RESPONSE_SIZE);
+    response[ET_SYSCTRL_SYSCNT_SOURCE_OFFSET] = routing.source;
+    response[ET_SYSCTRL_SYSCNT_HALT_OFFSET] = routing.halt_enabled;
+    *produced = ET_SYSCTRL_SYSCNT_RESPONSE_SIZE;
+
+    return ET_STATUS_OK;
+}
+
+/**
  * @brief Dispatch one published SYSCTRL command without introducing cross-IP policy.
  *
  * @param[in,out] context SYSCTRL Service context retained by the common router.
@@ -129,6 +188,17 @@ static uint16_t sysctrl_handle(void *context, uint16_t command_id, const uint8_t
     }
 
     *response_length = 0u;
+
+    /* Phase 1: Decode the separately sized counter routing commands. */
+    if ((command_id == ET_SYSCTRL_COMMAND_SYSCNT_SOURCE_SET) ||
+        (command_id == ET_SYSCTRL_COMMAND_SYSCNT_HALT_SET) ||
+        (command_id == ET_SYSCTRL_COMMAND_SYSCNT_ROUTING_GET))
+    {
+        return handle_syscnt_routing(command_id, request_body, request_length, response_body,
+                                     response_capacity, response_length);
+    }
+
+    /* Phase 2: Preserve the published DMAMUX command behavior. */
 
     if (command_id == ET_SYSCTRL_COMMAND_DMA_REQUEST_CONFIGURE)
     {

@@ -500,3 +500,44 @@ void SYSCTRL_disableTemperatureSensor(void)
     /* Tsensor disable，Tsensor disconnect ADC0_A13 analog IO */
     CLEAR_BIT(SYSC->AFE_REF_GEN, SYSC_AFE_REF_GEN_D2A_AFE_TESTBUF_EN_Msk | SYSC_AFE_REF_GEN_D2A_AFE_TEMPSENSOR_EN_Msk);
 }
+
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/**
+ * @brief Set the system counter debug-halt route only.
+ * @param[in] enabled Boolean route enable.
+ * @return DRV_OK or DRV_PARAM_ERR for a non-Boolean value.
+ * @note Caller owns SYSC unlock/lock. Counter HDBG and CPU run control are not changed.
+ */
+DRV_Status SYSCTRL_testSetSYSCNTHaltRoute(uint8_t enabled)
+{
+    if (enabled > 1u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    MODIFY_REG(SYSC->SCNT, SYSC_SCNT_HALT_MODE_EN_Msk,
+               enabled != 0u ? SYSC_SCNT_HALT_MODE_EN_Msk : 0u);
+    return DRV_OK;
+}
+
+/**
+ * @brief Read actual counter routes from their owning system registers.
+ * @param[out] routing Clock source and Boolean halt route.
+ * @return DRV_OK or DRV_PARAM_ERR for a NULL destination.
+ * @note Readback is not cached and does not infer physical clock frequency or CPU halt.
+ */
+DRV_Status SYSCTRL_testGetSYSCNTRouting(SYSCTRL_TestSyscntRouting *routing)
+{
+    if (routing == NULL)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    routing->source = (SYSCTRL_SYSCNTClockSource)
+        ((READ_REG(SYSC->CLK_SCNT) & SYSC_CLK_SCNT_SEL_IN_Msk) >> SYSC_CLK_SCNT_SEL_IN_Pos);
+    routing->halt_enabled = READ_BIT(SYSC->SCNT, SYSC_SCNT_HALT_MODE_EN_Msk) != 0u;
+    return DRV_OK;
+}
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif

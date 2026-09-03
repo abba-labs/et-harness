@@ -395,6 +395,22 @@ void SYSCTRL_disableTemperatureSensor(void);
 /**
  * @}
  */
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/** Actual system route readback; does not represent a measured frequency. */
+typedef struct
+{
+    SYSCTRL_SYSCNTClockSource source;
+    uint8_t halt_enabled;
+} SYSCTRL_TestSyscntRouting;
+
+/** Set only the system counter halt route; caller owns the SYSC lock. */
+DRV_Status SYSCTRL_testSetSYSCNTHaltRoute(uint8_t enabled);
+/** Read clock selection and system halt route without changing hardware. */
+DRV_Status SYSCTRL_testGetSYSCNTRouting(SYSCTRL_TestSyscntRouting *routing);
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
+
 #ifdef __cplusplus
 }
 #endif

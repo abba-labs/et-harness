@@ -16,12 +16,26 @@
 #define ET_SYSCTRL_DMA_REQUEST_ID_OFFSET 2u
 #define ET_SYSCTRL_DMA_RESERVED_OFFSET 3u
 
+/** Counter routing request is instance, value, two zero reserved bytes. */
+#define ET_SYSCTRL_SYSCNT_REQUEST_SIZE 4u
+#define ET_SYSCTRL_SYSCNT_INSTANCE_OFFSET 0u
+#define ET_SYSCTRL_SYSCNT_VALUE_OFFSET 1u
+#define ET_SYSCTRL_SYSCNT_RESERVED0_OFFSET 2u
+#define ET_SYSCTRL_SYSCNT_RESERVED1_OFFSET 3u
+/** GET response is source, halt_enabled, two zero reserved bytes. */
+#define ET_SYSCTRL_SYSCNT_RESPONSE_SIZE 4u
+#define ET_SYSCTRL_SYSCNT_SOURCE_OFFSET 0u
+#define ET_SYSCTRL_SYSCNT_HALT_OFFSET 1u
+
 typedef enum
 {
     /* Deprecated: Endpoint/Instance/Address semantics are no longer executed. */
     ET_SYSCTRL_COMMAND_DMA_REQUEST_CONFIGURE = 0x0001u,
     ET_SYSCTRL_COMMAND_DMA_REQUEST_RELEASE = 0x0002u,
-    ET_SYSCTRL_COMMAND_DMA_REQUEST_CONFIGURE_V2 = 0x0003u
+    ET_SYSCTRL_COMMAND_DMA_REQUEST_CONFIGURE_V2 = 0x0003u,
+    ET_SYSCTRL_COMMAND_SYSCNT_SOURCE_SET = 0x0004u,
+    ET_SYSCTRL_COMMAND_SYSCNT_HALT_SET = 0x0005u,
+    ET_SYSCTRL_COMMAND_SYSCNT_ROUTING_GET = 0x0006u
 } et_sysctrl_command_t;
 
 typedef struct
