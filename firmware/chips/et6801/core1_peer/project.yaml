@@ -8,7 +8,8 @@ output_project: firmware/build/et6801/core1_peer/ET6801_Core1_Peer.uvprojx
 jlink_settings: firmware/chips/et6801/core1_peer/debug/JLinkSettings.ini
 
 targets:
-  - name: ET6801_CORE1_ITCM_PEER
+  - &itcm_peer
+    name: ET6801_CORE1_ITCM_PEER
     template_target: ET6801_FPGA_ITCM
     define: ET_TARGET_FPGA
     output_name: et6801_core1_itcm_peer
@@ -33,7 +34,8 @@ targets:
       - FPGA_VERSION
       - ET_TARGET_FPGA
       - ET_ENABLE_TEST_DRIVER_EXTENSIONS
-  - name: ET6801_CORE1_PFLASH1_PEER
+  - &flash_peer
+    name: ET6801_CORE1_PFLASH1_PEER
     template_target: ET6801_SILICON_FLASH
     define: ET_TARGET_SILICON
     output_name: et6801_core1_pflash1_peer
@@ -61,10 +63,27 @@ targets:
       - ET_TARGET_SILICON
       - ET_ENABLE_TEST_DRIVER_EXTENSIONS
 
+  - <<: *itcm_peer
+    name: ET6801_CORE1_ITCM_IPCM_PEER
+    output_name: et6801_core1_itcm_ipcm_peer
+    output_directory: .\Objects\CORE1_ITCM_IPCM_PEER\
+    defines: [ET6801, CPU1_CODE, ITCM_CODE, FPGA_VERSION, ET_TARGET_FPGA, ET_ENABLE_TEST_DRIVER_EXTENSIONS, ET_CORE1_PEER_IPCM]
+  - <<: *flash_peer
+    name: ET6801_CORE1_PFLASH1_IPCM_PEER
+    output_name: et6801_core1_pflash1_ipcm_peer
+    output_directory: .\Objects\CORE1_PFLASH1_IPCM_PEER\
+    defines: [ET6801, CPU1_CODE, FLASH_CODE, FPGA_VERSION, ET_TARGET_SILICON, ET_ENABLE_TEST_DRIVER_EXTENSIONS, ET_CORE1_PEER_IPCM]
+
 project_groups:
   Core1_Peer:
     - firmware/chips/et6801/core1_peer/include/et_core1_peer_shared.h
     - firmware/chips/et6801/core1_peer/src/et_core1_peer_main.c
+    - firmware/chips/et6801/core1_peer/src/et_core1_ipcm_peer.c
+  IPCM_Service:
+    - firmware/services/src/et_ipcm_service.c
+    - firmware/wrap/src/et_ipcm_wrap.c
+    - firmware/framework/src/et_irq_manager.c
+    - firmware/wrap/src/et_irq_wrap.c
   Chip_Startup:
     - firmware/chips/et6801/sdk/CMSIS/Device/Source/ARM/startup_et6801.s
   Chip_System:
@@ -72,8 +91,15 @@ project_groups:
   Chip_Drivers:
     - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_dualcore.c
     - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_spinlock.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_ipcm.c
+    - firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_interrupt.c
 
 project_includes:
+  - firmware/framework/include
+  - firmware/services/include
+  - firmware/wrap/include
+  - firmware/boards/include
+  - firmware/chips/et6801/config
   - firmware/chips/et6801/core1_peer/include
   - firmware/chips/et6801/sdk/CMSIS/Core/Include
   - firmware/chips/et6801/sdk/CMSIS/Device/Include

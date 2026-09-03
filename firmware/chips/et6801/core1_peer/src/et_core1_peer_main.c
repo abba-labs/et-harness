@@ -4,6 +4,9 @@
  */
 
 #include "et6x_spinlock.h"
+#if defined(ET_CORE1_PEER_IPCM)
+void et_core1_ipcm_peer_run(void);
+#endif
 
 /**
  * @brief Publish Core1 readiness and serve chip-owned SPINLOCK Peer Jobs.
@@ -15,7 +18,11 @@
  */
 int main(void)
 {
+#if defined(ET_CORE1_PEER_IPCM)
+    et_core1_ipcm_peer_run();
+#else
     SPINLOCK_testPeerRunForever();
+#endif
 
     return 0;
 }

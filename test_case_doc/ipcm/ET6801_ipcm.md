@@ -118,9 +118,15 @@ Wrap必须只调用IPCM Driver。当前正式Driver未暴露的硬件Feature，�
 
 Chip Driver返回值和类型遵循SDK；Wrap转换为平台稳定状态和实际处理字节数，Wrap公共头文件不暴露`IPCM_Type`、ET6801 Channel宏或寄存器位图类型。两者不能混写成同一接口规范。
 
-`peer_job`是现有Core1执行框架的扩展，不是IPCM SDK Driver函数：只执行PC请求的接收、数据写入、ACK或释放动作，保存原始快照；Case顺序和Expected比较仍在PC。IPCM Service只调用本IP Wrap，Core1部署和启动由既有部署层负责，禁止IPCM Wrap调用DualCore Driver。
+Core1使用同一份IPCM Service及独立IRQ Manager，只执行PC指定的原子动作，不实现Case流程。IPCM Test Driver Extension提供共享SRAM控制通道的Submit/Result/Cancel及Peer端Take/Complete；它不实现消息接收、ACK顺序或Expected比较。IPCM Service只调用本IP Wrap，Core1部署和启动由既有部署层负责，禁止IPCM Wrap调用DualCore Driver。
 
-每个Case还需要PC调用CRG Driver进行IPCM全实例复位。当前工程`firmware/chips/et6801/sdk/ET6x_Driver/Inc/et6x_crg.h`未暴露IPCM复位枚举；开发时应在CRG自己的芯片映射补齐`SRST1[25]`，先审核范围再编码。此项不能藏入IPCM Driver或Wrap，不能拿`IPCM_mailboxDeInit`代替IP复位。
+IPCM专用构建目标为`ET6801_CORE1_ITCM_IPCM_PEER`及`ET6801_CORE1_PFLASH1_IPCM_PEER`，原SPINLOCK目标保持不变。控制通道位于`AXI_SRAM1_BASE=0x20440000`，前16字节沿用部署Ready契约，另以IPCM标签排除错误Peer镜像。当前要求两核D-cache关闭；DMB/DSB只负责发布顺序，不能代替Cache一致性。硬件Core1身份由`DUALCORE_getCurrentCoreId()`采集并经Execution Mapping核对，不能由PC Case写死。
+
+2026-09-03 17:43 CST构建记录：IPCM ITCM Peer为0 Error/0 Warning；原子共享控制通道Native合同及总软件门禁895项通过，不等于双核硬件通过。构建证据为`artifacts/runs/20260903_174257_138413_dualcore_et6801_fpga_ipcm_buildpeer/stages/dualcore_et6801_fpga_ipcm_buildpeer/`。IPCM部署清单当前仅用于BuildPeer，部署关闭；正式Core0 PFLASH与此Peer的联合Pipeline尚待接入，不能直接运行沿用的手动Smoke验证段。
+
+尚未完成：Capability语义生成、13条正式Case注册、IPCM HIL。现有`ip-package/capability`导航仅授权目标YAML和Execution Mapping；所有模块画像均未覆盖`tools/capabilities/`生成器开发。必须经人工授权补齐该模块路由后修改生成器，不手工伪造生成YAML或扩大现有Task Context。该项是开发路径缺口，不是IPCM硬件不支持，也不能记为SKIP。
+
+每个Case由PC调用CRG Driver进行IPCM全实例复位；`SRST1[25]`及`GTEN1[25]`选择器已在独立CRG变更`3e317bf`补齐。此操作不能藏入IPCM Driver或Wrap，不能拿`IPCM_mailboxDeInit`代替IP复位。
 
 ## 2.3 当前Driver风险
 

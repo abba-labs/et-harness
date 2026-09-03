@@ -1,6 +1,7 @@
 /** @file et_ipcm_wrap.c @brief IPCM semantic mapping and own-Driver calls only. */
 #include "et_ipcm_wrap.h"
 #include <stddef.h>
+#include <string.h>
 #include "et6x_ipcm.h"
 #include "et_chip_wrap_config.h"
 
@@ -473,4 +474,115 @@ et_wrap_status_t et_ipcm_wrap_irq_route_get(et_ipcm_id_t ipcm_id, uint16_t endpo
     route->route_events = 1u << endpoint;
 
     return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Queue one atomic command for the mapped IPCM peer executor.
+ * @param[in] ipcm_id Logical controller.
+ * @param[in] command IPCM local command selected by Service.
+ * @param[in] data Encoded body; NULL only when empty.
+ * @param[in] length Body byte length.
+ * @param[out] sequence Peer execution ticket.
+ * @note Does not execute the IP command locally or wait for the peer.
+ * @return Stable submission status; errors never create a successful ticket.
+ */
+et_wrap_status_t et_ipcm_wrap_peer_submit(et_ipcm_id_t ipcm_id, uint16_t command,
+                                          const uint8_t *data, uint16_t length, uint32_t *sequence)
+{
+    if (!instance_exists(ipcm_id) || (length > ET_IPCM_WRAP_PEER_BYTES))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    return from_driver(IPCM_testPeerSubmit(command, data, length, sequence));
+}
+
+/**
+ * @brief Return peer execution state and an immutable completed response.
+ * @param[in] ipcm_id Logical controller.
+ * @param[out] result Peer identity, ticket, state and valid response bytes.
+ * @note Queued/idle states contain no old response; hardware message data is not synthesized.
+ * @return Stable status; a missing or wrong peer image is an execution error.
+ */
+et_wrap_status_t et_ipcm_wrap_peer_result(et_ipcm_id_t ipcm_id, et_ipcm_wrap_peer_result_t *result)
+{
+    IPCM_TestPeerResult native;
+    et_wrap_status_t status;
+
+    if (!instance_exists(ipcm_id) || (result == NULL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = from_driver(IPCM_testPeerResult(&native));
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    if (native.length > sizeof(result->data))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    switch (native.state)
+    {
+        case IPCM_TEST_PEER_IDLE:
+        {
+            result->state = ET_IPCM_PEER_IDLE;
+            break;
+        }
+
+        case IPCM_TEST_PEER_QUEUED:
+        {
+            result->state = ET_IPCM_PEER_QUEUED;
+            break;
+        }
+
+        case IPCM_TEST_PEER_DONE:
+        {
+            result->state = ET_IPCM_PEER_DONE;
+            break;
+        }
+
+        case IPCM_TEST_PEER_CANCELLED:
+        {
+            result->state = ET_IPCM_PEER_CANCELLED;
+            break;
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_IO_ERROR;
+        }
+            {
+            }
+    }
+
+    result->sequence = native.sequence;
+    result->executor_identity = native.coreId;
+    result->heartbeat = native.heartbeat;
+    result->status = native.status;
+    result->length = native.length;
+    (void)memcpy(result->data, native.data, native.length);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Ask the peer to cancel capture sessions through its own Service.
+ * @param[in] ipcm_id Logical controller.
+ * @param[out] sequence Cancellation ticket to await before a shared-IP reset.
+ * @note Submission is not cancellation completion and cannot undo executed hardware writes.
+ * @return Stable status; caller must query the returned ticket to confirm completion.
+ */
+et_wrap_status_t et_ipcm_wrap_peer_cancel(et_ipcm_id_t ipcm_id, uint32_t *sequence)
+{
+    if (!instance_exists(ipcm_id))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    return from_driver(IPCM_testPeerCancel(sequence));
 }

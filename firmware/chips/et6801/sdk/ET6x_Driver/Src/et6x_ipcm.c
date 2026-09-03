@@ -699,6 +699,202 @@ DRV_Status IPCM_testSetInterruptDelivery(uint32_t mailbox, uint32_t channel, uin
     return DRV_OK;
 }
 
+/* ET6801 shared AXI SRAM1 is outside both core stacks and the resource pool.
+ * Both images keep D-cache disabled; DMB/DSB order publication, not cache maintenance.
+ * The first four words retain the existing Core1 deployment readiness contract.
+ * A separate IPCM tag rejects an old SPINLOCK peer at the same shared address. */
+#define IPCM_TEST_PEER_MAGIC (0x45544331U)
+#define IPCM_TEST_PEER_TAG (0x49504331U)
+#define IPCM_TEST_PEER_READY (1U)
+#define IPCM_TEST_PEER_MAILBOX ((volatile IPCM_TestPeerMailbox *)(uintptr_t)AXI_SRAM1_BASE)
+typedef struct
+{
+    uint32_t magic, ready, coreId, heartbeat;
+    uint32_t tag, sequence, completed, state, cancel;
+    uint16_t command, requestLength, status, responseLength;
+    uint8_t request[IPCM_TEST_PEER_BYTES];
+    uint8_t response[IPCM_TEST_PEER_BYTES];
+} IPCM_TestPeerMailbox;
+
+/** @brief Require the IPCM peer identity; never accept readiness from another IP image. */
+static uint32_t IPCM_testPeerAvailable(void)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    __DMB();
+    return (m->magic == IPCM_TEST_PEER_MAGIC) && (m->ready == IPCM_TEST_PEER_READY) &&
+           (m->tag == IPCM_TEST_PEER_TAG);
+}
+
+/** @brief Submit one bounded command body without waiting for Core1 execution. */
+DRV_Status IPCM_testPeerSubmit(uint16_t command, const uint8_t *data, uint16_t length,
+                               uint32_t *sequence)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    uint32_t next;
+    uint16_t i;
+    if ((sequence == NULL) || (length > IPCM_TEST_PEER_BYTES) || ((length != 0U) && (data == NULL)))
+    {
+        return DRV_PARAM_ERR;
+    }
+    if (!IPCM_testPeerAvailable() || (m->sequence != m->completed))
+    {
+        return DRV_ERROR;
+    }
+    next = m->sequence + 1U;
+    if (next == 0U)
+    {
+        next = 1U;
+    }
+    m->command = command;
+    m->requestLength = length;
+    m->cancel = 0U;
+    for (i = 0U; i < length; ++i)
+    {
+        m->request[i] = data[i];
+    }
+    __DMB();
+    m->sequence = next;
+    __DSB();
+    *sequence = next;
+    return DRV_OK;
+}
+
+/** @brief Read retained completion; queued responses never expose stale result bytes. */
+DRV_Status IPCM_testPeerResult(IPCM_TestPeerResult *result)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    uint32_t state;
+    uint16_t i;
+    if ((result == NULL) || !IPCM_testPeerAvailable())
+    {
+        return DRV_ERROR;
+    }
+    state = m->sequence == m->completed ? m->state : IPCM_TEST_PEER_QUEUED;
+    __DMB();
+    result->state = state;
+    result->sequence = m->sequence;
+    result->coreId = m->coreId;
+    result->heartbeat = m->heartbeat;
+    result->status = 0U;
+    result->length = 0U;
+    if ((state == IPCM_TEST_PEER_DONE) || (state == IPCM_TEST_PEER_CANCELLED))
+    {
+        if ((m->completed != result->sequence) || (m->responseLength > IPCM_TEST_PEER_BYTES))
+        {
+            return DRV_ERROR;
+        }
+        result->status = m->status;
+        result->length = m->responseLength;
+        for (i = 0U; i < result->length; ++i)
+        {
+            result->data[i] = m->response[i];
+        }
+    }
+    return DRV_OK;
+}
+
+/** @brief Request acknowledged Service cancellation, including a queued command. */
+DRV_Status IPCM_testPeerCancel(uint32_t *sequence)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    if ((sequence == NULL) || !IPCM_testPeerAvailable())
+    {
+        return DRV_ERROR;
+    }
+    /* A cancellation owns a new sequence; a stale command cannot complete over it. */
+    m->cancel = 1U;
+    *sequence = m->sequence + 1U;
+    if (*sequence == 0U)
+    {
+        *sequence = 1U;
+    }
+    __DMB();
+    m->sequence = *sequence;
+    __DSB();
+    return DRV_OK;
+}
+
+/** @brief Publish peer readiness only after the core-local Service/IRQ manager is initialized. */
+void IPCM_testPeerInitialize(uint32_t coreId)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    m->ready = 0U;
+    __DMB();
+    m->magic = IPCM_TEST_PEER_MAGIC;
+    m->tag = IPCM_TEST_PEER_TAG;
+    m->coreId = coreId;
+    m->heartbeat = 0U;
+    m->sequence = 0U;
+    m->completed = 0U;
+    m->cancel = 0U;
+    m->state = IPCM_TEST_PEER_IDLE;
+    m->requestLength = 0U;
+    m->responseLength = 0U;
+    __DMB();
+    m->ready = IPCM_TEST_PEER_READY;
+    __DSB();
+}
+
+/** @brief Core1 takes at most one command per poll; caller owns Service dispatch and cancellation. */
+DRV_Status IPCM_testPeerTake(uint16_t *command, uint8_t *data, uint16_t *length, uint32_t *sequence,
+                             uint32_t *cancel)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    uint16_t i;
+    if ((command == NULL) || (data == NULL) || (length == NULL) || (sequence == NULL) ||
+        (cancel == NULL))
+    {
+        return DRV_PARAM_ERR;
+    }
+    ++m->heartbeat;
+    if (!IPCM_testPeerAvailable() || (m->sequence == m->completed))
+    {
+        return DRV_ERROR;
+    }
+    __DMB();
+    *sequence = m->sequence;
+    *cancel = m->cancel;
+    *command = m->command;
+    *length = m->requestLength;
+    if (*length > IPCM_TEST_PEER_BYTES)
+    {
+        return DRV_ERROR;
+    }
+    for (i = 0U; i < *length; ++i)
+    {
+        data[i] = m->request[i];
+    }
+    __DMB();
+    return (*sequence == m->sequence && m->ready != 0U) ? DRV_OK : DRV_ERROR;
+}
+
+/** @brief Publish an executed command only if it still owns the request sequence. */
+DRV_Status IPCM_testPeerComplete(uint32_t sequence, uint16_t status, const uint8_t *data,
+                                 uint16_t length, uint32_t cancelled)
+{
+    volatile IPCM_TestPeerMailbox *m = IPCM_TEST_PEER_MAILBOX;
+    uint16_t i;
+    if ((length > IPCM_TEST_PEER_BYTES) || ((length != 0U) && (data == NULL)))
+    {
+        return DRV_PARAM_ERR;
+    }
+    if (!IPCM_testPeerAvailable() || (sequence != m->sequence))
+    {
+        return DRV_ERROR;
+    }
+    for (i = 0U; i < length; ++i)
+    {
+        m->response[i] = data[i];
+    }
+    m->status = status;
+    m->responseLength = length;
+    m->state = cancelled ? IPCM_TEST_PEER_CANCELLED : IPCM_TEST_PEER_DONE;
+    __DMB();
+    m->completed = sequence;
+    __DSB();
+    return DRV_OK;
+}
+
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

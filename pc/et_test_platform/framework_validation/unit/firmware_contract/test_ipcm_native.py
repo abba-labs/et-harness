@@ -23,7 +23,11 @@ REGISTER_STUB = r"""
 #include <stdint.h>
 #include <stddef.h>
 #include <assert.h>
-typedef enum {DRV_OK=0, DRV_PARAM_ERR=3, DRV_BUSY=5} DRV_Status;
+typedef enum {DRV_OK=0, DRV_ERROR=1, DRV_PARAM_ERR=3, DRV_BUSY=5} DRV_Status;
+extern uint32_t peer_memory[1024];
+#define AXI_SRAM1_BASE ((uintptr_t)peer_memory)
+#define __DMB() ((void)0)
+#define __DSB() ((void)0)
 typedef struct {
     uint32_t SOURCE,DSET,DCLEAR,DSTATUS,MODE,MSET,MCLEAR,MSTATUS,SEND,DR[7];
 } Mailbox;
@@ -50,6 +54,7 @@ HARNESS = r"""
 #include "et_ipcm_service.h"
 
 IPCM_Type ipcm_registers;
+uint32_t peer_memory[1024];
 unsigned writes;
 static et_irq_callback_t callbacks[ET_IPCM_SERVICE_CAPTURE_SLOTS];
 static void *contexts[ET_IPCM_SERVICE_CAPTURE_SLOTS];
@@ -230,10 +235,73 @@ static void service_contract(void)
 #undef CALL
 }
 
+/* Shared control transport only: no simulated IPCM hardware PASS. */
+static void peer_contract(void)
+{
+    uint8_t request[]={0x11,0x22,0x33}, body[IPCM_TEST_PEER_BYTES];
+    uint16_t command, length;
+    uint32_t sequence, taken, cancel, cancelled;
+    IPCM_TestPeerResult result;
+    et_ipcm_service_t service;
+    et_irq_manager_t manager;
+    const et_service_descriptor_t *descriptor;
+    uint8_t response[ET_IPCM_SERVICE_PEER_HEADER_SIZE+IPCM_TEST_PEER_BYTES];
+    uint16_t produced;
+
+    assert(IPCM_testPeerSubmit(1,NULL,0,&sequence)!=DRV_OK);
+    IPCM_testPeerInitialize(2);
+    assert(IPCM_testPeerResult(&result)==DRV_OK && result.state==IPCM_TEST_PEER_IDLE);
+    assert(result.coreId==2);
+    assert(IPCM_testPeerSubmit(6,request,sizeof(request),&sequence)==DRV_OK);
+    assert(IPCM_testPeerSubmit(6,request,sizeof(request),&taken)!=DRV_OK);
+    assert(IPCM_testPeerResult(&result)==DRV_OK && result.state==IPCM_TEST_PEER_QUEUED);
+    assert(result.length==0);
+    assert(IPCM_testPeerTake(&command,body,&length,&taken,&cancel)==DRV_OK);
+    assert(command==6 && length==3 && taken==sequence && cancel==0);
+    assert(memcmp(body,request,3)==0);
+    assert(IPCM_testPeerComplete(taken,0,body,3,0)==DRV_OK);
+    assert(IPCM_testPeerResult(&result)==DRV_OK && result.state==IPCM_TEST_PEER_DONE);
+    assert(result.length==3 && memcmp(result.data,request,3)==0);
+
+    /* Cancellation invalidates an in-flight completion and requires Core1 acknowledgment. */
+    assert(IPCM_testPeerSubmit(1,NULL,0,&sequence)==DRV_OK);
+    assert(IPCM_testPeerTake(&command,body,&length,&taken,&cancel)==DRV_OK);
+    assert(IPCM_testPeerCancel(&cancelled)==DRV_OK && cancelled!=taken);
+    assert(IPCM_testPeerComplete(taken,0,NULL,0,0)!=DRV_OK);
+    assert(IPCM_testPeerTake(&command,body,&length,&taken,&cancel)==DRV_OK && cancel==1);
+    assert(IPCM_testPeerComplete(taken,0,NULL,0,1)==DRV_OK);
+    assert(IPCM_testPeerResult(&result)==DRV_OK && result.state==IPCM_TEST_PEER_CANCELLED);
+    assert(result.sequence==cancelled && result.length==0);
+
+    /* Execute the original atomic Service body and read its exact bytes through the envelope. */
+    assert(et_ipcm_service_init(&service,0,&manager,3)==0);
+    descriptor=et_ipcm_service_descriptor(&service);
+    put16(body,ET_IPCM_COMMAND_CAPABILITIES_GET);
+    assert(descriptor->handle(&service,ET_IPCM_COMMAND_PEER_SUBMIT,body,2,
+        response,sizeof(response),&produced)==ET_STATUS_OK && produced==4);
+    sequence=get32(response);
+    assert(IPCM_testPeerTake(&command,body,&length,&taken,&cancel)==DRV_OK);
+    assert(descriptor->handle(&service,command,body,length,response,sizeof(response),
+        &produced)==ET_STATUS_OK);
+    assert(IPCM_testPeerComplete(taken,0,response,produced,0)==DRV_OK);
+    assert(descriptor->handle(&service,ET_IPCM_COMMAND_PEER_RESULT,NULL,0,response,
+        sizeof(response),&produced)==ET_STATUS_OK);
+    assert(produced==36 && get32(response)==sequence && response[4]==IPCM_TEST_PEER_DONE);
+    assert(get32(response+12)==2 && get32(response+20)==0x00100001);
+    put16(body,ET_IPCM_COMMAND_PEER_SUBMIT);
+    assert(descriptor->handle(&service,ET_IPCM_COMMAND_PEER_SUBMIT,body,2,response,
+        sizeof(response),&produced)==ET_STATUS_INVALID_PARAM);
+
+    /* A ready image with a different transport tag must not be accepted. */
+    peer_memory[4]=0;
+    assert(IPCM_testPeerResult(&result)!=DRV_OK);
+}
+
 int main(void)
 {
     driver_contract();
     service_contract();
+    peer_contract();
     puts("ipcm_native=PASS");
     return 0;
 }

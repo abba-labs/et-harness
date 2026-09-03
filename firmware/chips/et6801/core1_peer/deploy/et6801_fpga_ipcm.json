@@ -1,0 +1,60 @@
+{
+  "schema": "et-dualcore-deploy/v1",
+  "name": "et6801_fpga_ipcm",
+  "chip": "et6801",
+  "lane": "fpga_itcm",
+  "deployment_enabled": false,
+  "program_method": "jlink_ram",
+  "probe": {
+    "device": "Cortex-M7",
+    "interface": "JTAG",
+    "speed_khz": 1000,
+    "jtag_conf": "-1,-1"
+  },
+  "verification": {
+    "baudrate": 115200,
+    "timeout_s": 15,
+    "end_marker": "[MANUAL] suite=ET6801_MANUAL_DIAGNOSTICS end",
+    "required_lines": [
+      "[MANUAL][dualcore_smoke] PASS",
+      "[RESULT] case=dualcore_smoke status=PASS",
+      "[OBSERVE] failure_count=0x00000000"
+    ]
+  },
+  "cores": [
+    {
+      "id": "core0",
+      "role": "launcher",
+      "build_manifest": "firmware/chips/et6801/project.yaml",
+      "project": "firmware/build/et6801/ET6801_Automated_Test.uvprojx",
+      "target": "ET6801_FPGA_CORE1_SMOKE_ITCM",
+      "output_axf": "firmware/build/et6801/Objects/FPGA_CORE1_SMOKE_ITCM/et6801_core1_launcher_itcm.axf",
+      "output_bin": "firmware/build/et6801/et6801_core1_launcher_itcm.bin",
+      "load_address": "0x00000000",
+      "code_limit": "0x00040000",
+      "stack_low": "0x20000000",
+      "stack_high": "0x20020000",
+      "jlink_script": "firmware/chips/et6801/core1_peer/debug/core0_select.JLinkScript",
+      "reset_before_load": true,
+      "run_after_load": true,
+      "allow_halt_warning": false
+    },
+    {
+      "id": "core1",
+      "role": "peer",
+      "build_manifest": "firmware/chips/et6801/core1_peer/project.yaml",
+      "project": "firmware/build/et6801/core1_peer/ET6801_Core1_Peer.uvprojx",
+      "target": "ET6801_CORE1_ITCM_IPCM_PEER",
+      "output_axf": "firmware/build/et6801/core1_peer/Objects/CORE1_ITCM_IPCM_PEER/et6801_core1_itcm_ipcm_peer.axf",
+      "output_bin": "firmware/build/et6801/core1_peer/et6801_core1_itcm_ipcm_peer.bin",
+      "load_address": "0x00000000",
+      "code_limit": "0x00040000",
+      "stack_low": "0x20000000",
+      "stack_high": "0x20020000",
+      "jlink_script": "firmware/chips/et6801/core1_peer/debug/core1_select.JLinkScript",
+      "reset_before_load": false,
+      "run_after_load": false,
+      "allow_halt_warning": true
+    }
+  ]
+}

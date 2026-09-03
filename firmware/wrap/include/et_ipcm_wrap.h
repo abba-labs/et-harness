@@ -85,4 +85,28 @@ et_wrap_status_t et_ipcm_wrap_irq_delivery_set(et_ipcm_id_t ipcm_id, uint16_t ma
 et_wrap_status_t et_ipcm_wrap_irq_route_get(et_ipcm_id_t ipcm_id, uint16_t endpoint,
                                             et_irq_route_t *route);
 
+/** Peer control storage budget in bytes; not the tested hardware payload capacity. */
+#define ET_IPCM_WRAP_PEER_BYTES 512u
+typedef enum
+{
+    ET_IPCM_PEER_IDLE = 0u,
+    ET_IPCM_PEER_QUEUED = 1u,
+    ET_IPCM_PEER_DONE = 2u,
+    ET_IPCM_PEER_CANCELLED = 3u
+} et_ipcm_peer_state_t;
+typedef struct
+{
+    uint32_t sequence;
+    uint32_t executor_identity;
+    uint32_t heartbeat;
+    uint16_t state;
+    uint16_t status;
+    uint16_t length;
+    uint8_t data[ET_IPCM_WRAP_PEER_BYTES];
+} et_ipcm_wrap_peer_result_t;
+et_wrap_status_t et_ipcm_wrap_peer_submit(et_ipcm_id_t ipcm_id, uint16_t command,
+                                          const uint8_t *data, uint16_t length, uint32_t *sequence);
+et_wrap_status_t et_ipcm_wrap_peer_result(et_ipcm_id_t ipcm_id, et_ipcm_wrap_peer_result_t *result);
+et_wrap_status_t et_ipcm_wrap_peer_cancel(et_ipcm_id_t ipcm_id, uint32_t *sequence);
+
 #endif

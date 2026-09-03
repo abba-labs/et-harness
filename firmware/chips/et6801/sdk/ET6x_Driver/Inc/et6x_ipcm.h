@@ -179,6 +179,33 @@ DRV_Status IPCM_testClearPending(uint32_t mailbox);
 DRV_Status IPCM_testReleaseDestination(uint32_t mailbox, uint32_t channel);
 DRV_Status IPCM_testSetInterruptDelivery(uint32_t mailbox, uint32_t channel, uint32_t enabled);
 
+/* Shared-memory control transport only; IPCM Service still executes every IP action. */
+#define IPCM_TEST_PEER_BYTES (512U)
+#define IPCM_TEST_PEER_IDLE (0U)
+#define IPCM_TEST_PEER_QUEUED (1U)
+#define IPCM_TEST_PEER_DONE (2U)
+#define IPCM_TEST_PEER_CANCELLED (3U)
+typedef struct
+{
+    uint32_t sequence;
+    uint32_t state;
+    uint32_t heartbeat;
+    uint32_t coreId;
+    uint16_t status;
+    uint16_t length;
+    uint8_t data[IPCM_TEST_PEER_BYTES];
+} IPCM_TestPeerResult;
+
+DRV_Status IPCM_testPeerSubmit(uint16_t command, const uint8_t *data, uint16_t length,
+                               uint32_t *sequence);
+DRV_Status IPCM_testPeerResult(IPCM_TestPeerResult *result);
+DRV_Status IPCM_testPeerCancel(uint32_t *sequence);
+void IPCM_testPeerInitialize(uint32_t coreId);
+DRV_Status IPCM_testPeerTake(uint16_t *command, uint8_t *data, uint16_t *length,
+                             uint32_t *sequence, uint32_t *cancel);
+DRV_Status IPCM_testPeerComplete(uint32_t sequence, uint16_t status,
+                                 const uint8_t *data, uint16_t length, uint32_t cancelled);
+
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

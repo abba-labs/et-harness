@@ -372,6 +372,47 @@ static void decode_config(const uint8_t *request, et_ipcm_wrap_config_t *config)
 }
 
 /**
+ * @brief Encode the retained peer response without re-executing its command.
+ * @param[in] service Local IPCM Service.
+ * @param[out] response Wire storage.
+ * @param[in] capacity Available bytes.
+ * @param[out] length Encoded byte count.
+ * @note No waiting or hardware access occurs outside the own-IP Wrap call.
+ * @return ET status preserving peer availability errors.
+ */
+static uint16_t peer_result_get(et_ipcm_service_t *service, uint8_t *response, uint16_t capacity,
+                                uint16_t *length)
+{
+    et_ipcm_wrap_peer_result_t result;
+    et_wrap_status_t status;
+
+    if ((response == NULL) ||
+        (capacity < ET_IPCM_SERVICE_PEER_HEADER_SIZE + ET_IPCM_WRAP_PEER_BYTES))
+    {
+        return ET_STATUS_INVALID_PARAM;
+    }
+
+    status = et_ipcm_wrap_peer_result(service->ipcm_id, &result);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status_from_wrap(status);
+    }
+
+    write_u32(response, result.sequence);
+    write_u16(response + ET_IPCM_SERVICE_PEER_STATE_OFFSET, result.state);
+    write_u16(response + ET_IPCM_SERVICE_PEER_STATUS_OFFSET, result.status);
+    write_u16(response + ET_IPCM_SERVICE_PEER_LENGTH_OFFSET, result.length);
+    write_u16(response + ET_IPCM_SERVICE_PEER_RESERVED_OFFSET, 0u);
+    write_u32(response + ET_IPCM_SERVICE_PEER_EXECUTOR_OFFSET, result.executor_identity);
+    write_u32(response + ET_IPCM_SERVICE_PEER_HEARTBEAT_OFFSET, result.heartbeat);
+    (void)memcpy(response + ET_IPCM_SERVICE_PEER_HEADER_SIZE, result.data, result.length);
+    *length = ET_IPCM_SERVICE_PEER_HEADER_SIZE + result.length;
+
+    return ET_STATUS_OK;
+}
+
+/**
  * @brief Dispatch a validated IPCM command to own-Wrap actions or capture state.
  * @param[in,out] context Initialized IPCM Service.
  * @param[in] command_id Stable IPCM command ID.
@@ -399,6 +440,7 @@ static uint16_t ipcm_handle(void *context, uint16_t command_id, const uint8_t *r
     uint16_t index;
     uint16_t result;
     uint32_t key;
+    uint32_t sequence;
 
     /* Phase 1: Validate the common envelope before decoding any command field. */
     if ((service == NULL) || (response_length == NULL) ||
@@ -416,6 +458,61 @@ static uint16_t ipcm_handle(void *context, uint16_t command_id, const uint8_t *r
     /* Phase 2: Each branch validates exact lengths and performs only its requested action. */
     switch (command_id)
     {
+        case ET_IPCM_COMMAND_PEER_SUBMIT:
+        {
+            if ((request_length < ET_IPCM_SERVICE_ID_SIZE) || (first == 0u) ||
+                (first >= ET_IPCM_COMMAND_PEER_SUBMIT) || (response == NULL) ||
+                (capacity < ET_IPCM_SERVICE_U32_BYTES))
+            {
+                return ET_STATUS_INVALID_PARAM;
+            }
+
+            status =
+                et_ipcm_wrap_peer_submit(service->ipcm_id, first, request + ET_IPCM_SERVICE_ID_SIZE,
+                                         request_length - ET_IPCM_SERVICE_ID_SIZE, &sequence);
+
+            if (status != ET_WRAP_STATUS_OK)
+            {
+                return status_from_wrap(status);
+            }
+
+            write_u32(response, sequence);
+            *response_length = ET_IPCM_SERVICE_U32_BYTES;
+
+            return ET_STATUS_OK;
+        }
+
+        case ET_IPCM_COMMAND_PEER_RESULT:
+        {
+            if (request_length != 0u)
+            {
+                return ET_STATUS_INVALID_PARAM;
+            }
+
+            return peer_result_get(service, response, capacity, response_length);
+        }
+
+        case ET_IPCM_COMMAND_PEER_CANCEL:
+        {
+            if ((request_length != 0u) || (response == NULL) ||
+                (capacity < ET_IPCM_SERVICE_U32_BYTES))
+            {
+                return ET_STATUS_INVALID_PARAM;
+            }
+
+            status = et_ipcm_wrap_peer_cancel(service->ipcm_id, &sequence);
+
+            if (status != ET_WRAP_STATUS_OK)
+            {
+                return status_from_wrap(status);
+            }
+
+            write_u32(response, sequence);
+            *response_length = ET_IPCM_SERVICE_U32_BYTES;
+
+            return ET_STATUS_OK;
+        }
+
         case ET_IPCM_COMMAND_CAPABILITIES_GET:
         {
             if ((request_length != 0u) || (response == NULL) ||

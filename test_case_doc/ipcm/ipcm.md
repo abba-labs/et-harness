@@ -104,6 +104,9 @@ Service ID=`0x0109`，API Version=`1`。只新增IPCM命令体，外层ET-Frame�
 | CAPTURE_GET | 0x0011 | slot:u16 | 下述42字节事件头 + 有效Payload |
 | CAPTURE_ABORT | 0x0012 | slot:u16 | 空；关闭本IP投递并解绑，不清Mailbox、不ACK |
 | STATE_RESET | 0x0013 | 空 | 空；Abort所有Slot后清Service观测，不复位IP、不清资源池 |
+| PEER_SUBMIT | 0x0020 | 本核原子command:u16 + 原请求体 | ticket:u32；提交成功不等于执行完成 |
+| PEER_RESULT | 0x0021 | 空 | ticket:u32,state/status/length/reserved:u16,executor_identity/heartbeat:u32 + length字节原响应 |
+| PEER_CANCEL | 0x0022 | 空 | ticket:u32；请求Peer取消Capture，必须等待确认后才复位共享IP |
 
 事件头依次为`generation/raw_status/masked_status/latched_events/event_count/unexpected_count/overflow_count/fault_flags:u32`和`endpoint/mailbox/length/state/stage:u16`。`state=0 IDLE / 1 WAITING / 2 READY / 3 FAULT`。只有READY携带有效Payload；未完成或FAULT返回length=0，不冒充有效观测。`event_count`只计真实IRQ回调，Polling为0。`stage`由PC显式标注，不能当作硬件状态。
 
@@ -111,7 +114,9 @@ Service ID=`0x0109`，API Version=`1`。只新增IPCM命令体，外层ET-Frame�
 
 Capture的4个Slot、每Slot128字节是Service软件预算，不是芯片Feature；PC必须分别核对硬件容量和服务执行上限。IRQ入口先保存Raw/Masked及Payload，再暂停本Endpoint的投递以保留Raw，随后由PC单独执行ACK、Clear或Release。GET不会重读硬件覆盖旧事件；下一次ARM递增generation，STATE_RESET保留代次以识别旧数据。IRQ会话只由Service经IRQ Manager注册。Polling仅在显式ARM后做一次非阻塞采样，不擅自消费其他Pending。
 
-当前这些为本核原子执行接口；跨核Peer提交/结果接口尚未接入，不得据此把同核双Channel诊断宣称为真实双核Case。13条PLAN仍保持PLANNED，待Peer、Capability、PC和Smoke闭环后按同一语义落实SPEC。
+Peer只执行0x0001～0x0013内的原子命令，不允许递归转发。PEER_RESULT的state为0 IDLE、1 QUEUED、2 DONE、3 CANCELLED；QUEUED不返回旧响应，DONE的status是原命令ET状态。PC必须核对ticket、executor_identity及响应长度，并在同一deadline内查询。executor_identity是Execution Mapping定义的不透明执行实体身份，不是公共Case中的固定Core编号。取消不能撤销已发生的硬件动作；只有CANCELLED且status成功才允许下一基线复位。
+
+Core1拥有自己的IPCM Service和IRQ Manager；共享控制通道仅搬运命令及观测，测试Payload仍通过IPCM硬件传输。13条PLAN待Capability、PC Case实现和Smoke闭环后转为SPEC，不以同核双Channel替代双核证据。
 
 ### 0.7 PC原子Driver
 
