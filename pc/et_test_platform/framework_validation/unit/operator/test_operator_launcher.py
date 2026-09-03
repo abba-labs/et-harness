@@ -135,6 +135,31 @@ def test_ipcm_pipeline_selects_its_peer_without_changing_spinlock() -> None:
     assert ipcm["steps"]["deploy.firmware"]["requires"] == ["deploy.bitfile", "deploy.bootrom"]
 
 
+# 测试 Feature：正式双核脚本兼容流水线实际调用的Windows PowerShell 5。
+# 测试方法：由Windows PowerShell 5解析双核入口，不执行构建或硬件动作。
+# 通过条件：原生解析器无语法错误，不能仅凭文本关键字检查宣称脚本可执行。
+def test_formal_dualcore_script_parses_in_windows_powershell() -> None:
+
+    powershell = shutil.which("powershell.exe")
+    if powershell is None:
+        pytest.skip("Windows PowerShell is not installed on this software-test host")
+    path = REPOSITORY_ROOT / "tools/firmware/run_et6801_formal_dualcore.ps1"
+    escaped = str(path).replace("'", "''")
+    command = (
+        "$tokens=$null; $errors=$null; "
+        f"[void][System.Management.Automation.Language.Parser]::ParseFile('{escaped}', "
+        "[ref]$tokens,[ref]$errors); if ($errors.Count) { $errors | Out-String; exit 1 }"
+    )
+    result = subprocess.run(
+        [powershell, "-NoProfile", "-NonInteractive", "-Command", command],
+        capture_output=True,
+        timeout=20,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout.decode(errors="replace")
+
+
 # 测试 Feature：ET6801双核清单完整表达两个Core并对Silicon真实部署失败关闭。
 #
 # 测试方法：读取FPGA与Silicon清单，检查Schema、Core集合、装载地址和部署门禁。

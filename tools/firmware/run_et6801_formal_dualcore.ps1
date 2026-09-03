@@ -182,12 +182,12 @@ function Get-JLinkWord {
     foreach ($line in $lines) {
         $base = [Convert]::ToUInt32($line.Groups[1].Value, 16)
         $words = @($line.Groups[2].Value.Trim() -split '\s+')
-        $limit = [uint64]$base + ([uint64]$words.Count * 4u)
+        $limit = [uint64]$base + ([uint64]$words.Count * 4)
 
         if (([uint64]$Address -ge [uint64]$base) -and
             ([uint64]$Address -lt $limit) -and
-            ((($Address - $base) % 4u) -eq 0u)) {
-            $index = [int](($Address - $base) / 4u)
+            ((($Address - $base) % 4) -eq 0)) {
+            $index = [int](($Address - $base) / 4)
 
             return [Convert]::ToUInt32($words[$index], 16)
         }
