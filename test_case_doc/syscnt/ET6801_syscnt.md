@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 06:15 CST。
+更新时间：2026-09-04 06:25 CST。
 
-当前固件已编译通过，PC九条原子命令及七条正式Case已实现并通过统一软件验证；bitfile、BootROM与PFLASH部署通过，正在执行SYSCNT HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前固件已编译通过，PC九条原子命令及七条正式Case已实现并通过统一软件验证；bitfile、BootROM与PFLASH部署通过；首轮7条Case/23项参数执行全部PASS，报告字段形状修复后待重新验证导出。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -40,8 +40,8 @@ SVD中`SYSC.CLK_SCNT.SEL_IN`选择内部OSC25M路径或XO25M；`SYSC.SCNT.HALT_M
 | ET6003/ET3101登记SVD根 | FOUND | 两个`Tools/RegGen/svd`中均命中sysc/crg_cfg；完整SVD均含SYSCNT_CTRL/RO。只核对历史来源，不覆盖6801事实。 |
 | BootROM Driver：`BOOT_ROM/bootrom-dev-et6801/source/Drivers` | FOUND | `ET6801/ET6x_Driver/Src/et6x_cortex.c`声明25MHz，start又调用旧`CRG_getSYSCNTClock()`；装载自动启动及拆分读取同类。不是当前FPGA实际频率的独立证据，不修改BootROM。 |
 | 当前工程SVD/SDK | FOUND | `ATP/test_case_doc/ET6801.svd`两个SYSCNT窗口与最新SVD字段一致；本地cortex源码保留相同API问题。 |
-| 当前Capability | FOUND | `profiles/chip_capabilities/et6801/ip/syscnt_ctrl.yaml`、`syscnt_ro.yaml`只有初步分组，尚未组成一个公共SYSCNT实例的完整能力。 |
-| 当前Formal/Service/Wrap | NO_MATCH | 未提供独立SYSCNT包，不将Cortex SDK函数当作已实现自动化Case。 |
+| 当前Capability | FOUND | 正式`profiles/chip_capabilities/et6801/ip/syscnt.yaml`由SVD生成，唯一实例syscnt0；原CTRL/RO分组不作为Formal Case入口。 |
+| 当前Formal/Service/Wrap | FOUND | 已实现SYSCNT九条命令、独立Wrap/Service与PC七条Case；硬件结果见第七章。 |
 | ET6801 SVN需求文件定向检索 | NO_MATCH | `SVN/Software/ET6801`内未找到SYSCNT命名的测试表；不采用其他芯片手册替代6801硬件事实。 |
 
 同根的StressTest、ChipSieveTest、Coremark、PerformceTest中相关命中主要是延时、随机种子或耗时工具使用，不含新增SYSCNT正确性Oracle。ChipSieve配置注释提及双核SYSCNT，不等于存在已执行双核计数正确性Case。
@@ -135,7 +135,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 `syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`。2026-09-04 06:13部署后，以DWT独立参考分别在两个源下采样0.1/0.5/1s，计数比均符合1/2：五组精确为0.5，首次短窗口为0.4999885（采样开销）。因此当前FPGA映射两源均为12.5MHz，不将CNTFID0当实际时钟；不宣称两个物理振荡器不同，也不证明绝对晶振精度。原始计数见`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。
 
-16项PC软件合同测试已通过（guard `20260904_055613_fc45c484`），覆盖九条Wire命令、参数边界、非法响应、参考计数回绕和停核读数撕裂；这些不是硬件结果。七条SPEC/REPORT、注册、注释和编排专项检查通过。尚未执行HIL，G02/G05/G07仍未解除。
+16项PC软件合同测试已通过（guard `20260904_055613_fc45c484`），覆盖九条Wire命令、参数边界、非法响应、参考计数回绕和停核读数撕裂；这些不是硬件结果。七条SPEC/REPORT、注册、注释和编排专项检查通过。首轮HIL已通过；G02/G05/G06在当前FPGA/Core0范围闭合，G07外部脉冲观测仍未覆盖。
 
 ## 第三章 寄存器与配置事实
 
@@ -176,6 +176,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 | CLOCK.SOURCE | SYSC.CLK_SCNT.SEL_IN[0] | 系统时钟选择事实，不能挂在CNTFID0名下。 |
 | REFERENCE.COUNT | DWT.CYCCNT | 原始32-bit计数，用64-bit公共容器承载；delta与误差为Measurement。 |
 | CPU.DEBUG_HALTED | CoreDebug.DHCSR.S_HALT[17] | observer事实，记录Probe/CPU身份；不能由软件写C_HALT推断S_HALT。 |
+| CPU.DEBUG_STATUS | CoreDebug.DHCSR完整32-bit值 | 每个策略四次原始读数；两组计数前后均必须S_HALT=1。 |
 
 ## 第四章 历史测试与Source Item Trace
 
@@ -227,7 +228,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 8条核心SYSCNT测试点均有计划，不以历史测试自身错误删除Feature。外部脉冲计时尚未完整覆盖，不能把“记录了Gap”写成“Case全集已覆盖”；本轮没有把任何失败重新分类为SKIP。
 
-### 4.3 本轮覆盖复核结论
+### 4.3 分析阶段覆盖复核记录
 
 复核时间：`2026-09-03 20:45 CST`。重新读取requirements JSON条目、6801 UnitTest/FPGATest、3101 Smoke的实际刺激，并核对6801 SVD与当前工程Driver。
 
@@ -242,7 +243,7 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 规则复核修正：Debug Halt使用外部调试仪器，资源等级由R2改为R4；公共契约补充Case依赖的`counter_word_bits`，去掉公共方法中的SDK函数名；参考计数展开改为有明确总时间上界的模数计算，以覆盖10s窗口。状态/报告/Feature文本继续使用R100/R120/R130现有契约，没有新建规则或Checker。
 
-结论：**核心数字测试点设计覆盖完整；参考资料全集尚有G07，整体Implementation Ready未通过。** Schema通过不替代R140人工语义审核；G01/G02/G05/G06仍按第六章解除后才编码其依赖的Formal Case。
+分析阶段结论：**核心数字测试点设计覆盖完整；参考资料全集尚有G07，当时整体Implementation Ready未通过。** Schema通过不替代R140人工语义审核；G01/G02/G05/G06仍按第六章解除后才编码其依赖的Formal Case。
 
 专项验证：公共IP契约、Case PLAN、Case人审行格式与Feature一致性、芯片映射文档四项Checker通过；8个Feature均被7个PLAN引用，每个PLAN为6～7步。参考计数公式用25MHz/300MHz、五个时间窗及跨32-bit回绕的模拟输入核验通过，只验证设计计算，不作为硬件Evidence。未运行固件编译、HIL或全量软件回归；本轮没有修改运行代码、公共规则或Checker。
 
@@ -250,14 +251,14 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 | Public Feature | Hardware | 参数/差异 | Platform | Public Case |
 |---|---|---|---|---|
-| SYSCNT_F_001 | SUPPORTED | CTRL窗口32+32位，停止后低→高装载；旧API有自动启动副作用 | PARTIAL_ADAPTATION | SYSCNT_P0_001、SYSCNT_P3_001 |
-| SYSCNT_F_002 | SUPPORTED | CNTCR.EN bit0；旧start清零不能用于resume | PARTIAL_ADAPTATION | SYSCNT_P0_002、SYSCNT_P3_001 |
-| SYSCNT_F_003 | SUPPORTED | SVD声明64位递增计数；边界实测仍未执行 | PARTIAL_ADAPTATION | SYSCNT_P1_001 |
-| SYSCNT_F_004 | SUPPORTED | 两个窗口指向同一计数，运行读数需连贯性保护 | PARTIAL_ADAPTATION | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
-| SYSCNT_F_005 | SUPPORTED | CNTFID0.FREQ是信息登记，不改变输入频率 | PARTIAL_ADAPTATION | SYSCNT_P1_002 |
-| SYSCNT_F_006 | SUPPORTED | CNTCR.HDBG、CNTSR.DBGH及SYSC.SCNT路由；FPGA响应未验证 | PARTIAL_ADAPTATION | SYSCNT_P2_002 |
-| SYSCNT_F_007 | SUPPORTED | Tick计时；参考频率和当前FPGA时钟映射G02/G06待闭合 | PARTIAL_ADAPTATION | SYSCNT_P2_001 |
-| SYSCNT_F_008 | SUPPORTED | SYSC.CLK_SCNT.bit0选择两路；当前FPGA两路物理实现需确认 | PARTIAL_ADAPTATION | SYSCNT_P2_001 |
+| SYSCNT_F_001 | SUPPORTED | CTRL窗口32+32位，停止后低→高装载；旧API有自动启动副作用 | ADAPTED | SYSCNT_P0_001、SYSCNT_P3_001 |
+| SYSCNT_F_002 | SUPPORTED | CNTCR.EN bit0；旧start清零不能用于resume | ADAPTED | SYSCNT_P0_002、SYSCNT_P3_001 |
+| SYSCNT_F_003 | SUPPORTED | 已实测低32-bit进位和64-bit自然回绕 | ADAPTED | SYSCNT_P1_001 |
+| SYSCNT_F_004 | SUPPORTED | 两个窗口指向同一计数，运行读数需连贯性保护 | ADAPTED | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
+| SYSCNT_F_005 | SUPPORTED | CNTFID0.FREQ是信息登记，不改变输入频率 | ADAPTED | SYSCNT_P1_002 |
+| SYSCNT_F_006 | SUPPORTED | Core0实际Halt期间两种策略均通过；不外推双核同时活动场景 | ADAPTED | SYSCNT_P2_002 |
+| SYSCNT_F_007 | SUPPORTED | DWT参考25MHz，当前FPGA计数12.5MHz，双端夹取通过 | ADAPTED | SYSCNT_P2_001 |
+| SYSCNT_F_008 | SUPPORTED | SEL_IN两个编码读回正确，当前FPGA两路计数均为DWT/2；不证明独立振荡源 | ADAPTED | SYSCNT_P2_001 |
 
 SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明不得因读数异常被静默改成较小位宽以规避FAIL。
 
@@ -265,24 +266,24 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| SYSCNT_P0_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P0_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P1_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P1_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P2_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P2_002 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
-| SYSCNT_P3_001 | MAPPING_GAP | 代码与注册已完成；G02各源实际频率尚未确认，公共Fixture失败关闭；P2_002另需验证G05暂停路由。 |
+| SYSCNT_P0_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P0_002 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P1_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P1_002 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P2_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P2_002 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P3_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
 
 ### 6.1 实施前必须裁决的Gap
 
 | Gap | 分类 | 具体问题 | 解除条件/最小处理 |
 |---|---|---|---|
-| G01 | APPROVED / 待实现验证 | 没有独立SYSCNT复位位，旧CRG枚举还会选中CORDIC1；不能套用未知复位编号 | 2026-09-03用户批准停止→策略归一→装载0→读回的替代基线，同时执行资源整池复位。只声明软件可控状态归一，不声明全部内部状态硬复位；每个参数实例均执行。 |
-| G02 | CONFLICT / clock mapping | SDK12.5MHz与系统函数25MHz冲突；两路FPGA时钟实际实现未确认 | 当前bitfile时钟说明或经批准的独立参考测量确定每路实际频率，再进入Lane Profile。不能用待测SYSCNT结果校准SYSCNT自身。 |
-| G03 | IMPLEMENTATION_GAP | start/load副作用、非连贯读、没有控制快照；SYSCNT公共链路未实现 | 先完成2.3节相应Driver整改及定向验证，再实现Wrap/Service/PC包；D01/D05/D06需要其他所有者改动时单独授权，不在Wrap补寄存器操作。 |
+| G01 | CLOSED / 当前FPGA验证 | 没有独立SYSCNT复位位，旧CRG枚举还会选中CORDIC1；不能套用未知复位编号 | 2026-09-03用户批准停止→策略归一→装载0→读回的替代基线，同时执行资源整池复位。只声明软件可控状态归一，不声明全部内部状态硬复位；每个参数实例均执行。 |
+| G02 | CLOSED / 当前FPGA映射 | SDK常量冲突保留为历史问题；独立DWT采样确认当前两源均为12.5MHz | 当前bitfile时钟说明或经批准的独立参考测量确定每路实际频率，再进入Lane Profile。不能用待测SYSCNT结果校准SYSCNT自身。 |
+| G03 | CLOSED / 已实现验证 | start/load副作用、非连贯读、没有控制快照；SYSCNT公共链路未实现 | 先完成2.3节相应Driver整改及定向验证，再实现Wrap/Service/PC包；D01/D05/D06需要其他所有者改动时单独授权，不在Wrap补寄存器操作。 |
 | G04 | CONFLICT / 非阻断读取 | RO窗口SVD标RW而通用TRM规定RO；目标SVD未列管理ID寄存器 | 设计人员或目标RTL/SVD修订确认访问属性；当前Case只读该窗口，不测试写保护或未列寄存器。 |
-| G05 | MAPPING_GAP | CPU暂停怎样传递到SYSCNT的HLTDBG、双Core的组合条件未给出 | 补目标Execution Mapping，明确需要停哪个Core及系统路由；先确认DHCSR.S_HALT，再观察DBGH和计数。不假定STIMER失败则SYSCNT也失败。 |
-| G06 | IMPLEMENTATION_GAP / 测量原语评审 | 缺短三元组参考采样，跨串口命令时间不可当亚毫秒同步快照 | 复用或评审SYSCNT测试扩展中的短本地参考采样，参考启停所有权明确；只返回原始计数，不搬运Case判断进固件。 |
+| G05 | CLOSED / 当前Core0配置 | 当前Core0暂停可使DBGH置位并冻结计数；其他核并行参与条件不在本次结论内 | 补目标Execution Mapping，明确需要停哪个Core及系统路由；先确认DHCSR.S_HALT，再观察DBGH和计数。不假定STIMER失败则SYSCNT也失败。 |
+| G06 | CLOSED / 原子采样已验证 | 缺短三元组参考采样，跨串口命令时间不可当亚毫秒同步快照 | 复用或评审SYSCNT测试扩展中的短本地参考采样，参考启停所有权明确；只返回原始计数，不搬运Case判断进固件。 |
 | G07 | UNKNOWN / 未覆盖历史要求 | 3101 bootrom Case6明确要求脉冲观测；当前没有等价外部Case，原资料也未给完整误差预算及脉冲实现约束 | 明确外部参考/误差预算和不把跨IP测试循环塞进SYSCNT Service的可实现路径，再设计独立Observer Case。不能因希望不接线而删除历史要求，也不能把仅片内相对计时记为完整替代。 |
 
 2026-09-03 21:36 CST实施授权：用户明确允许CRG/SYSCTRL的SYSCNT最小前置修改及G01替代基线。CRG/SYSCTRL改动分别使用独立Task Context和Commit；不扩大到其他IP功能、公共协议或规则修改。G01设计决策已闭合，尚待实现验证；G02/G05/G06仍需按各自证据条件闭合，不把未知硬件事实写成PASS。
@@ -335,12 +336,48 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 
 ## 第七章 当前芯片测试情况
 
-本轮仅规划：公共PLAN=7、注册Case=0、Executions=0。未执行不能计入FAIL或SKIP，也不继承历史文件中的PASS。
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
 
-状态更新时间：`2026-09-03 20:45 CST`。本节是分析阶段统计，不是运行记录；尚无测试时间、Source运行身份或硬件Evidence，不能以文档编辑时间构造一次运行。
+状态更新时间：`2026-09-04 06:25 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-09-04 06:18 CST` | `16c806b3a263f469199a17b5d46461871c498faf` | `true` | `artifacts/runs/20260904_061830_681878_syscnt_formal_cases/tests/syscnt/` |
+
+Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`6880b515`；COM12@115200；实际为XC7VX980T FPGA/Core0。Build ID不是Silicon实测声明。
+
+部署证据：`artifacts/runs/20260904_060932_071362_local_et6801_fpga_atp_testing/`，同次bitfile→BootROM→PFLASH Verify→Flash运行全部通过。时钟独立诊断：`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。软件门禁950 PASS/14条件软件SKIP，不与硬件统计混合。
+
+### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FPGA | 7 | 7 | 7 | 0 | 0 | 0 | 23 |
 
-状态说明：7条未实现PLAN在Case Catalog/Adaptation中追踪，不塞进“注册Case”统计。首次正式执行后，以R110的唯一`ET_CHIP_TEST_STATUS`区域替换本节分析阶段统计，记录真实运行身份、FAIL及符合规则的SKIP原因，不并存两套结果。
+- SYSCNT_P0_001：六种64-bit位型停止装载，双窗口两次读回；6项PASS。
+- SYSCNT_P0_002：运行→停止保持→恢复及EN读回；1项PASS。
+- SYSCNT_P1_001：低32-bit进位、64-bit回绕及双窗口；2项PASS。
+- SYSCNT_P1_002：12.5M→6.25M→12.5M频率标识，不启动计数；1项PASS。
+- SYSCNT_P2_001：两个源×10/50/100/1000/10000ms，DWT双端夹取；10项PASS。
+- SYSCNT_P2_002：PAUSE和RUN_FREE，实际DHCSR停核读回；2项PASS。
+- SYSCNT_P3_001：每轮重建基线的20轮装载/启停；1项PASS。
+
+首轮Report导出失败（不是硬件FAIL）：P1数组被重复聚合，P2暂停数组存在同类形状问题，P3重复使用final_count键。修复限于本IP Observation形状和文档模板，不修改断言、公共报告器或原始结果。修复后重新运行SYSCNT确认报告与新SPEC身份一致。
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| — | FPGA | NONE | — | — | — | — | — |
+
+### 覆盖边界与本轮决策
+
+- 7条已注册Case及8个准入数字Feature均已执行；23为参数Execution数，不是23条Case。
+- 当前FPGA/Core0的Halt响应已证实；不据此改变STIMER结论，也不宣称双Core活动组合已覆盖。
+- G07历史外部脉冲观测仍未形成等价Case，没有外部仪器结果；不是运行SKIP，不能宣称参考要求全集已经100%覆盖。G04只读窗口访问属性争议仍保留。
+- 当前顶层Pipeline缺少单IP选择，会遍历全部Registry。本轮部署使用正式配置流水线，测试使用其既有`run_ip_tests.py --ip syscnt`入口；连接事实由同一run_config加载。未修改公共Runner、未屏蔽注册项、未测试其他IP。
+- 编码环境设置PYTHONUTF8=1，修复Windows GBK读取UTF-8 Git Diff的启动环境问题；没有修改公共Checker。
+<!-- ET_CHIP_TEST_STATUS_END -->

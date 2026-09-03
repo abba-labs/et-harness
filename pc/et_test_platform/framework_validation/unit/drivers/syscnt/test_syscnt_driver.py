@@ -18,6 +18,7 @@ from et_test_platform.drivers.syscnt import (
     codec,
     contract,
 )
+from et_test_platform.results.case_report import _human_report_note, _load_specs
 from et_test_platform.test_cases.syscnt.syscnt_helpers import halted_counter, timing_bounds
 
 
@@ -124,3 +125,49 @@ def test_syscnt_reference_wrap_and_halt_coherence() -> None:
     assert halted_counter((1, 2, 1, 2, 3), 32) == ((1 << 32) | 2, 2, 3)
     with pytest.raises(ValueError, match="torn"):
         halted_counter((1, 2, 2, 2, 3), 32)
+
+
+# 测试 Feature：SYSCNT备注的数组和参数化聚合形状。
+# 测试方法：加载正式文档，分别输入三笔频率、两种暂停参数和20轮计数。
+# 通过条件：三类备注可格式化，保留实际值，不出现嵌套数组或缺少Observation。
+def test_syscnt_report_real_value_shapes() -> None:
+    root = Path(__file__).resolve().parents[6]
+    specs = {item["case_id"]: item for item in _load_specs(root / "test_case_doc/syscnt/syscnt.md")}
+
+    # 单次Execution中的数组不应再用all包成二维数组。
+    frequency = [12_500_000, 6_250_000, 12_500_000]
+    result = {
+        "status": "PASS",
+        "measurements": {"expected_frequency_id": frequency},
+        "observations": [
+            {"key": "frequency_id", "value": frequency},
+            {"key": "count", "value": [0, 0, 0]},
+            {"key": "enabled", "value": [False, False, False]},
+        ],
+    }
+    note = _human_report_note(specs["SYSCNT_P1_002"], [result])
+    assert "0x00BEBC20" in note and "0x005F5E10" in note
+
+    # 两个Execution各自一个标量，使用all保留PAUSE和RUN_FREE结果。
+    halted = []
+    for paused in (True, False):
+        halted.append(
+            {
+                "status": "PASS",
+                "observations": [
+                    {"key": "cpu_halted", "value": True},
+                    {"key": "debug_halted", "value": paused},
+                    {"key": "halted_count_before", "value": 100},
+                    {"key": "halted_count_after", "value": 100 if paused else 200},
+                ],
+            }
+        )
+    assert "0x00000000000000C8" in _human_report_note(specs["SYSCNT_P2_002"], halted)
+
+    # P3完成轮数为标量；同一Observation只出现一次，包含各轮计数。
+    repeat = {
+        "status": "PASS",
+        "measurements": {"round_count": 20},
+        "observations": [{"key": "final_count", "value": list(range(1, 21))}],
+    }
+    assert "0x0000000000000014" in _human_report_note(specs["SYSCNT_P3_001"], [repeat])

@@ -185,9 +185,26 @@ def test_syscnt_p2_002_debug_halt(
         record_observation(
             record_property,
             key="debug_halted",
-            value=[bool(status_before & support.halt_mask), bool(status_after & support.halt_mask)],
+            value=bool(status_before & support.halt_mask),
             source="dut",
             endpoint="STATUS.DEBUG_HALTED",
+        )
+        record_observation(
+            record_property,
+            key="debug_halted_after",
+            value=bool(status_after & support.halt_mask),
+            source="dut",
+            endpoint="STATUS.DEBUG_HALTED",
+        )
+
+        # 每个参数执行保留四次DHCSR原值；不能只依赖调试工具最后一次的日志文件。
+        record_observation(
+            record_property,
+            key="cpu_halt_status",
+            value=list(samples.halt_status),
+            source="observer",
+            endpoint="CPU.DEBUG_STATUS",
+            device_id=debug_controller.identity,
         )
         record_observation(
             record_property,

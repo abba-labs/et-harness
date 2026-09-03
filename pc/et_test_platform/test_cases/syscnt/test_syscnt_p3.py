@@ -86,17 +86,18 @@ def test_syscnt_p3_001_repeat_load_start_stop(
                 source="dut",
                 endpoint="COUNT.CONTROL",
             )
-            record_observation(
-                record_property,
-                key="final_count",
-                value=control,
-                source="dut",
-                endpoint="COUNT.CONTROL",
-            )
             record_property("rounds_completed", index + 1)
             assert loaded == loaded_control == initial
             assert initial < running <= stopped == held == control
             assert running_enabled and not stopped_enabled
 
+        # 汇总只发布一个数组Observation；各轮独立原始观测仍保留，避免相同键歧义。
+        record_observation(
+            record_property,
+            key="final_count",
+            value=[row[-1] for row in rows],
+            source="dut",
+            endpoint="COUNT.CONTROL",
+        )
         record_property("round_count", len(rows))
         assert len(rows) == 20

@@ -1,8 +1,8 @@
 # SYSCNT Stable IP Contract
 
-更新时间：2026-09-04 04:57 CST。
+更新时间：2026-09-04 06:25 CST。
 
-本文件定义SYSCNT公共测试契约。7条Case已实现并注册，尚未形成HIL结论；硬件事实、历史资料处置及待确认映射见同目录芯片文档。遵循R100、R110、R120、R130、R140，不新增规则。
+本文件定义SYSCNT公共测试契约。7条Case已实现并注册，当前芯片执行结果见同目录芯片文档；硬件事实、历史资料处置及待确认映射不在公共Case中硬编码。遵循R100、R110、R120、R130、R140，不新增规则。
 
 ## 0. Stable IP Contract
 
@@ -370,7 +370,9 @@ backend: [FPGA, Silicon]
 evidence: [canonical observations, Debugger身份和停核时间线附件]
 failure_observations:
   - {key: cpu_halted, label: CPU实际停核状态, source: observer, role: actual, format: bool}
-  - {key: debug_halted, label: SYSCNT实际暂停状态, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.debug_halt}
+  - {key: debug_halted, label: 起点SYSCNT实际暂停状态, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.debug_halt}
+  - {key: debug_halted_after, label: 终点SYSCNT实际暂停状态, source: dut, role: actual, format: bool}
+  - {key: cpu_halt_status, label: CPU四次调试状态原值, source: observer, role: actual, format: hex32}
   - {key: halted_count_before, label: 停核起点计数, source: dut, role: actual, format: hex64}
   - {key: halted_count_after, label: 停核终点计数, source: dut, role: actual, format: hex64}
 gap: []
@@ -414,7 +416,7 @@ backend: [FPGA, Silicon]
 evidence: [canonical observations, 20轮逐轮原始计数附件与完成轮数Measurement]
 failure_observations:
   - {key: rounds_completed, label: 已取得证据轮数, source: oracle, role: actual, format: decimal}
-  - {key: final_count, label: 本轮停止CONTROL计数, source: dut, role: actual, format: hex64}
+  - {key: final_count, label: 各轮停止CONTROL计数数组, source: dut, role: actual, format: hex64}
 gap: []
 ```
 <!-- ET_CASE_SPEC_END -->
@@ -463,10 +465,10 @@ cases:
   SYSCNT_P1_002:
     summary: 登记两个频率标识后恢复，检查计数没有被启动。
     fields:
-      - {source: measurement, path: expected_frequency_id, label: 输入标识, format: hex32, aggregate: all}
-      - {source: observation, path: frequency_id, label: 实际标识, format: hex32, aggregate: all}
-      - {source: observation, path: count, label: 停止计数, format: hex64, aggregate: all}
-      - {source: observation, path: enabled, label: 计数使能, format: bool, aggregate: all}
+      - {source: measurement, path: expected_frequency_id, label: 输入标识, format: hex32, aggregate: same}
+      - {source: observation, path: frequency_id, label: 实际标识, format: hex32, aggregate: same}
+      - {source: observation, path: count, label: 停止计数, format: hex64, aggregate: same}
+      - {source: observation, path: enabled, label: 计数使能, format: bool, aggregate: same}
   SYSCNT_P2_001:
     summary: 用独立参考夹取SYSCNT计时区间。
     fields:
@@ -484,8 +486,8 @@ cases:
   SYSCNT_P3_001:
     summary: 逐轮核对装载、运行、保持和双窗口。
     fields:
-      - {source: measurement, path: rounds_completed, label: 已执行轮数, format: decimal, aggregate: all}
-      - {source: observation, path: final_count, label: 本轮停止CONTROL计数, format: hex64, aggregate: all}
+      - {source: measurement, path: round_count, label: 已完成轮数, format: decimal, aggregate: same}
+      - {source: observation, path: final_count, label: 各轮停止CONTROL计数, format: hex64, aggregate: same}
 ```
 <!-- ET_CASE_REPORT_END -->
 
@@ -493,7 +495,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | PARTIAL_ADAPTATION=8 | MAPPING_GAP=7 | 七条Case代码已实现但HIL未执行；时钟G02和停核G05仍须独立确认 | `ET6801_syscnt.md` |
+| ET6801 | ADAPTED=8 | ADAPTED=7 | 七条Case首轮HIL通过；时钟和Core0停核已确认，G07外部脉冲要求仍未完整覆盖 | `ET6801_syscnt.md` |
 
 ## 5. Common Gap / Evolution
 
