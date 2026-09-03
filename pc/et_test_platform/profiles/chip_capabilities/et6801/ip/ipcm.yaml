@@ -3,15 +3,51 @@ chip: et6801
 ip: ipcm
 source:
   file: ET6801.svd
-  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
-  generator_version: 8
+  sha256: 822F5B2E4D5E9910228F745AAE307B479B611E94288C111830ADDDC70C387709
+  generator_version: 10
 instances:
   ipcm0:
     svd_name: IPCM
 capabilities:
-  features: {}
-  limits: {}
-  options: {}
+  features:
+    ack_payload_update:
+    - ipcm0
+    auto_ack:
+    - ipcm0
+    auto_ack_link:
+    - ipcm0
+    auto_link:
+    - ipcm0
+    explicit_ack_in_auto:
+    - ipcm0
+    irq_delivery:
+    - ipcm0
+    manual_ack:
+    - ipcm0
+    multi_destination:
+    - ipcm0
+    polling:
+    - ipcm0
+  limits:
+    channel_count:
+      ipcm0: 16
+    data_word_count:
+      ipcm0: 7
+    linked_payload_max_bytes:
+      ipcm0: 448
+    mailbox_count:
+      ipcm0: 16
+    payload_bytes_per_mailbox:
+      ipcm0: 28
+  options:
+    ack_modes:
+      ipcm0:
+      - manual
+      - auto
+    link_modes:
+      ipcm0:
+      - single
+      - linked
   parameters: {}
   interrupts:
     ipcm1:
@@ -82,6 +118,975 @@ capabilities:
     base_address:
       ipcm0: '0x40208000'
 evidence:
+  ipcm.feature.ack_payload_update:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXDR0.DATA0
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  ipcm.feature.auto_ack:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  ipcm.feature.auto_ack_link:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  ipcm.feature.auto_link:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  ipcm.feature.explicit_ack_in_auto:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  ipcm.feature.irq_delivery:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMSET.MASKSET
+    rule: mailbox_field_contract
+  ipcm.feature.manual_ack:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXSEND.SEND
+    rule: mailbox_field_contract
+  ipcm.feature.multi_destination:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXDCLEAR.DESTINATIONCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXDSET.DESTINATIONSET
+    rule: mailbox_field_contract
+  ipcm.feature.polling:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMCLEAR.MASKCLEAR
+    rule: mailbox_field_contract
   ipcm.identity.base_address:
   - instance: ipcm0
     kind: peripheral
@@ -167,3 +1172,158 @@ evidence:
     kind: interrupt
     path: IPCM.interrupt.IPCM0
     rule: direct
+  ipcm.limit.channel_count:
+  - instance: ipcm0
+    kind: register
+    path: IPCM.IPCMCFGSTAT
+    rule: mailbox_configuration_capacity
+  ipcm.limit.data_word_count:
+  - instance: ipcm0
+    kind: register
+    path: IPCM.IPCMCFGSTAT
+    rule: mailbox_configuration_capacity
+  ipcm.limit.linked_payload_max_bytes:
+  - instance: ipcm0
+    kind: register
+    path: IPCM.IPCMCFGSTAT
+    rule: mailbox_configuration_capacity
+  ipcm.limit.mailbox_count:
+  - instance: ipcm0
+    kind: register
+    path: IPCM.IPCMCFGSTAT
+    rule: mailbox_configuration_capacity
+  ipcm.limit.payload_bytes_per_mailbox:
+  - instance: ipcm0
+    kind: register
+    path: IPCM.IPCMCFGSTAT
+    rule: mailbox_configuration_capacity
+  ipcm.option.ack_modes:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOACKNOWLEDGE
+    rule: mailbox_field_contract
+  ipcm.option.link_modes:
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[0].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[10].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[11].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[12].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[13].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[14].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[15].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[1].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[2].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[3].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[4].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[5].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[6].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[7].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[8].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract
+  - instance: ipcm0
+    kind: field
+    path: IPCM.IPCMX_PARA[9].IPCMXMODE.AUTOLINK
+    rule: mailbox_field_contract

@@ -14,7 +14,7 @@ from svd_fact_ir import Field, Peripheral, Register, SvdFactIR
 
 PROFILE_SCHEMA = "et-ip-capability/v2"
 AUDIT_SCHEMA = "et-capability-audit/v1"
-SEMANTIC_GENERATOR_VERSION = 9
+SEMANTIC_GENERATOR_VERSION = 10
 RESERVED_PREFIXES = ("rsvd", "reserved")
 ACCEPTED_SHORT_TOKENS = {"et", "id", "io"}
 CONFIGURABLE_OPTION_ACCESS = {"read-write", "read-writeonce"}
@@ -142,6 +142,16 @@ def normalize(facts: SvdFactIR, *, chip_id: str) -> SemanticArtifacts:
             )
 
             consumed_fields: set[str] = set()
+            _promote_mailbox_engine_semantics(
+                peripheral=peripheral,
+                capability_prefix=group.ip_id,
+                instance_id=instance_id,
+                features=features,
+                limits=limits,
+                options=options,
+                evidence=evidence,
+                consumed_fields=consumed_fields,
+            )
             _promote_crc_engine_semantics(
                 peripheral=peripheral,
                 capability_prefix=group.ip_id,
@@ -792,6 +802,194 @@ def _promote_crc_engine_semantics(
             rule="interrupt_source_description",
         )
     return True
+
+
+# 从完整Mailbox寄存器形状提取能力；数量来自只读配置值并与数组结构交叉核对。
+# 不按芯片、IP名称或地址匹配；不把运行时Peer、Driver实现程度写成硬件Feature。
+def _promote_mailbox_engine_semantics(
+    *,
+    peripheral: Peripheral,
+    capability_prefix: str,
+    instance_id: str,
+    features: dict[str, set[str]],
+    limits: dict[str, dict[str, int | float]],
+    options: dict[str, dict[str, tuple[Any, ...]]],
+    evidence: dict[str, list[dict[str, str]]],
+    consumed_fields: set[str],
+) -> None:
+
+    # 配置：必须存在唯一的只读容量寄存器，不能用字段位宽猜测实例数量。
+    capacity_names = {"MAILBOXES", "INTERRUPTS", "DATAWORDS"}
+    configs = [
+        register
+        for register in peripheral.registers
+        if register.access == "read-only"
+        and capacity_names.issubset({field.name.upper() for field in register.fields})
+    ]
+    if len(configs) != 1:
+        return
+    config = configs[0]
+    capacities = {
+        field.name.upper(): (config.reset_value >> field.bit_offset) & ((1 << field.bit_width) - 1)
+        for field in config.fields
+        if field.name.upper() in capacity_names and field.access == "read-only"
+    }
+    if set(capacities) != capacity_names or not all(capacities.values()):
+        return
+    if any(
+        config.reset_mask & (((1 << field.bit_width) - 1) << field.bit_offset)
+        != ((1 << field.bit_width) - 1) << field.bit_offset
+        for field in config.fields
+        if field.name.upper() in capacity_names
+    ):
+        return
+
+    # 结构：按展开后的Cluster归组；每个Mailbox必须具备同样的原子路由与数据字段。
+    groups: dict[str, dict[str, tuple[Register, Field]]] = {}
+    for register in peripheral.registers:
+        parent = register.path.rpartition(".")[0]
+        if parent:
+            for field in register.fields:
+                groups.setdefault(parent, {})[field.name.upper()] = (register, field)
+    boxes = [fields for fields in groups.values() if "AUTOACKNOWLEDGE" in fields]
+    pending = [fields for fields in groups.values() if "RAWINTSTAT" in fields]
+    required = {
+        "SOURCE",
+        "DESTINATIONSET",
+        "DESTINATIONCLEAR",
+        "DESTINATIONSTATUS",
+        "AUTOACKNOWLEDGE",
+        "AUTOLINK",
+        "MASKSET",
+        "MASKCLEAR",
+        "MASKSTATUS",
+        "SEND",
+    }
+    if len(boxes) != capacities["MAILBOXES"] or len(pending) != capacities["INTERRUPTS"]:
+        return
+    for fields in boxes:
+        if not required.issubset(fields):
+            return
+        for name in ("AUTOACKNOWLEDGE", "AUTOLINK"):
+            field = fields[name][1]
+            if (
+                field.bit_width != 1
+                or field.access != "read-write"
+                or "enable" not in field.description.lower()
+            ):
+                return
+        send = fields["SEND"][1]
+        if send.bit_width != 2 or send.access != "read-write":
+            return
+        text = " ".join(send.description.lower().split())
+        if not all(
+            value in text
+            for value in (
+                "00 = inactive",
+                "01 = send message to destination",
+                "10 = send message to source",
+                "11 = invalid",
+            )
+        ):
+            return
+        data = {name: item for name, item in fields.items() if re.fullmatch(r"DATA\d+", name)}
+        if set(data) != {f"DATA{index}" for index in range(capacities["DATAWORDS"])}:
+            return
+        if any(field.bit_width != 32 or field.access != "read-write" for _, field in data.values()):
+            return
+        if any(
+            fields[name][1].bit_width < capacities["INTERRUPTS"]
+            for name in (
+                "SOURCE",
+                "DESTINATIONSET",
+                "DESTINATIONCLEAR",
+                "DESTINATIONSTATUS",
+                "MASKSET",
+                "MASKCLEAR",
+                "MASKSTATUS",
+            )
+        ):
+            return
+        if "polling" not in fields["MASKSTATUS"][1].description.lower():
+            return
+        if any(
+            fields[name][1].access not in {"read-write", "write-only"}
+            for name in ("SOURCE", "DESTINATIONSET", "DESTINATIONCLEAR", "MASKSET", "MASKCLEAR")
+        ):
+            return
+        if any(
+            fields[name][1].access != "read-only" for name in ("DESTINATIONSTATUS", "MASKSTATUS")
+        ):
+            return
+        auto_ack_register, auto_ack = fields["AUTOACKNOWLEDGE"]
+        auto_link_register, auto_link = fields["AUTOLINK"]
+        if (
+            auto_ack_register.path != auto_link_register.path
+            or auto_ack.bit_offset == auto_link.bit_offset
+        ):
+            return
+    if any(
+        not {"MASKINTSTAT", "RAWINTSTAT"}.issubset(fields)
+        or any(
+            fields[name][1].access != "read-only"
+            or fields[name][1].bit_width < capacities["MAILBOXES"]
+            for name in ("MASKINTSTAT", "RAWINTSTAT")
+        )
+        for fields in pending
+    ):
+        return
+
+    # 证据：每个语义都绑定原始字段路径；相同寄存器阵列不能同时留在未分类Audit。
+    def emit(kind: str, name: str, selected: list[tuple[Register, Field]]) -> None:
+        for register, field in selected:
+            path = f"{peripheral.svd_name}.{register.path}.{field.name}"
+            _add_evidence(
+                evidence,
+                f"{capability_prefix}.{kind}.{name}",
+                instance=instance_id,
+                kind="field",
+                path=path,
+                rule="mailbox_field_contract",
+            )
+            consumed_fields.add(path)
+
+    feature_fields = {
+        "manual_ack": ("SEND",),
+        "ack_payload_update": ("SEND", "DATA0"),
+        "auto_ack": ("AUTOACKNOWLEDGE", "DESTINATIONCLEAR"),
+        "explicit_ack_in_auto": ("AUTOACKNOWLEDGE", "SEND"),
+        "auto_link": ("AUTOLINK",),
+        "auto_ack_link": ("AUTOLINK", "AUTOACKNOWLEDGE"),
+        "irq_delivery": ("MASKSET", "MASKCLEAR"),
+        "polling": ("MASKCLEAR",),
+        "multi_destination": ("DESTINATIONSET", "DESTINATIONCLEAR"),
+    }
+    for name, fields in feature_fields.items():
+        features.setdefault(name, set()).add(instance_id)
+        emit("feature", name, [box[field] for box in boxes for field in fields])
+    for name, values, field in (
+        ("ack_modes", ("manual", "auto"), "AUTOACKNOWLEDGE"),
+        ("link_modes", ("single", "linked"), "AUTOLINK"),
+    ):
+        options.setdefault(name, {})[instance_id] = values
+        emit("option", name, [box[field] for box in boxes])
+    for name, value in {
+        "mailbox_count": capacities["MAILBOXES"],
+        "channel_count": capacities["INTERRUPTS"],
+        "data_word_count": capacities["DATAWORDS"],
+        "payload_bytes_per_mailbox": capacities["DATAWORDS"] * 4,
+        "linked_payload_max_bytes": capacities["MAILBOXES"] * capacities["DATAWORDS"] * 4,
+    }.items():
+        limits.setdefault(name, {})[instance_id] = value
+        # 容量由完整只读配置寄存器联合解码，不把它错误标成可配置字段的取值上限。
+        _add_evidence(
+            evidence,
+            f"{capability_prefix}.limit.{name}",
+            instance=instance_id,
+            kind="register",
+            path=f"{peripheral.svd_name}.{config.path}",
+            rule="mailbox_configuration_capacity",
+        )
 
 
 def _promote_aes_engine_semantics(

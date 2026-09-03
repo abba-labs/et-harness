@@ -38,9 +38,9 @@
 | 本地SVN需求 | `D:/lihuan/vibe_code/SVN/Software/ET6801/04 测试用例/01 回片验证/02 测试用例/ipcm_testcase.xlsx`及该测试用例目录的IPCM文件名 | NO_MATCH | 主路径和`驱动开发-测试用例/01 已评审/ipcm_testcase.xlsx`回退路径均未命中。 |
 | 云盘本地需求副本 | `G:/我的云端硬盘/ET_FILE/CODE/sdk/test_case`下IPCM文件名 | NO_MATCH | 根目录存在，未找到IPCM独立需求；不能替代本地SDK/SVN查询。 |
 | BootROM复位映射 | `<BOOT_ROM>/bootrom-dev-et6801/source/Drivers/ET6801/ET6x_Driver/Inc/et6x_crg.h` | FOUND | 有`CRG_PERIPH_IPCM`映射，可与本项目SVD/CMSIS的SRST1 bit25交叉核对；不是IPCM测试证据。 |
-| current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml` | FOUND | 仅表达实例、Base和16条IRQ；全部IPCM Field仍未进入语义层。 |
-| capability audit | `test_case_doc/reference_data/et6801/capability_generation/audit/ipcm.yaml` | FOUND | IPCM寄存器Field均为`no_semantic_mapping`，证明当前YAML不是完整能力声明。 |
-| current Core1 Peer | `firmware/chips/et6801/core1_peer`与`firmware/build/et6801/core1_peer` | FOUND | 已有ET6801 Core1映像和部署基础；IPCM Peer Job尚未实现。 |
+| current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml` | FOUND | 生成器v10从完整Mailbox形状生成9项Feature、5项容量和2项模式选项，保留Base与16条IRQ。 |
+| capability audit | `artifacts/runs/20260903_ipcm_capability/audit/ipcm.yaml` | FOUND | 当前SVD的语义审计；reference_data中的v8产物仅为历史，不代表当前能力。 |
+| current Core1 Peer | `firmware/chips/et6801/core1_peer`与`firmware/build/et6801/core1_peer` | FOUND | IPCM独立Core1 Service与共享控制通道已实现、已编译，硬件尚未验证。 |
 | current platform IPCM code | `firmware/{wrap,services}`与`pc/et_test_platform/{drivers,test_cases}` | PARTIAL | 已有本核IPCM Wrap、Service；PC与真实双核Case尚未完成。 |
 
 本轮没有扫描或读取3101、6003。ET6801 SDK检索限定在IPCM、DualCore和对应历史测试文件，没有对整个代码库或文档库做无目标扫描。
@@ -124,7 +124,7 @@ IPCM专用构建目标为`ET6801_CORE1_ITCM_IPCM_PEER`及`ET6801_CORE1_PFLASH1_I
 
 2026-09-03 17:43 CST构建记录：IPCM ITCM Peer为0 Error/0 Warning；原子共享控制通道Native合同及总软件门禁895项通过，不等于双核硬件通过。构建证据为`artifacts/runs/20260903_174257_138413_dualcore_et6801_fpga_ipcm_buildpeer/stages/dualcore_et6801_fpga_ipcm_buildpeer/`。IPCM部署清单当前仅用于BuildPeer，部署关闭；正式Core0 PFLASH与此Peer的联合Pipeline尚待接入，不能直接运行沿用的手动Smoke验证段。
 
-尚未完成：Capability语义生成、13条正式Case注册、IPCM HIL。现有`ip-package/capability`导航仅授权目标YAML和Execution Mapping；所有模块画像均未覆盖`tools/capabilities/`生成器开发。必须经人工授权补齐该模块路由后修改生成器，不手工伪造生成YAML或扩大现有Task Context。该项是开发路径缺口，不是IPCM硬件不支持，也不能记为SKIP。
+2026-09-03：Capability生成器开发路由已按人工授权补齐（`2b7e7a1`），不再阻塞。v10通用Mailbox推导只按容量配置、完整寄存器阵列、访问属性和SEND编码匹配，不按芯片名、外设名或地址分支。生成质量检查无错误；正式IPCM YAML逐字比对生成结果。尚未完成：13条正式Case注册、IPCM HIL。
 
 每个Case由PC调用CRG Driver进行IPCM全实例复位；`SRST1[25]`及`GTEN1[25]`选择器已在独立CRG变更`3e317bf`补齐。此操作不能藏入IPCM Driver或Wrap，不能拿`IPCM_mailboxDeInit`代替IP复位。
 
@@ -201,9 +201,9 @@ IPCM专用构建目标为`ET6801_CORE1_ITCM_IPCM_PEER`及`ET6801_CORE1_PFLASH1_I
 - 每轮配置前的全实例复位由CRG Driver对`CRG.SRST1[25]`执行低有效复位并释放；单Mailbox的SOURCE=0仅验证释放语义，不具有全IP或跨Core软件状态复位的含义。
 - IPCM无DMA和FIFO；不能为了复用DMA/队列Case而创造不存在的Feature。
 
-## 3.4 当前Capability语义缺口
+## 3.4 当前Capability与Execution Mapping
 
-现有`ipcm.yaml`只生成了`ipcm0`、Base和16条IRQ，`features/limits/options/parameters`均为空。开发前至少补齐：
+当前`ipcm.yaml`保留实例、Base和16条IRQ，并已生成以下语义。此处为便于阅读的摘要，正式文件采用v2的按实例值结构：
 
 ```yaml
 features:
@@ -220,14 +220,16 @@ limits:
   mailbox_count: 16
   channel_count: 16
   data_word_count: 7
-  mailbox_payload_bytes: 28
-  linked_payload_bytes: 448
+  payload_bytes_per_mailbox: 28
+  linked_payload_max_bytes: 448
 options:
   ack_modes: [manual, auto]
   link_modes: [single, linked]
 ```
 
-具体YAML键必须通过现有Capability Schema和生成规则落地，以上仅说明必须表达的语义，不授权手工绕过生成链。Peer是否已部署/Ready属于Execution Mapping与Runtime资格，不能把`dualcore_peer: true`硬填进IPCM硅能力来伪造可运行条件。
+容量以CFGSTAT有效Reset字段解码，并与实际Mailbox、Channel和DATA数组交叉核对；字段缺失、数量矛盾、SEND编码不明时不提升为能力。控制Feature绑定可写配置字段，容量绑定完整只读CFGSTAT，不能把RIS/MIS默认0误判为不支持IRQ。
+
+`profiles/chip_execution_mappings/et6801/ipcm_routes.py`保存本核Endpoint11、Peer Endpoint10、第二目标Endpoint9和Core1硬件身份2。依据为ET6801历史IPCM_9与DualCore Driver；端点9的实际投递仍需本轮HIL验证。Peer是否部署/Ready是Runtime资格，不属于IPCM硅能力，不在YAML伪造`dualcore_peer: true`。
 
 # 第四章 当前测试代码与历史覆盖分析
 
