@@ -1,0 +1,68 @@
+schema: et-ip-capability/v2
+chip: et6801
+ip: syscnt
+source:
+  file: ET6801.svd
+  sha256: 822F5B2E4D5E9910228F745AAE307B479B611E94288C111830ADDDC70C387709
+  generator_version: 11
+instances:
+  syscnt0:
+    svd_name: SYSCNT_CTRL
+capabilities:
+  features:
+    counter:
+    - syscnt0
+    debug_halt:
+    - syscnt0
+    frequency_id:
+    - syscnt0
+  limits:
+    counter_bits:
+      syscnt0: 64
+    word_bits:
+      syscnt0: 32
+  options: {}
+  parameters: {}
+  interrupts: {}
+  identities:
+    base_address:
+      syscnt0: '0x4040E000'
+evidence:
+  syscnt.feature.counter:
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCR.EN
+    rule: timestamp_counter_control
+  syscnt.feature.debug_halt:
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCR.HDBG
+    rule: timestamp_counter_control
+  syscnt.feature.frequency_id:
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTFID0.FREQ
+    rule: timestamp_counter_control
+  syscnt.identity.base_address:
+  - instance: syscnt0
+    kind: peripheral
+    path: SYSCNT_CTRL.baseAddress
+    rule: direct
+  syscnt.limit.counter_bits:
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCVL.CNTCVL_L
+    rule: timestamp_counter_word_pair
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCVU.CNTCVU_U
+    rule: timestamp_counter_word_pair
+  syscnt.limit.word_bits:
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCVL.CNTCVL_L
+    rule: timestamp_counter_word_pair
+  - instance: syscnt0
+    kind: field
+    path: SYSCNT_CTRL.CNTCVU.CNTCVU_U
+    rule: timestamp_counter_word_pair

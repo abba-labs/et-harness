@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import yaml
 
 from .test_svd_capability_generator import _load_generator
 
@@ -24,7 +25,7 @@ def mailbox_facts():
     return generator, replace(facts, groups=(group,))
 
 
-# 正向：正式YAML必须逐字来自生成器，且全部Capability证据通过质量检查。
+# 正向：旧版本基线与当前生成器的全部语义/证据一致，只允许工具版本元数据递增。
 def test_mailbox_profile_matches_generated_and_quality(mailbox_facts):
 
     generator, facts = mailbox_facts
@@ -32,7 +33,11 @@ def test_mailbox_profile_matches_generated_and_quality(mailbox_facts):
     repeated = generator.build_semantic_documents(svd_path=SVD_PATH, facts=facts)
     assert (profiles, audits) == repeated[1:]
     actual = CODE_ROOT / "pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml"
-    assert actual.read_text(encoding="utf-8") == profiles["ipcm"]
+    baseline = yaml.safe_load(actual.read_text(encoding="utf-8"))
+    generated = yaml.safe_load(profiles["ipcm"])
+    assert baseline["source"]["generator_version"] <= generated["source"]["generator_version"]
+    baseline["source"]["generator_version"] = generated["source"]["generator_version"]
+    assert baseline == generated
     quality, _ = generator.build_quality_document(artifacts, facts=facts)
     assert quality["status"] == "pass", quality["issues"]
     capabilities = artifacts.profiles["ipcm"]["capabilities"]

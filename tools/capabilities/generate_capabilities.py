@@ -50,7 +50,7 @@ from capability_requirements import (
 
 SCHEMA = "et-ip-capability/v1"
 GENERATOR_VERSION = 1
-FACT_GENERATOR_VERSION = 1
+FACT_GENERATOR_VERSION = 2
 BUS_PREFIXES = ("AHB", "APB", "AXI")
 RESERVED_PREFIXES = ("RSVD", "RESERVED")
 YAML_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
@@ -233,6 +233,12 @@ def parse_svd_facts(path: Path) -> SvdFactIR:
     for root_name, member_names in groups_by_root.items():
         stem = _common_instance_stem(member_names)
         ip_id = _normalize_ip_id(stem)
+        # 成对命名的控制/读取窗口：控制窗口拥有逻辑IP名，读取窗口保留原始事实。
+        # 不合并Peripheral、不改寄存器路径；没有对应窗口时保持原名。
+        if stem.endswith("_CTRL") and f"{stem[:-5]}_RO" in resolved:
+            if stem[:-5] in resolved:
+                raise GenerationError(f"ambiguous control-window owner for {stem!r}")
+            ip_id = _normalize_ip_id(stem[:-5])
         instances = instances_by_ip.setdefault(ip_id, [])
         used_instances = {item.instance_id for item in instances}
         for ordinal, member_name in enumerate(sorted(member_names, key=_natural_key)):

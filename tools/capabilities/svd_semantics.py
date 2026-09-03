@@ -14,7 +14,7 @@ from svd_fact_ir import Field, Peripheral, Register, SvdFactIR
 
 PROFILE_SCHEMA = "et-ip-capability/v2"
 AUDIT_SCHEMA = "et-capability-audit/v1"
-SEMANTIC_GENERATOR_VERSION = 10
+SEMANTIC_GENERATOR_VERSION = 11
 RESERVED_PREFIXES = ("rsvd", "reserved")
 ACCEPTED_SHORT_TOKENS = {"et", "id", "io"}
 CONFIGURABLE_OPTION_ACCESS = {"read-write", "read-writeonce"}
@@ -142,6 +142,15 @@ def normalize(facts: SvdFactIR, *, chip_id: str) -> SemanticArtifacts:
             )
 
             consumed_fields: set[str] = set()
+            _promote_timestamp_counter_semantics(
+                peripheral=peripheral,
+                capability_prefix=group.ip_id,
+                instance_id=instance_id,
+                features=features,
+                limits=limits,
+                evidence=evidence,
+                consumed_fields=consumed_fields,
+            )
             _promote_mailbox_engine_semantics(
                 peripheral=peripheral,
                 capability_prefix=group.ip_id,
@@ -802,6 +811,86 @@ def _promote_crc_engine_semantics(
             rule="interrupt_source_description",
         )
     return True
+
+
+# 从时间戳计数器的高/低字及控制字段提取语义，不依赖外设名、地址或芯片。
+def _promote_timestamp_counter_semantics(
+    *,
+    peripheral: Peripheral,
+    capability_prefix: str,
+    instance_id: str,
+    features: dict[str, set[str]],
+    limits: dict[str, dict[str, int | float]],
+    evidence: dict[str, list[dict[str, str]]],
+    consumed_fields: set[str],
+) -> None:
+
+    registers = {register.path: register for register in peripheral.registers}
+    halves: list[tuple[Register, Field]] = []
+    for name, word in (("CNTCVL", "lower"), ("CNTCVU", "upper")):
+        register = registers.get(name)
+        if register is None or len(register.fields) != 1:
+            return
+        field = register.fields[0]
+        description = field.description.lower()
+        if (
+            field.bit_offset != 0
+            or field.bit_width != register.size
+            or "timestamp counter" not in description
+            or word not in description
+        ):
+            return
+        halves.append((register, field))
+    if halves[0][1].bit_width != halves[1][1].bit_width:
+        return
+
+    # 位宽来自明确描述为同一时间戳的上下字；不把位宽当成实例数或时钟频率。
+    word_bits = halves[0][1].bit_width
+    for name, value in (("counter_bits", word_bits * 2), ("word_bits", word_bits)):
+        limits.setdefault(name, {})[instance_id] = value
+        for register, field in halves:
+            path = f"{peripheral.svd_name}.{register.path}.{field.name}"
+            _add_evidence(
+                evidence,
+                f"{capability_prefix}.limit.{name}",
+                instance=instance_id,
+                kind="field",
+                path=path,
+                rule="timestamp_counter_word_pair",
+            )
+            consumed_fields.add(path)
+
+    # 控制窗口才有启停、暂停和频率登记；读取窗口不继承控制能力。
+    control = registers.get("CNTCR")
+    if control is None:
+        return
+    candidates = {
+        "counter": (control, "EN", "counter is enabled"),
+        "debug_halt": (control, "HDBG", "halt on debug"),
+        "frequency_id": (registers.get("CNTFID0"), "FREQ", "ticks per second"),
+    }
+    for name, (register, field_name, phrase) in candidates.items():
+        if register is None:
+            continue
+        matching = [field for field in register.fields if field.name == field_name]
+        if len(matching) != 1:
+            continue
+        field = matching[0]
+        if field.access != "read-write" or phrase not in field.description.lower():
+            continue
+        if name != "frequency_id" and field.bit_width != 1:
+            continue
+        features.setdefault(name, set()).add(instance_id)
+        path = f"{peripheral.svd_name}.{register.path}.{field.name}"
+        _add_evidence(
+            evidence,
+            f"{capability_prefix}.feature.{name}",
+            instance=instance_id,
+            kind="field",
+            path=path,
+            rule="timestamp_counter_control",
+        )
+        consumed_fields.add(path)
 
 
 # 从完整Mailbox寄存器形状提取能力；数量来自只读配置值并与数组结构交叉核对。

@@ -1,6 +1,6 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 04:57 CST。
+更新时间：2026-09-04 05:35 CST。
 
 当前处于Driver实施阶段，尚无SYSCNT烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
@@ -120,6 +120,14 @@ ET Chip Insight工具缺少本地`.et-ai/paths.yaml`，本轮按Source Map解析
 | S01 RO窗口属性 | 资料CONFLICT：6801 SVD/CMSIS为RW，通用TRM为RO，尚无6801设计确认 | 在G04保留冲突；获得目标设计确认后再修SVD及生成头文件。确认前仅使用读接口，禁止擅写RO窗口 | 目标芯片证据闭合后核对SVD→CMSIS→Driver；不影响当前只读Case的编写 |
 
 D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改正式SDK语义解决。D01/D02涉及CRG，D05/D06可能涉及SYSCTRL，未来必须使用对应任务路由并获得用户要求的跨IP修改批准。本轮仅记录，不扩大当前文档任务。
+
+### 2.4 Capability语义实施
+
+2026-09-04：统一生成器的语义版本提升为11，事实分组版本提升为2。对于同时存在`<name>_CTRL`与`<name>_RO`的命名窗口，控制窗口归属逻辑`<name>`，读取窗口的原始Peripheral/字段仍完整保留；若已有同名裸外设则拒绝歧义。不按芯片或IP名分支。
+
+正式`syscnt.yaml`由当前SVD生成，唯一实例`syscnt0`指向`SYSCNT_CTRL`。能力包含counter、debug_halt、frequency_id及64-bit计数/32-bit字宽；高低字位宽必须同时由“timestamp counter lower/upper”字段描述证明。读取窗口、外部时钟和调试观测端点由本芯片Execution Mapping解析，不把读取窗口作为第二个可配置计数器。历史`syscnt_ctrl.yaml`没有被用作新增Case的能力入口，不在本次修改其他IP基线文件。
+
+原始生成与审计位于`artifacts/runs/20260904_syscnt_capability/`，CLI质量检查通过；新增5项专项测试验证真实字段、重命名/换地址、字段缺失和命名歧义，全部通过。能力生成不证明硬件PASS，也不确认实际时钟频率。
 
 ## 第三章 寄存器与配置事实
 
