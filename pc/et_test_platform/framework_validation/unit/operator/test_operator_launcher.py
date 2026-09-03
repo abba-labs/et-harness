@@ -112,6 +112,29 @@ def test_et6801_formal_dualcore_orchestration_keeps_core_roles_explicit() -> Non
     assert "core1_mailbox_verify" in script
 
 
+# 测试 Feature：IPCM Peer通过现有双核部署脚本的清单参数选择，不替换SPINLOCK默认镜像。
+# 测试方法：比较两个Profile的编译/部署入口、Peer参数和Flash前置阶段。
+# 通过条件：只有IPCM显式传入独立清单；两者均保持bitfile、BootROM前置和Core0正式Flash。
+def test_ipcm_pipeline_selects_its_peer_without_changing_spinlock() -> None:
+
+    root = REPOSITORY_ROOT / "tools/profiles/pipeline"
+    ipcm = yaml.safe_load((root / "et6801_fpga_ipcm.yaml").read_text(encoding="utf-8"))
+    spinlock = yaml.safe_load((root / "et6801_fpga_dualcore.yaml").read_text(encoding="utf-8"))
+
+    # 两个阶段必须选择同一Peer，避免编译的是一个镜像而部署另一个镜像。
+    for step in ("build.firmware", "deploy.firmware"):
+        selected = ipcm["steps"][step]
+        assert selected["script"] == spinlock["steps"][step]["script"]
+        arguments = {item.get("option"): item for item in selected["arguments"]}
+        assert arguments["-PeerManifest"]["value"].endswith("et6801_fpga_ipcm.json")
+        assert arguments["-PeerManifest"]["base"] == "repository"
+        assert not any(
+            item.get("option") == "-PeerManifest" for item in spinlock["steps"][step]["arguments"]
+        )
+
+    assert ipcm["steps"]["deploy.firmware"]["requires"] == ["deploy.bitfile", "deploy.bootrom"]
+
+
 # 测试 Feature：ET6801双核清单完整表达两个Core并对Silicon真实部署失败关闭。
 #
 # 测试方法：读取FPGA与Silicon清单，检查Schema、Core集合、装载地址和部署门禁。

@@ -9,6 +9,9 @@ param(
     [string]$JLink = '',
     [string]$JLinkSerial = '',
 
+    # Existing SPINLOCK deployment remains the default; other peers use reviewed manifests.
+    [string]$PeerManifest = 'firmware\chips\et6801\core1_peer\deploy\et6801_fpga_itcm.json',
+
     [switch]$ConfirmPFlashProgram,
     [switch]$ConfirmRunControl,
     [switch]$ConfirmPeerDeploy
@@ -16,16 +19,28 @@ param(
 
 # ET6801 formal dual-core orchestration.
 # Core0 remains the normal ET-Frame firmware in PFLASH. Core1 is the reviewed
-# peer image in ITCM. The public Pipeline and SPINLOCK Case stay unchanged.
+# peer image in ITCM. The manifest selects the peer, not the Case or public Pipeline.
 
 $ErrorActionPreference = 'Stop'
 $codeRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $codeRoot 'tools\runner\artifact_paths.ps1')
 
-$peerManifest = 'firmware\chips\et6801\core1_peer\deploy\et6801_fpga_itcm.json'
 $formalBuild = Join-Path $codeRoot 'tools\firmware\build_et6801_test_firmware.ps1'
 $formalDeploy = Join-Path $codeRoot 'tools\firmware\flash_and_run_et6801_firmware.ps1'
 $dualCoreTool = Join-Path $codeRoot 'tools\firmware\deploy_dualcore_firmware.ps1'
+
+# Pipeline resolves file arguments to absolute paths; the manifest tool deliberately
+# accepts repository-relative paths only. Normalize once without relaxing that boundary.
+if ([System.IO.Path]::IsPathRooted($PeerManifest)) {
+    $resolvedManifest = [System.IO.Path]::GetFullPath($PeerManifest)
+    $repositoryPrefix = $codeRoot + [System.IO.Path]::DirectorySeparatorChar
+
+    if (-not $resolvedManifest.StartsWith($repositoryPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Core1 peer manifest must stay inside the repository.'
+    }
+
+    $PeerManifest = $resolvedManifest.Substring($repositoryPrefix.Length)
+}
 
 $syscCpu1BootAddress = [uint32]0x404000B8
 $syscCriticalUnlockAddress = [uint32]0x404000BC
@@ -43,7 +58,12 @@ $peerMailboxReady = [uint32]1
 $peerExpectedCoreIndex = [uint32]2
 
 function Get-PeerProfile {
-    $manifestPath = Join-Path $codeRoot $peerManifest
+    $manifestPath = $PeerManifest
+
+    if (-not [System.IO.Path]::IsPathRooted($manifestPath)) {
+        $manifestPath = Join-Path $codeRoot $manifestPath
+    }
+
     $profile = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     $core1 = $profile.cores | Where-Object id -eq 'core1'
 
@@ -262,7 +282,8 @@ function Invoke-PeerDeploy {
         schema = 'et-formal-dualcore-deploy-result/v1'
         result = 'PASS'
         core0 = 'formal-et-frame-pflash'
-        core1 = 'spinlock-peer-itcm'
+        core1 = [string]$peer.core.target
+        peer_manifest = $PeerManifest
         peer_image_sha256 = (Get-FileHash -LiteralPath $peer.binary -Algorithm SHA256).Hash
         mailbox = [ordered]@{
             magic = ('0x{0:X8}' -f $magic)
