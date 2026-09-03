@@ -33,6 +33,25 @@ class IpcmCaptureState(IntEnum):
     FAULT = 3
 
 
+# 原子Peer控制事务状态，不代表消息/ACK硬件状态。
+class IpcmPeerState(IntEnum):
+    IDLE = 0
+    QUEUED = 1
+    DONE = 2
+    CANCELLED = 3
+
+
+# 内部转发响应；Body只交回同一IP Codec，不向Case暴露Wire。
+@dataclass(frozen=True, slots=True)
+class IpcmPeerResult:
+    ticket: int
+    state: IpcmPeerState
+    status: int
+    executor_identity: int
+    heartbeat: int
+    body: bytes
+
+
 # 实际硬件容量以及独立的 Service 观测存储上限。
 @dataclass(frozen=True, slots=True)
 class IpcmCapabilities:

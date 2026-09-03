@@ -7,7 +7,7 @@ from time import monotonic
 
 from ...clients.target import TargetClient
 from ...core.deadline import OperationDeadline, require_positive_seconds
-from ...core.errors import EtPlatformError, ProtocolError, RequestTimeout
+from ...core.errors import EtPlatformError, ProtocolError, RequestTimeout, TargetRejected
 from . import codec
 from .contract import IPCM_SERVICE_ID, IpcmCommand
 from .models import (
@@ -17,6 +17,8 @@ from .models import (
     IpcmConfig,
     IpcmEventStage,
     IpcmMailboxSnapshot,
+    IpcmPeerResult,
+    IpcmPeerState,
     IpcmPendingSnapshot,
 )
 
@@ -47,10 +49,31 @@ class IpcmDriver:
     _POLL_INTERVAL_S = 0.001
 
     # 绑定已有通信连接及逻辑实例，不执行任何硬件操作。
-    def __init__(self, target: TargetClient, instance_id: int) -> None:
+    def __init__(
+        self, target: TargetClient, instance_id: int, *, peer_identity: int | None = None
+    ) -> None:
 
         self._target = target
         self.instance_id = codec.checked_u16(instance_id, "instance_id")
+        if peer_identity is not None and (
+            isinstance(peer_identity, bool)
+            or not isinstance(peer_identity, int)
+            or not 0 < peer_identity <= 0xFFFFFFFF
+        ):
+            raise ValueError("IPCM peer_identity must be a nonzero hardware executor identity")
+        self._peer_identity = peer_identity
+
+    # 取消Peer控制事务并等待同票据确认；不能撤销已发生的硬件动作。
+    # 超时、Core身份不一致或Peer清理失败均上抛；调用成功后Case才能复位IP。
+    def peer_cancel(self, *, expected_identity: int, timeout_s: float = 1.0) -> None:
+
+        deadline = OperationDeadline.start(timeout_s, label="IPCM Peer cancel")
+        ticket = codec.decode_peer_ticket(
+            self._local_request(IpcmCommand.PEER_CANCEL, timeout_s=deadline.remaining_s())
+        )
+        result = self._peer_wait(ticket, expected_identity, deadline)
+        if result.state is not IpcmPeerState.CANCELLED or result.status:
+            raise ProtocolError(f"IPCM Peer cancellation failed: {result}")
 
     # 读取实际硬件容量与独立的软件采样预算；不推断芯片型号。
     # 仅等待本次查询响应；超时、版本不符或容量字段矛盾均上抛。
@@ -259,12 +282,57 @@ class IpcmDriver:
         self, command: IpcmCommand, body: bytes = b"", *, timeout_s: float | None = None
     ) -> bytes:
 
+        if self._peer_identity is None:
+            return self._local_request(command, body, timeout_s=timeout_s)
+        deadline = OperationDeadline.start(
+            1.0 if timeout_s is None else timeout_s, label=f"IPCM Peer {command.name}"
+        )
+        ticket = codec.decode_peer_ticket(
+            self._local_request(
+                IpcmCommand.PEER_SUBMIT,
+                codec.encode_id(int(command)) + body,
+                timeout_s=deadline.remaining_s(),
+            )
+        )
+        result = self._peer_wait(ticket, self._peer_identity, deadline)
+        if result.state is not IpcmPeerState.DONE:
+            raise ProtocolError("IPCM Peer command was cancelled before completion")
+        if result.status:
+            raise TargetRejected(
+                service_id=IPCM_SERVICE_ID,
+                command_id=int(command),
+                instance_id=self.instance_id,
+                status=result.status,
+                body=result.body,
+            )
+        return result.body
+
+    # 转发始终通过Core0已有Target事务，提交与取消不重试，结果查询可安全重试。
+    def _local_request(
+        self, command: IpcmCommand, body: bytes = b"", *, timeout_s: float | None = None
+    ) -> bytes:
+
         message, _ = self._target.request(
             IPCM_SERVICE_ID,
             int(command),
             instance_id=self.instance_id,
             body=body,
             timeout_s=timeout_s,
-            retry_safe=command in self._READ_ONLY,
+            retry_safe=command in self._READ_ONLY or command is IpcmCommand.PEER_RESULT,
         )
         return message.body
+
+    # 同一总Deadline内等待原子Peer事务；失配票据立即报错，不把其他事务结果误用。
+    def _peer_wait(self, ticket: int, identity: int, deadline: OperationDeadline) -> IpcmPeerResult:
+
+        while True:
+            result = codec.decode_peer_result(
+                self._local_request(IpcmCommand.PEER_RESULT, timeout_s=deadline.remaining_s())
+            )
+            if result.ticket != ticket or result.executor_identity != identity:
+                raise ProtocolError(f"IPCM Peer ticket/executor mismatch: {result}")
+            if result.state in (IpcmPeerState.DONE, IpcmPeerState.CANCELLED):
+                return result
+            if result.state is not IpcmPeerState.QUEUED:
+                raise ProtocolError("IPCM Peer lost an active command")
+            deadline.sleep(self._POLL_INTERVAL_S)

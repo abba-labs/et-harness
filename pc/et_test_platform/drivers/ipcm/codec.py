@@ -16,8 +16,40 @@ from .models import (
     IpcmEventStage,
     IpcmLinkMode,
     IpcmMailboxSnapshot,
+    IpcmPeerResult,
+    IpcmPeerState,
     IpcmPendingSnapshot,
 )
+
+
+# 解析非零Peer事务票据；禁止把未发布的零序号当作有效操作。
+def decode_peer_ticket(body: bytes) -> int:
+
+    (ticket,) = _unpack(contract.PEER_TICKET, body, "PEER_TICKET")
+    if ticket == 0:
+        raise ProtocolError("IPCM Peer returned a zero ticket")
+    return ticket
+
+
+# 严格解析Peer响应；长度、保留字和非终态响应均验证，防止继承旧响应。
+def decode_peer_result(body: bytes) -> IpcmPeerResult:
+
+    if len(body) < contract.PEER_RESULT.size:
+        raise ProtocolError("IPCM Peer response header is truncated")
+    ticket, raw_state, status, length, reserved, identity, heartbeat = (
+        contract.PEER_RESULT.unpack_from(body)
+    )
+    try:
+        state = IpcmPeerState(raw_state)
+    except ValueError as error:
+        raise ProtocolError("IPCM Peer returned unknown state") from error
+    if reserved or len(body) != contract.PEER_RESULT.size + length:
+        raise ProtocolError("IPCM Peer response length/reserved mismatch")
+    if state is not IpcmPeerState.DONE and length:
+        raise ProtocolError("IPCM Peer non-DONE response contains stale payload")
+    return IpcmPeerResult(
+        ticket, state, status, identity, heartbeat, body[contract.PEER_RESULT.size :]
+    )
 
 
 # 校验公开整数参数，拒绝 bool、负数和越界，避免 pack 错误掩盖参数含义。

@@ -116,7 +116,7 @@ Capture的4个Slot、每Slot128字节是Service软件预算，不是芯片Featur
 
 Peer只执行0x0001～0x0013内的原子命令，不允许递归转发。PEER_RESULT的state为0 IDLE、1 QUEUED、2 DONE、3 CANCELLED；QUEUED不返回旧响应，DONE的status是原命令ET状态。PC必须核对ticket、executor_identity及响应长度，并在同一deadline内查询。executor_identity是Execution Mapping定义的不透明执行实体身份，不是公共Case中的固定Core编号。取消不能撤销已发生的硬件动作；只有CANCELLED且status成功才允许下一基线复位。
 
-Core1拥有自己的IPCM Service和IRQ Manager；共享控制通道仅搬运命令及观测，测试Payload仍通过IPCM硬件传输。13条PLAN待Capability、PC Case实现和Smoke闭环后转为SPEC，不以同核双Channel替代双核证据。
+Core1拥有自己的IPCM Service和IRQ Manager；共享控制通道仅搬运命令及观测，测试Payload仍通过IPCM硬件传输。13条Formal Case通过PC编排两个执行实体；SPEC仅代表实现与注册，不代表HIL已通过，不以同核双Channel替代双核证据。
 
 ### 0.7 PC原子Driver
 
@@ -127,7 +127,7 @@ Core1拥有自己的IPCM Service和IRQ Manager；共享控制通道仅搬运命�
 - `capture_arm / capture_get / capture_abort / state_reset`与本核Service一一对应。`capture_wait(timeout_s)`等待READY，FAULT保留原始事件并报错，超时保留最后状态摘要。
 - `capture_observe(window_s, timeout_s)`用于负向观察；总预算必须大于观察窗，结束后再发起一次有效查询。通信超时不能解释成“没有ACK”。Case仍负责检查返回事件、原始Pending和计数是否满足预期。
 - 每个动作可传入当前Case剩余`timeout_s`。有界等待只建立一个Deadline；仅无副作用查询允许Target安全重试，配置、发送、ACK、ARM、Abort和Reset不自动重发。
-- 当前PC Driver只支持已有本核命令。真实Core1 Peer、Capability语义和13条Formal Case仍需继续集成；未把PLANNED注册为Formal或声称硬件通过。
+- `IpcmDriver(..., peer_identity=...)`使用同一公开API，通过本IP原子Peer命令执行远端动作；同一deadline内检查票据、身份与ET状态。`peer_cancel(expected_identity, timeout_s)`等待取消确认后才允许复位。没有公共框架转发层，也不在Driver里实现请求/ACK完整测试流程。
 
 ## 1. Feature Catalog
 
@@ -154,26 +154,25 @@ Core1拥有自己的IPCM Service和IRQ Manager；共享控制通道仅搬运命�
 
 | Case ID | P级 | Case名称 | 主要 Feature | 最小充分 Oracle | Resource | 状态 |
 |---|---:|---|---|---|---:|---|
-| IPCM_P0_001 | P0 | IPCM能力与Mailbox配置读回测试 | 容量、路由、释放 | CFG能力值与Mailbox配置逐项一致，释放后恢复 | R0 | PLANNED |
-| IPCM_P0_002 | P0 | IPCM双Core Manual ACK变长Payload测试 | 路由、Payload、IRQ、Manual ACK | 请求与ACK Payload逐字节一致，双端Pending和回调正确 | R2 | PLANNED |
-| IPCM_P1_001 | P1 | IPCM Manual ACK Payload更新测试 | ACK Payload更新 | Responder收到请求，Initiator收到指定更新Payload | R2 | PLANNED |
-| IPCM_P1_002 | P1 | IPCM Auto ACK触发条件测试 | Auto ACK | 只清中断不ACK，释放Destination后恰好ACK一次 | R2 | PLANNED |
-| IPCM_P1_003 | P1 | IPCM IRQ与Polling状态测试 | IRQ、Polling | Polling仅Raw置位；IRQ模式Raw/Masked/Callback均有效 | R2 | PLANNED |
-| IPCM_P1_004 | P1 | IPCM全Mailbox释放与复用测试 | 容量、释放复用 | Capability发布的每个Mailbox均可配置、传输、释放、复用 | R2 | PLANNED |
-| IPCM_P1_005 | P1 | IPCM双向双Mailbox通信测试 | 双向Core消息 | 两个方向Payload、Mailbox和事件通道均准确且互不串扰 | R2 | PLANNED |
-| IPCM_P1_006 | P1 | IPCM多Mailbox同时Pending测试 | 多Mailbox Pending | IRQ关闭时Raw同时含两个Mailbox，Masked=0；逐项清除不影响另一位 | R2 | PLANNED |
-| IPCM_P1_007 | P1 | IPCM Multi-destination独立释放测试 | 多目标路由 | 两个Destination均收包，逐个释放时状态独立 | R2 | PLANNED |
-| IPCM_P1_008 | P1 | IPCM Auto ACK模式显式ACK测试 | AUTO下显式ACK | 不改AUTO配置、不释放Destination，显式ACK返回原Payload且仅一次 | R2 | PLANNED |
-| IPCM_P2_001 | P2 | IPCM Auto Link Manual ACK长Payload测试 | Auto Link | 全链Payload和逐Mailbox事件完整，最终ACK正确 | R2 | PLANNED |
-| IPCM_P2_002 | P2 | IPCM Auto ACK Link长Payload测试 | Auto ACK Link | N个Destination顺序收包，Source仅收到一次链尾ACK | R2 | PLANNED |
-| IPCM_P2_003 | P2 | IPCM同Mailbox连续分段传输测试 | 连续复用 | 多轮分段无丢失、重复或串包，重组结果一致 | R2 | PLANNED |
+| IPCM_P0_001 | P0 | IPCM能力与Mailbox配置读回测试 | 容量、路由、释放 | CFG能力值与Mailbox配置逐项一致，释放后恢复 | R0 | IMPLEMENTED |
+| IPCM_P0_002 | P0 | IPCM双Core Manual ACK变长Payload测试 | 路由、Payload、IRQ、Manual ACK | 请求与ACK Payload逐字节一致，双端Pending和回调正确 | R2 | IMPLEMENTED |
+| IPCM_P1_001 | P1 | IPCM Manual ACK Payload更新测试 | ACK Payload更新 | Responder收到请求，Initiator收到指定更新Payload | R2 | IMPLEMENTED |
+| IPCM_P1_002 | P1 | IPCM Auto ACK触发条件测试 | Auto ACK | 只清中断不ACK，释放Destination后恰好ACK一次 | R2 | IMPLEMENTED |
+| IPCM_P1_003 | P1 | IPCM IRQ与Polling状态测试 | IRQ、Polling | Polling仅Raw置位；IRQ模式Raw/Masked/Callback均有效 | R2 | IMPLEMENTED |
+| IPCM_P1_004 | P1 | IPCM全Mailbox释放与复用测试 | 容量、释放复用 | Capability发布的每个Mailbox均可配置、传输、释放、复用 | R2 | IMPLEMENTED |
+| IPCM_P1_005 | P1 | IPCM双向双Mailbox通信测试 | 双向Core消息 | 两个方向Payload、Mailbox和事件通道均准确且互不串扰 | R2 | IMPLEMENTED |
+| IPCM_P1_006 | P1 | IPCM多Mailbox同时Pending测试 | 多Mailbox Pending | IRQ关闭时Raw同时含两个Mailbox，Masked=0；逐项清除不影响另一位 | R2 | IMPLEMENTED |
+| IPCM_P1_007 | P1 | IPCM Multi-destination独立释放测试 | 多目标路由 | 两个Destination均收包，逐个释放时状态独立 | R2 | IMPLEMENTED |
+| IPCM_P1_008 | P1 | IPCM Auto ACK模式显式ACK测试 | AUTO下显式ACK | 不改AUTO配置、不释放Destination，显式ACK返回原Payload且仅一次 | R2 | IMPLEMENTED |
+| IPCM_P2_001 | P2 | IPCM Auto Link Manual ACK长Payload测试 | Auto Link | 全链Payload和逐Mailbox事件完整，最终ACK正确 | R2 | IMPLEMENTED |
+| IPCM_P2_002 | P2 | IPCM Auto ACK Link长Payload测试 | Auto ACK Link | N个Destination顺序收包，Source仅收到一次链尾ACK | R2 | IMPLEMENTED |
+| IPCM_P2_003 | P2 | IPCM同Mailbox连续分段传输测试 | 连续复用 | 多轮分段无丢失、重复或串包，重组结果一致 | R2 | IMPLEMENTED |
 
 ## 3. Machine-readable Case Contract
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P0_001
 case_name: IPCM能力与Mailbox配置读回测试
 report_feature: |-
@@ -216,14 +215,13 @@ failure_observations:
   - {key: released_destination_endpoints, label: 释放后MAILBOX.DESTINATION_ENDPOINTS, source: dut, role: actual, format: hex32}
   - {key: released_raw_pending, label: 释放后CHANNEL.RAW_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
   - {key: released_masked_pending, label: 释放后CHANNEL.MASKED_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
-gap: [case_implementation_gap, capability_semantic_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P0_002
 case_name: IPCM双Core Manual ACK变长Payload测试
 report_feature: |-
@@ -239,7 +237,7 @@ method:
     - Payload内容：当前长度n使用P(n,0x11)，按0.5节公式逐字节生成；只保留合法且去重后的长度。
   steps:
     - 基线建立：复位IPCM实例、Service状态和Resource Pool，确认片内Peer Ready。
-    - Peer准备：启动Responder Job，配置目标Mailbox并等待READY。
+    - Peer准备：通过Peer原子命令武装目标Mailbox消息采样；Peer就绪身份由转发通道校验。
     - 消息发送：Initiator发送当前parameter_id对应长度的Payload。
     - Responder处理：Peer先锁存消息Raw/Masked和Payload，再显式发送原Payload的Manual ACK。
     - 双端观测：Source先锁存ACK Raw/Masked和Payload再清ACK；PC读取两端事件快照、回调增量及清除后的即时Pending。
@@ -268,14 +266,13 @@ failure_observations:
   - {key: ack_payload, label: Initiator实际ACK Payload, source: dut, role: actual, format: bytes_hex}
   - {key: request_data_match, label: 请求Payload逐字节一致, source: oracle, role: actual, format: bool}
   - {key: ack_data_match, label: ACK Payload逐字节一致, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_001
 case_name: IPCM Manual ACK Payload更新测试
 report_feature: |-
@@ -313,14 +310,13 @@ failure_observations:
   - {key: ack_raw_pending, label: ACK CHANNEL.RAW_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
   - {key: ack_masked_pending, label: ACK CHANNEL.MASKED_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
   - {key: ack_callback_delta, label: ACK Service回调增量, source: dut, role: actual, format: decimal}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_002
 case_name: IPCM Auto ACK触发条件测试
 report_feature: |-
@@ -358,14 +354,13 @@ failure_observations:
   - {key: source_masked_pending, label: 当前分支Source Masked Pending, source: dut, role: actual, format: hex32}
   - {key: ack_callback_delta, label: 当前分支ACK回调增量, source: dut, role: actual, format: decimal}
   - {key: received_payload, label: Peer实际消息Payload, source: peer, role: actual, format: bytes_hex}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_003
 case_name: IPCM IRQ与Polling状态测试
 report_feature: |-
@@ -403,14 +398,13 @@ failure_observations:
   - {key: event_masked_pending, label: 清除前Masked Pending, source: peer, role: actual, format: hex32}
   - {key: callback_delta, label: 当前模式回调增量, source: peer, role: actual, format: decimal}
   - {key: payload_data_match, label: Payload逐字节一致, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_004
 case_name: IPCM全Mailbox释放与复用测试
 report_feature: |-
@@ -453,14 +447,13 @@ failure_observations:
   - {key: released_irq_enabled_endpoints, label: 释放后MAILBOX.IRQ_ENABLED_ENDPOINTS, source: dut, role: actual, format: hex32}
   - {key: released_raw_pending, label: 释放后CHANNEL.RAW_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
   - {key: released_masked_pending, label: 释放后CHANNEL.MASKED_PENDING_MAILBOXES, source: dut, role: actual, format: hex32}
-gap: [case_implementation_gap, capability_semantic_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_005
 case_name: IPCM双向双Mailbox通信测试
 report_feature: |-
@@ -505,14 +498,13 @@ failure_observations:
   - {key: reverse_destination_endpoints, label: 反向MAILBOX.DESTINATION_ENDPOINTS, source: dut, role: actual, format: hex32}
   - {key: reverse_payload, label: Initiator实际反向Payload, source: dut, role: actual, format: bytes_hex}
   - {key: reverse_data_match, label: 反向Payload一致, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_006
 case_name: IPCM多Mailbox同时Pending测试
 report_feature: |-
@@ -551,14 +543,13 @@ failure_observations:
   - {key: mailbox_a_payload, label: Mailbox A实际Payload, source: peer, role: actual, format: bytes_hex}
   - {key: mailbox_b_payload, label: Mailbox B实际Payload, source: peer, role: actual, format: bytes_hex}
   - {key: payloads_match, label: 双Mailbox Payload分别一致, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_007
 case_name: IPCM Multi-destination独立释放测试
 report_feature: |-
@@ -600,14 +591,13 @@ failure_observations:
   - {key: source_raw_before_ack, label: 全部释放后显式ACK前Source Raw Pending, source: dut, role: actual, format: hex32}
   - {key: source_raw_on_ack, label: 显式ACK到达时Source Raw Pending, source: dut, role: actual, format: hex32}
   - {key: final_ack_data_match, label: 最终显式ACK Payload一致, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, multi_destination_driver_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P1_008
 case_name: IPCM Auto ACK模式显式ACK测试
 report_feature: |-
@@ -648,14 +638,13 @@ failure_observations:
   - {key: received_payload, label: Peer实际请求Payload, source: peer, role: actual, format: bytes_hex}
   - {key: ack_payload, label: Source实际ACK Payload, source: dut, role: actual, format: bytes_hex}
   - {key: ack_callback_delta, label: Source ACK回调增量, source: dut, role: actual, format: decimal}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P2_001
 case_name: IPCM Auto Link Manual ACK长Payload测试
 report_feature: |-
@@ -696,14 +685,13 @@ failure_observations:
   - {key: source_ack_raw_pending, label: 链尾ACK Source Raw Pending, source: dut, role: actual, format: hex32}
   - {key: source_ack_masked_pending, label: 链尾ACK Source Masked Pending, source: dut, role: actual, format: hex32}
   - {key: source_ack_count, label: Source ACK回调次数, source: dut, role: actual, format: decimal}
-gap: [case_implementation_gap, linked_range_driver_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P2_002
 case_name: IPCM Auto ACK Link长Payload测试
 report_feature: |-
@@ -745,14 +733,13 @@ failure_observations:
   - {key: source_ack_masked_pending, label: 链尾ACK Source Masked Pending, source: dut, role: actual, format: hex32}
   - {key: source_ack_count, label: Source ACK回调次数, source: dut, role: actual, format: decimal}
   - {key: final_pending_clear, label: 全链Raw与Masked Pending清零, source: oracle, role: actual, format: bool}
-gap: [case_implementation_gap, linked_range_driver_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: IPCM_P2_003
 case_name: IPCM同Mailbox连续分段传输测试
 report_feature: |-
@@ -794,20 +781,116 @@ failure_observations:
   - {key: reuse_data_match, label: 同Mailbox短Payload复用一致, source: oracle, role: actual, format: bool}
   - {key: final_raw_pending, label: 连续传输后Raw Pending, source: dut, role: actual, format: hex32}
   - {key: final_masked_pending, label: 连续传输后Masked Pending, source: dut, role: actual, format: hex32}
-gap: [case_implementation_gap, dualcore_execution_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
+
+<!-- ET_CASE_REPORT_BEGIN -->
+```yaml
+schema: et.case-report-note.v1
+cases:
+  IPCM_P0_001:
+    summary: 容量与配置逐项读回，Mailbox释放后检查空闲状态。
+    fields:
+      - {source: observation, path: actual_mailbox_count, label: Mailbox数量, format: decimal, aggregate: same}
+      - {source: observation, path: actual_data_word_count, label: 单Mailbox数据Word数, format: decimal, aggregate: same}
+      - {source: observation, path: released_raw_pending, label: 释放后Raw Pending, format: hex32, aggregate: same}
+  IPCM_P0_002:
+    summary: 双核消息与Manual ACK逐字节核对。
+    fields:
+      - {source: measurement, path: payload_length, label: Payload长度, format: decimal, aggregate: distinct}
+      - {source: measurement, path: request_data_match, label: 请求数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: ack_data_match, label: ACK数据一致, format: bool, aggregate: same}
+      - {source: observation, path: source_raw_pending, label: 发送端ACK原始Pending, format: hex32, aggregate: same}
+  IPCM_P1_001:
+    summary: Peer改写ACK数据后，本核读取新的Payload。
+    fields:
+      - {source: measurement, path: expected_ack_payload, label: 期望ACK数据, format: bytes_hex, aggregate: same}
+      - {source: observation, path: actual_ack_payload, label: 实际ACK数据, format: bytes_hex, aggregate: same}
+      - {source: measurement, path: ack_callback_delta, label: ACK回调次数, format: decimal, aggregate: same}
+  IPCM_P1_002:
+    summary: 分别检查清中断与释放Destination后的AUTO ACK。
+    fields:
+      - {source: measurement, path: responder_action, label: Responder动作, format: text, aggregate: distinct}
+      - {source: observation, path: destination_after_action, label: 动作后Destination集合, format: hex32, aggregate: distinct}
+      - {source: observation, path: source_raw_pending, label: 动作后Source Raw Pending, format: hex32, aggregate: distinct}
+      - {source: measurement, path: ack_callback_delta, label: ACK回调次数, format: decimal, aggregate: distinct}
+  IPCM_P1_003:
+    summary: IRQ与Polling分别检查Raw、Masked和回调次数。
+    fields:
+      - {source: measurement, path: delivery_mode, label: 投递模式, format: text, aggregate: distinct}
+      - {source: observation, path: event_raw_pending, label: 消息Raw Pending, format: hex32, aggregate: same}
+      - {source: observation, path: event_masked_pending, label: 消息Masked Pending, format: hex32, aggregate: distinct}
+      - {source: measurement, path: callback_delta, label: 消息回调次数, format: decimal, aggregate: distinct}
+  IPCM_P1_004:
+    summary: 所有Mailbox分别完成释放与两轮复用。
+    fields:
+      - {source: measurement, path: mailbox_id, label: 已测Mailbox ID, format: decimal, aggregate: distinct}
+      - {source: measurement, path: first_data_match, label: 首轮数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: reuse_data_match, label: 复用数据一致, format: bool, aggregate: same}
+      - {source: observation, path: released_raw_pending, label: 释放后Raw Pending, format: hex32, aggregate: same}
+  IPCM_P1_005:
+    summary: 两个Mailbox分别验证正向与反向消息。
+    fields:
+      - {source: measurement, path: forward_data_match, label: 正向数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: reverse_data_match, label: 反向数据一致, format: bool, aggregate: same}
+      - {source: observation, path: forward_payload, label: 正向实际Payload, format: bytes_hex, aggregate: same}
+      - {source: observation, path: reverse_payload, label: 反向实际Payload, format: bytes_hex, aggregate: same}
+  IPCM_P1_006:
+    summary: 两项Pending逐项清除，另一项不受影响。
+    fields:
+      - {source: observation, path: pending_before, label: 清除前Raw Pending, format: hex32, aggregate: same}
+      - {source: observation, path: pending_after_first, label: 清首项后Raw Pending, format: hex32, aggregate: same}
+      - {source: observation, path: pending_after_all, label: 全清后Raw Pending, format: hex32, aggregate: same}
+      - {source: measurement, path: payloads_match, label: 两项数据分别一致, format: bool, aggregate: same}
+  IPCM_P1_007:
+    summary: 双Destination独立接收与释放，最后显式ACK。
+    fields:
+      - {source: measurement, path: destination_payload_match, label: 两目标Payload一致, format: bool, aggregate: same}
+      - {source: observation, path: status_after_first_release, label: 首次释放后Destination, format: hex32, aggregate: same}
+      - {source: observation, path: status_after_final_release, label: 最终Destination, format: hex32, aggregate: same}
+      - {source: measurement, path: final_ack_data_match, label: 显式ACK数据一致, format: bool, aggregate: same}
+  IPCM_P1_008:
+    summary: 保持AUTO和Destination不变，显式ACK后检查无重复事件。
+    fields:
+      - {source: observation, path: mode_before_ack, label: ACK前模式, format: text, aggregate: same}
+      - {source: observation, path: destination_before_ack, label: ACK前Destination, format: hex32, aggregate: same}
+      - {source: measurement, path: ack_callback_delta, label: ACK回调次数, format: decimal, aggregate: same}
+      - {source: observation, path: ack_payload, label: 实际ACK数据, format: bytes_hex, aggregate: same}
+  IPCM_P2_001:
+    summary: Manual ACK推进完整Linked链，仅尾项产生Source ACK。
+    fields:
+      - {source: measurement, path: reconstructed_length, label: 实际重组字节数, format: decimal, aggregate: same}
+      - {source: measurement, path: payload_data_match, label: 全链数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: pending_sequence_match, label: Mailbox顺序一致, format: bool, aggregate: same}
+      - {source: measurement, path: source_ack_count, label: Source ACK次数, format: decimal, aggregate: same}
+  IPCM_P2_002:
+    summary: AUTO ACK推进完整Linked链，Destination全部释放。
+    fields:
+      - {source: measurement, path: reconstructed_length, label: 实际重组字节数, format: decimal, aggregate: same}
+      - {source: measurement, path: payload_data_match, label: 全链数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: destination_release_sequence_match, label: Destination释放顺序一致, format: bool, aggregate: same}
+      - {source: measurement, path: source_ack_count, label: Source ACK次数, format: decimal, aggregate: same}
+  IPCM_P2_003:
+    summary: 同一Mailbox连续传输四段并再次收发短消息。
+    fields:
+      - {source: measurement, path: actual_segment_count, label: 完成分段数, format: decimal, aggregate: same}
+      - {source: measurement, path: reconstructed_length, label: 实际重组字节数, format: decimal, aggregate: same}
+      - {source: measurement, path: payload_data_match, label: 重组数据一致, format: bool, aggregate: same}
+      - {source: measurement, path: reuse_data_match, label: 短消息复用一致, format: bool, aggregate: same}
+```
+<!-- ET_CASE_REPORT_END -->
 
 ## 4. Chip Adaptation Summary
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=16 | IMPLEMENTATION_GAP=1; MAPPING_GAP=12 | 13个PLAN覆盖已找到的IPCM_0~9测试思想；尚未编码或HIL。释放硬件语义与压力测试缺失正文仍须闭环 | `ET6801_ipcm.md` |
+| ET6801 | IMPLEMENTATION_GAP=16 | IMPLEMENTATION_GAP=1; MAPPING_GAP=12 | 13个SPEC覆盖已找到的IPCM_0~9测试思想；PC已编码，目标部署与HIL尚待闭环，状态与芯片文档保持一致 | `ET6801_ipcm.md` |
 
 ## 5. Common Gap / Evolution
 
-- `case_implementation_gap`：已增加本核IPCM Wrap、Service、注册和对应PC原子Driver；Core1 Peer执行入口、PC Peer接口和13条Formal Case仍待完成，不以底层代码存在冒充Case实现。
-- `capability_semantic_gap`：需要由芯片能力声明Mailbox、Channel、Data Word、模式、Linked、Multi-destination及AUTO下显式ACK；当前适配缺口见芯片文档。
+- 当前13条正式Case与Core1原子Driver已实现、已注册；实现不等于硬件通过，实际状态只以芯片文档的HIL记录为准。
+- Capability已通过通用生成链发布Mailbox、Channel、Payload容量和模式Feature；生成与质量证据见芯片文档。
 - `dualcore_execution_mapping_gap`：必须建立逻辑Initiator/Responder、事件Endpoint和Core1 Peer部署映射；公共Case不得硬编码Core或IRQ编号。
 - `linked_range_driver_gap`、`multi_destination_driver_gap`、`driver_api_gap`：底层测试扩展已补齐，等待双核Case集成及真实硬件确认；不改变历史SDK API。
 - `ip_reset_mapping_gap`：已补IPCM公共CRG类别及芯片映射；全IP复位与单Mailbox释放仍是不同动作，IPCM Wrap不跨IP调用。

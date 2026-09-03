@@ -19,6 +19,8 @@ PENDING = Struct("<II")
 WRITE_HEADER = Struct("<HHH")
 CAPTURE_ARM = Struct("<HHHHBB")
 EVENT_HEADER = Struct("<8I5H")
+PEER_TICKET = Struct("<I")
+PEER_RESULT = Struct("<I4H2I")
 
 
 # 所有动作均使用同一 IPCM Service，保留现有 ET-Frame。
@@ -38,3 +40,6 @@ class IpcmCommand(IntEnum):
     CAPTURE_GET = 0x0011
     CAPTURE_ABORT = 0x0012
     STATE_RESET = 0x0013
+    PEER_SUBMIT = 0x0020
+    PEER_RESULT = 0x0021
+    PEER_CANCEL = 0x0022
