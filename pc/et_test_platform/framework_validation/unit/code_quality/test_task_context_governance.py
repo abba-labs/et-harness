@@ -106,16 +106,20 @@ def test_ip_task_context_is_focused_and_chip_neutral() -> None:
     owners = {entry["owner_id"] for entry in context["rule_owners"]}
     assert "test_case_doc/aes/aes.md" in paths
     assert "pc/et_test_platform/test_cases/aes" in paths
+    assert "pc/et_test_platform/test_cases/ip_registry.py" in paths
     assert "pc/et_test_platform/drivers/aes" in paths
     assert "pc_case_responsibility" in owners
     assert "pc_layer_responsibilities" in owners
     assert "et6801" not in serialized.lower()
     assert context["write_scope"]["allowed"] == [
         "pc/et_test_platform/test_cases/aes/**",
+        "pc/et_test_platform/test_cases/ip_registry.py",
         "test_case_doc/aes/aes.md",
         "pc/et_test_platform/drivers/aes/**",
         "pc/et_test_platform/framework_validation/unit/drivers/aes/**",
     ]
+    assert "pc/et_test_platform/core/**" in context["write_scope"]["protected"]
+    assert "pc/et_test_platform/test_cases/uart/**" not in context["write_scope"]["allowed"]
 
 
 # 测试Feature：能力生成工具具有独立于公共运行时的最小开发路由。
@@ -207,6 +211,7 @@ def test_bug_remediation_route_is_advisory_and_scope_bounded() -> None:
     assert combined_context["write_scope"]["allowed"] == [
         "report/plans/**",
         "pc/et_test_platform/test_cases/uart/**",
+        "pc/et_test_platform/test_cases/ip_registry.py",
         "test_case_doc/uart/uart.md",
     ]
     assert "pc/et_test_platform/test_cases/aes/**" not in combined_context["write_scope"]["allowed"]

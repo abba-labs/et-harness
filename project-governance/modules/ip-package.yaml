@@ -78,6 +78,9 @@ changes:
       - path: pc/et_test_platform/test_cases/{ip}
         reason: 目标IP Formal Case包
         required: false
+      - path: pc/et_test_platform/test_cases/ip_registry.py
+        reason: 新增IP的静态注册入口；只登记目标IP，不修改运行机制或其他IP
+        required: true
       - path: report/design/rules/R210_pc_case_responsibility.md
         reason: Case职责、注释、断言和清理规则
         required: true
@@ -95,6 +98,7 @@ changes:
       - python_style_documentation
     write_scopes:
       - pc/et_test_platform/test_cases/{ip}/**
+      - pc/et_test_platform/test_cases/ip_registry.py
       - test_case_doc/{ip}/{ip}.md
     validation:
       - python tools/quality/validate_case_docs.py test_case_doc/{ip}/{ip}.md

@@ -69,6 +69,9 @@ Task Context的强制执行链、失败关闭和扩展规则唯一由
 首次接入新IP时先单独使用`ip-package/analysis`创建公共契约；契约不存在时，Case、Driver、
 Service、Wrap和Capability任务会失败关闭。
 
+新增IP的静态注册入口`test_cases/ip_registry.py`归入`ip-package/case`，
+因此目标IP注册和公共IP契约同步使用同一任务路由；注册器的执行机制仍归`pc-platform/case-runtime`。
+
 ## 4. 模块任务速查
 
 先按“正在修改哪个架构模块”选择路由，不按文件名猜规则：
