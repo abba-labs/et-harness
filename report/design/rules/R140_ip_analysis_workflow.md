@@ -82,23 +82,25 @@ UNAVAILABLE = 当前Agent无法访问
 
 Source Item包括与目标IP有关的需求条目、Test Point、历史Case、硬件行为、Driver能力、错误/IRQ/DMA路径、边界、性能、压力和其他具有测试意义的输入。
 
-每个有效Source Item必须进入Trace，不得静默丢失。新分析统一使用：
+必须先依据目标芯片证据梳理硬件Feature，再逐项核对测试需求、当前芯片和参考芯片的测试代码；当前资料源包括6003、3101，后续按Source Map和用户输入扩展。规划范围是目标芯片硬件Feature与适用参考测试点的并集，不能只选择当前方便实现或无需接线的部分。
+
+每项Trace必须能追溯来源、测试目的、关键刺激/观测/判据、目标芯片适用依据和目标Case或缺口。代码被注释、无断言或无PASS记录只影响历史验证有效性，不能据此删除有效测试意图。新分析统一使用：
 
 | 处置 | 含义 |
 |---|---|
-| `MAPPED` | 已由当前Feature/Case/Capability/Gap表达 |
-| `MERGED` | 与其他Item合并到同一稳定语义 |
-| `SPLIT` | 一个Item拆为多个独立Feature/Case |
-| `SUPERSEDED` | 被更强Case或更强Oracle完整覆盖 |
-| `REJECTED` | 测试未定义行为、逻辑错误或无有效测试语义 |
-| `NOT_APPLICABLE` | 对当前公共语义或目标芯片不适用 |
-| `DEFERRED` | 稳定语义成立，但当前缺安全刺激、独立观测或必要资源 |
+| `MAPPED` | 测试点已关联Case PLAN或SPEC；纯能力参数可关联Capability，但不能冒充测试覆盖 |
+| `MERGED` | 多个测试点关联同一Case，满足第7章等价覆盖条件 |
+| `SPLIT` | 一个测试点关联多个Case，合计保留完整验证目的 |
+| `SUPERSEDED` | 由更强Case完整覆盖，满足第7章等价覆盖条件 |
+| `REJECTED` | 有证据证明该条目无有效测试目的；错误实现但目的有效时必须修正方法后规划 |
+| `NOT_APPLICABLE` | 目标芯片证据证明功能不存在，或硬件机制使该测试目的不适用 |
+| `DEFERRED` | Case设计完整但缺物理执行资源，按第9章保留PLAN/SPEC及解除条件 |
 | `UNKNOWN` | 证据不足 |
 | `CONFLICT` | 可信输入互相矛盾且尚未消解 |
 
-`MERGED/SPLIT/SUPERSEDED/REJECTED/NOT_APPLICABLE`必须记录目标Case或理由。
+`MERGED/SPLIT/SUPERSEDED`必须列出目标Case及覆盖对应关系。`REJECTED/NOT_APPLICABLE`必须给出来源位置、可证明事实和排除理由；硬件机制不同但同一目的仍可验证时，必须适配方法，不能排除。仅SDK接口、公共抽象或当前环境不同，不构成硬件不适用证据。
 
-Source Map中`requirements`下的每个需求条目必须逐项处置；有效需求必须被当前Case集合覆盖，或明确落入`NOT_APPLICABLE/DEFERRED/UNKNOWN/CONFLICT`并写原因和解除条件。不得因实现困难、开发时间或历史代码未移植而删除需求。
+需求与历史代码的有效测试点适用同一覆盖义务：除有证据的排除项外，必须进入Case规划。未确认适用性、触发条件或判据时记`UNKNOWN/CONFLICT`及解除条件，不编造完整PLAN，也不计规划完成。仅关联Feature、Capability或Gap不等于已规划测试；缺接口、开发时间、接线或仪器均不得用于缩小规划范围。
 
 全集指**测试语义全集**，不要求保持历史函数数量或旧Case数量。
 
@@ -162,6 +164,9 @@ Precondition / Data Path / Stimulus / Observation / Oracle / Resource / Cleanup
 - 测试路径、独立Observer、Oracle、资源等级或恢复语义发生稳定变化时才新增Case。
 - 多个Source Item可以`MERGED`到一个Case；一个Source Item可以`SPLIT`为多个Case。
 - Case必须使用最短可证明路径；“调用成功”“结果非零”或DUT自证不能替代可证明Feature的强Oracle。
+- 合并或替代必须保留原测试目的、必要条件、刺激范围、观测独立性和判据强度；只覆盖一部分时，剩余部分仍须规划Case或登记未完成项。同名Feature、更多参数或更高P等级都不是等价证明。
+
+例如：片内DWT与计数器对比不能替代外部仪器测量GPIO脉宽；两者可引用同一计时Feature，但外部时间基准要求必须由相应Case保留，不为不同测法强造硬件Feature。
 
 | 等级 | 定义 |
 |---|---|
@@ -272,15 +277,7 @@ method:
 7. `produced_bytes`、`parameter_id`、执行次数、PC Golden、软件比较结果等允许作为协议/软件/Oracle事实支撑报告，但除非能直接证明它们来自具体硬件寄存器或硬件端点，否则禁止把它们描述为“硬件寄存器反馈”。
 8. 不得为了让报告显得更充分而无条件增加额外寄存器读取。若当前Feature的最小充分证明需要新的硬件观测动作，必须把它作为真实Contract/Implementation Gap评审后再进入实现阶段。
 
-推荐表达：
-
-```yaml
-observations:
-  - 运算完成状态：读取STATUS.FINISH，期望FINISH=1；该字段证明本次硬件运算已经进入完成终态。
-  - 硬件输出结果：读取RESULT_DOUT[0..3]形成128-bit Actual，期望与独立Golden一致；该输出证明目标数据路径的运算结果正确。
-```
-
-状态型Feature示例：
+运算类表达见本节完整method示例；状态型Feature示例：
 
 ```yaml
 observations:
@@ -324,11 +321,11 @@ observations:
 
 ## 9. Deferred、SKIP与Gap
 
-- `DEFERRED`：Feature/Case已分析清楚，但缺安全刺激、独立观测或必要RTL/板级资源；必须写阻塞事实和解除条件。
-- `SKIP`：已实现Formal Case在运行时因Capability或台架映射明确不支持而跳过。
-- Driver/Service/Wrap/Case未实现属于`IMPLEMENTATION_GAP`，不是Deferred。
-- Mapping未闭合属于`MAPPING_GAP`；分析不清属于`UNKNOWN/NEEDS_VERIFICATION`。
-- 开发时间不足、Case难写、历史代码未移植均不是Deferred理由。
+- `DEFERRED`：测试目的、方法、触发条件、Oracle及资源要求均明确，仅缺物理连接、仪器或必要RTL/板级资源；必须保留完整PLAN/SPEC、阻塞事实和解除条件，不能只留一行Gap。
+- `SKIP`：已实现Formal Case运行时的状态，按R210判定；不能用软件Capability缺字段或台架映射未实现冒充硬件不支持。SKIP不删除已有规划。
+- Driver/Service/Wrap/Case未实现属于`IMPLEMENTATION_GAP`；能明确接口契约时继续完成PLAN，不能把缺代码记为缺硬件环境。
+- Mapping未闭合属于`MAPPING_GAP`；硬件适用性、刺激或判据分析不清属于`UNKNOWN/NEEDS_VERIFICATION`，必须保留待分析项，不得假装设计完整。
+- 上述缺口均不等于测试覆盖；开发时间不足、Case难写、历史代码未移植均不是Deferred理由。阶段完成按第12章判定。
 
 ## 10. 文档输出
 
@@ -369,26 +366,27 @@ Section 3只使用R120定义的机器块和统一人审行语法；其中面向�
 
 ## 12. 完成Gate
 
-分析完成必须满足：
+规划完成（IP分析完成）必须满足：
 
 - `ip + chip`明确，Source Map和用户新增资料已纳入分析；
 - 所有登记资料根已搜索，无`UNAVAILABLE`核心资料；
-- `requirements`全部逐项处置，所有有效Source Item无静默遗漏；
-- Hardware/Register/Driver/Test等Claim已核对，Conflict/Unknown均有解除条件；
+- 按第5章复核硬件Feature、需求和历史测试点全集；逐项确认目标芯片是否适用、由哪个Case证明、未覆盖的具体原因，排除项必须有证据；
+- 所有必测项都有完整PLAN/SPEC；影响适用性、测试方法或判据的UNKNOWN/CONFLICT、仅关联Gap及无Case的必测项均阻止整体规划完成；
 - 新Feature全部通过准入条件，并具有6.1要求的具体人审描述；
-- 当前Case集合覆盖全部有效稳定测试语义，并完成复用/参数化/合并/拆分判断；
+- 合并、拆分、替代逐项满足第7章覆盖条件，不把测试语义全集偷换成已注册Case集合；
 - 每个Case有明确Oracle、Resource、Evidence、Cleanup和合法P等级；
 - 每个Case已确认硬件存在性、准确触发条件、可构造刺激、可判定Observation和独立Oracle；历史Case覆盖项已分析真实刺激/观测/判据后再映射，任一项为`UNKNOWN`时不得编码Formal Case；
-- 只有Feature和触发语义明确、但当前物理连接、仪器或RTL资源不足时，才允许登记`DEFERRED/SKIP`；手动诊断只用于确认硬件事实，不替代Formal Case；
+- 第9章所列物理资源不足不阻止设计完整的Case纳入规划；手动诊断不替代Formal Case；
 - 每个Case的输入、6～8步测试逻辑、最小充分硬件Observation、通过条件和关键报告Evidence已经完整定义，Reviewer无需读实现代码即可复原测试方法与硬件证明链；
-- 每个关键硬件Observation都有明确寄存器/字段或硬件端点名称、Expected和证明含义，且Feature声明强度不超过Observation可证明范围；
-- 测试步骤能够直接指导后续实现，且不依赖抽象标签、隐藏Helper或未声明的实现假设才能解释；
-- 未实现Case均为合法`ET_CASE_PLAN`；
-- Stable Automation Contract达到Implementation Ready；
+- 第7.1章硬件观测和步骤经人工审核，未实现Case为合法`ET_CASE_PLAN`，Stable Automation Contract达到Implementation Ready；
 - 公共/芯片文档和R100 Mapping完整；
 - 未执行的软件、Keil、FPGA或HIL不得写成PASS。
 
 人工审核未通过6.1/7.1时，即使Schema有效、Feature/Case ID完整，也不得宣称IP分析完成或Implementation Ready。
+
+阶段结论必须分开：**代码完成**要求声明范围内的全部规划Case已实现，有未实现项则该范围代码未完成；**实测完成**要求声明范围内的Case均有实际执行记录及证据，未执行项不能计入完成。结果按R130/R210分别报告，FAIL/SKIP不等于Feature通过；一次执行结束或已注册Case全部PASS不等于IP覆盖完成。
+
+用户指定子集时只处理该子集，并明确剩余项；不得以子集完成宣称整个IP规划、代码或测试完成。审核责任由Agent逐项检查、Reviewer复核承担；现有结构Checker不证明参考覆盖等价，不得把Schema通过当作语义审核通过。
 
 ```powershell
 python tools/quality/check_public_ip_contracts.py
