@@ -96,6 +96,14 @@
 #ifndef ET_TEST_SPINLOCK_INSTANCE_IDS
 #error "Board config must define ET_TEST_SPINLOCK_INSTANCE_IDS"
 #endif
+
+#ifndef ET_TEST_IPCM_INSTANCE_IDS
+#error "Board config must define ET_TEST_IPCM_INSTANCE_IDS"
+#endif
+
+#ifndef ET_TEST_IPCM_IRQ_PRIORITY
+#error "Board config must define ET_TEST_IPCM_IRQ_PRIORITY"
+#endif
 #ifndef ET_TEST_UART_CAPTURE_IRQ_PRIORITY
 #error "Board config must define ET_TEST_UART_CAPTURE_IRQ_PRIORITY"
 #endif

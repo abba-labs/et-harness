@@ -83,6 +83,36 @@
 - 未发生ACK的反向观测窗口为PC单调时钟100 ms，计入Case总deadline；结束后核对Source即时Raw/Masked及回调增量均为0。窗口不能用来宣称永久不会ACK。
 - 多目标路由使用MANUAL：两个Destination先独立收包，再分别释放，最后显式ACK。未确认的多目标AUTO聚合触发条件不混入这条Case的Oracle；在芯片文档列为待确认语义，不宣称已覆盖。
 
+### 0.6 IPCM V1原子命令与事件接口
+
+Service ID=`0x0109`，API Version=`1`。只新增IPCM命令体，外层ET-Frame及其他IP命令不变。所有整数Little Endian，保留字段必须为0；`u16/u32`表示位宽，`bytes`表示原始数据。
+
+| 命令 | ID | 请求 | 响应 |
+|---|---|---|---|
+| CAPABILITIES_GET | 0x0001 | 空 | 8个u16：API版本、结构长度、Mailbox数、Channel数、Data Word数、每Mailbox字节数、Capture Slot数、每Slot字节上限 |
+| CONFIGURE | 0x0002 | first/count:u16，source/destination/irq_enabled逻辑Endpoint集合:u32，ack/link:u8，reserved:u16 | 空 |
+| MAILBOX_RELEASE | 0x0003 | first/count:u16 | 空 |
+| MAILBOX_SNAPSHOT_GET | 0x0004 | mailbox:u16 | source/destination/irq_enabled逻辑集合:u32，ack/link:u8，reserved:u16 |
+| PENDING_SNAPSHOT_GET | 0x0005 | endpoint:u16 | raw/masked:u32，完整Mailbox位集合 |
+| PAYLOAD_WRITE | 0x0006 | first/count/length:u16 + length个bytes | 空；只准备数据，不SEND |
+| PAYLOAD_READ | 0x0007 | mailbox/length:u16 | length个bytes；不ACK、不清除 |
+| MESSAGE_SEND | 0x0008 | mailbox:u16 | 空 |
+| ACK_SEND | 0x0009 | mailbox:u16 | 空；显式ACK，不改ACK模式、不隐式释放Destination |
+| INTERRUPT_CLEAR | 0x000A | mailbox:u16 | 空；不ACK |
+| DESTINATION_RELEASE | 0x000B | mailbox/endpoint:u16 | 空；AUTO ACK是否产生由硬件决定 |
+| CAPTURE_ARM | 0x0010 | slot/endpoint/mailbox/length:u16，irq/stage:u8 | 空；一次有界采样会话，irq=0 Polling / 1 IRQ，stage=0 MESSAGE / 1 ACK |
+| CAPTURE_GET | 0x0011 | slot:u16 | 下述42字节事件头 + 有效Payload |
+| CAPTURE_ABORT | 0x0012 | slot:u16 | 空；关闭本IP投递并解绑，不清Mailbox、不ACK |
+| STATE_RESET | 0x0013 | 空 | 空；Abort所有Slot后清Service观测，不复位IP、不清资源池 |
+
+事件头依次为`generation/raw_status/masked_status/latched_events/event_count/unexpected_count/overflow_count/fault_flags:u32`和`endpoint/mailbox/length/state/stage:u16`。`state=0 IDLE / 1 WAITING / 2 READY / 3 FAULT`。只有READY携带有效Payload；未完成或FAULT返回length=0，不冒充有效观测。`event_count`只计真实IRQ回调，Polling为0。`stage`由PC显式标注，不能当作硬件状态。
+
+`ACK MANUAL=0/AUTO=1`、`LINK SINGLE=0/LINKED=1`；集合bit n代表逻辑Endpoint n，不是物理Channel n，物理映射仅由Chip Config提供。`count`始终包括首Mailbox，参数不满足容量或实际链结构时失败，禁止截断。
+
+Capture的4个Slot、每Slot128字节是Service软件预算，不是芯片Feature；PC必须分别核对硬件容量和服务执行上限。IRQ入口先保存Raw/Masked及Payload，再暂停本Endpoint的投递以保留Raw，随后由PC单独执行ACK、Clear或Release。GET不会重读硬件覆盖旧事件；下一次ARM递增generation，STATE_RESET保留代次以识别旧数据。IRQ会话只由Service经IRQ Manager注册。Polling仅在显式ARM后做一次非阻塞采样，不擅自消费其他Pending。
+
+当前这些为本核原子执行接口；跨核Peer提交/结果接口尚未接入，不得据此把同核双Channel诊断宣称为真实双核Case。13条PLAN仍保持PLANNED，待Peer、Capability、PC和Smoke闭环后按同一语义落实SPEC。
+
 ## 1. Feature Catalog
 
 | Feature ID | 报告名称 | 稳定语义 | 关联 Case |
@@ -760,13 +790,11 @@ gap: [case_implementation_gap, dualcore_execution_mapping_gap]
 
 ## 5. Common Gap / Evolution
 
-- `case_implementation_gap`：当前自动化平台尚无 IPCM Wrap、Service、PC Driver 和 Formal Case。
+- `case_implementation_gap`：已增加本核IPCM Wrap、Service及注册；PC Driver、Core1 Peer执行入口和13条Formal Case仍待完成，不以底层代码存在冒充Case实现。
 - `capability_semantic_gap`：需要由芯片能力声明Mailbox、Channel、Data Word、模式、Linked、Multi-destination及AUTO下显式ACK；当前适配缺口见芯片文档。
 - `dualcore_execution_mapping_gap`：必须建立逻辑Initiator/Responder、事件Endpoint和Core1 Peer部署映射；公共Case不得硬编码Core或IRQ编号。
-- `linked_range_driver_gap`：Linked配置必须同时验证起始Mailbox与链长度边界，禁止越界或静默截断。
-- `multi_destination_driver_gap`：正式Driver只接收单一Destination Channel，需要在Driver测试扩展区增加逻辑Endpoint集合接口。
-- `driver_api_gap`：正式Driver缺少明确返回值、完整Pending位集合、配置快照、严格Payload边界和非对齐安全访问；Wrap不得直接操作寄存器补洞。
-- `ip_reset_mapping_gap`：在芯片CRG映射中补齐IPCM实例硬件复位；全IP复位与单Mailbox释放是不同动作，IPCM Wrap不得跨IP调用。
+- `linked_range_driver_gap`、`multi_destination_driver_gap`、`driver_api_gap`：底层测试扩展已补齐，等待双核Case集成及真实硬件确认；不改变历史SDK API。
+- `ip_reset_mapping_gap`：已补IPCM公共CRG类别及芯片映射；全IP复位与单Mailbox释放仍是不同动作，IPCM Wrap不跨IP调用。
 - `mailbox_release_semantic_gap`：释放清除哪些配置必须由目标证据确定；不得在Wrap中悄悄复位整个IP替代单Mailbox释放。
 - `source_item_body_gap`：历史压力入口只有调用和声明，未找到实现；待获取正文后提取其有效测试点，不能宣称未知正文已被当前Case覆盖。
 - 多目标AUTO聚合ACK触发条件尚未证实；P1_007先独立覆盖多目标路由与MANUAL释放，不把推断作为通过条件，也不宣称覆盖了该组合。

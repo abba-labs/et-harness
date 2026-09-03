@@ -60,5 +60,8 @@
 #define ET_TEST_WDG_IRQ_PRIORITY 3u
 #define ET_TEST_STIMER_INSTANCE_IDS 0u, 1u
 #define ET_TEST_SPINLOCK_INSTANCE_IDS 0u
+/* Logical IPCM controller and default NVIC capture priority; no mailbox Case policy. */
+#define ET_TEST_IPCM_INSTANCE_IDS 0u
+#define ET_TEST_IPCM_IRQ_PRIORITY 3u
 #define ET_TEST_STIMER_IRQ_PRIORITY 3u
 #endif

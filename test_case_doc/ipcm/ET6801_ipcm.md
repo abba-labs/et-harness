@@ -3,7 +3,7 @@
 > 本文件只分析 ET6801 的 IPCM 硬件事实、Driver、历史测试和公共 Contract 适配。
 > 3101与6003为单核芯片，本轮不读取、不引用，也不作为IPCM Feature或Case证据。
 > 当前文档是开发输入；没有当前提交的实现或HIL证据时，不得填写PASS。
-> 资料复核与修订时间：2026-09-03 15:30 CST。此次仅修订设计，未编码、未运行硬件。
+> 资料复核与修订时间：2026-09-03 16:40 CST。已开始底层编码；硬件测试尚未执行，13条Case仍为PLANNED。
 
 # 第一章 IP分析与Source Coverage
 
@@ -41,7 +41,7 @@
 | current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml` | FOUND | 仅表达实例、Base和16条IRQ；全部IPCM Field仍未进入语义层。 |
 | capability audit | `test_case_doc/reference_data/et6801/capability_generation/audit/ipcm.yaml` | FOUND | IPCM寄存器Field均为`no_semantic_mapping`，证明当前YAML不是完整能力声明。 |
 | current Core1 Peer | `firmware/chips/et6801/core1_peer`与`firmware/build/et6801/core1_peer` | FOUND | 已有ET6801 Core1映像和部署基础；IPCM Peer Job尚未实现。 |
-| current platform IPCM code | `firmware/{wrap,services}`与`pc/et_test_platform/{drivers,test_cases}` | NO_MATCH | 当前没有IPCM公共实现和Formal Case。 |
+| current platform IPCM code | `firmware/{wrap,services}`与`pc/et_test_platform/{drivers,test_cases}` | PARTIAL | 已有本核IPCM Wrap、Service；PC与真实双核Case尚未完成。 |
 
 本轮没有扫描或读取3101、6003。ET6801 SDK检索限定在IPCM、DualCore和对应历史测试文件，没有对整个代码库或文档库做无目标扫描。
 
@@ -340,6 +340,24 @@ Channel10/11只来自ET6801历史双核测试的候选映射，不能在公共Ca
 
 ## 6.2 实现顺序
 
+本轮代码落点与边界：
+
+- SDK仅在`et6x_ipcm.h/.c`底部`TEST DRIVER EXTENSION`区域增加接口，不改变原API。`IPCM_testConfigureMailboxes`采用总成员数，先验证完整范围和空闲SEND，再写SOURCE/Destination/Mode/IRQ；链尾清AUTO_LINK。`IPCM_testWritePayloadExact/ReadPayloadExact`按字节装拆32位数据，非对齐地址安全，拒绝越界和截断。`IPCM_testGetPendingSnapshot`保留RIS/MIS完整位集合。
+- `IPCM_testReleaseMailboxes`只执行原SDK的SOURCE=0；是否清除全部硬件状态仍须HIL验证，软件不补写零伪造释放效果。SEND动作只允许0/1/2；显式ACK不改MODE、不提前DCLEAR。
+- `et_chip_wrap_config.h`的IPCM分区保存实例、逻辑Endpoint到SDK Channel及CMSIS IRQn的映射，以及ACK/Link枚举映射。当前Endpoint0~15映射Channel0~15只是本芯片表，不写入公共Service/Case。
+- CRG复位类别IPCM=8，实例0映射`CRG_PERIPH_IPCM`，选择值来自`CRG_GTEN1_CRG_CLK_GTEN_IPCM_Pos`，与SVD的SRST1[25]一致；复位与门控均复用现有CRG Driver。
+- `et_ipcm_wrap.h/.c`只调用IPCM Driver；`et_ipcm_service.h/.c`新增0x0109服务，Wire见公共文档0.6。两种Board各注册逻辑实例0、IRQ优先级3；Application只增静态清单行，通用注册器、main和Framework不改。
+- 当前Capture在清除前锁存RIS/MIS/Data，随后仅MCLEAR暂停投递；不会自动执行ACK或Destination释放。4 Slot/128字节是Service软件预算，不写入Chip Config能力事实。
+- `project.yaml`纳入IPCM SDK、Wrap、Service。已有Core1 Peer的SPINLOCK实现未改，IPCM Peer尚未接入，不能运行真实双核Case。
+
+以上是开发进度，不改变下列13条Case的PLANNED状态。
+
+2026-09-03 16:49 CST软件验证：
+
+- `tools/validate_pc.py`：878 PASS、0 FAIL、0 SKIP，包含以当前进程PATH提供本机C编译器后执行的IPCM真实Driver/Wrap/Service Native合同；不等于IPCM硬件Feature通过。
+- 配置流水线`run_config.yaml`仅开启`build.firmware`，最终`ET6801_SILICON_FLASH`编译0 Error、0 Warning；日志在`artifacts/runs/20260903_164815_249562_local_et6801_fpga_atp_testing/stages/build_firmware_silicon/`。
+- 未执行bitfile、BootROM、PFLASH下载及任何双核硬件操作。当前不能发布13条Case的HIL结论。
+
 1. 确认CRG IPCM复位映射和单Mailbox释放语义，补齐ET6801 IPCM Capability语义并验证CFGSTAT；
 2. 在SDK Driver底部测试扩展区补严格边界、快照、完整Pending位集合和Multi-destination接口；
 3. 实现芯片中立IPCM Wrap、Service和命令注册，Service只解析命令、调用本IP Wrap并回报原始事实；IRQ先采样后清除，不能直接调Chip Driver；
@@ -375,6 +393,6 @@ R0 self-contained Case: IPCM_P0_001
 - 历史双核Case没有Ready握手且Mailbox12/13配置与发送不一致，不能作为可运行模板。
 - 正式Driver的静默截断、非对齐访问和Linked越界可能导致Fault或假通过，必须在Wrap开发前修复。
 - Mailbox释放是否由`SOURCE=0`清除全部状态需要最小HIL读回；多Destination AUTO触发须先取得目标设计定义，不应靠试出的现象反向制定Oracle。
-- CRG SRST1[25]映射、双端事件快照和Core1 IPCM Job均未实现；这是软件缺口，不是外部接线缺口。
+- CRG SRST1[25]映射及本核事件快照已实现；Core1 IPCM Job和双端快照回传尚未集成，这是软件缺口，不是外部接线缺口。
 - 压力入口正文未找到，不能将13条PLAN宣称为所有历史需求的完整覆盖。补到正文后按有效Feature做增量映射，禁止凭函数名扩写复杂压力Case。
 - Core1 Peer是片内配测执行实体，不是外部接线；Peer未部署属于Mapping/Implementation Gap，不能把Case删除或标成硬件不支持。

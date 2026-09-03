@@ -135,6 +135,53 @@ void IPCM_clearMailboxInterrupt(uint32_t mboxID);
  * @}
  */
 
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+
+/* Hardware counts read from CFGSTAT, not the host's configured expectations. */
+typedef struct
+{
+    uint32_t mailboxCount;
+    uint32_t channelCount;
+    uint32_t dataWordCount;
+} IPCM_TestCapabilities;
+
+/* Raw mailbox readback. Channel sets and mode use this SDK's hardware encoding. */
+typedef struct
+{
+    uint32_t source;
+    uint32_t destination;
+    uint32_t mode;
+    uint32_t interruptEnable;
+    uint32_t send;
+} IPCM_TestMailboxSnapshot;
+
+/* Whole pending sets are required when more than one mailbox is pending. */
+typedef struct
+{
+    uint32_t raw;
+    uint32_t masked;
+} IPCM_TestPendingSnapshot;
+
+/* Counts are total members including the first mailbox, never additional members. */
+DRV_Status IPCM_testGetCapabilities(IPCM_TestCapabilities *pCapabilities);
+DRV_Status IPCM_testConfigureMailboxes(uint32_t first, uint32_t count, uint32_t source,
+                                      uint32_t destination, uint32_t mode, uint32_t irqEnable);
+DRV_Status IPCM_testReleaseMailboxes(uint32_t first, uint32_t count);
+DRV_Status IPCM_testGetMailboxSnapshot(uint32_t mailbox, IPCM_TestMailboxSnapshot *pSnapshot);
+DRV_Status IPCM_testGetPendingSnapshot(uint32_t channel, IPCM_TestPendingSnapshot *pSnapshot);
+DRV_Status IPCM_testWritePayloadExact(uint32_t first, uint32_t count, const uint8_t *pData,
+                                     uint32_t length);
+DRV_Status IPCM_testReadPayloadExact(uint32_t mailbox, uint8_t *pData, uint32_t length);
+DRV_Status IPCM_testSendMessage(uint32_t mailbox);
+DRV_Status IPCM_testSendAck(uint32_t mailbox);
+DRV_Status IPCM_testClearPending(uint32_t mailbox);
+DRV_Status IPCM_testReleaseDestination(uint32_t mailbox, uint32_t channel);
+DRV_Status IPCM_testSetInterruptDelivery(uint32_t mailbox, uint32_t channel, uint32_t enabled);
+
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
+
 #ifdef __cplusplus
 }
 #endif

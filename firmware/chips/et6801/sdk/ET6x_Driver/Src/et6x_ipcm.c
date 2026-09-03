@@ -440,4 +440,266 @@ void IPCM_clearMailboxInterrupt(uint32_t mboxID)
     WRITE_REG(IPCM->MBOX[mboxID].SEND, SEND_INACTIVE);
 }
 
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+
+/**
+ * @brief Read implemented mailbox, interrupt-channel and data-word counts.
+ * @param pCapabilities: Output hardware counts, never caller expectations.
+ * @retval DRV_OK or DRV_PARAM_ERR for a NULL output.
+ */
+DRV_Status IPCM_testGetCapabilities(IPCM_TestCapabilities *pCapabilities)
+{
+    uint32_t value;
+
+    if (pCapabilities == NULL)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    value = READ_REG(IPCM->CFGSTAT);
+    pCapabilities->mailboxCount =
+        (value & IPCM_IPCMCFGSTAT_MAILBOXES_Msk) >> IPCM_IPCMCFGSTAT_MAILBOXES_Pos;
+    pCapabilities->channelCount =
+        (value & IPCM_IPCMCFGSTAT_INTERRUPTS_Msk) >> IPCM_IPCMCFGSTAT_INTERRUPTS_Pos;
+    pCapabilities->dataWordCount =
+        (value & IPCM_IPCMCFGSTAT_DATAWORDS_Msk) >> IPCM_IPCMCFGSTAT_DATAWORDS_Pos;
+    return DRV_OK;
+}
+
+/** @brief Validate the whole contiguous range before any mailbox access. */
+static uint32_t IPCM_testRangeIsValid(uint32_t first, uint32_t count)
+{
+    return (first < MAILBOX_NUM) && (count != 0U) && (count <= MAILBOX_NUM - first);
+}
+
+/**
+ * @brief Configure a single mailbox or a complete, bounded linked chain.
+ * @param first: First mailbox index.
+ * @param count: Total member count, including the first mailbox.
+ * @param source: Exactly one source channel bit.
+ * @param destination: Nonempty destination channel set, excluding source.
+ * @param mode: SDK MANUAL_ACK/AUTO_ACK/AUTO_LINK/AUTO_ACK_LINK.
+ * @param irqEnable: Enabled channel subset of source and destination.
+ * @retval DRV_OK or DRV_PARAM_ERR, with no writes for invalid arguments.
+ */
+DRV_Status IPCM_testConfigureMailboxes(uint32_t first, uint32_t count, uint32_t source,
+                                      uint32_t destination, uint32_t mode, uint32_t irqEnable)
+{
+    uint32_t index;
+    uint32_t validChannels = BIT_MASK(IPCM_CH_NUM) - 1U;
+
+    if (!IPCM_testRangeIsValid(first, count) || !IS_IPCM_ACK_MODE(mode) ||
+        (source == 0U) || ((source & (source - 1U)) != 0U) || (destination == 0U) ||
+        ((source & destination) != 0U) || (((source | destination) & ~validChannels) != 0U) ||
+        ((irqEnable & ~(source | destination)) != 0U) ||
+        (((mode & AUTO_LINK) == 0U) && (count != 1U)))
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    /* Reconfiguration is only allowed on idle mailboxes; never erase a pending message. */
+    for (index = first; index < first + count; ++index)
+    {
+        if (READ_REG(IPCM->MBOX[index].SEND) != SEND_INACTIVE)
+        {
+            return DRV_BUSY;
+        }
+    }
+
+    for (index = first; index < first + count; ++index)
+    {
+        WRITE_REG(IPCM->MBOX[index].SOURCE, source);
+        WRITE_REG(IPCM->MBOX[index].DCLEAR, validChannels);
+        WRITE_REG(IPCM->MBOX[index].DSET, destination);
+        WRITE_REG(IPCM->MBOX[index].MCLEAR, validChannels);
+        WRITE_REG(IPCM->MBOX[index].MSET, irqEnable);
+        IPCM_setMode(index, (index + 1U == first + count) ? (mode & ~AUTO_LINK) : mode);
+    }
+    return DRV_OK;
+}
+
+/**
+ * @brief Release precisely the requested mailboxes using the SDK SOURCE release action.
+ * @param first: First mailbox index.
+ * @param count: Total number of mailboxes.
+ * @note No reset, synthetic zero readback or additional cleanup is performed.
+ * @retval DRV_OK or DRV_PARAM_ERR.
+ */
+DRV_Status IPCM_testReleaseMailboxes(uint32_t first, uint32_t count)
+{
+    uint32_t index;
+
+    if (!IPCM_testRangeIsValid(first, count))
+    {
+        return DRV_PARAM_ERR;
+    }
+    for (index = first; index < first + count; ++index)
+    {
+        IPCM_clearSource(index);
+    }
+    return DRV_OK;
+}
+
+/** @brief Read raw configuration without clearing pending state or acknowledging data. */
+DRV_Status IPCM_testGetMailboxSnapshot(uint32_t mailbox, IPCM_TestMailboxSnapshot *pSnapshot)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox) || (pSnapshot == NULL))
+    {
+        return DRV_PARAM_ERR;
+    }
+    pSnapshot->source = READ_REG(IPCM->MBOX[mailbox].SOURCE);
+    pSnapshot->destination = READ_REG(IPCM->MBOX[mailbox].DSTATUS);
+    pSnapshot->mode = READ_REG(IPCM->MBOX[mailbox].MODE);
+    pSnapshot->interruptEnable = READ_REG(IPCM->MBOX[mailbox].MSTATUS);
+    pSnapshot->send = READ_REG(IPCM->MBOX[mailbox].SEND);
+    return DRV_OK;
+}
+
+/** @brief Return whole Raw/Masked pending sets, including simultaneous mailbox bits. */
+DRV_Status IPCM_testGetPendingSnapshot(uint32_t channel, IPCM_TestPendingSnapshot *pSnapshot)
+{
+    if (!IS_IPCM_CH_ID(channel) || (pSnapshot == NULL))
+    {
+        return DRV_PARAM_ERR;
+    }
+    pSnapshot->raw = READ_REG(IPCM->ISR[channel].RIS);
+    pSnapshot->masked = READ_REG(IPCM->ISR[channel].MIS);
+    return DRV_OK;
+}
+
+/**
+ * @brief Write exact payload bytes, without starting transmission.
+ * @param first: First mailbox index.
+ * @param count: Configured chain member count.
+ * @param pData: Byte-addressable source; no alignment requirement.
+ * @param length: Nonzero valid byte count, never truncated.
+ * @note Validate capacity and actual link bits before writing. Tail padding is zero.
+ * @retval DRV_OK or DRV_PARAM_ERR.
+ */
+DRV_Status IPCM_testWritePayloadExact(uint32_t first, uint32_t count, const uint8_t *pData,
+                                     uint32_t length)
+{
+    uint32_t offset;
+    uint32_t byte;
+    uint32_t value;
+    uint32_t member;
+
+    if (!IPCM_testRangeIsValid(first, count) || (pData == NULL) || (length == 0U) ||
+        (length > count * MAILBOX_DR_SIZE))
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    /* Caller-supplied capacity must agree with the configured chain topology. */
+    for (member = 0U; member < count; ++member)
+    {
+        uint32_t linked = READ_REG(IPCM->MBOX[first + member].MODE) & AUTO_LINK;
+        if ((member + 1U < count) ? (linked == 0U) : (linked != 0U))
+        {
+            return DRV_PARAM_ERR;
+        }
+    }
+
+    for (offset = 0U; offset < length; offset += sizeof(uint32_t))
+    {
+        value = 0U;
+        for (byte = 0U; (byte < sizeof(uint32_t)) && (offset + byte < length); ++byte)
+        {
+            value |= (uint32_t)pData[offset + byte] << (byte * BYTE_WIDTH);
+        }
+        WRITE_REG(IPCM->MBOX[first + offset / MAILBOX_DR_SIZE]
+                      .DR[(offset % MAILBOX_DR_SIZE) / sizeof(uint32_t)], value);
+    }
+    return DRV_OK;
+}
+
+/** @brief Read exact bytes without ACK, clear, truncation or unaligned word accesses. */
+DRV_Status IPCM_testReadPayloadExact(uint32_t mailbox, uint8_t *pData, uint32_t length)
+{
+    uint32_t offset;
+    uint32_t byte;
+    uint32_t value;
+
+    if (!IS_IPCM_MBOX_ID(mailbox) || (pData == NULL) || (length == 0U) ||
+        (length > MAILBOX_DR_SIZE))
+    {
+        return DRV_PARAM_ERR;
+    }
+    for (offset = 0U; offset < length; offset += sizeof(uint32_t))
+    {
+        value = READ_REG(IPCM->MBOX[mailbox].DR[offset / sizeof(uint32_t)]);
+        for (byte = 0U; (byte < sizeof(uint32_t)) && (offset + byte < length); ++byte)
+        {
+            pData[offset + byte] = (uint8_t)(value >> (byte * BYTE_WIDTH));
+        }
+    }
+    return DRV_OK;
+}
+
+/** @brief Trigger one destination message after payload preparation. */
+DRV_Status IPCM_testSendMessage(uint32_t mailbox)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox))
+    {
+        return DRV_PARAM_ERR;
+    }
+    WRITE_REG(IPCM->MBOX[mailbox].SEND, SEND_MSG_TO_DEST);
+    return DRV_OK;
+}
+
+/** @brief Send explicit ACK in either MANUAL or AUTO mode; never release destination. */
+DRV_Status IPCM_testSendAck(uint32_t mailbox)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox))
+    {
+        return DRV_PARAM_ERR;
+    }
+    IPCM_clearMailboxInterruptAndSendAck(mailbox);
+    return DRV_OK;
+}
+
+/** @brief Clear only message/ACK pending; do not release route or request ACK. */
+DRV_Status IPCM_testClearPending(uint32_t mailbox)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox))
+    {
+        return DRV_PARAM_ERR;
+    }
+    IPCM_clearMailboxInterrupt(mailbox);
+    return DRV_OK;
+}
+
+/** @brief Release one destination through the existing SDK operation. */
+DRV_Status IPCM_testReleaseDestination(uint32_t mailbox, uint32_t channel)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox) || !IS_IPCM_CH_ID(channel))
+    {
+        return DRV_PARAM_ERR;
+    }
+    IPCM_clearDestination(mailbox, channel);
+    return DRV_OK;
+}
+
+/** @brief Change only one channel's IRQ delivery, leaving Raw pending and routes intact. */
+DRV_Status IPCM_testSetInterruptDelivery(uint32_t mailbox, uint32_t channel, uint32_t enabled)
+{
+    if (!IS_IPCM_MBOX_ID(mailbox) || !IS_IPCM_CH_ID(channel) || (enabled > 1U))
+    {
+        return DRV_PARAM_ERR;
+    }
+    if (enabled != 0U)
+    {
+        WRITE_REG(IPCM->MBOX[mailbox].MSET, BIT_MASK(channel));
+    }
+    else
+    {
+        WRITE_REG(IPCM->MBOX[mailbox].MCLEAR, BIT_MASK(channel));
+    }
+    return DRV_OK;
+}
+
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
+
 /************************ (C) COPYRIGHT ETMCU *****END OF FILE****/

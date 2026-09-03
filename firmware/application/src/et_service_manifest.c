@@ -18,6 +18,7 @@
 #include "et_crg_wrap.h"
 #include "et_dma_service.h"
 #include "et_fmac_service.h"
+#include "et_ipcm_service.h"
 #include "et_spinlock_service.h"
 #include "et_stimer_service.h"
 #include "et_uart_service.h"
@@ -44,6 +45,7 @@ static const uint16_t test_cpu_instances[] = {ET_TEST_CPU_INSTANCE_IDS};
 static const uint16_t test_wdg_instances[] = {ET_TEST_WDG_INSTANCE_IDS};
 static const uint16_t test_stimer_instances[] = {ET_TEST_STIMER_INSTANCE_IDS};
 static const uint16_t test_spinlock_instances[] = {ET_TEST_SPINLOCK_INSTANCE_IDS};
+static const uint16_t test_ipcm_instances[] = {ET_TEST_IPCM_INSTANCE_IDS};
 
 /* Static storage keeps startup deterministic and avoids allocator ownership. */
 static et_uart_service_t test_uart_services[ET_ARRAY_COUNT(test_uart_instances)];
@@ -56,6 +58,7 @@ static et_cpu_service_t test_cpu_services[ET_ARRAY_COUNT(test_cpu_instances)];
 static et_wdg_service_t test_wdg_services[ET_ARRAY_COUNT(test_wdg_instances)];
 static et_stimer_service_t test_stimer_services[ET_ARRAY_COUNT(test_stimer_instances)];
 static et_spinlock_service_t test_spinlock_services[ET_ARRAY_COUNT(test_spinlock_instances)];
+static et_ipcm_service_t test_ipcm_services[ET_ARRAY_COUNT(test_ipcm_instances)];
 
 /* One row is the complete Application-level registration declaration for one IP. */
 static const et_service_group_t service_groups[] = {
@@ -79,6 +82,8 @@ static const et_service_group_t service_groups[] = {
                      et_stimer_service_create),
     ET_SERVICE_GROUP(test_spinlock_instances, test_spinlock_services,
                      ET_SERVICE_IRQ_PRIORITY_UNUSED, et_spinlock_service_create),
+    ET_SERVICE_GROUP(test_ipcm_instances, test_ipcm_services, ET_TEST_IPCM_IRQ_PRIORITY,
+                     et_ipcm_service_create),
 };
 
 /**

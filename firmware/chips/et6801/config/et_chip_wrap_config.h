@@ -204,7 +204,8 @@ enum
       {ET_CRG_WRAP_PERIPHERAL_STIMER, ET6801_STIMER_LOGICAL_0, CRG_PERIPH_STM0}, \
       {ET_CRG_WRAP_PERIPHERAL_STIMER, ET6801_STIMER_LOGICAL_1, CRG_PERIPH_STM1}, \
       {ET_CRG_WRAP_PERIPHERAL_WDG, ET6801_WDG_LOGICAL_0, CRG_PERIPH_WDG0}, \
-      {ET_CRG_WRAP_PERIPHERAL_WDG, ET6801_WDG_LOGICAL_1, CRG_PERIPH_WDG1}}
+      {ET_CRG_WRAP_PERIPHERAL_WDG, ET6801_WDG_LOGICAL_1, CRG_PERIPH_WDG1}, \
+      {ET_CRG_WRAP_PERIPHERAL_IPCM, 0u, CRG_PERIPH_IPCM}}
 
 /*
  * CRG owns the WDG clock source and divider. The divider is the encoded
@@ -536,5 +537,38 @@ enum
       ET6801_STIMER_SYSTEM_CAPTURE_INDEX_1, ET6801_STIMER_EMERGENCY_SOURCE_ID,          \
       ET6801_STIMER_EMERGENCY_TRIGGER_GROUP, ET6801_STIMER_MAP_RESERVED,                \
       ET6801_STIMER_EMERGENCY_SOURCE_MASK}}
+
+/* -------------------------------------------------------------------------- */
+/* IPCM                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * ET6801 has one IPCM controller. Field: public logical controller ID (unit: ID).
+ * Endpoint fields: logical ID, SDK channel ID, generated CMSIS IRQ line.
+ * This chip uses an identity endpoint mapping; Core ownership is supplied by
+ * Execution Mapping, not inferred by the common Wrap. Counts come from CFGSTAT.
+ */
+#define ET_CHIP_IPCM_MAP_TABLE {{0u}}
+#define ET_CHIP_IPCM_ENDPOINT_MAP_TABLE \
+    {{IPCM_CH_0, IPCM_CH_0, IPCM0_IRQn}, \
+     {IPCM_CH_1, IPCM_CH_1, IPCM1_IRQn}, \
+     {IPCM_CH_2, IPCM_CH_2, IPCM2_IRQn}, \
+     {IPCM_CH_3, IPCM_CH_3, IPCM3_IRQn}, \
+     {IPCM_CH_4, IPCM_CH_4, IPCM4_IRQn}, \
+     {IPCM_CH_5, IPCM_CH_5, IPCM5_IRQn}, \
+     {IPCM_CH_6, IPCM_CH_6, IPCM6_IRQn}, \
+     {IPCM_CH_7, IPCM_CH_7, IPCM7_IRQn}, \
+     {IPCM_CH_8, IPCM_CH_8, IPCM8_IRQn}, \
+     {IPCM_CH_9, IPCM_CH_9, IPCM9_IRQn}, \
+     {IPCM_CH_10, IPCM_CH_10, IPCM10_IRQn}, \
+     {IPCM_CH_11, IPCM_CH_11, IPCM11_IRQn}, \
+     {IPCM_CH_12, IPCM_CH_12, IPCM12_IRQn}, \
+     {IPCM_CH_13, IPCM_CH_13, IPCM13_IRQn}, \
+     {IPCM_CH_14, IPCM_CH_14, IPCM14_IRQn}, \
+     {IPCM_CH_15, IPCM_CH_15, IPCM15_IRQn}}
+
+/* Ordered by the stable ACK and Link enums. Values are SDK MODE encodings. */
+#define ET_CHIP_IPCM_ACK_MAP_TABLE {MANUAL_ACK, AUTO_ACK}
+#define ET_CHIP_IPCM_LINK_MAP_TABLE {MANUAL_ACK, AUTO_LINK}
 
 #endif

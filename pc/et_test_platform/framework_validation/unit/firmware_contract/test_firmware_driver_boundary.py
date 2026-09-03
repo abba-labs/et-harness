@@ -85,6 +85,8 @@ def test_test_driver_extensions_are_isolated() -> None:
         DRIVER_ROOT / "Src" / "et6x_wdg.c",
         DRIVER_ROOT / "Inc" / "et6x_spinlock.h",
         DRIVER_ROOT / "Src" / "et6x_spinlock.c",
+        DRIVER_ROOT / "Inc" / "et6x_ipcm.h",
+        DRIVER_ROOT / "Src" / "et6x_ipcm.c",
     )
     test_api = re.compile(r"\b[A-Za-z_]\w*_test[A-Z]\w*\s*\(")
     paths_with_extensions: set[Path] = set()
