@@ -220,6 +220,24 @@ capabilities:
 
 这一映射是 `STIM_DRV_002` 判定为 confirmed bug 的直接依据。
 
+#### Debug Halt只读观测映射（2026-09-03）
+
+`STIMER_P2_003`改为停核内两次读取，不再使用Halt前/Resume后计数差或J-Link进程耗时。
+机器映射位于`pc/et_test_platform/profiles/chip_execution_mappings/et6801/stimer_routes.py`；
+公共Case和Debugger均不保存ET6801地址。
+
+| 公共端点 | ET6801实际映射 | 用途与证据 |
+|---|---|---|
+| `CPU.DEBUG.HALT_STATUS` | `CoreDebug.DHCSR`，`0xE000EDF0`；`S_HALT` bit17 | CMSIS `core_cm7.h`；两组采样前后均要求bit17=1，Resume后要求为0 |
+| `COUNT.LIVE` | `STIMERn.CNT_RPT`，STIMER0为`0x40406068`，实例步长`0x1000` | ET6801.svd；停核期间经Debug AP读取实时计数，不通过CPU执行Service |
+| `DEBUG_HALT.CONFIG` | `STIMERn.STM_SET`，STIMER0为`0x40406004`；`STM_CPUHALT_MODE_R` bit7 | ET6801.svd；PAUSE应为0、RUN_FREE应为1，两组均回读 |
+
+CPU自写`DHCSR=0xA05F0003`必须已有调试器使能`C_DEBUGEN`；CPU停核后不能自行采样或恢复。
+本Case复用现有J-Link执行Halt/Go并读取DHCSR证明停核，不增加固件命令。
+`DEMCR.bit0`是`VC_CORERESET`，不能用于判断调试器是否连接。
+以下旧HIL记录保留为历史现象；旧的跨Halt/Resume计数差不能单独证明停核期间的增长率。
+新方法的硬件结果将在本轮定向测试后写入唯一当前状态表，不以软件测试替代。
+
 ### 3.2 IRQ Source bit mapping
 
 | Public Source | RAW/STATUS bit | Enable/Mask/Force/Clear bit |

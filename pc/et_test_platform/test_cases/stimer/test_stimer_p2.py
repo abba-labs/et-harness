@@ -51,7 +51,6 @@ DMA_TIMEOUT_S = 2.0
 DEBUG_HALT_PERIOD_TICKS = 0xFFFFFFFF
 DEBUG_HALT_WINDOW_S = 0.2
 DEBUG_HALT_SAMPLE_INTERVAL_S = 0.01
-DEBUG_HALT_MAX_PAUSE_DELTA_RATIO = 0.10
 EMERGENCY_CAPTURE_SOURCE_ID = 0
 EMERGENCY_CAPTURE_TRIGGER_GROUP = 0
 EMERGENCY_CAPTURE_MIN_PERIOD_TICKS = 0x10000
@@ -430,18 +429,19 @@ def test_stimer_p2_002_emergency_capture(
 #
 # 测试方法：
 # 1. 读取Runtime Capability，使用最大合法周期和Free-Run模式避免测试窗口内自然Overflow。
-# 2. 配置PAUSE策略，启动STIMER，使用真实Debugger Halt保持有界窗口后Resume并读取COUNT.LIVE。
+# 2. 配置PAUSE策略，启动STIMER，在CPU保持Halt期间由Debugger间隔读取两次COUNT.LIVE。
 # 3. 重新建立独立生命周期，配置RUN_FREE策略并重复相同Debugger Halt窗口。
-# 4. 记录两种策略的COUNT.LIVE增量、Debugger动作时间线和实际Halt窗口。
+# 4. 记录计数、策略寄存器和每组采样前后的CPU停核状态；全部采样后才Resume。
 #
 # 通过条件：
-# 1. PAUSE策略的Halt窗口计数增量不超过RUN_FREE增量的有界比例。
+# 1. PAUSE策略的两次停核内读数完全相同，配置回读符合PAUSE。
 # 2. RUN_FREE策略的Halt窗口计数增量为正，证明CPU Halt期间STIMER仍在运行。
 # 3. 每个策略均由真实Debugger Halt/Resume完成，不能用STIMER软件Pause替代。
 def test_stimer_p2_003_debugger_halt_behavior(
     stimer_support_for: StimerSupportFactory,
     stimer_instance_id: int,
     debug_controller,
+    stimer_halt_mapping,
     et_artifact_dir: Path,
     record_property: Callable[[str, object], None],
     crg_driver,
@@ -462,6 +462,7 @@ def test_stimer_p2_003_debugger_halt_behavior(
         | StimerFeature.FREE_RUN,
     )
     configured = False
+    sample_spec, run_free_mask = stimer_halt_mapping
 
     try:
         # 配置：建立PAUSE策略的独立长周期计数会话。
@@ -477,13 +478,13 @@ def test_stimer_p2_003_debugger_halt_behavior(
         configured = True
         support.stimer.start()
         time.sleep(DEBUG_HALT_SAMPLE_INTERVAL_S)
-        pause_before = support.stimer.live_count_get()
 
-        # 激励：在同一Debugger会话内完成Halt、保持和Resume，避免断开探针改变暂停状态。
-        pause_hold = debug_controller.hold_for(DEBUG_HALT_WINDOW_S)
-        pause_window_s = pause_hold.completed_s - pause_hold.started_s
-        pause_after = support.stimer.live_count_get()
-        pause_delta = pause_after - pause_before
+        # 观测：两组读数均在确认CPU停核后取得；请求等待时长不冒充实际停核时长。
+        pause_samples = debug_controller.sample_while_halted(sample_spec, DEBUG_HALT_WINDOW_S)
+        pause_before, pause_after = pause_samples.before[0], pause_samples.after[0]
+        pause_delta = (pause_after - pause_before) % UINT32_MODULUS
+        pause_hold = pause_samples.action
+        pause_window_s = pause_samples.interval_s
 
         # 重建：停止并清零后切换RUN_FREE策略，避免前一策略残留计数影响结果。
         support.stimer.stop()
@@ -491,13 +492,13 @@ def test_stimer_p2_003_debugger_halt_behavior(
         support.stimer.debug_halt_policy_set(StimerDebugHaltPolicy.RUN_FREE)
         support.stimer.start()
         time.sleep(DEBUG_HALT_SAMPLE_INTERVAL_S)
-        run_before = support.stimer.live_count_get()
 
-        # 激励：重复相同的原子Debugger Halt窗口，验证RUN_FREE不随CPU停止。
-        run_hold = debug_controller.hold_for(DEBUG_HALT_WINDOW_S)
-        run_window_s = run_hold.completed_s - run_hold.started_s
-        run_after = support.stimer.live_count_get()
-        run_delta = run_after - run_before
+        # 观测：重复相同停核采样，RUN_FREE应推进；全部读取结束后才恢复CPU。
+        run_samples = debug_controller.sample_while_halted(sample_spec, DEBUG_HALT_WINDOW_S)
+        run_before, run_after = run_samples.before[0], run_samples.after[0]
+        run_delta = (run_after - run_before) % UINT32_MODULUS
+        run_hold = run_samples.action
+        run_window_s = run_samples.interval_s
 
         # 证据：在决定性断言前记录COUNT.LIVE、策略和Debugger动作时间线。
         record_property("debugger_identity", debug_controller.identity)
@@ -505,7 +506,7 @@ def test_stimer_p2_003_debugger_halt_behavior(
         record_property("run_free_window_s", run_window_s)
         record_property("pause_delta", pause_delta)
         record_property("run_free_delta", run_delta)
-        record_property("halt_duration", [pause_window_s, run_window_s])
+        record_property("requested_sample_interval_s", [pause_window_s, run_window_s])
         record_observation(
             record_property,
             key="pause_count_samples",
@@ -522,18 +523,23 @@ def test_stimer_p2_003_debugger_halt_behavior(
         )
         record_observation(
             record_property,
-            key="debugger_pause_window_s",
-            value=pause_window_s,
-            source="instrument",
-            endpoint="DEBUGGER.HALT_WINDOW",
+            key="cpu_halt_status",
+            value=[*pause_samples.halt_status, *run_samples.halt_status],
+            source="dut",
+            endpoint="CPU.DEBUG.HALT_STATUS",
             device_id=debug_controller.identity,
         )
         record_observation(
             record_property,
-            key="debugger_run_free_window_s",
-            value=run_window_s,
-            source="instrument",
-            endpoint="DEBUGGER.HALT_WINDOW",
+            key="debug_policy_readback",
+            value=[
+                pause_samples.before[1],
+                pause_samples.after[1],
+                run_samples.before[1],
+                run_samples.after[1],
+            ],
+            source="dut",
+            endpoint="DEBUG_HALT.CONFIG",
             device_id=debug_controller.identity,
         )
         write_json_result(
@@ -561,13 +567,19 @@ def test_stimer_p2_003_debugger_halt_behavior(
                     },
                 },
                 "pause": {
-                    "window_s": pause_window_s,
+                    "requested_interval_s": pause_window_s,
+                    "halt_status": pause_samples.halt_status,
+                    "resumed_status": pause_samples.resumed_status,
+                    "policy_readback": [pause_samples.before[1], pause_samples.after[1]],
                     "before": pause_before,
                     "after": pause_after,
                     "delta": pause_delta,
                 },
                 "run_free": {
-                    "window_s": run_window_s,
+                    "requested_interval_s": run_window_s,
+                    "halt_status": run_samples.halt_status,
+                    "resumed_status": run_samples.resumed_status,
+                    "policy_readback": [run_samples.before[1], run_samples.after[1]],
                     "before": run_before,
                     "after": run_after,
                     "delta": run_delta,
@@ -576,8 +588,12 @@ def test_stimer_p2_003_debugger_halt_behavior(
         )
 
         # 断言：PAUSE冻结、RUN_FREE推进且两种策略由真实Debugger动作区分。
+        assert pause_samples.before[1] & run_free_mask == 0
+        assert pause_samples.after[1] & run_free_mask == 0
+        assert run_samples.before[1] & run_free_mask == run_free_mask
+        assert run_samples.after[1] & run_free_mask == run_free_mask
         assert run_delta > 0
-        assert pause_delta <= max(1, int(run_delta * DEBUG_HALT_MAX_PAUSE_DELTA_RATIO))
+        assert pause_delta == 0
     finally:
         # 清理：原子Halt动作已在单一会话内恢复CPU；这里只恢复STIMER默认策略。
         if configured:

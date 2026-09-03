@@ -3,6 +3,9 @@
 # 边界：不执行Feature Mutation，不隐藏Case流程。
 # 依赖：仅依赖 Framework/STIMER Driver、Chip Capability 和本 IP Support。
 
+import re
+from importlib import import_module
+
 import pytest
 
 from ...drivers.crg import CRG_SERVICE_ID, CrgDriver
@@ -13,6 +16,7 @@ from ...drivers.stimer import STIMER_SERVICE_ID, StimerDriver
 from ...drivers.sysctrl import SYSCTRL_SERVICE_ID, SysctrlDriver
 from ...profiles.capabilities import ChipCapabilities
 from ...profiles.resolvers import resolve_dma_input_route
+from ...programmers import HaltSampleSpec
 from ._support import StimerCaseSupport, StimerDmaCaseSupport, StimerSupportFactory
 
 
@@ -135,3 +139,25 @@ def stimer_dma_support(
 
 
 __all__ = ("stimer_support_for",)
+
+
+# 只解析当前芯片的只读采样映射；寄存器地址和策略位不能进入公共Case。
+@pytest.fixture
+def stimer_halt_mapping(
+    target_capabilities: ChipCapabilities,
+    stimer_instance_id: int,
+) -> tuple[HaltSampleSpec, int]:
+
+    chip = target_capabilities.chip_id
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", chip):
+        raise pytest.UsageError(f"invalid chip identity: {chip!r}")
+    module = import_module(
+        f"et_test_platform.profiles.chip_execution_mappings.{chip}.stimer_routes"
+    )
+    spec = module.STIMER_HALT_SAMPLE_SPECS[stimer_instance_id]
+    run_free_mask = module.STIMER_RUN_FREE_MASK
+    if not isinstance(spec, HaltSampleSpec) or len(spec.register_addresses) != 2:
+        raise pytest.UsageError("STIMER halt mapping must sample count and policy configuration")
+    if type(run_free_mask) is not int or not 0 < run_free_mask <= 0xFFFFFFFF:
+        raise pytest.UsageError("STIMER halt mapping requires a valid policy mask")
+    return spec, run_free_mask

@@ -796,36 +796,37 @@ feature_refs:
 method:
   inputs:
   - 策略矩阵：分别执行debug_halt_policy=PAUSE与RUN_FREE，使用相同长period/divider避免Halt期间Overflow。
-  - Halt窗口：由Debugger控制固定有界Halt时长并记录独立halt_duration，不以目标CPU软件延时模拟Halt。
+  - 采样间隔：Debugger在两组停核内读取之间请求等待0.2秒；这是请求间隔，不是工具进程耗时或实测Halt时长。
   steps:
-  - Debugger准备：建立可脚本化的Halt/Resume控制并确认可在CPU Halt状态读取或恢复后读取STIMER计数。
-  - PAUSE配置：配置STIMER PAUSE策略、长period后START，读取COUNT.LIVE保存pause_before。
-  - PAUSE Halt：Debugger真实Halt CPU并保持目标窗口，记录halt_duration后Resume。
-  - PAUSE读回：读取COUNT.LIVE保存pause_after，确认Halt窗口内计数未按正常速率推进。
-  - RUN_FREE重建：Stop并重新配置RUN_FREE策略，START后读取COUNT.LIVE保存run_before。
-  - RUN_FREE Halt：以相同Debugger流程再次Halt/Resume并记录第二个halt_duration。
-  - RUN_FREE读回：读取COUNT.LIVE保存run_after，确认计数在Halt窗口内继续推进。
-  - 结果汇总：比较两种策略的Count Delta与独立Halt窗口，保留Debugger Session Artifact。
+  - 基线准备：复位目标STIMER及Resource Pool，由芯片执行映射提供只读计数、策略配置和CPU停核状态采样端点。
+  - PAUSE配置：配置长period、Free-Run模式和PAUSE策略后START，避免观测期间自然Overflow。
+  - PAUSE停核：Debugger Halt CPU；确认CPU.DEBUG.HALT_STATUS，在停核内读取COUNT.LIVE和DEBUG_HALT.CONFIG。
+  - PAUSE读回：请求等待0.2秒，再次在停核内读取相同端点；两组采样前后均核对停核状态，全部采样后Resume并确认CPU恢复。
+  - RUN_FREE重建：Stop并Clear，切换RUN_FREE策略后START；不继承前一场景计数。
+  - RUN_FREE采样：重复相同停核、两组读数、状态核对和Resume流程，得到run_before/run_after。
+  - 证据保存：记录两组计数、策略配置、CPU停核状态、请求间隔及Debugger完整日志；证据先于决定性断言保存。
+  - 结果判定：策略配置必须正确，PAUSE两次计数完全一致，RUN_FREE计数正向增加；不得使用恢复后的计数或工具进程耗时作替代。
   observations:
-  - PAUSE前后计数：读取COUNT.LIVE形成pause_before/pause_after，期望Halt窗口内Delta处于冻结量化范围。
-  - RUN_FREE前后计数：读取COUNT.LIVE形成run_before/run_after，期望Halt窗口内出现与divider一致的正向Delta。
-  - Debugger Halt窗口：由Instrument/Debugger记录实际halt_duration，作为独立刺激事实而非STIMER寄存器。
+  - PAUSE停核内计数：COUNT.LIVE形成pause_before/pause_after，期望Delta为0。
+  - RUN_FREE停核内计数：COUNT.LIVE形成run_before/run_after，期望Delta大于0。
+  - CPU停核状态：CPU.DEBUG.HALT_STATUS在每组读取前后均证明停核；恢复后另核对CPU已运行。
+  - 策略配置回读：DEBUG_HALT.CONFIG分别证明PAUSE和RUN_FREE配置在观测期间保持生效。
   pass_criteria:
-  - PAUSE策略正确：真实Halt窗口内STIMER计数冻结在Observer量化上界内。
-  - RUN_FREE策略正确：真实Halt窗口内STIMER计数继续推进且Delta明显大于PAUSE节点。
-  - 策略隔离：两节点均从独立生命周期开始且不因Overflow/Reset混淆结果。
+  - PAUSE策略正确：停核状态成立、策略回读正确且两次计数完全相同。
+  - RUN_FREE策略正确：停核状态成立、策略回读正确且计数增量大于0。
+  - 策略隔离：两节点均从清零基线开始；读取完成后CPU必须恢复运行，调试器失败不得误判硬件PASS。
 timeout: 每个Debugger节点限定Halt、Resume和读回deadline；Debugger失联立即失败关闭
 cleanup:
 - 确保CPU已Resume并停止STIMER，恢复默认debug_halt_policy。
 - 关闭Debugger自动化Session并保存Halt/Resume时间线。
 resources: {minimum_level: R3, full_coverage_level: R3, board: DUT需支持受控Debug Halt且不触发额外Reset, bench: JTAG或SWD Debugger自动化控制}
 backend: [FPGA, Silicon]
-evidence: [COUNT.LIVE前后Observation + Debugger halt_duration Measurement + Debug Session Artifact]
+evidence: [COUNT.LIVE停核内Observation + CPU.DEBUG.HALT_STATUS + DEBUG_HALT.CONFIG + 请求采样间隔Measurement + Debug Session Artifact]
 failure_observations:
 - {key: pause_delta, label: PAUSE策略Halt窗口计数增量, source: measurement, role: actual, format: decimal}
 - {key: run_free_delta, label: RUN_FREE策略Halt窗口计数增量, source: measurement, role: actual, format: decimal}
-- {key: debugger_pause_window_s, label: PAUSE策略Debugger实际Halt时长, source: instrument, role: stimulus, format: float, semantic_ref: stimer.feature.debug_halt}
-- {key: debugger_run_free_window_s, label: RUN_FREE策略Debugger实际Halt时长, source: instrument, role: stimulus, format: float, semantic_ref: stimer.feature.debug_halt}
+- {key: cpu_halt_status, label: 两组采样前后CPU停核状态, source: dut, role: actual, format: text, semantic_ref: stimer.feature.debug_halt}
+- {key: debug_policy_readback, label: PAUSE与RUN_FREE策略配置回读, source: dut, role: actual, format: text, semantic_ref: stimer.feature.debug_halt}
 gap: [stimer_debugger_bench_gap]
 ```
 <!-- ET_CASE_SPEC_END -->
@@ -978,10 +979,10 @@ cases:
   STIMER_P2_003:
     summary: "STIMER真实Debugger Halt下PAUSE策略冻结计数，RUN_FREE策略继续计数。"
     fields:
-      - {source: observation, path: pause_count_samples, label: PAUSE策略Halt前后COUNT.LIVE, format: text, aggregate: same}
-      - {source: observation, path: run_free_count_samples, label: RUN_FREE策略Halt前后COUNT.LIVE, format: text, aggregate: same}
-      - {source: observation, path: debugger_pause_window_s, label: PAUSE策略Debugger Halt窗口, format: float, aggregate: distinct}
-      - {source: observation, path: debugger_run_free_window_s, label: RUN_FREE策略Debugger Halt窗口, format: float, aggregate: distinct}
+      - {source: observation, path: pause_count_samples, label: PAUSE停核内COUNT.LIVE两次读数, format: text, aggregate: same}
+      - {source: observation, path: run_free_count_samples, label: RUN_FREE停核内COUNT.LIVE两次读数, format: text, aggregate: same}
+      - {source: observation, path: cpu_halt_status, label: 两组采样前后CPU停核状态, format: text, aggregate: same}
+      - {source: observation, path: debug_policy_readback, label: PAUSE及RUN_FREE策略寄存器回读, format: text, aggregate: same}
   STIMER_P3_001:
     summary: "STIMER长时Free-Run的外部Overflow周期与Service IRQ累计保持一致。"
     fields:

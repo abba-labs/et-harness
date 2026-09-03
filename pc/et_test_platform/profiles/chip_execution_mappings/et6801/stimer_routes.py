@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import MappingProxyType
 
+from ....programmers import HaltSampleSpec
 from ..dma_routes import DmaInputMapping
 
 # ET6801 六个 STIMER 实例的计数周期寄存器 DMA 读端点与 Request 事实。
@@ -30,3 +31,23 @@ STIMER_DMA_INPUT_MAPPINGS: Mapping[int, DmaInputMapping] = MappingProxyType(
         for instance_id in range(6)
     }
 )
+
+# ET6801 CMSIS core_cm7.h：DHCSR.S_HALT=bit17，读取不会清除该状态位。
+# ET6801.svd：STIMER0基址0x40406000，各实例间隔0x1000；CNT_RPT偏移0x68、STM_SET偏移0x04。
+# 采样顺序固定为实时计数、策略配置；两个寄存器均无read-to-clear副作用。
+STIMER_HALT_SAMPLE_SPECS: Mapping[int, HaltSampleSpec] = MappingProxyType(
+    {
+        instance_id: HaltSampleSpec(
+            status_address=0xE000EDF0,
+            halted_mask=1 << 17,
+            register_addresses=(
+                0x40406068 + instance_id * 0x1000,
+                0x40406004 + instance_id * 0x1000,
+            ),
+        )
+        for instance_id in range(6)
+    }
+)
+
+# ET6801.svd STM_SET.STM_CPUHALT_MODE_R bit7：0=停核时暂停，1=停核时继续计数。
+STIMER_RUN_FREE_MASK = 1 << 7
