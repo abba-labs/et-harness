@@ -1,7 +1,14 @@
 # 只保存IP分析资料定位；category用于导航，不限制Evidence用途。
-schema: et.ip-analysis-sources.v1
+schema: et.local-resource-map.v1
+version: "1.0.0"
+updated_at: "2026-09-03"
 
-roots:
+#note：
+#1）线上的agent（网页版gpt）分析使用路径roots0
+#2）对于本地的agent，例如codex、pi等本地agent分析使用路径roots1
+
+
+roots0:
   codex_local: "G:/我的云端硬盘/ET_FILE/CODE/sdk"
   chatgpt_google_drive:
     folder_id: "1dMyOSUaTzjlTXIhM5q5xzAqQHg1mVZ14"
@@ -84,3 +91,196 @@ chips:
         roots:
           - local_relative: "6801/et6801-verification/DFP/Test"
             drive_id: "1Gc-kWlEbQC-V-ik6MPWTlTrhniHaugbd"
+
+
+
+
+
+# ==============================================================================
+# ET MCU Local High-Efficiency Resource Navigation Map for AI Agents
+# Schema: et.local-resource-map.v1
+# Purpose: 指导 Agent 以 O(1) 复杂度直接计算出目标资料路径，杜绝盲目 find/grep
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. 根目录锚点 (Root Anchors) - 统一变量定义
+# ------------------------------------------------------------------------------
+roots1:
+  SDK_GIT: "D:/lihuan/vibe_code/code/SDK/git"
+  SVN_SOFTWARE: "D:/lihuan/vibe_code/SVN/Software"
+  BOOT_ROM: "D:/lihuan/vibe_code/code/boot_rom"
+  ATP_REPO: "D:/lihuan/vibe_code/codex/projects/ET_ATP_Testing"
+  GDRIVE_SDK: "G:/我的云端硬盘/ET_FILE/CODE/sdk" # 仅作云盘映射备用
+
+# ------------------------------------------------------------------------------
+# 2. 意图路由矩阵 (Intent-Driven Routing)
+# 当 Agent 有明确需求时，查此表直接获取路径模板 (占位符: {chip}, {chip_upper}, {ip}, {ip_upper})
+# ------------------------------------------------------------------------------
+intent_routing:
+  # --- 寄存器权威事实 ---
+  reg_svd_full:
+    description: "最新整片 SVD 寄存器文件（最权威硬件位图事实）"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/Tools/RegGen/ET{chip_upper_code}.svd"
+
+  reg_svd_ip:
+    description: "最新单外设独立拆分 SVD 目录"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/Tools/RegGen/svd/"
+    match_rule: "{ip}*.svd 或 {ip_upper}*.svd"
+
+  # --- 官方驱动源码 ---
+  driver_header:
+    description: "官方 DFP 外设驱动头文件 (et6x_<ip>.h 或 et3x_<ip>.h)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Drivers/ET{chip_series}_Driver/Inc/{chip_prefix}_{ip}.h"
+
+  driver_source:
+    description: "官方 DFP 外设驱动 C 源码"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Drivers/ET{chip_series}_Driver/Src/{chip_prefix}_{ip}.c"
+
+  # --- 各种测试代码 ---
+  test_functional:
+    description: "外设功能验证测试代码 (<ip>_ft.c 或 <ip>_test.c)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/FunctionalTest/{ip}_ft.c"
+    fallback: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/FunctionalTest/{ip}_test.c"
+
+  test_unit:
+    description: "外设驱动单元测试代码 (test_<ip>.c)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/UnitTest/test_{ip}.c"
+
+  test_fpga_module:
+    description: "硅前 FPGA 原型验证针对性模块测试代码"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/FPGATest/{ip_upper}/"
+
+  test_fpga_project:
+    description: "硅前 FPGA 原型验证顶层 Keil UV4 工程"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Project/{project_file}"
+
+  test_stress_aging:
+    description: "长时间高负荷/老化/极限压力测试代码套件 (Memory/Flash/多核并发)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/StressTest/"
+    core_files:
+      - "Integrated_StressTest.c"
+      - "Mem_StreessTest.c"
+      - "Flash_StreessTest.c"
+      - "集成压力测试说明.md"
+
+  test_chip_sieve:
+    description: "回片初筛 / 晶圆筛选测试程序 (MARCH-C 内存老化测试、IO翻转、RegScan)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/ChipSieveTest/chip_sieve.c"
+
+  test_smoke:
+    description: "上电冒烟测试 (重点校验 ADC模拟链与SRPWM波形链)"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/SmokeTest/"
+
+  test_electrical:
+    description: "芯片电气特性实测源码"
+    priority: 1
+    template: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/ElectricalTest/electrical_test_entry.c"
+
+  test_benchmark:
+    description: "CPU Coremark 跑分及混合信号链基准测试"
+    priority: 1
+    templates:
+      coremark: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/Coremark/"
+      dsp_signal_chain: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/SignalChainbenchmark/"
+      irq_latency: "{SDK_GIT}/{chip}/et{chip}-verification/DFP/Test/PerformceTest/IT_latency/"
+
+  # --- 需求与测试用例规格 ---
+  spec_case_json:
+    description: "结构化测试用例规格（已提炼为 JSON，Agent 阅读速度最快）"
+    priority: 1
+    template: "{SDK_GIT}/test_case/{chip}/{ip}.json"
+
+  spec_case_excel:
+    description: "原始业务需求与回片验证测试用例（Excel 原始表）"
+    priority: 2
+    template: "{SVN_SOFTWARE}/ET{chip_upper_code}/04 测试用例/01 回片验证/02 测试用例/{ip}_testcase.xlsx"
+    fallback: "{SVN_SOFTWARE}/ET{chip_upper_code}/04 测试用例/驱动开发-测试用例/01 已评审/{ip}_testcase.xlsx"
+
+  # --- 架构设计与用户手册 ---
+  doc_detailed_design:
+    description: "官方 SDK 模块软件详细设计说明书（Word/Docx 格式，阐述底层设计）"
+    priority: 1
+    template: "{SVN_SOFTWARE}/ET6002/01 设计文档/04 SDK详细设计/ET6002 {ip_upper}模块软件详细设计书.docx"
+    fallback: "{SVN_SOFTWARE}/ET6001/01 设计文档/04 SDK详细设计/ET6001 {ip_upper}模块软件详细设计书.docx"
+
+  doc_user_manual:
+    description: "芯片官方数据手册 / 寄存器定义用户手册"
+    priority: 1
+    template: "{SVN_SOFTWARE}/ET6003/03 参考资料/IDS/ET6003-用户手册_寄存器定义_V1.0.0.docx"
+    manual_pdf: "{SVN_SOFTWARE}/ET6003/03 参考资料/ET60157-用户手册_V1.0.0.pdf"
+
+  # --- BootROM 与自举 ---
+  bootrom_driver:
+    description: "BootROM 极简底层驱动 (脱离 OS 的原生寄存器操作)"
+    priority: 1
+    template: "{BOOT_ROM}/bootrom-dev-et{chip}/source/Drivers/"
+
+  # --- 自动化测试平台契约 ---
+  atp_formal_case:
+    description: "ATP 自动化测试平台 Formal Case (pytest 架构)"
+    priority: 1
+    template: "{ATP_REPO}/pc/et_test_platform/test_cases/{ip}/"
+
+  atp_ip_contract:
+    description: "ATP 自动化测试平台公共契约与芯片适配事实文档"
+    priority: 1
+    public_contract: "{ATP_REPO}/test_case_doc/{ip}/{ip}.md"
+    chip_adaptation: "{ATP_REPO}/test_case_doc/{ip}/ET{chip_upper_code}_{ip}.md"
+
+# ------------------------------------------------------------------------------
+# 3. 芯片参数具体化映射 (Chip-Specific Variables)
+# ------------------------------------------------------------------------------
+chip_parameters:
+  et6801:
+    chip: "6801"
+    chip_upper_code: "6801"
+    chip_series: "6x"
+    chip_prefix: "et6x"
+    project_file: "base.uvprojx"
+    svd_full_path: "D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification/Tools/RegGen/ET6801.svd"
+    svd_dir: "D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification/Tools/RegGen/svd/"
+    fpga_project: "D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification/DFP/Project/base.uvprojx"
+    core1_project: "D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification/DFP/Project_Core1/base.uvprojx"
+    notes: "2026年3月更新最新 IDS；支持 Coremark/ElectricalTest/SignalChainbenchmark"
+
+  et3101:
+    chip: "3101"
+    chip_upper_code: "3101"
+    chip_series: "3x"
+    chip_prefix: "et3x"
+    project_file: "ET3101.uvprojx"
+    svd_full_path: "D:/lihuan/vibe_code/code/SDK/git/3101/et3101-verification/Tools/RegGen/ET3101.svd"
+    svd_dir: "D:/lihuan/vibe_code/code/SDK/git/3101/et3101-verification/Tools/RegGen/svd/"
+    fpga_project: "D:/lihuan/vibe_code/code/SDK/git/3101/et3101-verification/DFP/Project/ET3101.uvprojx"
+    notes: "FPGATest 分类最细，含 20+ 外设独立子目录；特有外设 CLB, LIN, WAG, SDFM"
+
+  et6003:
+    chip: "6003"
+    chip_upper_code: "6003"
+    chip_series: "6x"
+    chip_prefix: "et6x"
+    project_file: "ET6003.uvprojx"
+    svd_full_path: "D:/lihuan/vibe_code/code/SDK/git/6003/et6003-verification/Tools/RegGen/ET6003.svd"
+    svd_dir: "D:/lihuan/vibe_code/code/SDK/git/6003/et6003-verification/Tools/RegGen/svd/"
+    fpga_project: "D:/lihuan/vibe_code/code/SDK/git/6003/et6003-verification/DFP/Project/ET6003.uvprojx"
+    notes: "包含 CPUSelfTest 汇编及 C 自检测试套件；SVN 下有完整寄存器定义用户手册"
+
+  et6002:
+    chip: "6002"
+    chip_upper_code: "6002"
+    chip_series: "6x"
+    chip_prefix: "et6x"
+    project_file: "ET6002.uvprojx"
+    svd_full_path: "D:/lihuan/vibe_code/code/SDK/git/6002/et6002-sdk/Tools/RegGen/output/ET6002.svd"
+    notes: "SVN 下拥有最全的 Word 版《SDK详细设计说明书》全集（可作为全系列 IP 架构设计参考）"

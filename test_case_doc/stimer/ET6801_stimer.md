@@ -17,7 +17,7 @@
 | Historical ET6801 FPGA Test | Google Drive `FPGATest/stimer_fpga_test.c`，仅作历史硬件/Bench 线索，不作为当前 SHA HIL |
 | Historical Requirements | ET3101 / ET6003 `stimer.json`，用于 Source Item Trace；与 ET6801 直接 SVD 冲突时不得覆盖目标芯片事实 |
 | Cross-chip Manual | `ET60157-用户手册_V1.0.0.pdf`，只作同类 IP 历史语义对照 |
-| Current Working-tree HIL | 基础全量回归已执行；2026-08-22另对`STIMER_P2_003`执行真实J-Link Halt/Resume专项HIL并得到FAIL |
+| Current HIL | 2026-09-03对`STIMER_P2_003`执行停核内采样专项HIL，1 Case / 1 execution / FAIL；CPU停核已由DHCSR确认，详见当前状态表 |
 
 裁决顺序固定为：
 
@@ -236,7 +236,7 @@ CPU自写`DHCSR=0xA05F0003`必须已有调试器使能`C_DEBUGEN`；CPU停核后
 本Case复用现有J-Link执行Halt/Go并读取DHCSR证明停核，不增加固件命令。
 `DEMCR.bit0`是`VC_CORERESET`，不能用于判断调试器是否连接。
 以下旧HIL记录保留为历史现象；旧的跨Halt/Resume计数差不能单独证明停核期间的增长率。
-新方法的硬件结果将在本轮定向测试后写入唯一当前状态表，不以软件测试替代。
+新方法已完成定向测试，实际读数和结果只在文末当前状态表更新，不以软件测试替代。
 
 ### 3.2 IRQ Source bit mapping
 
@@ -284,8 +284,8 @@ R120/R130 报告层必须继续把 `IRQ_RAW.*`、`IRQ_STATUS.*`、`IRQ_DELIVERY.
 | `stimer_emergency_trigger_mapping_gap` | MAPPING | XBAR有两组23-bit ERG enable，具体安全Source未冻结 | 指定安全可控Source、路由、刺激方法及禁止项 |
 | `stimer_emergency_capture_cleanup_gap` | CLOSED | SYSC capture为只读；Test Driver Extension通过禁用ERG路由闭合清理，后续有效触发覆盖旧值，不向只读寄存器猜写清零 | 保持清理顺序：停止STIMER→禁用ERG路由→关闭外部激励 |
 | `stimer_pause_overflow_boundary_bench_gap` | BENCH | Hardware优先级明确 | 建立可同步Pause/Overflow边界刺激和时序Observer |
-| `stimer_debugger_bench_gap` | CLOSED | 公共DebugController已经通过J-Link执行两轮真实Halt/Resume，并记录实际halt window与调试器身份 | 保持Debugger动作与STIMER端点分离记录 |
-| `stimer_debug_halt_behavior_gap` | FPGA_RTL_BEHAVIOR_GAP / HIL_FAIL | SVD定义PAUSE时CPU Halt应冻结、RUN_FREE时应继续；当前FPGA实测两轮Counter分别推进12,318,488和11,483,428，速率基本一致，PAUSE未冻结 | RTL/bit所有者确认CPU Halt信号是否真正接入STIMER及`STM_CPUHALT_MODE_R`语义；修复或说明后重跑P2_003，并在Silicon HIL独立验证 |
+| `stimer_debugger_bench_gap` | CLOSED | 公共DebugController在同一J-Link会话内读取两组计数，采样前后均核对DHCSR.S_HALT，并在Go后确认恢复 | 请求Sleep间隔与进程耗时分开记录；缺读数或停核不成立时失败关闭 |
+| `stimer_debug_halt_behavior_gap` | FPGA_BEHAVIOR_GAP / HIL_FAIL | 最新停核内证据确认PAUSE配置正确且CPU已Halt，但计数仍增加；不能归因于恢复后CPU执行时间 | 由设计人员核对当前FPGA中目标CPU的Halt信号与STIMER时钟域/多核关联；软件证据尚不能定位具体RTL根因 |
 | `stimer_reference_observer_gap` | BENCH | P3长时绝对周期/漂移仍需要独立时钟参考；P1预分频比例已改为同一STIMER不同divider的内部计数速率比，不再依赖本Gap | Companion FPGA或示波器绑定到已审核事件路由，并冻结量化误差 |
 | `stimer_long_run_reference_bench_gap` | ENVIRONMENT | 示波器与可编程电源接口可用，但长期事件路由、独立计数和Artifact链尚未闭合 | R5环境、独立Reference/Event Counter、稳定供电和Artifact retention闭合 |
 
@@ -337,7 +337,7 @@ R120/R130 报告层必须继续把 `IRQ_RAW.*`、`IRQ_STATUS.*`、`IRQ_DELIVERY.
 | STIMER_P1_010 | ADAPTED | Working-tree FPGA HIL PASS；两次自然Compare与Repeat状态生命周期闭合 |
 | STIMER_P2_001 | ADAPTED | Working-tree FPGA HIL五个参数节点全部PASS；ISR清除前锁存、DMA Channel终态与Destination数据形成三重证据 |
 | STIMER_P2_002 | BENCH_GAP | 公共Driver/Wrap/Service/PC Case已实现；Case通过`stimer_emergency_input`逻辑PulseStimulus触发，ET6801默认Source mask为0，运行前需Bench提供已审核安全ERG Source与路由 |
-| STIMER_P2_003 | ADAPTED | 真实J-Link Halt/Resume与COUNT.LIVE执行链已闭合；当前FPGA专项HIL为FAIL，PAUSE和RUN_FREE两轮Counter均以相近速率推进。 |
+| STIMER_P2_003 | ADAPTED | 两组停核内COUNT.LIVE、STM_SET及DHCSR.S_HALT采样链已闭合；2026-09-03专项HIL为FAIL，PAUSE配置正确但计数增长。 |
 | STIMER_P3_001 | BENCH_GAP | Formal Case已实现stimer_reference/stimer_output逻辑观测、Service IRQ累计与长时Artifact；运行前仍需Bench绑定逻辑信号和稳定时钟/供电 |
 
 以上状态的含义是“当前最主要阻塞域”。`BENCH_GAP` 表示 Formal Case 已按真实接口实现，但运行所需的 Bench 绑定尚未具备；缺少接口的项目继续保持 `MAPPING_GAP` 或 `ENVIRONMENT_GAP`，不得伪造实现。
@@ -419,13 +419,19 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-08-28 21:28 CST`
+状态更新时间：`2026-09-03 14:35 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:16 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
+| FPGA | `2026-09-03 14:32 CST` | `bedb44062af1d81b157cf980a7c7ca579061e4f0` | `false` | `artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/` |
+
+本次仅选择`STIMER_P2_003`：1个逻辑Case、1个execution，0 PASS / 1 FAIL / 0 SKIP。
+Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`2d3e0bb2`，控制通道`COM12@115200`；
+J-Link通过AP[1]连接Cortex-M7。未重编译、烧录或重启；停核PC分别为`0x08011E24`和`0x08010F14`，在Flash范围内。
+Source身份对应本次PC代码；未取得板上Firmware、bitstream的精确源SHA，不能宣称三者Exact-SHA闭环。
+以下全IP汇总保留各Case最近已知结论：其他15个Case沿用2026-08-28全量证据，**不表示本次又跑了16个Case**。
 
 ### 当前结果汇总
 
@@ -439,8 +445,24 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 |---|---|---|---|---|---|---|---|
 | `STIMER_P1_008` | FPGA | SKIP | `STIMER_F_010` / Overflow、Compare事件脉宽扩展 | 当前Bench没有绑定`stimer_output`信号Observer，无法观测硬件输出脉宽 | 缺少STIMER事件输出路由和示波器或FPGA采样接线 | 完成输出路由、Observer和物理接线后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
 | `STIMER_P2_002` | FPGA | SKIP | `STIMER_F_016` / 紧急计数捕获 | Runtime Capability缺少`START_STOP`、`PERIOD`、`FREE_RUN`和`EMERGENCY_CAPTURE`组合，Case在刺激前停止 | 当前Service/Capability映射未提供该Case需要的完整语义，属于实现映射缺口，不是最终硬件SKIP结论 | 补齐并审核STIMER紧急捕获的公共命令、Capability和安全Source映射后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
-| `STIMER_P2_003` | FPGA | FAIL | `STIMER_F_015` / Debug Halt行为 | PAUSE窗口0.5568 s、Counter由607945增至9197879，增量8589934；RUN_FREE窗口0.4977 s、增量12846207；PAUSE未冻结Counter | 当前FPGA的CPU Halt信号到STIMER路径或PAUSE语义未生效；手动Keil Debug复测同样观察到Counter持续增加 | RTL/bit确认CPU Halt到STIMER的硬件路径后重测，并在Silicon独立验证 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
+| `STIMER_P2_003` | FPGA | FAIL | `STIMER_F_015` / Debug Halt行为 | 两种策略每组前后DHCSR均为`0x00030003`，S_HALT(bit17)=1；PAUSE时STM_SET=`0x00000003`，CNT_RPT由`0x013F16A9`增至`0x018F5043`，增量5,257,626；RUN_FREE时STM_SET=`0x00000083`，CNT_RPT由`0x00607D81`增至`0x00AECADF`，增量5,131,614 | 已排除“CPU未停核”及“PAUSE配置未写入”；当前FPGA的PAUSE行为不符合预期。Halt信号具体路径、时钟域与多核关联仍需设计人员确认，未证明具体RTL根因 | 设计人员确认当前FPGA目标CPU Halt与STIMER关联后复测；Silicon需独立验证 | `artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/` |
 | `STIMER_P3_001` | FPGA | SKIP | `STIMER_F_001`、`STIMER_F_002`、`STIMER_F_003`、`STIMER_F_004`、`STIMER_F_017` / 长时间周期、IRQ和计数稳定性 | 当前Bench没有绑定`stimer_reference`独立参考Observer，无法形成独立时基和外部周期证据 | 缺少独立参考时钟、事件输出观测和稳定供电Bench条件 | 完成独立参考、输出Observer及对应接线后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
+### 本次停核内原始证据
+
+测试方法：CRG复位STIMER0和整池复位Resource；配置长周期Free-Run计数。
+分别设置`STM_SET.STM_CPUHALT_MODE_R(bit7)=0/1`，经J-Link Halt，读取DHCSR、CNT_RPT、STM_SET、DHCSR；
+请求Sleep 200 ms后重复读取，再Go并读取DHCSR。没有在Resume后采样计数，也没有向DHCSR写入未审核测试常量。
+
+| 场景 | `DHCSR(0xE000EDF0)`四次停核读数 | `STM_SET(0x40406004)`两次读数 | `CNT_RPT(0x40406068)`两次读数 | Go后DHCSR |
+|---|---|---|---|---|
+| PAUSE | 均为`0x00030003`，bit17=1 | 均为`0x00000003`，bit7=0 | `0x013F16A9 -> 0x018F5043` | `0x01010001`，bit17=0 |
+| RUN_FREE | 均为`0x00030003`，bit17=1 | 均为`0x00000083`，bit7=1 | `0x00607D81 -> 0x00AECADF` | `0x01010001`，bit17=0 |
+
+结论：CPU停核、策略回读和恢复均有效；RUN_FREE计数增加符合预期，PAUSE未冻结，Case保留真实FAIL。
+200 ms只是请求采样间隔，包含寄存器访问开销的实际间隔未独立测量；本Case仅判断冻结/增长，不计算精确频率。
+原始文件为本Run内的`debug_01_sample.stdout.log`、`debug_02_sample.stdout.log`及`stimer_p2_003_debugger_halt_behavior.json`。
+Excel：`artifacts/reports/20260903_143244_328178_ET6801_STIMER测试报告.xlsx`；只包含本次选中Case的实测结论。
+本轮代码全量软件门禁为866 PASS / 9 SKIP，硬件FAIL不由软件门禁替代。
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST SKIP分类复核
