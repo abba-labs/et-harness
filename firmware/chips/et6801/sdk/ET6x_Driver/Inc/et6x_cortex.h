@@ -73,6 +73,43 @@ void arm_cm_delay_asm(uint32_t);
  * @}
  */
 
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+
+/* SYSCNT has two 32-bit words in each of its SVD register views. */
+#define SYSCNT_TEST_WORD_BITS 32u
+/* A torn read retries at most four times; failure never returns a fabricated count. */
+#define SYSCNT_TEST_READ_ATTEMPTS 4u
+
+typedef enum
+{
+    SYSCNT_TEST_VIEW_CONTROL = 0u,
+    SYSCNT_TEST_VIEW_READ = 1u
+} SYSCNT_TestView;
+
+typedef struct
+{
+    uint8_t enabled;
+    uint8_t halt_enabled;
+    uint8_t debug_halted;
+    uint32_t frequency_id_hz;
+} SYSCNT_TestControl;
+
+/* Atomic SYSCNT operations; external clock/halt routing stays caller-owned. */
+DRV_Status SYSCNT_testSetEnabled(uint8_t enabled);
+DRV_Status SYSCNT_testLoadStopped(uint64_t value);
+DRV_Status SYSCNT_testReadCount(SYSCNT_TestView view, uint64_t *value);
+DRV_Status SYSCNT_testGetControl(SYSCNT_TestControl *control);
+DRV_Status SYSCNT_testSetHaltPolicy(uint8_t enabled);
+DRV_Status SYSCNT_testSetFrequencyId(uint32_t frequency_hz);
+
+/* Explicitly borrow the Cortex DWT reference; never reset CYCCNT. */
+DRV_Status SYSCNT_testSetReferenceEnabled(uint8_t enabled);
+DRV_Status SYSCNT_testSampleReference(uint32_t *before, uint64_t *count, uint32_t *after);
+
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
+
 #ifdef __cplusplus
 }
 #endif

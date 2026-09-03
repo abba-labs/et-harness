@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-03 21:36 CST。
+更新时间：2026-09-04 04:57 CST。
 
-本轮为资料与Case设计分析，无编译、烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前处于Driver实施阶段，尚无SYSCNT烧录或HIL。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -271,7 +271,28 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 
 2026-09-03 21:36 CST实施授权：用户明确允许CRG/SYSCTRL的SYSCNT最小前置修改及G01替代基线。CRG/SYSCTRL改动分别使用独立Task Context和Commit；不扩大到其他IP功能、公共协议或规则修改。G01设计决策已闭合，尚待实现验证；G02/G05/G06仍需按各自证据条件闭合，不把未知硬件事实写成PASS。
 
-### 6.2 下一阶段最短路径
+### 6.2 Driver实施记录
+
+2026-09-04：在现有`et6x_cortex.c/h`底部增加受`ET_ENABLE_TEST_DRIVER_EXTENSIONS`保护的SYSCNT原子接口，保留旧SDK调用行为。
+
+| 测试扩展 | 行为与边界 |
+|---|---|
+| `SYSCNT_testSetEnabled` | 只修改CNTCR.EN，保留计数、频率标识和其他位。 |
+| `SYSCNT_testLoadStopped` | EN=0才按低→高写入，完成后仍停止；运行时返回BUSY。 |
+| `SYSCNT_testReadCount` | 两窗口都按高→低→高读取；最多4次，不一致返回BUSY且不改输出。 |
+| `SYSCNT_testGetControl` | 分别读取EN、HDBG、DBGH和CNTFID0；不把暂停配置当暂停状态。 |
+| `SYSCNT_testSetHaltPolicy` | 只改CNTCR.HDBG；SYSCTRL暂停路由由PC调用所属Driver。 |
+| `SYSCNT_testSetFrequencyId` | 停止时写非零CNTFID0，不修改实际时钟。 |
+| `SYSCNT_testSetReferenceEnabled` | 显式借用Cortex DWT，保存TRCENA/CYCCNTENA，释放仅恢复这些位；不清零CYCCNT。 |
+| `SYSCNT_testSampleReference` | DWT→SYSCNT→DWT短采样，只返回原始值；未借用或使能丢失返回BUSY。 |
+
+G06实现决策：SYSCNT测试扩展仍位于原Cortex Driver，DWT作为同一Cortex所有者的独立参考。PC承担等待、32位回绕上界验证和结果判定。参考频率仍需要G02独立证据；本决策不宣称FPGA精度通过。当前平台Application/Framework/Service未发现SYSCNT/DWT延时消费者，实际HIL前仍核对参与Core。
+
+新增寄存器桩`test_syscnt_driver_native.py`执行真实测试扩展，覆盖写序、保留位、非法参数、双窗口正常/暂态进位/持续撕裂、DWT使能位借还及不清零约束。2026-09-04 04:57 CST，WSL GCC编译并执行通过（1个软件测试节点，guard `20260904_045723_613f31d4`）；软件桩不代替硬件结论。
+
+2026-09-04 05:02 CST：本批次统一软件门禁通过（928 PASS、13条件软件SKIP，guard `20260904_045955_bf83dba1`）。其中新增Native测试在Windows因无C编译器SKIP，已由上面的WSL执行单独补证；仍未执行SYSCNT Keil/HIL。
+
+### 6.3 下一阶段最短路径
 
 1. G01替代基线已获人工批准；实现前确认本次SYSCNT不是平台活动时间源。
 2. 先按2.3节整改Chip Driver并做定向验证，再封装停止装载、读回、Enable/Disable和P0；禁止先堆Service再回头补驱动风险。

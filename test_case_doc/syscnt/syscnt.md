@@ -1,6 +1,6 @@
 # SYSCNT Stable IP Contract
 
-更新时间：2026-09-03 20:45 CST。
+更新时间：2026-09-04 04:57 CST。
 
 本文件是SYSCNT公共测试设计，不是已实现或已实测声明。7条Case全部为PLAN；硬件事实、历史资料处置及实施前缺口见同目录芯片文档。遵循R100、R110、R120、R130、R140，不新增规则。
 
@@ -58,10 +58,11 @@ SYSCNT是持续递增的系统时间戳计数器，不是带周期比较中断�
 | `5 HALT_POLICY_SET` | policy:u8 | 空 | 只配置本IP暂停策略；必要的系统路由由PC显式配置。 |
 | `6 FREQUENCY_ID_SET` | hz:u32 | 空 | 停止时设置标识，不改变时钟；合法范围由Capability约束。 |
 | `7 REFERENCE_SAMPLE_GET` | 空 | reference_before:u64、count:u64、reference_after:u64 | 一个有界测量原语，按参考前值→SYSCNT值→参考后值读取，不等待目标时间、不判PASS。 |
+| `8 REFERENCE_ENABLE_SET` | enabled:u8 | 空 | 显式借用/释放参考计数器使能；借用期间连续计数，不清零参考值。重复相同请求无副作用。 |
 
 Feature flags依次对应计数使能、停止装载、双窗口读取、频率标识、暂停策略、参考采样；它们描述动作支持，不编码Case等级或测试结论。`read_view`编码CONTROL=0、READ=1；policy编码RUN_FREE=0、PAUSE=1。公共状态适配使用现有Status/Wrap Status，不新增错误体系。
 
-`REFERENCE_SAMPLE_GET`是待评审的目标侧短采样原语：芯片测试扩展可返回目标本地独立参考读数，但不得在Wrap/Service直接访问寄存器或调用其他IP Wrap。若既有测量原语能表达相同顺序则复用；否则实施前先审核芯片扩展边界。采样不复位参考计数器、不长时间关中断；参考中断、Debug或时钟变化造成的污染必须显式报告。
+`REFERENCE_SAMPLE_GET`是目标侧短采样原语：芯片测试扩展返回目标本地独立参考读数，不在Wrap/Service直接访问寄存器或调用其他IP Wrap。PC先显式借用参考，保持其在两个采样命令之间连续计数，最后释放；芯片Driver只恢复自己借用前的使能位，不覆盖其他控制位、不清零计数。未借用或参考被其他代码停用时拒绝采样，不自动重启伪造时间连续性。该测量要求参考独占配置，采样不长时间关中断；Debug或时钟变化造成的污染必须显式报告。
 
 长时间等待、参数化循环和Oracle由PC负责。没有异步计算任务，不引入Start/Job/Result状态机；停核采样复用已有调试器控制与Execution Mapping，不在SYSCNT新建调试后端。
 

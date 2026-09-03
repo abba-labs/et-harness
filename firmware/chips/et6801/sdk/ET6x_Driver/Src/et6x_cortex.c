@@ -86,9 +86,7 @@ void SYSCNT_disableDebugHalt(void)
 /**
  * @brief Get Debug halt status
  *
- * @return Debug halt set or not in SYSCNT
- * @retval SYSCNT_HALTMODE_UNSET    halt mode unset
- * @retval SYSCNT_HALTMODE_SET      halt mode set
+ * @return Actual CNTSR.DBGH status, not the configured CNTCR.HDBG policy.
  */
 bool SYSCNT_getDebugHaltStatus(void)
 {
@@ -255,3 +253,236 @@ void DWT_delay_us(uint32_t us)
     /* Disable the cycle counter */
     DWT->CTRL &= ~DWT_CTRL_CYCCNTENA_Msk;
 }
+
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+
+/* Only enable bits borrowed by this diagnostic are restored on release. */
+static uint8_t syscnt_test_reference_owned;
+static uint32_t syscnt_test_saved_trace_enable;
+static uint32_t syscnt_test_saved_cycle_enable;
+
+/**
+ * @brief Change EN without changing the count or frequency identification.
+ * @param[in] enabled Boolean counter enable.
+ * @return DRV_OK or DRV_PARAM_ERR for a non-Boolean input.
+ */
+DRV_Status SYSCNT_testSetEnabled(uint8_t enabled)
+{
+    if (enabled > 1u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    MODIFY_REG(SYSCNT_CTRL->CNTCR, SYSCNT_CTRL_CNTCR_EN_Msk,
+               enabled ? SYSCNT_CTRL_CNTCR_EN_Msk : 0u);
+    return DRV_OK;
+}
+
+/**
+ * @brief Load both count words while stopped and leave the counter stopped.
+ * @param[in] value Full 64-bit counter value.
+ * @return DRV_BUSY if EN is set, otherwise DRV_OK.
+ * @note The low word is staged before the upper-word write commits the load.
+ */
+DRV_Status SYSCNT_testLoadStopped(uint64_t value)
+{
+    if (READ_BIT(SYSCNT_CTRL->CNTCR, SYSCNT_CTRL_CNTCR_EN_Msk) != 0u)
+    {
+        return DRV_BUSY;
+    }
+
+    WRITE_REG(SYSCNT_CTRL->CNTCVL, (uint32_t)value);
+    WRITE_REG(SYSCNT_CTRL->CNTCVU, (uint32_t)(value >> SYSCNT_TEST_WORD_BITS));
+    return DRV_OK;
+}
+
+/**
+ * @brief Read a coherent 64-bit value from either counter window.
+ * @param[in] view Control or read-only register view.
+ * @param[out] value Updated only after matching high-word reads.
+ * @return DRV_OK, DRV_PARAM_ERR, or DRV_BUSY when all bounded attempts tear.
+ */
+DRV_Status SYSCNT_testReadCount(SYSCNT_TestView view, uint64_t *value)
+{
+    uint32_t high_before;
+    uint32_t low;
+    uint32_t high_after;
+    uint32_t attempt;
+
+    if ((value == NULL) ||
+        ((view != SYSCNT_TEST_VIEW_CONTROL) && (view != SYSCNT_TEST_VIEW_READ)))
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    /* Volatile high/low/high loads detect a carry between separate bus reads. */
+    for (attempt = 0u; attempt < SYSCNT_TEST_READ_ATTEMPTS; ++attempt)
+    {
+        if (view == SYSCNT_TEST_VIEW_CONTROL)
+        {
+            high_before = READ_REG(SYSCNT_CTRL->CNTCVU);
+            low = READ_REG(SYSCNT_CTRL->CNTCVL);
+            high_after = READ_REG(SYSCNT_CTRL->CNTCVU);
+        }
+        else
+        {
+            high_before = READ_REG(SYSCNT_RO->CNTCVU);
+            low = READ_REG(SYSCNT_RO->CNTCVL);
+            high_after = READ_REG(SYSCNT_RO->CNTCVU);
+        }
+
+        if (high_before == high_after)
+        {
+            *value = ((uint64_t)high_after << SYSCNT_TEST_WORD_BITS) | low;
+            return DRV_OK;
+        }
+    }
+
+    return DRV_BUSY;
+}
+
+/**
+ * @brief Read configured policy, actual debug halt status and frequency ID.
+ * @param[out] control Raw field snapshot; the frequency ID is not a measurement.
+ * @return DRV_OK or DRV_PARAM_ERR for a null output.
+ */
+DRV_Status SYSCNT_testGetControl(SYSCNT_TestControl *control)
+{
+    uint32_t value;
+
+    if (control == NULL)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    value = READ_REG(SYSCNT_CTRL->CNTCR);
+    control->enabled = (value & SYSCNT_CTRL_CNTCR_EN_Msk) != 0u;
+    control->halt_enabled = (value & SYSCNT_CTRL_CNTCR_HDBG_Msk) != 0u;
+    control->debug_halted = READ_BIT(SYSCNT_CTRL->CNTSR, SYSCNT_CTRL_CNTSR_DBGH_Msk) != 0u;
+    control->frequency_id_hz = READ_REG(SYSCNT_CTRL->CNTFID0);
+    return DRV_OK;
+}
+
+/**
+ * @brief Set only SYSCNT's HDBG policy; system halt routing is caller-owned.
+ * @param[in] enabled Boolean pause-on-debug-halt policy.
+ * @return DRV_OK or DRV_PARAM_ERR for a non-Boolean input.
+ */
+DRV_Status SYSCNT_testSetHaltPolicy(uint8_t enabled)
+{
+    if (enabled > 1u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    MODIFY_REG(SYSCNT_CTRL->CNTCR, SYSCNT_CTRL_CNTCR_HDBG_Msk,
+               enabled ? SYSCNT_CTRL_CNTCR_HDBG_Msk : 0u);
+    return DRV_OK;
+}
+
+/**
+ * @brief Write CNTFID0 while stopped without changing the physical clock.
+ * @param[in] frequency_hz Nonzero frequency identification in Hz.
+ * @return DRV_PARAM_ERR for zero, DRV_BUSY while running, otherwise DRV_OK.
+ */
+DRV_Status SYSCNT_testSetFrequencyId(uint32_t frequency_hz)
+{
+    if (frequency_hz == 0u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    if (READ_BIT(SYSCNT_CTRL->CNTCR, SYSCNT_CTRL_CNTCR_EN_Msk) != 0u)
+    {
+        return DRV_BUSY;
+    }
+
+    WRITE_REG(SYSCNT_CTRL->CNTFID0, frequency_hz);
+    return DRV_OK;
+}
+
+/**
+ * @brief Acquire/release a free-running DWT reference without clearing CYCCNT.
+ * @param[in] enabled Boolean acquisition request; repeated calls are idempotent.
+ * @return DRV_OK, DRV_PARAM_ERR, or DRV_ERROR if cycle counting is unsupported.
+ * @note Serialized diagnostics only. Other code must not reconfigure DWT during ownership.
+ */
+DRV_Status SYSCNT_testSetReferenceEnabled(uint8_t enabled)
+{
+    if (enabled > 1u)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    if (enabled == syscnt_test_reference_owned)
+    {
+        return DRV_OK;
+    }
+
+    if (enabled != 0u)
+    {
+        syscnt_test_saved_trace_enable = READ_BIT(CoreDebug->DEMCR, CoreDebug_DEMCR_TRCENA_Msk);
+        SET_BIT(CoreDebug->DEMCR, CoreDebug_DEMCR_TRCENA_Msk);
+        __DSB();
+        __ISB();
+        if (READ_BIT(DWT->CTRL, DWT_CTRL_NOCYCCNT_Msk) != 0u)
+        {
+            MODIFY_REG(CoreDebug->DEMCR, CoreDebug_DEMCR_TRCENA_Msk, syscnt_test_saved_trace_enable);
+            return DRV_ERROR;
+        }
+
+        syscnt_test_saved_cycle_enable = READ_BIT(DWT->CTRL, DWT_CTRL_CYCCNTENA_Msk);
+        SET_BIT(DWT->CTRL, DWT_CTRL_CYCCNTENA_Msk);
+    }
+    else
+    {
+        MODIFY_REG(DWT->CTRL, DWT_CTRL_CYCCNTENA_Msk, syscnt_test_saved_cycle_enable);
+        MODIFY_REG(CoreDebug->DEMCR, CoreDebug_DEMCR_TRCENA_Msk, syscnt_test_saved_trace_enable);
+    }
+
+    syscnt_test_reference_owned = enabled;
+    return DRV_OK;
+}
+
+/**
+ * @brief Bracket one coherent SYSCNT read with two independent DWT reads.
+ * @param[out] before Reference count before the SYSCNT read.
+ * @param[out] count Coherent SYSCNT read-view count.
+ * @param[out] after Reference count after the SYSCNT read.
+ * @return DRV_OK, DRV_PARAM_ERR or DRV_BUSY if reference is not running/read tears.
+ * @note No wait, reset or time conversion; PC owns interval and pass/fail decisions.
+ */
+DRV_Status SYSCNT_testSampleReference(uint32_t *before, uint64_t *count, uint32_t *after)
+{
+    uint32_t start;
+    uint64_t value;
+    DRV_Status status;
+
+    if ((before == NULL) || (count == NULL) || (after == NULL))
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    if ((syscnt_test_reference_owned == 0u) ||
+        (READ_BIT(DWT->CTRL, DWT_CTRL_CYCCNTENA_Msk) == 0u) ||
+        (READ_BIT(CoreDebug->DEMCR, CoreDebug_DEMCR_TRCENA_Msk) == 0u))
+    {
+        return DRV_BUSY;
+    }
+
+    start = READ_REG(DWT->CYCCNT);
+    status = SYSCNT_testReadCount(SYSCNT_TEST_VIEW_READ, &value);
+    if (status != DRV_OK)
+    {
+        return status;
+    }
+
+    *after = READ_REG(DWT->CYCCNT);
+    *before = start;
+    *count = value;
+    return DRV_OK;
+}
+
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
