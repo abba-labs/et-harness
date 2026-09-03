@@ -2,7 +2,7 @@
 
 > 本文件定义 IPCM 的芯片中立 Feature、Case、Oracle、Observation、资源和稳定自动化动作。
 > 芯片实例、Core 数量、Mailbox/Channel 数量、寄存器、IRQn、SDK API 和部署地址只进入同目录 `<CHIP>_ipcm.md`。
-> 更新：2026-09-03。当前 13 个 Case 均为 `ET_CASE_PLAN / PLANNED`，不是已注册的 Formal Case；文档完成不等于代码实现或硬件 PASS。
+> 更新：2026-09-03。当前13个Case均为已实现、已注册的`ET_CASE_SPEC`；硬件测试结果只记录在对应芯片文档，不能由实现状态推断PASS。
 
 ## 0. Stable IP Contract
 
@@ -885,16 +885,16 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=16 | IMPLEMENTATION_GAP=1; MAPPING_GAP=12 | 13个SPEC覆盖已找到的IPCM_0~9测试思想；PC已编码，目标部署与HIL尚待闭环，状态与芯片文档保持一致 | `ET6801_ipcm.md` |
+| ET6801 | ADAPTED=16 | ADAPTED=13 | 已找到的IPCM_0~9测试思想已映射，Capability、执行映射、Peer与正式Case已接入；具体Lane和测试证据见芯片文档 | `ET6801_ipcm.md` |
 
 ## 5. Common Gap / Evolution
 
 - 当前13条正式Case与Core1原子Driver已实现、已注册；实现不等于硬件通过，实际状态只以芯片文档的HIL记录为准。
 - Capability已通过通用生成链发布Mailbox、Channel、Payload容量和模式Feature；生成与质量证据见芯片文档。
-- `dualcore_execution_mapping_gap`：必须建立逻辑Initiator/Responder、事件Endpoint和Core1 Peer部署映射；公共Case不得硬编码Core或IRQ编号。
-- `linked_range_driver_gap`、`multi_destination_driver_gap`、`driver_api_gap`：底层测试扩展已补齐，等待双核Case集成及真实硬件确认；不改变历史SDK API。
+- `dualcore_execution_mapping_gap`：现有适配已提供逻辑Initiator/Responder、事件Endpoint和Peer部署映射；新增芯片仍须提供独立映射，公共Case不得硬编码Core或IRQ编号。
+- `linked_range_driver_gap`、`multi_destination_driver_gap`、`driver_api_gap`：现有适配的底层测试扩展及双核Case已接入；不改变历史SDK API，新增芯片按相同公共接口适配。
 - `ip_reset_mapping_gap`：已补IPCM公共CRG类别及芯片映射；全IP复位与单Mailbox释放仍是不同动作，IPCM Wrap不跨IP调用。
-- `mailbox_release_semantic_gap`：释放清除哪些配置必须由目标证据确定；不得在Wrap中悄悄复位整个IP替代单Mailbox释放。
+- `mailbox_release_semantic_gap`：现有目标已取得释放读回证据，详见芯片文档；新目标仍须确认释放清除哪些配置，不得在Wrap中悄悄复位整个IP替代单Mailbox释放。
 - `source_item_body_gap`：历史压力入口只有调用和声明，未找到实现；待获取正文后提取其有效测试点，不能宣称未知正文已被当前Case覆盖。
 - 多目标AUTO聚合ACK触发条件尚未证实；P1_007先独立覆盖多目标路由与MANUAL释放，不把推断作为通过条件，也不宣称覆盖了该组合。
 - `CORE2CORE`独立门铃中断不属于IPCM Mailbox Feature，必须由Dual-Core/CPU独立Contract承接，不能混入本IP。
