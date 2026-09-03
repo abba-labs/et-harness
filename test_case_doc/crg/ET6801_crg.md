@@ -2,6 +2,8 @@
 
 > 本文件只保存 ET6801 对公共 `crg.md` 的芯片适配事实，不定义第二套公共命令、Feature 或 Case。
 
+更新时间：2026-09-03 CST。
+
 ## 1. Source Basis
 
 - Chip Config：`firmware/chips/et6801/config/et_chip_wrap_config.h`。
@@ -14,6 +16,7 @@
 |---|---|
 | CORDIC clock/reset logical instance `0` | Chip Config 映射到 ET6801 CORDIC CRG selector |
 | FMAC clock/reset logical instance `0` | Chip Config 映射到 ET6801 FMAC CRG selector |
+| IPCM clock/reset logical instance `0` | 已提供`CRG_PERIPH_IPCM`：`GTEN1/SRST1 bit25`；Chip Config行由IPCM接入批次加入。复位前须停止两个核访问 Mailbox |
 | WDG logical instance `0` | `WDG0` |
 | WDG logical instance `1` | `WDG1` |
 | WDG source `HSOSC` | `CRG_WDG_CLKSRC_HSOSC` |
@@ -31,9 +34,11 @@
 
 - ET6801生成CMSIS将`CORDIC0`放在`SRST0/GTEN0 bit20`。
 - ET6801生成CMSIS将`CRC`、`FMAC`、`AES`放在`SRST1/GTEN1 bit22/23/24`。
+- ET6801生成CMSIS将`IPCM`放在`SRST1/GTEN1 bit25`，选择值复用`CRG_GTEN1_CRG_CLK_GTEN_IPCM_Pos`，不新增寄存器访问函数。
 - CRG Chip Driver选择值直接复用生成CMSIS位置；公共CRG Wrap不保存寄存器位置。
 
 ## 4. Current Validation Boundary
 
 - FPGA 与 Silicon 固件工程均已完成编译/链接验证。
 - 本文不声明 WDG 时钟切换的 HIL PASS；实际比例和恢复结论由 WDG Formal Case 及其运行证据给出。
+- 2026-09-03新增IPCM映射尚未进行HIL；不得将静态映射检查计为IPCM复位实测通过。

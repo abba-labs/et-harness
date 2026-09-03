@@ -18,6 +18,8 @@ class CrgPeripheral(IntEnum):
     CRC = 5
     STIMER = 6
     WDG = 7
+    # 核间 Mailbox 控制器类别；实例号不是执行核编号。
+    IPCM = 8
 
 
 # 表示 CRG 对 WDG 时基提供的稳定时钟源语义，不暴露芯片寄存器编码。

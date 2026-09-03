@@ -1,6 +1,6 @@
 # CRG Stable IP Contract
 
-<!-- Contract sync 2026-08-26: added chip-neutral CRC/STIMER/WDG reset categories for deterministic Case isolation. -->
+<!-- Contract sync 2026-09-03: append IPCM clock/reset category without changing existing values or Wire layout. -->
 
 > 本文件只定义跨芯片稳定的 CRG 公共动作；芯片 Driver 的物理外设选择值仅允许出现在 Chip Config 映射中。
 
@@ -32,6 +32,7 @@
 | `5` | `CRC` | CRC 计算单元逻辑实例 |
 | `6` | `STIMER` | STIMER 定时器逻辑实例 |
 | `7` | `WDG` | WDG 看门狗逻辑实例 |
+| `8` | `IPCM` | 核间 Mailbox 控制器逻辑实例，不是 CPU 编号 |
 
 类别编号是公共协议的一部分，不得重用或改义。芯片不具备某类别或实例时返回 `NOT_SUPPORTED`，不得猜测其他外设。
 

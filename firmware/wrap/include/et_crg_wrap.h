@@ -16,7 +16,9 @@ typedef enum
     ET_CRG_WRAP_PERIPHERAL_FMAC = 4u,
     ET_CRG_WRAP_PERIPHERAL_CRC = 5u,
     ET_CRG_WRAP_PERIPHERAL_STIMER = 6u,
-    ET_CRG_WRAP_PERIPHERAL_WDG = 7u
+    ET_CRG_WRAP_PERIPHERAL_WDG = 7u,
+    /** Inter-processor mailbox controller; instance is logical, not a CPU ID. */
+    ET_CRG_WRAP_PERIPHERAL_IPCM = 8u
 } et_crg_wrap_peripheral_t;
 
 /** Stable WDG clock-source selections owned by the CRG, not by WDG. */
