@@ -310,10 +310,9 @@ gap: [case_implementation_gap, board_mapping_gap]
 
 ### SPI_P1_002 SPI双实例双向收发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_002
 case_name: SPI双实例双向收发
 report_feature: |-
@@ -351,19 +350,18 @@ resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互�
 backend: [FPGA, Silicon]
 evidence: ["SPI双实例双向收发的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {"key":"controller_rx","label":"Controller TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
-  - {"key":"target_rx","label":"Target TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
-  - {"key":"expected","label":"双方期望数据","source":"oracle","role":"expected","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"controller_rx","label":"Controller TRANSFER.RX_DATA","source":"dut","role":"actual","format":"text"}
+  - {"key":"target_rx","label":"Target TRANSFER.RX_DATA","source":"dut","role":"actual","format":"text"}
+  - {"key":"expected","label":"双方期望数据","source":"oracle","role":"expected","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_003 SPI Transfer Mode与接收帧数
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_003
 case_name: SPI Transfer Mode与接收帧数
 report_feature: |-
@@ -396,10 +394,10 @@ evidence: ["SPI Transfer Mode与接收帧数的配置、输入Expected、硬件A
 failure_observations:
   - {"key":"mode","label":"CONFIG.TRANSFER_MODE","source":"dut","role":"actual","format":"text"}
   - {"key":"rx_count","label":"实际RX帧数","source":"measurement","role":"actual","format":"decimal"}
-  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_004 SPI FIFO容量与复位
 
@@ -798,6 +796,19 @@ gap: [case_implementation_gap, board_mapping_gap]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  SPI_P1_002:
+    summary: 双SPI按角色和回环配置核对独立输入与实际接收帧。
+    fields:
+      - {source: measurement, path: target_loopback, label: Target内部回环, format: bool, aggregate: distinct}
+      - {source: measurement, path: expected, label: Target期望帧, format: text, aggregate: all}
+      - {source: observation, path: controller_rx, label: Controller实际RX, format: text, aggregate: all}
+      - {source: observation, path: target_rx, label: Target实际RX, format: text, aggregate: all}
+  SPI_P1_003:
+    summary: 按传输模式核对实际RX帧数及有效方向数据。
+    fields:
+      - {source: observation, path: mode, label: 实际传输模式, format: text, aggregate: distinct}
+      - {source: measurement, path: rx_count, label: 接收帧数, format: decimal, aggregate: distinct}
+      - {source: observation, path: rx, label: 实际RX帧, format: text, aggregate: all}
   SPI_P0_001:
     summary: 对照输入检查角色、分频和模块启停读回。
     fields:

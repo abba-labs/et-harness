@@ -83,6 +83,21 @@ class SpiDriver:
     def snapshot_get(self, *, timeout_s: float | None = None) -> SpiSnapshot:
         return codec.decode_snapshot(self._request(SpiCommand.SNAPSHOT_GET, timeout_s=timeout_s))
 
+    # 等待RX积累到指定水位，不读FIFO、不消费有读清副作用的SR。
+    # 每次查询共用总Deadline；超时消息保留最后快照，不复位或重试传输。
+    def wait_rx_level(self, minimum: int, *, timeout_s: float) -> SpiSnapshot:
+        codec.uint32(minimum)
+        deadline = OperationDeadline.start(timeout_s, label=f"SPI RX level {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.snapshot_get(timeout_s=deadline.remaining_s())
+                if last.rx_level >= minimum:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"SPI RX level expected>={minimum}, last={last!r}") from error
+
     # 明确消费一次可能读清的状态，返回同一次的raw和flags，禁止自动重试。
     # 只等待这次读数；超时后不能用再次读取补造首次状态。
     def error_status_read(self, *, timeout_s: float | None = None) -> SpiErrorStatus:

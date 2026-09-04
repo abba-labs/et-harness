@@ -6,4 +6,6 @@
 SPI_CASE_REGISTRY = (
     "spi_p0_001",
     "spi_p0_002",
+    "spi_p1_002",
+    "spi_p1_003",
 )

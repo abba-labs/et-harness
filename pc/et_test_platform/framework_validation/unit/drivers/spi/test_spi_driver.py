@@ -47,6 +47,27 @@ SNAPSHOT_WORDS = (1, 1, 2, 3, 4, 5, 6, 16, 16, 16, 1, 0, 7, 8)
 EVENT_WORDS = (16, 16, 16, 1, 0, 0, 1, 0)
 
 
+# 测试 Feature：RX水位等待只读无副作用快照，不消费FIFO或错误状态。
+# 测试方法：目标返回已经达到阈值的固定快照，严格检查只发送SNAPSHOT_GET。
+# 通过条件：一次查询返回实际RX水位，目标不接受任何其他命令。
+def test_spi_wait_rx_level_reads_only_snapshot():
+
+    target = Target(10, result=SNAPSHOT_WORDS)
+    actual = SpiDriver(target, 2).wait_rx_level(3, timeout_s=0.5)
+    assert actual.rx_level == 3
+    assert target.calls == 1
+
+
+# 测试 Feature：RX水位未达到时按总Deadline退出并保留最后硬件快照。
+# 测试方法：固定返回RX=3，等待至少4帧，不追加复位或数据读取。
+# 通过条件：抛RequestTimeout且消息含最后RX值，不扩展超时预算。
+def test_spi_wait_rx_level_timeout_keeps_snapshot():
+
+    target = Target(10, result=SNAPSHOT_WORDS)
+    with pytest.raises(RequestTimeout, match="rx_level=3"):
+        SpiDriver(target, 2).wait_rx_level(4, timeout_s=0.005)
+
+
 # 只接受指定命令；错误请求不能在Fake里被自动补齐或放宽。
 class Target:
     def __init__(self, command, arguments=(), result=()):
