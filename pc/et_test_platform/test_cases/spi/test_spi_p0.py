@@ -124,6 +124,7 @@ def test_spi_p0_002_internal_loopback(spi_support, resource_driver, record_prope
     support = spi_support
     spi = support.dut.spi
     limits = support.dut.limits
+    nodes = []
 
     with case_cleanup_scope(lambda: _cleanup_actions(support, resource_driver)):
         # 矩阵：每种合法整数帧宽都是独立基线，不能仅取两端点代替全部位宽。
@@ -149,6 +150,16 @@ def test_spi_p0_002_internal_loopback(spi_support, resource_driver, record_prope
             # 观测：错误状态只显式读一次，避免轮询提前清除错误证据。
             status = spi.error_status_read()
             remaining = spi.snapshot_get().rx_level
+            nodes.append(
+                {
+                    "frame_bits": bits,
+                    "expected": list(expected),
+                    "actual": received,
+                    "status": int(status.flags),
+                    "rx_remaining": remaining,
+                }
+            )
+            record_property("nodes", nodes)
             record_property("frame_bits", bits)
             record_property("expected", frame_text(expected))
             record_property("accepted", accepted)

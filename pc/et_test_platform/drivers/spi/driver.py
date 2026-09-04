@@ -98,6 +98,38 @@ class SpiDriver:
         except RequestTimeout as error:
             raise RequestTimeout(f"SPI RX level expected>={minimum}, last={last!r}") from error
 
+    # 等待TX预装完成；只看Level，不产生CS或发送数据，适用于DMA预装Target。
+    # 共用总Deadline，失败保留最后快照，不复位或重新启动DMA。
+    def wait_tx_level(self, minimum: int, *, timeout_s: float) -> SpiSnapshot:
+        codec.uint32(minimum)
+        deadline = OperationDeadline.start(timeout_s, label=f"SPI TX level {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.snapshot_get(timeout_s=deadline.remaining_s())
+                if last.tx_level >= minimum:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"SPI TX level expected>={minimum}, last={last!r}") from error
+
+    # 等待指定Raw中断条件成立，不开放NVIC、不清中断、不排空FIFO。
+    # 查询共享总Deadline；超时保留最后快照，不通过读SR改变错误状态。
+    def wait_irq_raw(self, sources: SpiIrq, *, timeout_s: float) -> SpiSnapshot:
+        mask = self._source_mask(sources)
+        if not mask:
+            raise ValueError("SPI IRQ wait requires a nonzero source")
+        deadline = OperationDeadline.start(timeout_s, label=f"SPI Raw {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.snapshot_get(timeout_s=deadline.remaining_s())
+                if int(last.irq_raw) & mask == mask:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"SPI Raw expected={mask}, last={last!r}") from error
+
     # 明确消费一次可能读清的状态，返回同一次的raw和flags，禁止自动重试。
     # 只等待这次读数；超时后不能用再次读取补造首次状态。
     def error_status_read(self, *, timeout_s: float | None = None) -> SpiErrorStatus:

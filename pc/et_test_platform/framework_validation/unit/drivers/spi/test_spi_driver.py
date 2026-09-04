@@ -47,6 +47,42 @@ SNAPSHOT_WORDS = (1, 1, 2, 3, 4, 5, 6, 16, 16, 16, 1, 0, 7, 8)
 EVENT_WORDS = (16, 16, 16, 1, 0, 0, 1, 0)
 
 
+# 测试 Feature：Case DMA配置保持单帧单访问、正确方向及固定外设地址。
+# 测试方法：用非芯片地址和16-bit帧构造TX/RX，检查纯配置与打包的独立Expected。
+# 通过条件：方向、增量、Interface及每帧一个32-bit槽均正确，不执行任何硬件I/O。
+def test_spi_dma_case_data_contract():
+
+    from et_test_platform.drivers.dma import DmaAddressMode, DmaTransferType, DmaWidth
+    from et_test_platform.drivers.resource.models import ResourceRef
+    from et_test_platform.test_cases.spi._support import dma_config, pack_frames, unpack_frames
+
+    memory = ResourceRef(7, 16, 0x1000)
+    frames = (0x1357, 0xFFFF, 0x1234, 0)
+    encoded = b"\x57\x13\x00\x00\xff\xff\x00\x00\x34\x12\x00\x00\x00\x00\x00\x00"
+    assert pack_frames(frames, 32) == encoded
+    assert unpack_frames(encoded, 32) == frames
+
+    # 两个方向分别检查，不把同一个配置对象反复改写后当成独立预期。
+    for receive in (False, True):
+        config = dma_config(3, 5, 0x4000, memory, 4, receive=receive, access_bits=32)
+        assert config.source_width == config.destination_width == DmaWidth.BITS_32
+        assert config.transfer_count == 4 and config.channel == 3
+        assert config.source_interface == config.destination_interface == 5
+        assert config.source_address == (0x4000 if receive else 0x1000)
+        assert config.destination_address == (0x1000 if receive else 0x4000)
+        assert config.transfer_type == (
+            DmaTransferType.PERIPHERAL_TO_MEMORY
+            if receive
+            else DmaTransferType.MEMORY_TO_PERIPHERAL
+        )
+        assert config.source_address_mode == (
+            DmaAddressMode.FIXED if receive else DmaAddressMode.INCREMENT
+        )
+        assert config.destination_address_mode == (
+            DmaAddressMode.INCREMENT if receive else DmaAddressMode.FIXED
+        )
+
+
 # 测试 Feature：RX水位等待只读无副作用快照，不消费FIFO或错误状态。
 # 测试方法：目标返回已经达到阈值的固定快照，严格检查只发送SNAPSHOT_GET。
 # 通过条件：一次查询返回实际RX水位，目标不接受任何其他命令。
@@ -55,6 +91,29 @@ def test_spi_wait_rx_level_reads_only_snapshot():
     target = Target(10, result=SNAPSHOT_WORDS)
     actual = SpiDriver(target, 2).wait_rx_level(3, timeout_s=0.5)
     assert actual.rx_level == 3
+    assert target.calls == 1
+
+
+# 测试 Feature：DMA预装等待只读TX水位，不选择CS、不产生SPI数据。
+# 测试方法：严格目标只接受快照，TX=2时等待2帧立即完成。
+# 通过条件：一次读回达到水位，其他命令不被调用。
+def test_spi_wait_tx_level_reads_only_snapshot():
+
+    target = Target(10, result=SNAPSHOT_WORDS)
+    assert SpiDriver(target, 2).wait_tx_level(2, timeout_s=0.5).tx_level == 2
+    assert target.calls == 1
+
+
+# 测试 Feature：等待Raw只读取无副作用快照，不打开中断或消费错误状态。
+# 测试方法：返回RX_FULL原始位，检查请求类型及一次完成；零Source在I/O前拒绝。
+# 通过条件：保留原始快照，非法Source不产生新请求。
+def test_spi_wait_irq_raw_is_observation_only():
+
+    target = Target(10, result=SNAPSHOT_WORDS)
+    driver = SpiDriver(target, 2)
+    assert driver.wait_irq_raw(SpiIrq.RX_FULL, timeout_s=0.5).irq_raw == SpiIrq.RX_FULL
+    with pytest.raises(ValueError, match="nonzero"):
+        driver.wait_irq_raw(SpiIrq(0), timeout_s=0.5)
     assert target.calls == 1
 
 

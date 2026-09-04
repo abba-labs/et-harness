@@ -1,6 +1,6 @@
 # SPI Stable IP Contract
 
-更新时间：2026-09-04 13:00 CST
+更新时间：2026-09-04 17:05 CST
 
 本文件定义芯片中立的SPI测试意图。保留19个Feature ID；补入参考资料遗漏的测试目的，纠正不充分的判据。公共配置及数据格式在此定义，具体寄存器、SDK差异和接线仅见芯片文档。
 
@@ -265,10 +265,9 @@ gap: []
 
 ### SPI_P1_001 SPI单实例外部回接
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_001
 case_name: SPI单实例外部回接
 report_feature: |-
@@ -302,11 +301,11 @@ backend: [FPGA, Silicon]
 evidence: ["SPI单实例外部回接的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
   - {"key":"loopback","label":"CONFIG.LOOPBACK","source":"dut","role":"actual","format":"bool"}
-  - {"key":"expected","label":"期望PAD帧","source":"oracle","role":"expected","format":"bytes_hex"}
-  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"expected","label":"期望PAD帧","source":"oracle","role":"expected","format":"text"}
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_002 SPI双实例双向收发
 
@@ -401,10 +400,9 @@ gap: []
 
 ### SPI_P1_004 SPI FIFO容量与复位
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_004
 case_name: SPI FIFO容量与复位
 report_feature: |-
@@ -439,17 +437,18 @@ evidence: ["SPI FIFO容量与复位的配置、输入Expected、硬件Actual及�
 failure_observations:
   - {"key":"tx_level","label":"FIFO.TX_LEVEL序列","source":"dut","role":"actual","format":"text"}
   - {"key":"rx_level","label":"FIFO.RX_LEVEL序列","source":"dut","role":"actual","format":"text"}
-  - {"key":"thresholds","label":"三个FIFO阈值读回","source":"dut","role":"actual","format":"text"}
-gap: [case_implementation_gap]
+  - {"key":"tx_threshold","label":"FIFO.TX_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"rx_threshold","label":"FIFO.RX_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"start_threshold","label":"FIFO.START_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_005 SPI FIFO IRQ触发与清除
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_005
 case_name: SPI FIFO IRQ触发与清除
 report_feature: |-
@@ -484,9 +483,9 @@ failure_observations:
   - {"key":"status","label":"IRQ.STATUS","source":"dut","role":"actual","format":"hex32"}
   - {"key":"isr_source","label":"ISR首次锁存Source","source":"measurement","role":"actual","format":"hex32"}
   - {"key":"events","label":"IRQ_EVENT.COUNT增量","source":"measurement","role":"actual","format":"decimal"}
-gap: [case_implementation_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_006 SPI CS与SCLK波形
 
@@ -535,10 +534,9 @@ gap: [case_implementation_gap, board_mapping_gap]
 
 ### SPI_P1_007 SPI Target空TX状态
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_007
 case_name: SPI Target空TX状态
 report_feature: |-
@@ -570,17 +568,16 @@ evidence: ["SPI Target空TX状态的配置、输入Expected、硬件Actual及关
 failure_observations:
   - {"key":"first","label":"首次STATUS.TARGET_TX_ERROR","source":"dut","role":"actual","format":"bool"}
   - {"key":"second","label":"再次STATUS.TARGET_TX_ERROR","source":"dut","role":"actual","format":"bool"}
-  - {"key":"rx","label":"恢复RX数据","source":"dut","role":"actual","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"rx","label":"恢复RX数据","source":"dut","role":"actual","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_008 SPI TX启动阈值边界
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P1_008
 case_name: SPI TX启动阈值边界
 report_feature: |-
@@ -589,11 +586,11 @@ p_level: P1
 feature_refs: [SPI_F_012]
 method:
   inputs:
-    - "启动边界：T取0、中间值、D-1；双SPI外部四线连接，关闭Loopback，先保持Controller CS未选中；D取两个FIFO容量的较小值。"
+    - "启动边界：T遍历0至D-1；双SPI外部四线连接，关闭Loopback，先保持Controller CS未选中；D取两个FIFO容量的较小值。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "阈值配置：先Enable Target接收；Controller Enable前设置START_THRESHOLD=T及TX_ONLY，Enable后预装T帧。"
-    - "不足阈值：选择CS，等待10个理论帧时间后读取Controller TX_LEVEL=T、Target RX_LEVEL=0。"
+    - "不足阈值：选择CS，保留100ms负向观测窗口后读取Controller TX_LEVEL=T、Target RX_LEVEL=0；启动后的完成判断使用有界接收。"
     - "越过阈值：再写一帧，使TX_LEVEL超过T；不改其他配置。"
     - "启动观测：在deadline内从独立Target读取T+1帧并保存数据，要求与Controller预装序列一致。"
     - "批后状态：读取BUSY=0和TX_LEVEL=0；确认不是读回阈值就判成功。"
@@ -611,18 +608,17 @@ backend: [FPGA, Silicon]
 evidence: ["SPI TX启动阈值边界的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
   - {"key":"before","label":"启动前TX/RX Level","source":"dut","role":"actual","format":"text"}
-  - {"key":"rx","label":"启动后RX数据","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"rx","label":"启动后RX数据","source":"dut","role":"actual","format":"text"}
   - {"key":"threshold","label":"FIFO.START_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
-gap: [case_implementation_gap, board_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P2_001 SPI DMA双向与水位
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P2_001
 case_name: SPI DMA双向与水位
 report_feature: |-
@@ -654,20 +650,19 @@ resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互�
 backend: [FPGA, Silicon]
 evidence: ["SPI DMA双向与水位的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {"key":"dma","label":"DMA通道硬件终态","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"dma","label":"DMA通道硬件终态","source":"dut","role":"actual","format":"text"}
   - {"key":"level","label":"SPI FIFO边界Level","source":"dut","role":"actual","format":"decimal"}
-  - {"key":"data","label":"DMA目的内存","source":"dut","role":"actual","format":"bytes_hex"}
-  - {"key":"expected","label":"独立期望帧","source":"oracle","role":"expected","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"data","label":"DMA目的内存","source":"dut","role":"actual","format":"text"}
+  - {"key":"expected","label":"独立期望帧","source":"oracle","role":"expected","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P2_005 SPI无时钟等待与恢复
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P2_005
 case_name: SPI无时钟等待与恢复
 report_feature: |-
@@ -701,10 +696,10 @@ evidence: ["SPI无时钟等待与恢复的配置、输入Expected、硬件Actual
 failure_observations:
   - {"key":"rx_level","label":"无时钟Target RX_LEVEL","source":"dut","role":"actual","format":"decimal"}
   - {"key":"response_ms","label":"请求返回耗时","source":"measurement","role":"actual","format":"float"}
-  - {"key":"rx","label":"恢复后双端RX","source":"dut","role":"actual","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"rx","label":"恢复后双端RX","source":"dut","role":"actual","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P2_007 SPI Target输出高阻
 
@@ -751,10 +746,9 @@ gap: [case_implementation_gap, board_mapping_gap]
 
 ### SPI_P3_002 SPI DMA连续收发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P3_002
 case_name: SPI DMA连续收发
 report_feature: |-
@@ -786,16 +780,66 @@ backend: [FPGA, Silicon]
 evidence: [20轮DMA双向输入输出及硬件终态]
 failure_observations:
   - {"key":"round","label":"当前轮次","source":"measurement","role":"actual","format":"decimal"}
-  - {"key":"dma","label":"四DMA通道终态","source":"dut","role":"actual","format":"hex32"}
-  - {"key":"data","label":"双端目的内存","source":"dut","role":"actual","format":"bytes_hex"}
-gap: [case_implementation_gap, board_mapping_gap]
+  - {"key":"dma","label":"四DMA通道终态","source":"dut","role":"actual","format":"text"}
+  - {"key":"data","label":"双端目的内存","source":"dut","role":"actual","format":"text"}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 <!-- ET_CASE_REPORT_BEGIN -->
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  SPI_P1_001:
+    summary: 关闭片内Loopback后验证单SPI外部PAD回接。
+    fields:
+      - {source: observation, path: loopback, label: 片内Loopback, format: bool, aggregate: same}
+      - {source: observation, path: rx, label: PAD实际RX, format: text, aggregate: all}
+  SPI_P1_007:
+    summary: Target发送不足后读取两次错误状态，并用正常数据恢复。
+    fields:
+      - {source: observation, path: first, label: 首次Target TX Error, format: bool, aggregate: same}
+      - {source: observation, path: second, label: 第二次Target TX Error, format: bool, aggregate: same}
+      - {source: observation, path: rx, label: 恢复后RX, format: text, aggregate: all}
+  SPI_P1_008:
+    summary: 对照阈值前后的FIFO及接收数据，验证真实启动条件。
+    fields:
+      - {source: observation, path: threshold, label: 启动阈值, format: decimal, aggregate: distinct}
+      - {source: observation, path: before, label: 启动前TX/RX Level, format: text, aggregate: all}
+      - {source: observation, path: rx, label: 启动后RX, format: text, aggregate: all}
+  SPI_P2_001:
+    summary: 核对DMA水位边界、实际完成事件及双端目的数据。
+    fields:
+      - {source: measurement, path: scenario, label: DMA节点, format: text, aggregate: distinct}
+      - {source: observation, path: dma, label: DMA硬件事件, format: text, aggregate: all}
+      - {source: observation, path: level, label: FIFO占用帧数, format: decimal, aggregate: distinct}
+      - {source: observation, path: data, label: DMA目的数据, format: text, aggregate: all}
+  SPI_P2_005:
+    summary: 无时钟时保持等待，恢复时钟及复位后均正确收发。
+    fields:
+      - {source: measurement, path: response_ms, label: 查询耗时ms, format: float, aggregate: distinct}
+      - {source: observation, path: rx_level, label: 无时钟RX Level, format: decimal, aggregate: same}
+      - {source: observation, path: rx, label: 恢复后RX, format: text, aggregate: all}
+  SPI_P3_002:
+    summary: 连续20轮双向DMA，逐轮检查通道事件和目的数据。
+    fields:
+      - {source: measurement, path: round, label: 最后完成轮次, format: decimal, aggregate: same}
+      - {source: observation, path: dma, label: 四通道事件, format: text, aggregate: all}
+      - {source: observation, path: data, label: 双端目的数据, format: text, aggregate: all}
+  SPI_P1_004:
+    summary: 逐步核对TX填充、RX排空和双FIFO复位结果。
+    fields:
+      - {source: observation, path: tx_level, label: TX Level序列, format: text, aggregate: all}
+      - {source: observation, path: rx_level, label: RX Level序列, format: text, aggregate: all}
+      - {source: observation, path: reset_tx, label: 复位后TX Level, format: decimal, aggregate: same}
+      - {source: observation, path: reset_rx, label: 复位后RX Level, format: decimal, aggregate: same}
+  SPI_P1_005:
+    summary: 核对FIFO源真实置位、有效中断投递和消除后的Raw。
+    fields:
+      - {source: observation, path: raw, label: 触发后Raw, format: hex32, aggregate: distinct}
+      - {source: observation, path: status, label: 开放后Status, format: hex32, aggregate: distinct}
+      - {source: measurement, path: events, label: ISR计数, format: decimal, aggregate: distinct}
+      - {source: observation, path: cleared_raw, label: 清除后Raw, format: hex32, aggregate: distinct}
   SPI_P1_002:
     summary: 双SPI按角色和回环配置核对独立输入与实际接收帧。
     fields:

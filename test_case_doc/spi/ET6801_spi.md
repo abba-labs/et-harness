@@ -1,8 +1,8 @@
 # ET6801 SPI Chip Analysis & Adaptation Contract
 
-更新时间：2026-09-04 13:10 CST
+更新时间：2026-09-04 17:05 CST
 
-范围：ET6801 SPI0～SPI3，FPGA/Silicon；已开始SDK原子接口开发，尚未形成完整自动化执行链。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP。尚无本版本硬件结果，历史结果不是本版本PASS。
+范围：ET6801 SPI0～SPI3，FPGA/Silicon。SPI SDK、Wrap、Service及PC Driver已接入；GPIO独立Service/Wrap负责Pinmux。12个Case已进入代码及SPEC，待本批软件门禁和硬件实测。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP；未执行的本版本Case不引用历史PASS。
 
 # 第一章 IP分析与Source Coverage
 
@@ -252,7 +252,7 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 - 19个Feature；17个测试目标，P0=2、P1=8、P2=6、P3=1。
 - 14个完整PLAN；P2_002、P2_003、P2_004保留ID、简明设计草案和待确认项；当前外部设备测试执行安排见6.4，不把草案算作完整PLAN。
 - R0/R1片内4项；R2板级简单连接8项；R3 FPGA4项（其中3项待分析）；R4电气测量1项；不再包含NOR应用。
-- 尚无SPI注册Formal Case：代码实现0、硬件执行0、PASS/FAIL/SKIP均无结果。PLANNED、缺代码、缺资料不能写成运行SKIP。
+- 当前12个注册Formal Case：P0=2、P1=7、P2=2、P3=1；本批硬件执行尚未开始，不声明PASS。其余5个外部设备目标仍按6.4保留边界，不能将草案算作已实现。
 - 当前不是“整体分析闭合”：所有已找到的需求条目均有处置，但3项设计及SPI_QSPI_entry定义缺口仍公开保留。不能以结构Checker通过代替语义闭合。
 - 每份报告必须区分已测逻辑Case、参数执行数与实例覆盖。代表实例PASS不能证明4实例全覆盖；可复用同一Case参数对可达实例逐一运行。
 
@@ -266,7 +266,11 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 
 ## 6.3 Board/Capability待落地事实
 
-当前历史SPI0/SPI3配对只是候选，最终GPIO、J连接器、电压域、SPI源时钟和FPGA引脚方向以本机板卡资料确认；不占用控制UART。外部NOR两项按用户要求移出当前范围，不建立NOR接线或擦写流程。
+当前使用用户确认的SPI0/SPI1四线对接。唯一活动连接位于`pc/et_test_platform/profiles/bench_topologies/et6801_hardware_connections.yaml`：SPI0 CLK/CS/MOSI/MISO为GPIO60/61/16/55，SPI1为GPIO65/66/63/64。PC加载handle/GPIO并调用独立GPIO Driver，SDK复用枚举仍隔离在芯片配置。未占用控制UART。P1_001要求单实例MOSI→MISO短接，与当前四线对接不同；未在连接文件声明`spi.loopback`角色时按真实接线缺口SKIP，不能用双实例收发冒充。
+
+SPI DMA执行映射位于`profiles/chip_execution_mappings/et6801/spi_routes.py`：DR[0]为各SPI_BASE+0x60，32-bit访问单元对应一帧；DMAMUX_REQ_SPI0_TX/RX至SPI3_TX/RX为214～221，来源为SDK `et6x_sysctrl.h`枚举。四通道按两端RX、Target TX、Controller TX顺序准备。公共Case不包含这些地址或请求号。
+
+已知未闭合项：当前生成的SPI Capability仍仅包含SVD实例/IRQ和原始SSIC识别，缺完整角色/帧宽/格式语义。可编程范围暂由已实现的LIMITS_GET交叉核对SDK；这不等于完整芯片Capability已完成，不将该软件缺口列为硬件SKIP。
 
 Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用组合、NDF范围、时钟源/分频及DMA端点。RSD“字段可写范围”与“物理有效深度”分开，后者没有依据时保持Unknown，不以0～255默认补齐。IRQ首次读清与ISR锁存证据在ET6801芯片实现内处理，公共Case不含寄存器地址或芯片名。
 
