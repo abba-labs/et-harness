@@ -21,6 +21,8 @@ from et_test_platform.profiles.bench import (
     load_signal_observer,
     load_uart_pair,
 )
+from et_test_platform.profiles.capabilities import load_packaged_chip_capabilities
+from et_test_platform.profiles.hardware_connections import load_hardware_connections
 
 
 # 验证逻辑脉冲绑定从Bench取输出参数，从环境取设备资源。
@@ -438,3 +440,15 @@ def test_uart_pair_is_immutable() -> None:
 
     with pytest.raises(AttributeError):
         pair.dut_instance = 3  # type: ignore[misc]
+
+
+# 验证实际CAN接线使用Capability中的can0，不把盒子的CAN1当作芯片实例。
+def test_packaged_can_connection_uses_dut_handle_and_gpio() -> None:
+
+    capabilities = load_packaged_chip_capabilities("et6801")
+    connections = load_hardware_connections(capabilities=capabilities, expected_lane="fpga")
+    endpoint = connections.select("can")["can"]["dut"]
+
+    assert endpoint.handle == "can0"
+    assert endpoint.gpio == {"rx": 58, "tx": 59}
+    assert set(connections.select("can")["can"]) == {"dut"}

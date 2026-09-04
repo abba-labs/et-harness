@@ -21,5 +21,11 @@ fpga:
       handle: uart2
       gpio: {tx: 8, rx: 9}
 
+  # CANFD0：板端CAN接口接CAN盒子CAN1；盒子连接参数在run_config配置。
+  can:
+    dut:
+      handle: can0
+      gpio: {rx: 58, tx: 59}
+
 # 硅后接线未配置，不继承FPGA数据；配置后再将active改为silicon。
 silicon: {}
