@@ -3,8 +3,8 @@ chip: et6801
 ip: can
 source:
   file: ET6801.svd
-  sha256: 175A585FE736CA1300045BF147330296B97D3E3DCFAC2227FCC8B603F67AD61C
-  generator_version: 8
+  sha256: 49B2DE29BD7A0A4A5FBDEFC6E36D75CD6DA53A46F5504F860DEE53BE9079CCE4
+  generator_version: 11
 instances:
   can0:
     svd_name: CAN0
@@ -54,9 +54,9 @@ capabilities:
         irqn: 46
   identities:
     base_address:
-      can0: '0x40518000'
-      can1: '0x40520000'
-      can2: '0x40528000'
+      can0: '0x4051C000'
+      can1: '0x40524000'
+      can2: '0x4052C000'
 evidence:
   can.identity.base_address:
   - instance: can0

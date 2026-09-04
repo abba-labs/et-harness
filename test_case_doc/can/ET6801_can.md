@@ -1,6 +1,6 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-04 21:43 CST
+更新时间：2026-09-04 22:28 CST
 
 **状态：分析推进中，尚未完成全部Case设计审核。** 本轮只修改本文件和[公共契约](can.md)，未开发Firmware/PC、未生成Capability、未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；39项PLAN、3项DESIGN_GAP。本轮逐项复核38个已有PLAN及3个缺口；DMU RX补成PLAN，独立TX Event缺口迁为P2_013，保留原测试意图；仪器按刺激/观测职责明确列出。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS。这里的数量不是实测统计，未把未知硬件、未实现代码或未准备环境计为SKIP。
 
@@ -427,7 +427,13 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P3_004 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P3_005 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 
-### 6.3 下一阶段顺序
+### 6.3 开发接入状态与下一阶段顺序
+
+2026-09-04开发接入：CAN盒子Adapter与`tools/runner/can_box.py`已加入当前仓库，使用ZLG原生SDK接口，CAN1对应通道索引1。21项专项无硬件回归及总软件门禁通过（1101 PASS、16 SKIP）；证据：`artifacts/runs/20260904_can_development/stages/can_box_cli_gate.log`。这些是工具软件测试，CAN正式Case尚未注册，未运行CAN HIL。
+
+本轮用上文指纹对应的最新整片SVD和现有生成器v11重新生成候选，仅更新正式`ip/can.yaml`，没有修改其他IP或生成器。旧文件中的CAN基址属于旧SVD，现已与1.2一致。共享ECC向量仍仅在SVD的CAN2节点列出，不能据此断言只有CAN2具备ECC。当前通用生成器只能导出CAN的实例、基址及中断；Feature/Option等语义仍为空，开发必须补齐有证据的映射，不能把空集合当作硬件不支持。候选/Audit/Quality：`artifacts/runs/20260904_can_development/stages/capability/`。
+
+用户确认的FPGA连接为CANFD0 RX=GPIO58、TX=GPIO59，复用均为11，外部CAN盒子CAN1；尚待写入公共连接YAML并由GPIO Mapping验证。软件Handle遵循当前Capability的`can0`，不因PAD名CANFD0另外创建同一硬件的重复实例。
 
 1. 先完成S01/S02/S03/S04及D01～D04核对，补全时钟、实例、RAM、DMU/TSU的芯片事实；这不是要求先做硬件全量回归。
 2. 原14项已有11项完整PLAN；继续只针对P2_006注入作用时点、P2_013事件TTS格式、P3_003同步观察的三个具体确认流程收口，不重复扫描已审源码或伪造PLAN。
