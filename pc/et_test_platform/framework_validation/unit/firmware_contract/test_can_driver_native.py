@@ -38,7 +38,8 @@ def write_can_driver_harness(directory: Path) -> Path:
     stub = (
         "#pragma once\n#include <stdint.h>\n#include <stddef.h>\n#include <assert.h>\n"
         "#define assert_param(v) assert(v)\n#define DRV_OK 0\n#define DRV_ERROR (-1)\n"
-        "#define READ_REG(r) (r)\n#define WRITE_REG(r,v) ((r)=(v))\n"
+        "uint32_t can_test_read(volatile uint32_t *address);\n"
+        "#define READ_REG(r) can_test_read(&(r))\n#define WRITE_REG(r,v) ((r)=(v))\n"
         "#define READ_BIT(r,m) ((r)&(m))\n"
         "#define MODIFY_REG(r,m,v) ((r)=((r)&~(m))|(v))\n"
         "#define SET_BIT(r,m) ((r)|=(m))\n#define CLEAR_BIT(r,m) ((r)&=~(m))\n"
@@ -118,6 +119,20 @@ HARNESS = r"""
 CAN_TestMemory test_memory;
 CAN_MISC_Type misc_blocks[3];
 SYSC_Type system_control;
+
+/* Optional ECR.CEL read-clear model catches accidental repeated reads in a getter. */
+static unsigned consume_enabled, ecr_reads, psr_reads;
+uint32_t can_test_read(volatile uint32_t *address)
+{
+    uint32_t value=*address;
+    if (consume_enabled && address==&CAN0->ECR)
+    {
+        ++ecr_reads;
+        *address &= ~0x00FF0000U;
+    }
+    if (consume_enabled && address==&CAN0->PSR) { ++psr_reads; }
+    return value;
+}
 
 int main(void)
 {
@@ -614,6 +629,55 @@ int main(void)
         assert(response_length==0);
         CAN0->SIDFC=(2U<<CAN0_SIDFC_LSS_Pos) | 0x3FFCU;
         assert(et_can_wrap_get_filter(0, 0, 0, &actual)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+    }
+
+    /* First protocol/counter sample must survive field decoding, including CEL. */
+    {
+        et_can_protocol_status_t snapshot;
+        et_can_service_t service;
+        et_irq_manager_t manager={0};
+        const et_service_descriptor_t *descriptor;
+        uint8_t request[5]={0}, response[60]={0};
+        uint16_t length=99;
+        uint32_t value=0;
+        CAN0->PSR=0x00345BEDU;
+        CAN0->ECR=0x005ACB81U;
+        consume_enabled=1; ecr_reads=0; psr_reads=0;
+        assert(et_can_wrap_consume_protocol_status(0, &snapshot)==ET_WRAP_STATUS_OK);
+        assert(ecr_reads==1 && psr_reads==1 && CAN0->ECR==0x0000CB81U);
+        consume_enabled=0;
+        assert(snapshot.last_error==ET_CAN_ERROR_BIT0);
+        assert(snapshot.activity==ET_CAN_ACTIVITY_IDLE);
+        assert(snapshot.error_passive==1 && snapshot.warning==1 && snapshot.bus_off==1);
+        assert(snapshot.data_last_error==ET_CAN_ERROR_ACK);
+        assert(snapshot.received_esi==1 && snapshot.received_brs==1);
+        assert(snapshot.received_fd==0 && snapshot.protocol_exception==1);
+        assert(snapshot.tdc_position==0x34);
+        assert(snapshot.tx_error_count==0x81 && snapshot.rx_error_count==0x4B);
+        assert(snapshot.rx_error_passive==1 && snapshot.error_log_count==0x5A);
+        assert(et_can_wrap_consume_protocol_status(0, NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_consume_protocol_status(7, &snapshot)==ET_WRAP_STATUS_NOT_SUPPORTED);
+        CAN0->TSCV=0x1234;
+        CAN0->TOCV=0xABCD;
+        assert(et_can_wrap_get_timestamp(0, &value)==ET_WRAP_STATUS_OK && value==0x1234);
+        assert(et_can_wrap_reset_timestamp(0)==ET_WRAP_STATUS_OK && CAN0->TSCV==0);
+        assert(et_can_wrap_get_timeout_counter(0, &value)==ET_WRAP_STATUS_OK && value==0xABCD);
+        CAN0->CCCR=0x1234;
+        assert(et_can_wrap_set_clock_stop(0, 2)==ET_WRAP_STATUS_INVALID_ARGUMENT && CAN0->CCCR==0x1234);
+        assert(et_can_wrap_set_clock_stop(0, 1)==ET_WRAP_STATUS_OK && CAN0->CCCR==0x1234);
+        assert(et_can_wrap_set_clock_stop(0, 0)==ET_WRAP_STATUS_OK && CAN0->CCCR==0x1224);
+        CAN0->CCCR=8;
+        assert(et_can_wrap_get_clock_stop_ack(0, &value)==ET_WRAP_STATUS_OK && value==1);
+        assert(et_can_service_init(&service,0,&manager,0)==0);
+        descriptor=et_can_service_descriptor(&service);
+        CAN0->ECR=0x005ACB81U;
+        assert(descriptor->handle(descriptor->context,29,request,1,response,60,&length)==ET_STATUS_OK);
+        assert(length==60 && response[0]==5 && response[40]==0x34 && response[56]==0x5A);
+        assert(descriptor->handle(descriptor->context,29,request,1,response,59,&length)==ET_STATUS_INVALID_PARAM);
+        assert(length==0);
+        request[1]=2;
+        assert(descriptor->handle(descriptor->context,33,request,5,NULL,0,&length)==ET_STATUS_INVALID_PARAM);
+        assert(CAN0->CCCR==8);
     }
 
     return 0;

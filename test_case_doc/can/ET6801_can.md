@@ -463,6 +463,8 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 
 ### 6.4 当前测试状态
 
+状态/计时接口开发（2026-09-05 06:47 CST）：新增协议状态消费、时间戳读取/清零、Timeout读取、Clock Stop请求/应答六条命令，累计35条。D12：原CAN_getErrCounters对ECR分别读取四次，CEL读清导致首次计数丢失；修为一次READ_REG后解码，原生回归加入ECR.CEL读清模型并断言恰好一次读取。D13：CAN_getClockStopAck原读CCCR.CSR[4]，误把请求当应答；改为CCCR.CSA[3]，与已有CAN_getClkStopAck语义一致。Native独立验证CSR/CSA不相同场景，Service长度拒绝、PC读清命令retry_safe=false；本批配置流水线固件编译PASS；总软件门禁1205 PASS、0 FAIL、0 SKIP，证据为`artifacts/runs/20260904_can_development/stages/can_status_build.log`和`can_status_gate.log`。没有烧录或CAN HIL结论。
+
 正式Case基础批验证（2026-09-05 01:28 CST）：两条SPEC共收集13个参数节点；软件调用链回归16项通过，覆盖独立RX响应、384帧格式矩阵及末Byte损坏必须失败。总软件门禁1192 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_case_foundation_gate_verified.log`。本批仅PC/文档变化，未重新构建或烧录固件；没有CAN HIL结论。
 
 正式Case接入（2026-09-05 01:06 CST）：P0_002已注册并与SPEC及报告绑定。CAN专属Fixture只读选择连接文件的can0（GPIO58 RX、GPIO59 TX），核对Capability实例/IRQ和Firmware Service；内部回环不执行GPIO配置。独立can_routes.py仅保存FPGA输入时钟40MHz（现有CRG Driver/硅前测试依据）及RAM头8-byte、标准Filter4-byte、扩展Filter8-byte、Event8-byte几何。Silicon的时钟D04尚未解决，映射缺失按集成错误处理，不标SKIP。Case直接建立CRG/资源池复位基线，发送文档PATTERN_A/B并比较全部元数据和字节；三项软件流程测试覆盖独立RX Golden、第二帧单Byte错误必须失败及失败后两项清理。这些不是HIL证据。

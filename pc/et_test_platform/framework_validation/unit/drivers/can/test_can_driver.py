@@ -402,3 +402,59 @@ def test_invalid_filter_response_fails_closed() -> None:
         CanDriver(TargetStub([pack("<5I", 0, 99, 0, 0, 0)]), 0).filter_get(0, extended=False)
     with pytest.raises(ProtocolError):
         CanDriver(TargetStub([pack("<I", 0x20000000)]), 0).extended_mask_get()
+
+
+# 消费读清状态不允许重试；每个字段由独立Golden提供，不用请求对象制造期望。
+def test_protocol_consume_and_scalar_timer_contract() -> None:
+    target = TargetStub(
+        [
+            pack("<15I", 5, 1, 1, 1, 1, 3, 1, 1, 0, 1, 0x34, 0x81, 0x4B, 1, 0x5A),
+            pack("<I", 0x1234),
+            b"",
+            pack("<I", 0xABCD),
+            b"",
+            pack("<I", 1),
+        ]
+    )
+    driver = CanDriver(target, 0)
+    actual = driver.protocol_status_consume(timeout_s=0.2)
+    assert actual.last_error.name == "BIT0" and actual.data_last_error.name == "ACK"
+    assert actual.bus_off and actual.error_passive and not actual.received_fd
+    assert actual.error_log_count == 0x5A and actual.tdc_position == 0x34
+    assert driver.timestamp_get() == 0x1234
+    driver.timestamp_reset()
+    assert driver.timeout_counter_get() == 0xABCD
+    driver.clock_stop_set(True)
+    assert driver.clock_stop_ack_get()
+    assert [entry["command"] for entry in target.requests] == [29, 30, 31, 32, 33, 34]
+    assert [entry["retry_safe"] for entry in target.requests] == [
+        False,
+        True,
+        False,
+        True,
+        False,
+        True,
+    ]
+    assert target.requests[0]["body"] == b"\0" and target.requests[0]["timeout_s"] == 0.2
+    assert target.requests[4]["body"] == bytes.fromhex("00 01000000")
+
+
+# 错误编码、非法Boolean或响应截断必须失败，不能默认解释成无错误。
+@pytest.mark.parametrize("index,value", ((0, 8), (1, 4), (5, 8), (4, 2), (13, 2)))
+def test_protocol_consume_rejects_invalid_fields(index, value) -> None:
+    words = [0] * 15
+    words[index] = value
+    target = TargetStub([pack("<15I", *words)])
+    with pytest.raises(ProtocolError):
+        CanDriver(target, 0).protocol_status_consume()
+    assert len(target.requests) == 1 and target.requests[0]["retry_safe"] is False
+
+
+# Clock Stop布尔输入和输出严格校验；拒绝非法请求时完全不访问设备。
+def test_clock_stop_boolean_bounds() -> None:
+    target = TargetStub()
+    with pytest.raises(ValueError):
+        CanDriver(target, 0).clock_stop_set(1)
+    assert target.requests == []
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<I", 2)]), 0).clock_stop_ack_get()

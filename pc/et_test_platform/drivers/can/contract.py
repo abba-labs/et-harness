@@ -51,6 +51,12 @@ class CanCommand(IntEnum):
     FILTER_GET = 26
     EXTENDED_MASK_SET = 27
     EXTENDED_MASK_GET = 28
+    PROTOCOL_STATUS_CONSUME = 29
+    TIMESTAMP_GET = 30
+    TIMESTAMP_RESET = 31
+    TIMEOUT_COUNTER_GET = 32
+    CLOCK_STOP_SET = 33
+    CLOCK_STOP_ACK_GET = 34
 
 
 REQUEST_WORDS = (
@@ -81,6 +87,12 @@ REQUEST_WORDS = (
     2,
     7,
     2,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
     1,
     0,
 )
@@ -114,6 +126,42 @@ RESPONSE_WORDS = (
     5,
     0,
     1,
+    15,
+    1,
+    0,
+    1,
+    0,
+    1,
+)
+# Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
+PROTOCOL_FIELDS = (
+    "last_error",
+    "activity",
+    "error_passive",
+    "warning",
+    "bus_off",
+    "data_last_error",
+    "received_esi",
+    "received_brs",
+    "received_fd",
+    "protocol_exception",
+    "tdc_position",
+    "tx_error_count",
+    "rx_error_count",
+    "rx_error_passive",
+    "error_log_count",
+)
+PROTOCOL_FLAGS = frozenset(
+    {
+        "error_passive",
+        "warning",
+        "bus_off",
+        "received_esi",
+        "received_brs",
+        "received_fd",
+        "protocol_exception",
+        "rx_error_passive",
+    }
 )
 BUS_FIELDS = (
     "monitor",
@@ -188,5 +236,8 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.RX_BUFFER_STATUS_GET,
         CanCommand.FILTER_GET,
         CanCommand.EXTENDED_MASK_GET,
+        CanCommand.TIMESTAMP_GET,
+        CanCommand.TIMEOUT_COUNTER_GET,
+        CanCommand.CLOCK_STOP_ACK_GET,
     }
 )

@@ -5,8 +5,10 @@
 from .contract import CAN_SERVICE_ID
 from .driver import CanDriver
 from .models import (
+    CanActivity,
     CanBusConfig,
     CanBusLimits,
+    CanError,
     CanFilter,
     CanFilterAction,
     CanFilterType,
@@ -16,6 +18,7 @@ from .models import (
     CanOptionLimits,
     CanOptions,
     CanPhaseTiming,
+    CanProtocolStatus,
     CanRamLayout,
     CanRamLimits,
     CanRxBufferStatus,
@@ -31,6 +34,9 @@ from .models import (
 )
 
 __all__ = [
+    "CanActivity",
+    "CanError",
+    "CanProtocolStatus",
     "CAN_SERVICE_ID",
     "CanFilter",
     "CanFilterAction",

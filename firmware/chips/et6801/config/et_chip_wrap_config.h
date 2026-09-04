@@ -34,6 +34,13 @@
  * Consumed by et_can_mapping_t; no GPIO or external CAN-box channel belongs here.
  */
 #define ET_CHIP_CAN_MAP_TABLE {{0u, CAN0}, {1u, CAN1}, {2u, CAN2}}
+/* Public error/activity enum order maps to SDK PSR semantics, not public register bits. */
+#define ET_CHIP_CAN_ERROR_MAP_TABLE \
+    {CAN_TEST_ERROR_NONE, CAN_TEST_ERROR_STUFF, CAN_TEST_ERROR_FORM, CAN_TEST_ERROR_ACK, \
+     CAN_TEST_ERROR_BIT1, CAN_TEST_ERROR_BIT0, CAN_TEST_ERROR_CRC, CAN_TEST_ERROR_UNCHANGED}
+#define ET_CHIP_CAN_ACTIVITY_MAP_TABLE \
+    {CAN_TEST_ACTIVITY_SYNCHRONIZING, CAN_TEST_ACTIVITY_IDLE, \
+     CAN_TEST_ACTIVITY_RECEIVER, CAN_TEST_ACTIVITY_TRANSMITTER}
 /** Message RAM packing is SDK-owned; public frames carry unshifted identifiers. */
 #define ET_CHIP_CAN_FRAME_MAP_TABLE \
     {CAN_TEST_STANDARD_ID_SHIFT, CAN_TEST_STANDARD_ID_MAX, \

@@ -1631,3 +1631,187 @@ et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask)
 
     return ET_WRAP_STATUS_OK;
 }
+
+static const uint32_t protocol_errors[] = ET_CHIP_CAN_ERROR_MAP_TABLE;
+static const uint32_t protocol_activities[] = ET_CHIP_CAN_ACTIVITY_MAP_TABLE;
+
+/**
+ * @brief Consume protocol and error-counter observations exactly once each.
+ * @param[in] id Logical controller.
+ * @param[out] status Decoded first observations, never a cached expected state.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note PSR then ECR are read in order; read-clear flags are consumed, with no retry.
+ *       These are consecutive hardware samples, not a simultaneous atomic snapshot.
+ */
+et_wrap_status_t et_can_wrap_consume_protocol_status(et_can_id_t id,
+                                                     et_can_protocol_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_ProtocolStatus protocol;
+    CAN_ErrCntStatus counters;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    /* Phase 1: Consume each read-clear register once through the own Driver. */
+    CAN_getProtocolStatus(instance, &protocol);
+    CAN_getErrCounters(instance, &counters);
+
+    /* Phase 2: Map symbolic encodings and copy explicit observations without retries. */
+    if ((selector_from_driver(protocol_errors, sizeof(protocol_errors) / sizeof(protocol_errors[0]),
+                              protocol.lastErrCode, &status->last_error) == 0) ||
+        (selector_from_driver(protocol_errors, sizeof(protocol_errors) / sizeof(protocol_errors[0]),
+                              protocol.dlec, &status->data_last_error) == 0) ||
+        (selector_from_driver(protocol_activities,
+                              sizeof(protocol_activities) / sizeof(protocol_activities[0]),
+                              protocol.act, &status->activity) == 0))
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    status->error_passive = protocol.errPassive;
+    status->warning = protocol.warningStatus;
+    status->bus_off = protocol.busOffStatus;
+    status->received_esi = protocol.resi;
+    status->received_brs = protocol.rbrs;
+    status->received_fd = protocol.rfdf;
+    status->protocol_exception = protocol.pxe;
+    status->tdc_position = protocol.tdcv;
+    status->tx_error_count = counters.transErrLogCnt;
+    status->rx_error_count = counters.recErrCnt;
+    status->rx_error_passive = counters.rpStatus;
+    status->error_log_count = counters.canErrLogCnt;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read the current timestamp counter without resetting it.
+ * @param[in] id Logical controller.
+ * @param[out] value Actual single Driver readback.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not poll, consume FIFO entries or configure another IP.
+ */
+et_wrap_status_t et_can_wrap_get_timestamp(et_can_id_t id, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (value == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *value = CAN_getTSCounterVal(instance);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read the timeout counter without reloading or changing its source.
+ * @param[in] id Logical controller.
+ * @param[out] value Actual single Driver readback.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not poll, consume FIFO entries or configure another IP.
+ */
+et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (value == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *value = CAN_getTOCounterVal(instance);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read clock-stop acknowledgement; do not claim that the external clock stopped.
+ * @param[in] id Logical controller.
+ * @param[out] value Actual single Driver readback.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not poll, consume FIFO entries or configure another IP.
+ */
+et_wrap_status_t et_can_wrap_get_clock_stop_ack(et_can_id_t id, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (value == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *value = CAN_getClockStopAck(instance);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Reset the timestamp counter through one existing Driver action.
+ * @param[in] id Logical controller.
+ * @return OK or NOT_SUPPORTED.
+ * @note No extra delay or readback; a running counter may advance before the next query.
+ */
+et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_resetTSCounter(instance);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Request or withdraw CAN clock stop without waiting for acknowledgement.
+ * @param[in] id Logical controller.
+ * @param[in] requested Boolean request, not an assumed final state.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note The PC separately observes acknowledgement and restores INIT after withdrawal.
+ */
+et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (requested > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_addClockStopRequest(instance, requested);
+
+    return ET_WRAP_STATUS_OK;
+}

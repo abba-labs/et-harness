@@ -16,6 +16,7 @@ from .models import (
     CanLoopback,
     CanOptionLimits,
     CanOptions,
+    CanProtocolStatus,
     CanRamLayout,
     CanRamLimits,
     CanRxBufferStatus,
@@ -35,6 +36,38 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 连续消费一次协议状态和错误计数；读清字段会被确认，不允许自动重试。
+    # 失败上抛，调用者应保存首个读回；返回值不是同时发生的原子快照。
+    def protocol_status_consume(self, *, timeout_s: float | None = None) -> CanProtocolStatus:
+        return codec.decode_protocol_status(
+            self._request(CanCommand.PROTOCOL_STATUS_CONSUME, timeout_s=timeout_s)
+        )
+
+    # 单次读取计时值，不配置时钟源或预分频；命令超时直接上抛。
+    def timestamp_get(self, *, timeout_s: float | None = None) -> int:
+        return self._request(CanCommand.TIMESTAMP_GET, timeout_s=timeout_s)[0]
+
+    # 单次清零时间戳；不读回、不插入延时，不假定下一次查询仍为零。
+    # 只等待本次响应；超时或设备失败直接上抛，不自动再清一次。
+    def timestamp_reset(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.TIMESTAMP_RESET, timeout_s=timeout_s)
+
+    # 单次读取超时计数，不重装、不改变Timeout来源；通信失败直接上抛。
+    def timeout_counter_get(self, *, timeout_s: float | None = None) -> int:
+        return self._request(CanCommand.TIMEOUT_COUNTER_GET, timeout_s=timeout_s)[0]
+
+    # 设置或撤回Clock Stop请求；不把命令接受当作CSA生效，不自动清INIT。
+    # 只等待命令响应；失败原样上抛，应答等待由Case另行决定。
+    def clock_stop_set(self, requested: bool, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.CLOCK_STOP_SET, (codec.boolean(requested),), timeout_s=timeout_s)
+
+    # 单次读取Clock Stop Ack；非法Boolean失败，不据此宣称独立时钟真的停振。
+    def clock_stop_ack_get(self, *, timeout_s: float | None = None) -> bool:
+        (value,) = self._request(CanCommand.CLOCK_STOP_ACK_GET, timeout_s=timeout_s)
+        if value not in (0, 1):
+            raise ProtocolError(f"CAN clock stop acknowledgement is not Boolean: {value}")
+        return bool(value)
 
     # 查询真实只读身份；只等待本次响应，通信失败直接上抛。
     def identity_get(self, *, timeout_s: float | None = None) -> CanIdentity:

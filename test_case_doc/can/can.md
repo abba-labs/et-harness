@@ -94,7 +94,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器，共29条命令，详见0.7。P0_002已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、协议状态消费和计时控制，共35条命令，详见0.7。P0_002、P1_001已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -142,6 +142,16 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | FILTER_GET | 26 | extended、index | type、action、id1、id2、buffer_index，来自实际RAM |
 | EXTENDED_MASK_SET | 27 | 未移位29-bit mask | 无；INIT前提，不修改过滤器列表 |
 | EXTENDED_MASK_GET | 28 | 无 | 实际扩展ID AND mask |
+| PROTOCOL_STATUS_CONSUME | 29 | 无 | 15字段协议/错误计数；消费读清状态，不允许自动重试 |
+| TIMESTAMP_GET | 30 | 无 | 当前时间戳计数 |
+| TIMESTAMP_RESET | 31 | 无 | 无；单次清零，不插入等待或读回 |
+| TIMEOUT_COUNTER_GET | 32 | 无 | 当前Timeout计数，不重装 |
+| CLOCK_STOP_SET | 33 | requested Boolean | 无；只设置或撤回请求，不等待Ack、不自动清INIT |
+| CLOCK_STOP_ACK_GET | 34 | 无 | 硬件应答Boolean，不是请求值 |
+
+协议状态响应顺序：`last_error, activity, error_passive, warning, bus_off, data_last_error, received_esi, received_brs, received_fd, protocol_exception, tdc_position, tx_error_count, rx_error_count, rx_error_passive, error_log_count`。Error公开枚举为0无错误、1Stuff、2Form、3ACK、4Bit1、5Bit0、6CRC、7自前次读取无变化；Activity为0同步中、1Idle、2接收、3发送。布尔字段严格0/1，其余为实际计数；TDC位置为控制器周期数，不等于独立测得的物理传播延迟。
+
+`PROTOCOL_STATUS_CONSUME`先读一次协议状态，再读一次错误计数；两者是连续样本，不声称同时快照。读取会确认相应读清字段，因此命令必须标记不可安全重试，Case在下一次读取前保存首次证据。无错误、未变化两种状态不能混为一谈。时间戳清零后的下一次PC查询可能已递增，不应断言仍严格为0。Clock Stop Ack仅证明控制器应答，不能代替外部时钟停振观测。
 
 过滤器语义：extended严格0/1。type为0 RANGE、1 DUAL、2 MASK、3 RANGE_NO_MASK、4 DISABLED；标准格式不接受3，扩展格式不接受4（可用action=DISABLED关闭）。action为0关闭、1FIFO0、2FIFO1、3拒绝、4仅Priority、5Priority+FIFO0、6Priority+FIFO1、7Dedicated Buffer。普通模式id2表示范围上限/第二ID/掩码，buffer_index必须0；Buffer模式为ID1精确匹配，type=RANGE、id2=0，buffer_index独立传入。基础操作不包含Debug/TSU Filter编码；读到这些未表示的Buffer位时返回NOT_SUPPORTED，不截断后声称读回成功。过滤器读回不是SET缓存；不存在槽、非法格式及超出ID宽度均无写入。
 
@@ -169,6 +179,8 @@ Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试
 `CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
 
 `wait_initializing`仅在单一Deadline内查询INIT，不发送切换请求、不复位IP。GPIO、CRG及外部CAN盒子由Case分别调用各自Driver/Adapter；CAN Driver不代为编排。只有只读命令允许声明安全重试。
+
+`protocol_status_consume`对应显式消费命令，不属于安全只读查询；异常直接上抛，不补采样。`timestamp_get/reset`、`timeout_counter_get`、`clock_stop_set/ack_get`均只执行所命名的一个动作，Clock Stop的退出和INIT恢复由Case明确编排。
 
 RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_get`。模型显式传参，不在Driver内选择测试布局；这些动作均只等待本次响应，失败原样上抛，不替调用者复位。
 

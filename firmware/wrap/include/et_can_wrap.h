@@ -319,4 +319,56 @@ et_wrap_status_t et_can_wrap_get_filter(et_can_id_t id, uint32_t extended, uint3
 et_wrap_status_t et_can_wrap_set_extended_mask(et_can_id_t id, uint32_t mask);
 et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask);
 
+/** Protocol status consumed once, then counters consumed once. Not a simultaneous snapshot.
+ * Reading acknowledges hardware read-clear fields; callers must preserve returned evidence.
+ * Error codes and activity use public enums mapped internally to the Chip Driver.
+ */
+typedef enum
+{
+    ET_CAN_ERROR_NONE = 0u,
+    ET_CAN_ERROR_STUFF = 1u,
+    ET_CAN_ERROR_FORM = 2u,
+    ET_CAN_ERROR_ACK = 3u,
+    ET_CAN_ERROR_BIT1 = 4u,
+    ET_CAN_ERROR_BIT0 = 5u,
+    ET_CAN_ERROR_CRC = 6u,
+    ET_CAN_ERROR_UNCHANGED = 7u
+} et_can_error_t;
+
+typedef enum
+{
+    ET_CAN_ACTIVITY_SYNCHRONIZING = 0u,
+    ET_CAN_ACTIVITY_IDLE = 1u,
+    ET_CAN_ACTIVITY_RECEIVER = 2u,
+    ET_CAN_ACTIVITY_TRANSMITTER = 3u
+} et_can_activity_t;
+
+/** Named scalar snapshot; counter/time values are hardware observations. */
+typedef struct
+{
+    uint32_t last_error;
+    uint32_t activity;
+    uint32_t error_passive;
+    uint32_t warning;
+    uint32_t bus_off;
+    uint32_t data_last_error;
+    uint32_t received_esi;
+    uint32_t received_brs;
+    uint32_t received_fd;
+    uint32_t protocol_exception;
+    uint32_t tdc_position;
+    uint32_t tx_error_count;
+    uint32_t rx_error_count;
+    uint32_t rx_error_passive;
+    uint32_t error_log_count;
+} et_can_protocol_status_t;
+
+et_wrap_status_t et_can_wrap_consume_protocol_status(et_can_id_t id,
+                                                     et_can_protocol_status_t *status);
+et_wrap_status_t et_can_wrap_get_timestamp(et_can_id_t id, uint32_t *count);
+et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id);
+et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *count);
+et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested);
+et_wrap_status_t et_can_wrap_get_clock_stop_ack(et_can_id_t id, uint32_t *acknowledged);
+
 #endif

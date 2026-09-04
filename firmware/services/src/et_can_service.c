@@ -662,6 +662,116 @@ static et_wrap_status_t execute_filter_command(et_can_id_t id, uint16_t command,
 }
 
 /**
+ * @brief Execute protocol consume or one scalar timer/clock action.
+ * @param[in] id Logical controller.
+ * @param[in] command Validated command.
+ * @param[in] body Exact decoded request storage.
+ * @param[out] response Capacity-checked response storage.
+ * @return Own Wrap status, with no retry after consuming read-clear state.
+ * @note No loop, cross-IP initialization, event capture or Case verdict is performed.
+ */
+static et_wrap_status_t execute_status_command(et_can_id_t id, uint16_t command,
+                                               const uint8_t *body, uint8_t *response)
+{
+    et_wrap_status_t status;
+    et_can_protocol_status_t protocol;
+    uint32_t value;
+
+    /* Phase 1: State-changing and read-clear operations are performed once. */
+    if (command == ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME)
+    {
+        status = et_can_wrap_consume_protocol_status(id, &protocol);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(&response[ET_CAN_PROTOCOL_LAST_ERROR * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.last_error);
+            write_word(&response[ET_CAN_PROTOCOL_ACTIVITY * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.activity);
+            write_word(&response[ET_CAN_PROTOCOL_ERROR_PASSIVE * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.error_passive);
+            write_word(&response[ET_CAN_PROTOCOL_WARNING * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.warning);
+            write_word(&response[ET_CAN_PROTOCOL_BUS_OFF * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.bus_off);
+            write_word(&response[ET_CAN_PROTOCOL_DATA_LAST_ERROR * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.data_last_error);
+            write_word(&response[ET_CAN_PROTOCOL_RECEIVED_ESI * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.received_esi);
+            write_word(&response[ET_CAN_PROTOCOL_RECEIVED_BRS * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.received_brs);
+            write_word(&response[ET_CAN_PROTOCOL_RECEIVED_FD * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.received_fd);
+            write_word(&response[ET_CAN_PROTOCOL_PROTOCOL_EXCEPTION * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.protocol_exception);
+            write_word(&response[ET_CAN_PROTOCOL_TDC_POSITION * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.tdc_position);
+            write_word(&response[ET_CAN_PROTOCOL_TX_ERROR_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.tx_error_count);
+            write_word(&response[ET_CAN_PROTOCOL_RX_ERROR_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.rx_error_count);
+            write_word(&response[ET_CAN_PROTOCOL_RX_ERROR_PASSIVE * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.rx_error_passive);
+            write_word(&response[ET_CAN_PROTOCOL_ERROR_LOG_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                       protocol.error_log_count);
+        }
+
+        return status;
+    }
+
+    if (command == ET_CAN_COMMAND_TIMESTAMP_RESET)
+    {
+        return et_can_wrap_reset_timestamp(id);
+    }
+
+    if (command == ET_CAN_COMMAND_CLOCK_STOP_SET)
+    {
+        value = read_word(body);
+
+        if (value > 1u)
+        {
+            return ET_WRAP_STATUS_INVALID_ARGUMENT;
+        }
+
+        return et_can_wrap_set_clock_stop(id, (uint8_t)value);
+    }
+
+    /* Phase 2: Select one nondestructive read and serialize only its successful result. */
+    switch (command)
+    {
+        case ET_CAN_COMMAND_TIMESTAMP_GET:
+        {
+            status = et_can_wrap_get_timestamp(id, &value);
+            break;
+        }
+
+        case ET_CAN_COMMAND_TIMEOUT_COUNTER_GET:
+        {
+            status = et_can_wrap_get_timeout_counter(id, &value);
+            break;
+        }
+
+        case ET_CAN_COMMAND_CLOCK_STOP_ACK_GET:
+        {
+            status = et_can_wrap_get_clock_stop_ack(id, &value);
+            break;
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_NOT_SUPPORTED;
+        }
+    }
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        write_word(response, value);
+    }
+
+    return status;
+}
+
+/**
  * @brief Execute one validated basic CAN command through the own Wrap.
  * @param[in] id Logical controller identity.
  * @param[in] command Public command number.
@@ -681,6 +791,12 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if ((command >= ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME) &&
+        (command <= ET_CAN_COMMAND_CLOCK_STOP_ACK_GET))
+    {
+        return execute_status_command(id, command, body, response);
+    }
 
     if ((command >= ET_CAN_COMMAND_FILTER_SET) && (command <= ET_CAN_COMMAND_EXTENDED_MASK_GET))
     {
@@ -867,7 +983,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RX_BUFFER_ACK] = ET_CAN_RX_BITMAP_WORDS,
         [ET_CAN_COMMAND_FILTER_SET] = ET_CAN_FILTER_SET_WORDS,
         [ET_CAN_COMMAND_FILTER_GET] = ET_CAN_FILTER_SELECT_WORDS,
-        [ET_CAN_COMMAND_EXTENDED_MASK_SET] = 1u};
+        [ET_CAN_COMMAND_EXTENDED_MASK_SET] = 1u,
+        [ET_CAN_COMMAND_CLOCK_STOP_SET] = 1u};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -885,7 +1002,11 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RX_READ] = ET_CAN_RX_FRAME_WORDS,
         [ET_CAN_COMMAND_RX_BUFFER_STATUS_GET] = ET_CAN_RX_BITMAP_WORDS,
         [ET_CAN_COMMAND_FILTER_GET] = ET_CAN_FILTER_CONFIG_WORDS,
-        [ET_CAN_COMMAND_EXTENDED_MASK_GET] = 1u};
+        [ET_CAN_COMMAND_EXTENDED_MASK_GET] = 1u,
+        [ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME] = ET_CAN_PROTOCOL_STATUS_WORDS,
+        [ET_CAN_COMMAND_TIMESTAMP_GET] = 1u,
+        [ET_CAN_COMMAND_TIMEOUT_COUNTER_GET] = 1u,
+        [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

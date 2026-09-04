@@ -1456,6 +1456,27 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem);
 
 #if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
 /******************** TEST DRIVER EXTENSION BEGIN ********************/
+/* PSR.LEC/DLEC encodings; 7 means no change since the previous read. */
+typedef enum
+{
+    CAN_TEST_ERROR_NONE = 0U,
+    CAN_TEST_ERROR_STUFF = 1U,
+    CAN_TEST_ERROR_FORM = 2U,
+    CAN_TEST_ERROR_ACK = 3U,
+    CAN_TEST_ERROR_BIT1 = 4U,
+    CAN_TEST_ERROR_BIT0 = 5U,
+    CAN_TEST_ERROR_CRC = 6U,
+    CAN_TEST_ERROR_UNCHANGED = 7U
+} CAN_TestErrorCode;
+
+/* PSR.ACT reports synchronization, idle, receiver or transmitter activity. */
+typedef enum
+{
+    CAN_TEST_ACTIVITY_SYNCHRONIZING = 0U,
+    CAN_TEST_ACTIVITY_IDLE = 1U,
+    CAN_TEST_ACTIVITY_RECEIVER = 2U,
+    CAN_TEST_ACTIVITY_TRANSMITTER = 3U
+} CAN_TestActivity;
 /** ET6801 Message RAM aperture: driver uses CANx - 0x4000, UT5 tests 16 KiB. */
 #define CAN_TEST_MSG_RAM_BYTES (0x4000U)
 /** Message RAM R0/T0 stores standard ID in ID[28:18], extended ID in ID[28:0]. */

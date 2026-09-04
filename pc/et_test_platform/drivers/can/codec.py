@@ -6,13 +6,16 @@
 from ...core.errors import ProtocolError
 from . import contract
 from .models import (
+    CanActivity,
     CanBusConfig,
+    CanError,
     CanFilter,
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
     CanOptions,
     CanPhaseTiming,
+    CanProtocolStatus,
     CanRamLayout,
     CanRxFrame,
     CanTimeoutSource,
@@ -74,6 +77,24 @@ def decode_filter(words: tuple[int, ...]) -> CanFilter:
         return CanFilter(CanFilterType(words[0]), CanFilterAction(words[1]), *words[2:])
     except ValueError as error:
         raise ProtocolError(f"CAN filter selectors are invalid: {words}") from error
+
+
+# 严格解码已消费的单次状态；使用命名字段，不让Driver包含Wire索引。
+def decode_protocol_status(words: tuple[int, ...]) -> CanProtocolStatus:
+    if len(words) != len(contract.PROTOCOL_FIELDS):
+        raise ProtocolError("CAN protocol status has invalid field count")
+    values = dict(zip(contract.PROTOCOL_FIELDS, words, strict=True))
+    try:
+        for name in contract.PROTOCOL_FLAGS:
+            if values[name] not in (0, 1):
+                raise ValueError(f"{name} is not Boolean")
+            values[name] = bool(values[name])
+        values["last_error"] = CanError(values["last_error"])
+        values["data_last_error"] = CanError(values["data_last_error"])
+        values["activity"] = CanActivity(values["activity"])
+    except ValueError as error:
+        raise ProtocolError(f"CAN invalid consumed protocol status: {words}") from error
+    return CanProtocolStatus(**values)
 
 
 # 不接受bool冒充计数，负值和超宽值必须在发命令前被拒绝。

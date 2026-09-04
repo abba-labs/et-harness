@@ -7,6 +7,46 @@ from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 
 
+# 公共错误语义；固件通过SDK枚举映射，数值不是芯片寄存器编码接口。
+class CanError(IntEnum):
+    NONE = 0
+    STUFF = 1
+    FORM = 2
+    ACK = 3
+    BIT1 = 4
+    BIT0 = 5
+    CRC = 6
+    UNCHANGED = 7
+
+
+# 公共通信状态，用于解释实际活动，不作为TX完成替代证据。
+class CanActivity(IntEnum):
+    SYNCHRONIZING = 0
+    IDLE = 1
+    RECEIVER = 2
+    TRANSMITTER = 3
+
+
+# PSR类状态再ECR类计数的连续一次采样；不是同时快照，会消费读清字段。
+@dataclass(frozen=True, slots=True)
+class CanProtocolStatus:
+    last_error: CanError
+    activity: CanActivity
+    error_passive: bool
+    warning: bool
+    bus_off: bool
+    data_last_error: CanError
+    received_esi: bool
+    received_brs: bool
+    received_fd: bool
+    protocol_exception: bool
+    tdc_position: int
+    tx_error_count: int
+    rx_error_count: int
+    rx_error_passive: bool
+    error_log_count: int
+
+
 # 值直接来自控制器身份查询，不从Profile制造读回。
 @dataclass(frozen=True, slots=True)
 class CanIdentity:

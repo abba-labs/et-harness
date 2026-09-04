@@ -1064,16 +1064,20 @@ void CAN_enbaleLpbkMode(CAN_Type *CANx,
 void CAN_getErrCounters(CAN_Type         *CANx,
                         CAN_ErrCntStatus *errCounter)
 {
+    uint32_t regVal;
+
     /* Check the arguments */
     assert_param(IS_CAN_PERIPH(CANx));
 
-    errCounter->transErrLogCnt = CAN_RD_FIELD32(CANx->ECR,
+    /* CEL is cleared by an ECR read. Decode all counters from one snapshot. */
+    regVal = READ_REG(CANx->ECR);
+    errCounter->transErrLogCnt = CAN_RD_FIELD32(regVal,
                                                 CAN0_ECR_TEC);
-    errCounter->recErrCnt = CAN_RD_FIELD32(CANx->ECR,
+    errCounter->recErrCnt = CAN_RD_FIELD32(regVal,
                                            CAN0_ECR_REC);
-    errCounter->rpStatus = CAN_RD_FIELD32(CANx->ECR,
+    errCounter->rpStatus = CAN_RD_FIELD32(regVal,
                                           CAN0_ECR_RP);
-    errCounter->canErrLogCnt = CAN_RD_FIELD32(CANx->ECR,
+    errCounter->canErrLogCnt = CAN_RD_FIELD32(regVal,
                                               CAN0_ECR_CEL);
 }
 
@@ -1658,7 +1662,7 @@ uint32_t CAN_getClockStopAck(CAN_Type *CANx)
     /* Check the arguments */
     assert_param(IS_CAN_PERIPH(CANx));
 
-    return(CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_CSR));
+    return(CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_CSA));
 }
 
 /**
