@@ -2,7 +2,7 @@
 
 <!-- Contract sync 2026-09-03: append IPCM clock/reset category without changing existing values or Wire layout. -->
 
-更新时间：2026-09-04 22:46 CST。追加CAN类别，旧命令、请求布局和类别编号不变。
+更新时间：2026-09-04 23:32 CST。PC与固件均追加CAN类别10，旧命令、请求布局和类别编号不变。
 
 > 本文件只定义跨芯片稳定的 CRG 公共动作；芯片 Driver 的物理外设选择值仅允许出现在 Chip Config 映射中。
 

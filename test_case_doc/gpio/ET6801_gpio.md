@@ -1,12 +1,14 @@
 # ET6801 GPIO Support Adaptation
 
-更新时间：2026-09-04 22:54 CST。
+更新时间：2026-09-04 23:32 CST。
 
 ## 第一章 范围与依据
 
 本轮仅为SPI对测提供GPIO复用支持，不是GPIO全集分析。直接证据：仓库`firmware/chips/et6801/sdk/ET6x_Driver/Inc/et6x_pinmap.h`、`et6x_gpio.h`及`Src/et6x_gpio.c`。SDK符号证明复用选择，不能单独证明焊线正确；真实SPI数据仍需HIL。
 
 资料导航已读取`project-governance/ip-analysis-sources.yaml`；本轮复用已审SPI文档的接线依据，不宣称已搜索GPIO所有历史测试资料或完成GPIO覆盖。
+
+PC依赖接入：GPIO Driver公开CAN_RX/CAN_TX逻辑信号；专项软件测试验证GPIO58/59请求编码及实例选择。该结果不代表物理CAN接线或总线收发通过。
 
 ## 第二章 Driver
 

@@ -17,6 +17,8 @@ class GpioFunction(IntEnum):
     SPI_CS = 4
     SPI_MOSI = 5
     SPI_MISO = 6
+    CAN_RX = 7
+    CAN_TX = 8
 
 
 # VALIDATE只查询映射，CONFIGURE只执行单引脚配置。

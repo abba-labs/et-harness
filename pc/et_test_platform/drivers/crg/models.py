@@ -22,6 +22,8 @@ class CrgPeripheral(IntEnum):
     IPCM = 8
     # SPI控制器类别；Controller/Target角色共用同一逻辑实例。
     SPI = 9
+    # CAN控制器类别；外部CAN盒子的通道不属于本枚举。
+    CAN = 10
 
 
 # 表示 CRG 对 WDG 时基提供的稳定时钟源语义，不暴露芯片寄存器编码。

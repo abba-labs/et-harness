@@ -42,7 +42,7 @@ CAN控制器通过Message RAM保存过滤项、收发帧和发送事件；Classi
 
 外部Peer只需稳定动作：设置帧格式/速率、开始捕获、发送帧、查询实际发送结果、读取捕获帧、停止。静默、Non-ISO、错误帧注入和精确时间测量是独立能力，不默认随基础收发提供。DUT的CRG/GPIO配置不能用于配置CAN盒子；外部Peer没有DUT寄存器时，使用其设备发送完成/捕获记录，禁止伪造TXBTO等读值。未知设备能力属于待确认事实，不自动记为SKIP。
 
-此处不分配Service/Command ID、不改变公共Wire。进入实施前在当前IP契约内固定命令Body与返回字段，再同步PC Codec和Firmware Service。借用旧FDCAN Handle内存布局不是合法Wire。
+Service/Command ID及命令Body由0.7节唯一声明，PC Codec与Firmware Service必须同步。借用旧FDCAN Handle内存布局不是合法Wire。
 
 ### 0.3 最小硬件Observation
 
@@ -124,6 +124,12 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | OPTION_LIMITS_GET | 8 | 无 | TDC Offset、TDC Filter、RAM Watchdog三项上限 |
 
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
+
+### 0.8 PC基础接口
+
+`CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。九个基础动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
+
+`wait_initializing`仅在单一Deadline内查询INIT，不发送切换请求、不复位IP。GPIO、CRG及外部CAN盒子由Case分别调用各自Driver/Adapter；CAN Driver不代为编排。只有只读命令允许声明安全重试。
 
 ## 1. Feature Catalog
 

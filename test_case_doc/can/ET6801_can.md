@@ -458,6 +458,8 @@ GPIO依赖同步：公共GPIO功能新增CAN_RX/CAN_TX，ET6801映射为GPIO58_M
 
 本批验证补充（2026-09-04 23:27 CST）：9条基础/选项命令版本的ET6801_SILICON_FLASH配置流水线编译通过，0 Error、0 Warning，证据`artifacts/runs/20260904_232007_643938_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。总软件门禁`can_service_gate_corrected.log`为1120 PASS、0 FAIL、0 SKIP（包括Native C）；新增CAN注册导致的两个静态数量检查已同步为明确的CAN表项与21 Wrap/20 Service，不修改公共注册器或降低断言。没有CAN HIL，也没有正式Case结果。
 
+PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、不可变配置Model及CanDriver已实现。20项专项软件测试验证精确Wire、独立读回、非法参数无请求、Deadline、GPIO CAN信号和CRG CAN类别编码；无真实CAN收发，不能作为正式Case通过证据。
+
 ### 6.4 当前测试状态
 
 状态更新时间：2026-09-04 23:01 CST。实现基线HEAD=`8dd93e97`，其后基础CAN Wrap与GPIO映射正在开发；尚未注册CAN正式Case，未执行CAN硬件测试。下表只统计正式Case，不把SDK/Wrap软件回归数量混入。
