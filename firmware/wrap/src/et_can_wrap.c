@@ -63,6 +63,242 @@ et_wrap_status_t et_can_wrap_get_identity(et_can_id_t id, et_can_identity_t *ide
     return ET_WRAP_STATUS_OK;
 }
 
+static const uint32_t timestamp_sources[] = ET_CHIP_CAN_TIMESTAMP_MAP_TABLE;
+static const uint32_t timeout_sources[] = ET_CHIP_CAN_TIMEOUT_MAP_TABLE;
+static const uint32_t unmatched_policies[] = ET_CHIP_CAN_UNMATCHED_MAP_TABLE;
+static const et_can_bus_limits_t bus_limits = ET_CHIP_CAN_BUS_LIMIT_MAP_TABLE;
+
+/**
+ * @brief Decode one private Driver selector through its public-order map.
+ * @param[in] values Chip mapping entries in public enum order.
+ * @param[in] count Mapping length.
+ * @param[in] value Actual Driver value.
+ * @param[out] result Public enum value on success.
+ * @return One for a mapped value, zero otherwise.
+ * @note Does not replace unknown hardware values with defaults.
+ */
+static int selector_from_driver(const uint32_t *values, size_t count, uint32_t value,
+                                uint32_t *result)
+{
+    size_t index;
+
+    for (index = 0u; index < count; ++index)
+    {
+        if (values[index] == value)
+        {
+            *result = (uint32_t)index;
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Set operating, global acceptance and timer parameters through the existing Driver.
+ * @param[in] id Logical controller.
+ * @param[in] config Explicit public controls; timestamp divisor is an actual count.
+ * @return OK or an argument, state, unsupported-instance or Driver error.
+ * @note INIT is required; no loopback, RAM layout or bit-timing changes are hidden here.
+ */
+et_wrap_status_t et_can_wrap_set_bus_config(et_can_id_t id, const et_can_bus_config_t *config)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_ConfigParams driver;
+
+    /* Phase 1: Reject every unsupported selector and count before any Driver write. */
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if ((config == NULL) || (config->monitor > 1u) || (config->restricted > 1u) ||
+        (config->timeout_enabled > 1u) || (config->reject_remote_ext > 1u) ||
+        (config->reject_remote_std > 1u) || (config->timestamp_divisor == 0u) ||
+        (config->timestamp_divisor > bus_limits.timestamp_divisor) ||
+        (config->timeout_period > bus_limits.timeout_period) ||
+        (config->timestamp_source >= ET_CAN_TIMESTAMP_SOURCE_COUNT) ||
+        (config->timeout_source >= ET_CAN_TIMEOUT_SOURCE_COUNT) ||
+        (config->unmatched_ext >= ET_CAN_UNMATCHED_POLICY_COUNT) ||
+        (config->unmatched_std >= ET_CAN_UNMATCHED_POLICY_COUNT))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    /* Phase 2: Translate only this Driver group, preserving independent configuration. */
+    driver.monEnable = config->monitor;
+    driver.asmEnable = config->restricted;
+    driver.tsPrescalar = config->timestamp_divisor;
+    driver.tsSelect = timestamp_sources[config->timestamp_source];
+    driver.timeoutSelect = timeout_sources[config->timeout_source];
+    driver.timeoutPreload = config->timeout_period;
+    driver.timeoutCntEnable = config->timeout_enabled;
+    driver.filterConfig.rrfe = config->reject_remote_ext;
+    driver.filterConfig.rrfs = config->reject_remote_std;
+    driver.filterConfig.anfe = unmatched_policies[config->unmatched_ext];
+    driver.filterConfig.anfs = unmatched_policies[config->unmatched_std];
+
+    return CAN_config(instance, &driver) == DRV_OK ? ET_WRAP_STATUS_OK : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read back current bus configuration without reading error counters.
+ * @param[in] id Logical controller.
+ * @param[out] config Actual decoded configuration.
+ * @return OK, invalid argument, unsupported instance or unknown Driver selector.
+ * @note No request cache, FIFO acknowledgement, reset or mode changes are used.
+ */
+et_wrap_status_t et_can_wrap_get_bus_config(et_can_id_t id, et_can_bus_config_t *config)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_ConfigParams driver;
+
+    if (config == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetConfig(instance, &driver);
+    config->monitor = driver.monEnable;
+    config->restricted = driver.asmEnable;
+    config->timestamp_divisor = driver.tsPrescalar;
+
+    if (!selector_from_driver(timestamp_sources,
+                              sizeof(timestamp_sources) / sizeof(timestamp_sources[0]),
+                              driver.tsSelect, &config->timestamp_source))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    if (!selector_from_driver(timeout_sources, sizeof(timeout_sources) / sizeof(timeout_sources[0]),
+                              driver.timeoutSelect, &config->timeout_source))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    config->timeout_period = driver.timeoutPreload;
+    config->timeout_enabled = driver.timeoutCntEnable;
+    config->reject_remote_ext = driver.filterConfig.rrfe;
+    config->reject_remote_std = driver.filterConfig.rrfs;
+
+    if (!selector_from_driver(unmatched_policies,
+                              sizeof(unmatched_policies) / sizeof(unmatched_policies[0]),
+                              driver.filterConfig.anfe, &config->unmatched_ext))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    if (!selector_from_driver(unmatched_policies,
+                              sizeof(unmatched_policies) / sizeof(unmatched_policies[0]),
+                              driver.filterConfig.anfs, &config->unmatched_std))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Publish actual timer count limits for the selected controller.
+ * @param[in] id Logical controller.
+ * @param[out] limits Actual timestamp divisor and timeout reload maxima.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Read-only chip facts; no bus configuration or timer start.
+ */
+et_wrap_status_t et_can_wrap_get_bus_limits(et_can_id_t id, et_can_bus_limits_t *limits)
+{
+    if (limits == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (find_instance(id) == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *limits = bus_limits;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Select disabled, internal or external loopback while already in INIT.
+ * @param[in] id Logical controller.
+ * @param[in] mode Stable public mode; internal uses MON to isolate external traffic.
+ * @return OK, invalid mode, unsupported instance or unmet INIT precondition.
+ * @note Exiting internal loopback also clears MON; does not start the controller.
+ */
+et_wrap_status_t et_can_wrap_set_loopback(et_can_id_t id, et_can_loopback_t mode)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((mode != ET_CAN_LOOPBACK_DISABLED) && (mode != ET_CAN_LOOPBACK_INTERNAL) &&
+        (mode != ET_CAN_LOOPBACK_EXTERNAL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    CAN_enbaleLpbkMode(instance,
+                       mode == ET_CAN_LOOPBACK_EXTERNAL ? CAN_LPBK_MODE_EXTERNAL
+                                                        : CAN_LPBK_MODE_INTERNAL,
+                       mode != ET_CAN_LOOPBACK_DISABLED);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Query effective loopback state independently from any prior mode request.
+ * @param[in] id Logical controller.
+ * @param[out] mode Actual disabled, internal or external state.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Reads through the CAN Driver; does not require INIT or change MON.
+ */
+et_wrap_status_t et_can_wrap_get_loopback(et_can_id_t id, et_can_loopback_t *mode)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_LpbkMode driver_mode;
+    uint32_t enabled;
+
+    if (mode == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetLoopback(instance, &enabled, &driver_mode);
+    *mode = enabled == 0u                           ? ET_CAN_LOOPBACK_DISABLED
+            : driver_mode == CAN_LPBK_MODE_INTERNAL ? ET_CAN_LOOPBACK_INTERNAL
+                                                    : ET_CAN_LOOPBACK_EXTERNAL;
+
+    return ET_WRAP_STATUS_OK;
+}
+
 /**
  * @brief Request initialization or bus operation without polling for acknowledgement.
  * @param[in] id Logical controller identity.

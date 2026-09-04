@@ -353,6 +353,70 @@ int main(void)
         assert(response_length==0);
     }
 
+
+    /* Each read comes from hardware, and loopback transitions clear stale MON. */
+    {
+        et_can_bus_config_t bus = {
+            .monitor=0, .restricted=0, .timestamp_divisor=16,
+            .timestamp_source=ET_CAN_TIMESTAMP_INTERNAL,
+            .timeout_source=ET_CAN_TIMEOUT_RX1, .timeout_period=65535,
+            .timeout_enabled=1, .reject_remote_ext=1, .reject_remote_std=1,
+            .unmatched_ext=ET_CAN_UNMATCHED_REJECT, .unmatched_std=ET_CAN_UNMATCHED_RX1
+        };
+        et_can_bus_config_t observed;
+        et_can_bus_limits_t limits;
+        et_can_loopback_t loop;
+        const uint32_t bus_words[] = {0,0,16,1,3,65535,1,1,1,2,1};
+
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+        assert(et_can_wrap_set_bus_config(0, &bus) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_bus_config(0, &observed) == ET_WRAP_STATUS_OK);
+        assert(memcmp(&bus, &observed, sizeof(bus)) == 0);
+        assert(et_can_wrap_get_bus_limits(0, &limits) == ET_WRAP_STATUS_OK);
+        assert(limits.timestamp_divisor==16 && limits.timeout_period==65535);
+        unchanged=controllers[0];
+        bus.timestamp_divisor=0;
+        assert(et_can_wrap_set_bus_config(0, &bus) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        bus.timestamp_divisor=17;
+        assert(et_can_wrap_set_bus_config(0, &bus) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+        bus=observed; bus.unmatched_std=ET_CAN_UNMATCHED_POLICY_COUNT;
+        assert(et_can_wrap_set_bus_config(0, &bus) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        bus=observed; bus.timeout_period=65536;
+        assert(et_can_wrap_set_bus_config(0, &bus) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+
+        assert(et_can_wrap_set_loopback(0, ET_CAN_LOOPBACK_INTERNAL) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_loopback(0, &loop) == ET_WRAP_STATUS_OK && loop==ET_CAN_LOOPBACK_INTERNAL);
+        assert(et_can_wrap_set_loopback(0, ET_CAN_LOOPBACK_EXTERNAL) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_loopback(0, &loop) == ET_WRAP_STATUS_OK && loop==ET_CAN_LOOPBACK_EXTERNAL);
+        assert((CAN0->CCCR & CAN0_CCCR_MON_Msk)==0);
+        assert(et_can_wrap_set_loopback(0, ET_CAN_LOOPBACK_DISABLED) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_loopback(0, &loop) == ET_WRAP_STATUS_OK && loop==ET_CAN_LOOPBACK_DISABLED);
+        unchanged=controllers[0];
+        assert(et_can_wrap_set_loopback(0, (et_can_loopback_t)99) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_NORMAL);
+        assert(et_can_wrap_set_loopback(0, ET_CAN_LOOPBACK_INTERNAL) == ET_WRAP_STATUS_STATE_ERROR);
+        assert(et_can_wrap_set_bus_config(0, &observed) == ET_WRAP_STATUS_STATE_ERROR);
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+
+        for (unsigned i=0; i<11; ++i)
+        {
+            for (unsigned byte=0; byte<4; ++byte)
+            {
+                request[1+i*4+byte]=(uint8_t)(bus_words[i]>>(byte*8));
+            }
+        }
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_BUS_CONFIG_SET,
+                                  request, 45, NULL, 0, &response_length) == ET_STATUS_OK);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_BUS_CONFIG_GET,
+                                  request, 1, response, 44, &response_length) == ET_STATUS_OK);
+        assert(response_length==44 && memcmp(request+1, response, 44)==0);
+        request[1]=2;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_BUS_CONFIG_SET,
+                                  request, 45, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    }
+
     return 0;
 }
 """

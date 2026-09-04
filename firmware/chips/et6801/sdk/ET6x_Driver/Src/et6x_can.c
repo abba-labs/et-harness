@@ -1018,6 +1018,11 @@ void CAN_enbaleLpbkMode(CAN_Type *CANx,
                            CAN0_CCCR_MON,
                            0x1U);
         }
+        else
+        {
+            /* External loopback must leave internal bus-monitor isolation. */
+            CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_MON, 0U);
+        }
     }
     else
     {
@@ -2322,6 +2327,49 @@ void CAN_testGetMsgRAMConfig(CAN_Type *CANx, CAN_MsgRAMConfigParams *config)
     config->rxBufElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_RBDS);
     config->rxFIFO0ElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_F0DS);
     config->rxFIFO1ElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_F1DS);
+}
+
+/**
+ * @brief Read operating, global-filter and timer configuration without consuming status.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param config Caller storage, timestamp divisor is an actual count in 1..16.
+ * @note Reads configuration registers only; no reset or FIFO acknowledgement.
+ */
+void CAN_testGetConfig(CAN_Type *CANx, CAN_ConfigParams *config)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(config != NULL);
+
+    config->monEnable = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_MON);
+    config->asmEnable = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_ASM);
+    config->tsPrescalar = CAN_RD_FIELD32(CANx->TSCC, CAN0_TSCC_TCP) + 1U;
+    config->tsSelect = CAN_RD_FIELD32(CANx->TSCC, CAN0_TSCC_TSS);
+    config->timeoutSelect = CAN_RD_FIELD32(CANx->TOCC, CAN0_TOCC_TOS);
+    config->timeoutPreload = CAN_RD_FIELD32(CANx->TOCC, CAN0_TOCC_TOP);
+    config->timeoutCntEnable = CAN_RD_FIELD32(CANx->TOCC, CAN0_TOCC_ETOC);
+    config->filterConfig.rrfe = CAN_RD_FIELD32(CANx->GFC, CAN0_GFC_RRFE);
+    config->filterConfig.rrfs = CAN_RD_FIELD32(CANx->GFC, CAN0_GFC_RRFS);
+    config->filterConfig.anfe = CAN_RD_FIELD32(CANx->GFC, CAN0_GFC_ANFE);
+    config->filterConfig.anfs = CAN_RD_FIELD32(CANx->GFC, CAN0_GFC_ANFS);
+}
+
+/**
+ * @brief Read effective loopback controls, separately from controller INIT.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param enabled One when TEST and LBCK are both set.
+ * @param mode INTERNAL when MON is set, otherwise EXTERNAL; meaningful only when enabled.
+ * @note Returns actual controls without changing them.
+ */
+void CAN_testGetLoopback(CAN_Type *CANx, uint32_t *enabled, CAN_LpbkMode *mode)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(enabled != NULL);
+    assert_param(mode != NULL);
+
+    *enabled = (READ_BIT(CANx->CCCR, CAN0_CCCR_TEST_Msk) != 0U) &&
+               (READ_BIT(CANx->TEST, CAN0_TEST_LBCK_Msk) != 0U);
+    *mode = READ_BIT(CANx->CCCR, CAN0_CCCR_MON_Msk) != 0U ?
+            CAN_LPBK_MODE_INTERNAL : CAN_LPBK_MODE_EXTERNAL;
 }
 
 /********************* TEST DRIVER EXTENSION END *********************/

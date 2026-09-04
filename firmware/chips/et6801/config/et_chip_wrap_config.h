@@ -34,6 +34,13 @@
  * Consumed by et_can_mapping_t; no GPIO or external CAN-box channel belongs here.
  */
 #define ET_CHIP_CAN_MAP_TABLE {{0u, CAN0}, {1u, CAN1}, {2u, CAN2}}
+/** Public source/policy enum order mapped to SDK selectors; not raw bit positions. */
+#define ET_CHIP_CAN_TIMESTAMP_MAP_TABLE {CAN_TIMESTAMP_NONE, CAN_TIMESTAMP_INTERNAL, CAN_TIMESTAMP_EXTERNAL}
+#define ET_CHIP_CAN_TIMEOUT_MAP_TABLE {CAN_TIMEOUT_CONTINUOUS, CAN_TIMEOUT_TX_EVENT_FIFO, CAN_TIMEOUT_RX_FIFO0, CAN_TIMEOUT_RX_FIFO1}
+#define ET_CHIP_CAN_UNMATCHED_MAP_TABLE {CAN_ACCEPT_IN_RX_FIFO0, CAN_ACCEPT_IN_RX_FIFO1, CAN_REJECT}
+/** Actual divisor is TCP+1; TOP is the inclusive hardware timeout reload limit. */
+#define ET_CHIP_CAN_BUS_LIMIT_MAP_TABLE \
+    {(CAN0_TSCC_TCP_Msk >> CAN0_TSCC_TCP_Pos) + 1u, (CAN0_TOCC_TOP_Msk >> CAN0_TOCC_TOP_Pos)}
 /** RAM aperture comes from the SDK test driver; maxima are architectural, not mask widths. */
 #define ET_CHIP_CAN_RAM_LIMIT_MAP_TABLE \
     {CAN_TEST_MSG_RAM_BYTES, CAN_TEST_STD_FILTER_MAX, CAN_TEST_EXT_FILTER_MAX, \

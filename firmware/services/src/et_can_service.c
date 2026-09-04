@@ -289,6 +289,136 @@ static et_wrap_status_t execute_ram_command(et_can_id_t id, uint16_t command, co
 }
 
 /**
+ * @brief Decode the complete existing Driver bus configuration group.
+ * @param[in] body Validated words after the instance prefix.
+ * @param[out] config Explicit public parameters, without defaults.
+ * @note Pure codec; no other IP or test orchestration.
+ */
+static void decode_bus_config(const uint8_t *body, et_can_bus_config_t *config)
+{
+    config->monitor = read_word(&body[ET_CAN_BUS_MONITOR * ET_CAN_WIRE_WORD_BYTES]);
+    config->restricted = read_word(&body[ET_CAN_BUS_RESTRICTED * ET_CAN_WIRE_WORD_BYTES]);
+    config->timestamp_divisor =
+        read_word(&body[ET_CAN_BUS_TIMESTAMP_DIVISOR * ET_CAN_WIRE_WORD_BYTES]);
+    config->timestamp_source =
+        read_word(&body[ET_CAN_BUS_TIMESTAMP_SOURCE * ET_CAN_WIRE_WORD_BYTES]);
+    config->timeout_source = read_word(&body[ET_CAN_BUS_TIMEOUT_SOURCE * ET_CAN_WIRE_WORD_BYTES]);
+    config->timeout_period = read_word(&body[ET_CAN_BUS_TIMEOUT_PERIOD * ET_CAN_WIRE_WORD_BYTES]);
+    config->timeout_enabled = read_word(&body[ET_CAN_BUS_TIMEOUT_ENABLED * ET_CAN_WIRE_WORD_BYTES]);
+    config->reject_remote_ext =
+        read_word(&body[ET_CAN_BUS_REJECT_REMOTE_EXT * ET_CAN_WIRE_WORD_BYTES]);
+    config->reject_remote_std =
+        read_word(&body[ET_CAN_BUS_REJECT_REMOTE_STD * ET_CAN_WIRE_WORD_BYTES]);
+    config->unmatched_ext = read_word(&body[ET_CAN_BUS_UNMATCHED_EXT * ET_CAN_WIRE_WORD_BYTES]);
+    config->unmatched_std = read_word(&body[ET_CAN_BUS_UNMATCHED_STD * ET_CAN_WIRE_WORD_BYTES]);
+}
+
+/**
+ * @brief Encode independently read bus configuration.
+ * @param[out] body Validated output storage.
+ * @param[in] config Actual Wrap readback.
+ * @note Does not synthesize observations from requests.
+ */
+static void encode_bus_config(uint8_t *body, const et_can_bus_config_t *config)
+{
+    write_word(&body[ET_CAN_BUS_MONITOR * ET_CAN_WIRE_WORD_BYTES], config->monitor);
+    write_word(&body[ET_CAN_BUS_RESTRICTED * ET_CAN_WIRE_WORD_BYTES], config->restricted);
+    write_word(&body[ET_CAN_BUS_TIMESTAMP_DIVISOR * ET_CAN_WIRE_WORD_BYTES],
+               config->timestamp_divisor);
+    write_word(&body[ET_CAN_BUS_TIMESTAMP_SOURCE * ET_CAN_WIRE_WORD_BYTES],
+               config->timestamp_source);
+    write_word(&body[ET_CAN_BUS_TIMEOUT_SOURCE * ET_CAN_WIRE_WORD_BYTES], config->timeout_source);
+    write_word(&body[ET_CAN_BUS_TIMEOUT_PERIOD * ET_CAN_WIRE_WORD_BYTES], config->timeout_period);
+    write_word(&body[ET_CAN_BUS_TIMEOUT_ENABLED * ET_CAN_WIRE_WORD_BYTES], config->timeout_enabled);
+    write_word(&body[ET_CAN_BUS_REJECT_REMOTE_EXT * ET_CAN_WIRE_WORD_BYTES],
+               config->reject_remote_ext);
+    write_word(&body[ET_CAN_BUS_REJECT_REMOTE_STD * ET_CAN_WIRE_WORD_BYTES],
+               config->reject_remote_std);
+    write_word(&body[ET_CAN_BUS_UNMATCHED_EXT * ET_CAN_WIRE_WORD_BYTES], config->unmatched_ext);
+    write_word(&body[ET_CAN_BUS_UNMATCHED_STD * ET_CAN_WIRE_WORD_BYTES], config->unmatched_std);
+}
+
+/**
+ * @brief Execute bus configuration and loopback primitives only.
+ * @param[in] id Logical controller.
+ * @param[in] command Validated command in the bus action group.
+ * @param[in] body Validated input following the instance prefix.
+ * @param[out] response Validated output, nullable for SET.
+ * @return Own Wrap result.
+ * @note No polling, defaults, cross-IP initialization or Case verdicts.
+ */
+static et_wrap_status_t execute_bus_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                            uint8_t *response)
+{
+    et_can_bus_config_t config;
+    et_can_bus_limits_t limits;
+    et_can_loopback_t mode;
+    et_wrap_status_t status;
+    uint32_t requested;
+
+    switch (command)
+    {
+        case ET_CAN_COMMAND_BUS_CONFIG_SET:
+        {
+            decode_bus_config(body, &config);
+
+            return et_can_wrap_set_bus_config(id, &config);
+        }
+
+        case ET_CAN_COMMAND_BUS_CONFIG_GET:
+        {
+            status = et_can_wrap_get_bus_config(id, &config);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                encode_bus_config(response, &config);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_LOOPBACK_SET:
+        {
+            requested = read_word(body);
+
+            if (requested > ET_CAN_LOOPBACK_EXTERNAL)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            return et_can_wrap_set_loopback(id, (et_can_loopback_t)requested);
+        }
+
+        case ET_CAN_COMMAND_LOOPBACK_GET:
+        {
+            status = et_can_wrap_get_loopback(id, &mode);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, (uint32_t)mode);
+            }
+
+            return status;
+        }
+
+        default:
+        {
+            status = et_can_wrap_get_bus_limits(id, &limits);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_BUS_LIMIT_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                           limits.timestamp_divisor);
+                write_word(&response[ET_CAN_BUS_LIMIT_TIMEOUT * ET_CAN_WIRE_WORD_BYTES],
+                           limits.timeout_period);
+            }
+
+            return status;
+        }
+    }
+}
+
+/**
  * @brief Execute one validated basic CAN command through the own Wrap.
  * @param[in] id Logical controller identity.
  * @param[in] command Public command number.
@@ -316,6 +446,11 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     }
 
     /* Phase 1: Decode state-changing requests without inventing missing parameters. */
+    if ((command >= ET_CAN_COMMAND_BUS_CONFIG_SET) && (command <= ET_CAN_COMMAND_BUS_LIMITS_GET))
+    {
+        return execute_bus_command(id, command, body, response);
+    }
+
     switch (command)
     {
         case ET_CAN_COMMAND_INITIALIZING_SET:
@@ -458,30 +593,26 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
                            uint16_t request_length, uint8_t *response_body,
                            uint16_t response_capacity, uint16_t *response_length)
 {
-    static const uint8_t input_words[ET_CAN_COMMAND_COUNT] = {0u,
-                                                              1u,
-                                                              0u,
-                                                              0u,
-                                                              ET_CAN_TIMING_WORDS,
-                                                              0u,
-                                                              ET_CAN_OPTIONS_WORDS,
-                                                              0u,
-                                                              0u,
-                                                              0u,
-                                                              ET_CAN_RAM_LAYOUT_WORDS,
-                                                              0u};
-    static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {ET_CAN_IDENTITY_WORDS,
-                                                               0u,
-                                                               1u,
-                                                               ET_CAN_TIMING_WORDS,
-                                                               0u,
-                                                               ET_CAN_TIMING_WORDS,
-                                                               0u,
-                                                               ET_CAN_OPTIONS_WORDS,
-                                                               ET_CAN_OPTION_LIMIT_WORDS,
-                                                               ET_CAN_RAM_LIMIT_WORDS,
-                                                               0u,
-                                                               ET_CAN_RAM_LAYOUT_WORDS};
+    /* Unlisted entries have no words; named indices prevent command-order drift. */
+    static const uint8_t input_words[ET_CAN_COMMAND_COUNT] = {
+        [ET_CAN_COMMAND_INITIALIZING_SET] = 1u,
+        [ET_CAN_COMMAND_TIMING_SET] = ET_CAN_TIMING_WORDS,
+        [ET_CAN_COMMAND_OPTIONS_SET] = ET_CAN_OPTIONS_WORDS,
+        [ET_CAN_COMMAND_RAM_LAYOUT_SET] = ET_CAN_RAM_LAYOUT_WORDS,
+        [ET_CAN_COMMAND_BUS_CONFIG_SET] = ET_CAN_BUS_CONFIG_WORDS,
+        [ET_CAN_COMMAND_LOOPBACK_SET] = 1u};
+    static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
+        [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
+        [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
+        [ET_CAN_COMMAND_TIMING_LIMITS_GET] = ET_CAN_TIMING_WORDS,
+        [ET_CAN_COMMAND_TIMING_GET] = ET_CAN_TIMING_WORDS,
+        [ET_CAN_COMMAND_OPTIONS_GET] = ET_CAN_OPTIONS_WORDS,
+        [ET_CAN_COMMAND_OPTION_LIMITS_GET] = ET_CAN_OPTION_LIMIT_WORDS,
+        [ET_CAN_COMMAND_RAM_LIMITS_GET] = ET_CAN_RAM_LIMIT_WORDS,
+        [ET_CAN_COMMAND_RAM_LAYOUT_GET] = ET_CAN_RAM_LAYOUT_WORDS,
+        [ET_CAN_COMMAND_BUS_CONFIG_GET] = ET_CAN_BUS_CONFIG_WORDS,
+        [ET_CAN_COMMAND_LOOPBACK_GET] = 1u,
+        [ET_CAN_COMMAND_BUS_LIMITS_GET] = ET_CAN_BUS_LIMIT_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

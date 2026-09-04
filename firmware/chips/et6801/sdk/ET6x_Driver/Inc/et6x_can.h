@@ -1465,6 +1465,10 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem);
 #define CAN_TEST_TX_EVENT_MAX (32U)
 /** Read exact RAM configuration; offsets are bytes, not absolute addresses. */
 void CAN_testGetMsgRAMConfig(CAN_Type *CANx, CAN_MsgRAMConfigParams *config);
+/** Read operating mode, global acceptance and timestamp/timeout configuration. */
+void CAN_testGetConfig(CAN_Type *CANx, CAN_ConfigParams *config);
+/** Read TEST/LBCK and MON controls without changing controller state. */
+void CAN_testGetLoopback(CAN_Type *CANx, uint32_t *enabled, CAN_LpbkMode *mode);
 /** Read the controller revision without altering configuration or status. */
 uint32_t CAN_testGetRevision(CAN_Type *CANx);
 /** Read the actual core initialization controls, including watchdog and TDC. */

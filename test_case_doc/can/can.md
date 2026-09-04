@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-04 23:52 CST
+更新时间：2026-09-05 00:09 CST
 
 分析稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；39项形成ET_CASE_PLAN，3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。本轮逐项复核现有Case，修正过滤、DLC、IRQ、停钟和观察前提，并将原DMU时间戳目标拆为RX与TX Event。没有SPEC、注册Case或硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -125,6 +125,15 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | RAM_LIMITS_GET | 9 | 无 | ram_bytes、std_count、ext_count、tx_count、rx_fifo_count、event_count、rx_buffer_count，共7项 |
 | RAM_LAYOUT_SET | 10 | 下述完整RAM布局24项 | 无；INIT前提，全部范围和重叠检查先于写入 |
 | RAM_LAYOUT_GET | 11 | 无 | 24项真实配置读回，不使用请求缓存 |
+| BUS_CONFIG_SET | 12 | 下述总线配置11项 | 无；INIT前提，不改变RAM、位时序或TEST/LBCK |
+| BUS_CONFIG_GET | 13 | 无 | 11项实际配置 |
+| LOOPBACK_SET | 14 | mode：0关闭、1内部、2外部 | 无；INIT前提，内部MON=1，外部/关闭MON=0 |
+| LOOPBACK_GET | 15 | 无 | 实际有效mode；由TEST/LBCK与MON共同决定 |
+| BUS_LIMITS_GET | 16 | 无 | timestamp_divisor、timeout_period上限 |
+
+总线配置顺序：`monitor, restricted, timestamp_divisor, timestamp_source, timeout_source, timeout_period, timeout_enabled, reject_remote_ext, reject_remote_std, unmatched_ext, unmatched_std`。Boolean严格0/1；timestamp_divisor为实际正分频数，timeout_period为计数重装值。Timestamp来源0关闭/1内部/2外部；Timeout来源0连续/1TX Event/2RX0/3RX1；未命中策略0RX0/1RX1/2拒绝。
+
+该配置组对应已有Chip Driver的完整配置动作，不隐式选择测试模式。Case先选择回环，再写最终BUS_CONFIG，明确决定MON/ASM；例如内部回环必须保持monitor=true，restricted测试不能与回环组合。LOOPBACK_SET不启动CAN；BUS_CONFIG_GET不读取/清除协议错误计数，不把设置成功等同真实总线行为。
 
 RAM布局顺序：`std_offset, std_count, ext_offset, ext_count, tx_offset, tx_buffer_count, tx_fifo_count, tx_queue, tx_payload_bytes, event_offset, event_count, event_watermark, rx0_offset, rx0_count, rx0_watermark, rx0_overwrite, rx1_offset, rx1_count, rx1_watermark, rx1_overwrite, rx_buffer_offset, rx_buffer_payload_bytes, rx0_payload_bytes, rx1_payload_bytes`。
 
@@ -137,11 +146,13 @@ Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试
 
 ### 0.8 PC基础接口
 
-`CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。九个基础动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
+`CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
 
 `wait_initializing`仅在单一Deadline内查询INIT，不发送切换请求、不复位IP。GPIO、CRG及外部CAN盒子由Case分别调用各自Driver/Adapter；CAN Driver不代为编排。只有只读命令允许声明安全重试。
 
 RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_get`。模型显式传参，不在Driver内选择测试布局；这些动作均只等待本次响应，失败原样上抛，不替调用者复位。
+
+总线配置对应`CanBusConfig`、`CanBusLimits`、`bus_config_set/get`、`bus_limits_get`；回环使用`CanLoopback`与`loopback_set/get`。Selector必须传公共Enum，不能直接传芯片数值。SET不自动重试；GET对未知Enum/非法Boolean拒绝解码。
 
 ## 1. Feature Catalog
 

@@ -26,10 +26,31 @@ class CanCommand(IntEnum):
     RAM_LIMITS_GET = 9
     RAM_LAYOUT_SET = 10
     RAM_LAYOUT_GET = 11
+    BUS_CONFIG_SET = 12
+    BUS_CONFIG_GET = 13
+    LOOPBACK_SET = 14
+    LOOPBACK_GET = 15
+    BUS_LIMITS_GET = 16
 
 
-REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0)
-RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24)
+REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0, 11, 0, 1, 0, 0)
+RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24, 0, 11, 0, 1, 2)
+BUS_FIELDS = (
+    "monitor",
+    "restricted",
+    "timestamp_divisor",
+    "timestamp_source",
+    "timeout_source",
+    "timeout_period",
+    "timeout_enabled",
+    "reject_remote_ext",
+    "reject_remote_std",
+    "unmatched_ext",
+    "unmatched_std",
+)
+BUS_FLAGS = frozenset(
+    {"monitor", "restricted", "timeout_enabled", "reject_remote_ext", "reject_remote_std"}
+)
 RAM_FIELDS = (
     "std_offset",
     "std_count",
@@ -78,5 +99,8 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.OPTION_LIMITS_GET,
         CanCommand.RAM_LIMITS_GET,
         CanCommand.RAM_LAYOUT_GET,
+        CanCommand.BUS_CONFIG_GET,
+        CanCommand.LOOPBACK_GET,
+        CanCommand.BUS_LIMITS_GET,
     }
 )

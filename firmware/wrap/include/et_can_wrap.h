@@ -120,4 +120,69 @@ et_wrap_status_t et_can_wrap_get_ram_limits(et_can_id_t id, et_can_ram_limits_t 
 et_wrap_status_t et_can_wrap_set_ram_layout(et_can_id_t id, const et_can_ram_layout_t *layout);
 et_wrap_status_t et_can_wrap_get_ram_layout(et_can_id_t id, et_can_ram_layout_t *layout);
 
+/** Stable timestamp sources; not raw register selectors. */
+typedef enum
+{
+    ET_CAN_TIMESTAMP_DISABLED = 0u,
+    ET_CAN_TIMESTAMP_INTERNAL = 1u,
+    ET_CAN_TIMESTAMP_EXTERNAL = 2u,
+    ET_CAN_TIMESTAMP_SOURCE_COUNT
+} et_can_timestamp_source_t;
+
+/** A timeout may run continuously or be gated by one hardware FIFO. */
+typedef enum
+{
+    ET_CAN_TIMEOUT_CONTINUOUS = 0u,
+    ET_CAN_TIMEOUT_TX_EVENT = 1u,
+    ET_CAN_TIMEOUT_RX0 = 2u,
+    ET_CAN_TIMEOUT_RX1 = 3u,
+    ET_CAN_TIMEOUT_SOURCE_COUNT
+} et_can_timeout_source_t;
+
+/** Stable global non-matching-frame policy, independent of individual ID filters. */
+typedef enum
+{
+    ET_CAN_UNMATCHED_RX0 = 0u,
+    ET_CAN_UNMATCHED_RX1 = 1u,
+    ET_CAN_UNMATCHED_REJECT = 2u,
+    ET_CAN_UNMATCHED_POLICY_COUNT
+} et_can_unmatched_policy_t;
+
+/** Loopback controls are separate from INIT; disabled exits MON loopback isolation. */
+typedef enum
+{
+    ET_CAN_LOOPBACK_DISABLED = 0u,
+    ET_CAN_LOOPBACK_INTERNAL = 1u,
+    ET_CAN_LOOPBACK_EXTERNAL = 2u
+} et_can_loopback_t;
+
+/** One complete existing Driver configuration group, with explicit physical timer units. */
+typedef struct
+{
+    uint32_t monitor;
+    uint32_t restricted;
+    uint32_t timestamp_divisor;
+    uint32_t timestamp_source;
+    uint32_t timeout_source;
+    uint32_t timeout_period;
+    uint32_t timeout_enabled;
+    uint32_t reject_remote_ext;
+    uint32_t reject_remote_std;
+    uint32_t unmatched_ext;
+    uint32_t unmatched_std;
+} et_can_bus_config_t;
+
+/** Timer count limits; source selectors are the public enums above. */
+typedef struct
+{
+    uint32_t timestamp_divisor;
+    uint32_t timeout_period;
+} et_can_bus_limits_t;
+
+et_wrap_status_t et_can_wrap_set_bus_config(et_can_id_t id, const et_can_bus_config_t *config);
+et_wrap_status_t et_can_wrap_get_bus_config(et_can_id_t id, et_can_bus_config_t *config);
+et_wrap_status_t et_can_wrap_get_bus_limits(et_can_id_t id, et_can_bus_limits_t *limits);
+et_wrap_status_t et_can_wrap_set_loopback(et_can_id_t id, et_can_loopback_t mode);
+et_wrap_status_t et_can_wrap_get_loopback(et_can_id_t id, et_can_loopback_t *mode);
+
 #endif

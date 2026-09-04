@@ -8,7 +8,17 @@ from ...core.deadline import OperationDeadline
 from ...core.errors import ProtocolError, RequestTimeout
 from . import codec, contract
 from .contract import CanCommand
-from .models import CanIdentity, CanOptionLimits, CanOptions, CanRamLayout, CanRamLimits, CanTiming
+from .models import (
+    CanBusConfig,
+    CanBusLimits,
+    CanIdentity,
+    CanLoopback,
+    CanOptionLimits,
+    CanOptions,
+    CanRamLayout,
+    CanRamLimits,
+    CanTiming,
+)
 
 
 # 一个对象绑定一个逻辑CAN实例；构造不配置硬件或选择物理引脚。
@@ -98,6 +108,39 @@ class CanDriver:
         return codec.decode_ram_layout(
             self._request(CanCommand.RAM_LAYOUT_GET, timeout_s=timeout_s)
         )
+
+    # 设置明确的总线、全局过滤和计时配置；调用者先进入INIT。
+    # 只等待本次响应，失败上抛，不配置回环或隐式启动控制器。
+    def bus_config_set(self, config: CanBusConfig, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.BUS_CONFIG_SET, codec.bus_config_words(config), timeout_s=timeout_s
+        )
+
+    # 读取真实总线配置，只等待单次响应；未知选择器返回协议错误。
+    # 不清除错误计数，也不返回上一次SET缓存。
+    def bus_config_get(self, *, timeout_s: float | None = None) -> CanBusConfig:
+        return codec.decode_bus_config(
+            self._request(CanCommand.BUS_CONFIG_GET, timeout_s=timeout_s)
+        )
+
+    # 查询实际计时字段上限，只等待单次响应，失败直接上抛。
+    def bus_limits_get(self, *, timeout_s: float | None = None) -> CanBusLimits:
+        return CanBusLimits(*self._request(CanCommand.BUS_LIMITS_GET, timeout_s=timeout_s))
+
+    # 在INIT状态设置回环；关闭内部回环会退出MON隔离，不配置IO。
+    # 只等待命令响应，失败不重试、不复位、不启动控制器。
+    def loopback_set(self, mode: CanLoopback, *, timeout_s: float | None = None) -> None:
+        if not isinstance(mode, CanLoopback):
+            raise ValueError("CAN loopback requires CanLoopback")
+        self._request(CanCommand.LOOPBACK_SET, (int(mode),), timeout_s=timeout_s)
+
+    # 读取有效回环状态，只等待本次响应，未知状态直接作为协议错误。
+    def loopback_get(self, *, timeout_s: float | None = None) -> CanLoopback:
+        (value,) = self._request(CanCommand.LOOPBACK_GET, timeout_s=timeout_s)
+        try:
+            return CanLoopback(value)
+        except ValueError as error:
+            raise ProtocolError(f"CAN loopback mode is invalid: {value}") from error
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

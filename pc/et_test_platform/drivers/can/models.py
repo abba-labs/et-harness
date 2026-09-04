@@ -4,6 +4,7 @@
 # 依赖：标准库dataclass。
 
 from dataclasses import dataclass
+from enum import IntEnum
 
 
 # 值直接来自控制器身份查询，不从Profile制造读回。
@@ -92,3 +93,59 @@ class CanRamLimits:
     rx_fifo_count: int
     event_count: int
     rx_buffer_count: int
+
+
+# 时间戳来源为公共语义，不是芯片寄存器位值。
+# EXTERNAL只表示选择外部计数输入，不会自动连接或启动外部仪器。
+class CanTimestampSource(IntEnum):
+    DISABLED = 0
+    INTERNAL = 1
+    EXTERNAL = 2
+
+
+# 超时计数器由连续时基或指定硬件FIFO门控。
+# 这是计数来源选择，不是PC等待超时；硬件实际分频由BusConfig单独指定。
+class CanTimeoutSource(IntEnum):
+    CONTINUOUS = 0
+    TX_EVENT = 1
+    RX0 = 2
+    RX1 = 3
+
+
+# 未命中具体Filter时的全局处理策略。
+# RX0/RX1表示存入对应FIFO，REJECT表示丢弃；不替代具体ID Filter配置。
+class CanUnmatchedPolicy(IntEnum):
+    RX0 = 0
+    RX1 = 1
+    REJECT = 2
+
+
+# 回环方式与INIT分开，关闭内部回环也退出MON隔离。
+class CanLoopback(IntEnum):
+    DISABLED = 0
+    INTERNAL = 1
+    EXTERNAL = 2
+
+
+# 对应现有Chip Driver的完整配置组，不填测试默认值。
+@dataclass(frozen=True, slots=True)
+class CanBusConfig:
+    monitor: bool
+    restricted: bool
+    timestamp_divisor: int
+    timestamp_source: CanTimestampSource
+    timeout_source: CanTimeoutSource
+    timeout_period: int
+    timeout_enabled: bool
+    reject_remote_ext: bool
+    reject_remote_std: bool
+    unmatched_ext: CanUnmatchedPolicy
+    unmatched_std: CanUnmatchedPolicy
+
+
+# 时间戳实际分频数和超时重装值的最大值。
+# 由当前实例查询返回，只描述可配置上限，不代表实际工作频率或测量结果。
+@dataclass(frozen=True, slots=True)
+class CanBusLimits:
+    timestamp_divisor: int
+    timeout_period: int

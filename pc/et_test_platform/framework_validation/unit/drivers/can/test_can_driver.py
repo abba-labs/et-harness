@@ -12,11 +12,16 @@ from types import SimpleNamespace
 import pytest
 from et_test_platform.core.errors import ProtocolError
 from et_test_platform.drivers.can import (
+    CanBusConfig,
     CanDriver,
+    CanLoopback,
     CanOptions,
     CanPhaseTiming,
     CanRamLayout,
+    CanTimeoutSource,
+    CanTimestampSource,
     CanTiming,
+    CanUnmatchedPolicy,
     codec,
     contract,
 )
@@ -204,3 +209,41 @@ def test_ram_layout_codec_and_independent_readback() -> None:
     observed[7] = 2
     with pytest.raises(ProtocolError):
         codec.decode_ram_layout(tuple(observed))
+
+
+# 总线配置与回环都是显式动作；GET直接使用不同的观测响应。
+def test_bus_config_and_loopback_wire() -> None:
+    config = CanBusConfig(
+        False,
+        False,
+        16,
+        CanTimestampSource.INTERNAL,
+        CanTimeoutSource.RX1,
+        65535,
+        True,
+        True,
+        True,
+        CanUnmatchedPolicy.REJECT,
+        CanUnmatchedPolicy.RX1,
+    )
+    words = (0, 0, 16, 1, 3, 65535, 1, 1, 1, 2, 1)
+    observed = (1,) + words[1:]
+    target = TargetStub([b"", pack("<11I", *observed), b"", pack("<I", 2), pack("<2I", 16, 65535)])
+    driver = CanDriver(target, 1)
+    driver.bus_config_set(config)
+    assert target.requests[0]["body"] == b"\x01" + pack("<11I", *words)
+    assert driver.bus_config_get().monitor is True
+    driver.loopback_set(CanLoopback.INTERNAL)
+    assert target.requests[2]["body"] == bytes.fromhex("0101000000")
+    assert driver.loopback_get() is CanLoopback.EXTERNAL
+    assert driver.bus_limits_get().timeout_period == 65535
+    assert [request["command"] for request in target.requests] == [12, 13, 14, 15, 16]
+    assert all(not target.requests[index]["retry_safe"] for index in (0, 2))
+
+    with pytest.raises(ValueError):
+        driver.bus_config_set(replace(config, timestamp_source=1))
+    with pytest.raises(ValueError):
+        driver.loopback_set(1)
+    assert len(target.requests) == 5
+    with pytest.raises(ProtocolError):
+        codec.decode_bus_config((2,) + words[1:])

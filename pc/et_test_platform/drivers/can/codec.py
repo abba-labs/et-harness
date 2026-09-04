@@ -5,7 +5,23 @@
 
 from ...core.errors import ProtocolError
 from . import contract
-from .models import CanOptions, CanPhaseTiming, CanRamLayout, CanTiming
+from .models import (
+    CanBusConfig,
+    CanOptions,
+    CanPhaseTiming,
+    CanRamLayout,
+    CanTimeoutSource,
+    CanTimestampSource,
+    CanTiming,
+    CanUnmatchedPolicy,
+)
+
+BUS_SELECTORS = {
+    "timestamp_source": CanTimestampSource,
+    "timeout_source": CanTimeoutSource,
+    "unmatched_ext": CanUnmatchedPolicy,
+    "unmatched_std": CanUnmatchedPolicy,
+}
 
 
 # 不接受bool冒充计数，负值和超宽值必须在发命令前被拒绝。
@@ -109,3 +125,46 @@ def decode_ram_layout(words: tuple[int, ...]) -> CanRamLayout:
         else:
             values.append(value)
     return CanRamLayout(*values)
+
+
+# 按公开顺序编码；选择器必须使用对应Enum，不接受任意数值或隐式默认值。
+def bus_config_words(config: CanBusConfig) -> tuple[int, ...]:
+    if not isinstance(config, CanBusConfig):
+        raise ValueError("CAN bus configuration requires CanBusConfig")
+    values = []
+    for name in contract.BUS_FIELDS:
+        value = getattr(config, name)
+        if name in contract.BUS_FLAGS:
+            values.append(boolean(value))
+        elif name in BUS_SELECTORS:
+            if not isinstance(value, BUS_SELECTORS[name]):
+                raise ValueError(f"CAN bus selector {name} has wrong enum type")
+            values.append(int(value))
+        else:
+            values.append(uint32(value))
+    if config.timestamp_divisor == 0:
+        raise ValueError("CAN timestamp divisor must be positive")
+    return tuple(values)
+
+
+# 独立GET解码，未知选择器、非法Boolean或零分频均报告协议错误。
+def decode_bus_config(words: tuple[int, ...]) -> CanBusConfig:
+    if len(words) != len(contract.BUS_FIELDS):
+        raise ProtocolError("CAN bus configuration has invalid field count")
+    values = []
+    try:
+        for name, value in zip(contract.BUS_FIELDS, words, strict=True):
+            if name in contract.BUS_FLAGS:
+                if value not in (0, 1):
+                    raise ValueError(f"CAN bus flag {name} is not Boolean")
+                values.append(bool(value))
+            elif name in BUS_SELECTORS:
+                values.append(BUS_SELECTORS[name](value))
+            else:
+                values.append(value)
+        config = CanBusConfig(*values)
+        if config.timestamp_divisor == 0:
+            raise ValueError("CAN timestamp divisor is zero")
+        return config
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
