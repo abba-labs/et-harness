@@ -77,6 +77,435 @@ static void write_word(uint8_t *data, uint32_t value)
     }
 }
 
+/********************************** IRQ Capture Management **********************************/
+
+/**
+ * @brief Saturate one callback-owned counter and preserve overflow evidence.
+ * @param[in,out] service CAN Service that owns the fixed event snapshot.
+ * @param[in,out] counter Counter to increment.
+ * @note Called only from IRQ context or an IRQ Manager critical section.
+ */
+static void increment_irq_counter(et_can_service_t *service, volatile uint32_t *counter)
+{
+    if (*counter != UINT32_MAX)
+    {
+        ++*counter;
+
+        return;
+    }
+
+    service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_OVERFLOW;
+
+    if (service->irq_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT] != UINT32_MAX)
+    {
+        ++service->irq_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT];
+    }
+}
+
+/**
+ * @brief Copy or reset fixed CAN IRQ evidence under one short critical section.
+ * @param[in,out] service CAN Service evidence owner.
+ * @param[in] reset Nonzero starts a new empty generation while no route is bound.
+ * @param[out] words Eight output words for a read; unused for reset.
+ * @return OK, BUSY, INVALID_ARGUMENT or IO_ERROR.
+ * @note Reset changes Service storage only; CAN pending state is cleared by a separate command.
+ */
+static et_wrap_status_t irq_event_access(et_can_service_t *service, uint8_t reset, uint32_t *words)
+{
+    uint32_t key;
+    uint16_t index;
+
+    if ((service == NULL) || ((reset == 0u) && (words == NULL)))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if ((reset != 0u) && (service->bound_lines != 0u))
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    key = et_irq_manager_enter_critical();
+
+    if (reset != 0u)
+    {
+        if (service->irq_event[ET_CAN_IRQ_EVENT_GENERATION] == UINT32_MAX)
+        {
+            et_irq_manager_exit_critical(key);
+
+            return ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        ++service->irq_event[ET_CAN_IRQ_EVENT_GENERATION];
+
+        for (index = 0u; index < ET_CAN_IRQ_EVENT_WORDS; ++index)
+        {
+            if (index != ET_CAN_IRQ_EVENT_GENERATION)
+            {
+                service->irq_event[index] = 0u;
+            }
+        }
+    }
+    else
+    {
+        for (index = 0u; index < ET_CAN_IRQ_EVENT_WORDS; ++index)
+        {
+            words[index] = service->irq_event[index];
+        }
+    }
+
+    et_irq_manager_exit_critical(key);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Capture one bounded CAN interrupt observation and suppress active sources.
+ * @param[in,out] context CAN Service registered with IRQ Manager.
+ * @param[in] irq_line Physical line delivered by IRQ Manager.
+ * @param[in] route_events Public source subset assigned to this route.
+ * @note ISR work is fixed: one snapshot, fixed counters and one source-mask operation.
+ */
+static void can_irq_callback(void *context, et_irq_line_t irq_line, uint32_t route_events)
+{
+    et_can_service_t *service = (et_can_service_t *)context;
+    et_can_irq_snapshot_t snapshot;
+    uint32_t active;
+
+    if ((service == NULL) || (service->bound_lines == 0u))
+    {
+        return;
+    }
+
+    if (et_can_wrap_get_irq_snapshot(service->can_id, &snapshot) != ET_WRAP_STATUS_OK)
+    {
+        service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+        (void)et_can_wrap_set_irq_enabled(service->can_id, service->watched_sources, 0u);
+
+        return;
+    }
+
+    active =
+        snapshot.raw_status & snapshot.enabled_sources & route_events & service->watched_sources;
+
+    if (active == 0u)
+    {
+        return;
+    }
+
+    /* Preserve the first raw/masked view and accumulate every observed semantic source. */
+    if (service->irq_event[ET_CAN_IRQ_EVENT_COUNT] == 0u)
+    {
+        service->irq_event[ET_CAN_IRQ_EVENT_RAW_STATUS] = snapshot.raw_status;
+        service->irq_event[ET_CAN_IRQ_EVENT_MASKED_STATUS] = active;
+    }
+
+    service->irq_event[ET_CAN_IRQ_EVENT_LATCHED_EVENTS] |= active;
+    increment_irq_counter(service, &service->irq_event[ET_CAN_IRQ_EVENT_COUNT]);
+
+    if (((irq_line != service->irq_routes[ET_CAN_IRQ_LINE0].irq_line) &&
+         (irq_line != service->irq_routes[ET_CAN_IRQ_LINE1].irq_line)) ||
+        ((active & ~route_events) != 0u))
+    {
+        increment_irq_counter(service, &service->irq_event[ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT]);
+        service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_UNEXPECTED;
+    }
+
+    /* A pending level remains visible for explicit PC clear, while masking prevents an IRQ storm. */
+    if (et_can_wrap_set_irq_enabled(service->can_id, active, 0u) != ET_WRAP_STATUS_OK)
+    {
+        service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+    }
+}
+
+/**
+ * @brief Stop a managed CAN IRQ capture in source-before-route order.
+ * @param[in,out] service CAN Service that owns the active session.
+ * @return OK or the first cleanup failure.
+ * @note Evidence is retained. Ownership is cleared only after both physical routes are released.
+ */
+static et_wrap_status_t stop_irq_capture(et_can_service_t *service)
+{
+    et_wrap_status_t result = ET_WRAP_STATUS_OK;
+    et_can_irq_line_t line;
+
+    if (service == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (et_can_wrap_set_irq_enabled(service->can_id, service->watched_sources, 0u) !=
+        ET_WRAP_STATUS_OK)
+    {
+        result = ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    for (line = ET_CAN_IRQ_LINE0; line < ET_CAN_IRQ_LINE_COUNT; ++line)
+    {
+        uint8_t line_bit = (uint8_t)(1u << line);
+
+        if ((service->bound_lines & line_bit) == 0u)
+        {
+            continue;
+        }
+
+        if (et_can_wrap_set_irq_line_enabled(service->can_id, line, 0u) != ET_WRAP_STATUS_OK)
+        {
+            result = ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        if (et_irq_manager_unbind(service->irq_manager, service->irq_routes[line].irq_line,
+                                  can_irq_callback, service) != 0)
+        {
+            service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+            result = ET_WRAP_STATUS_IO_ERROR;
+        }
+        else
+        {
+            service->bound_lines &= (uint8_t)~line_bit;
+        }
+    }
+
+    if (service->bound_lines == 0u)
+    {
+        service->watched_sources = 0u;
+        service->line1_sources = 0u;
+    }
+
+    return result;
+}
+
+/**
+ * @brief Start one explicit CAN interrupt capture using up to two routed lines.
+ * @param[in,out] service CAN Service that owns the session.
+ * @param[in] sources Nonzero public source mask.
+ * @param[in] line1_sources Subset of sources routed to controller line 1.
+ * @return OK or the exact setup/rollback failure.
+ * @note Setup order is clear, select, bind, line-enable, source-enable; rollback is reversed.
+ */
+static et_wrap_status_t start_irq_capture(et_can_service_t *service, uint32_t sources,
+                                          uint32_t line1_sources)
+{
+    uint32_t route_events[ET_CAN_IRQ_LINE_COUNT];
+    et_can_irq_line_t line;
+    et_wrap_status_t status;
+
+    if ((service == NULL) || (sources == 0u) || ((sources & ~ET_CAN_IRQ_ALL) != 0u) ||
+        ((line1_sources & ~sources) != 0u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (service->bound_lines != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    /* Phase 1: Validate software ownership and start a new empty evidence generation. */
+    status = irq_event_access(service, 1u, NULL);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    route_events[ET_CAN_IRQ_LINE0] = sources & ~line1_sources;
+    route_events[ET_CAN_IRQ_LINE1] = line1_sources;
+    service->watched_sources = sources;
+    service->line1_sources = line1_sources;
+
+    /* Phase 2: Clear stale state and publish the complete line selection before any route can fire. */
+    status = et_can_wrap_set_irq_enabled(service->can_id, sources, 0u);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        status = et_can_wrap_clear_irq(service->can_id, sources);
+    }
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        status = et_can_wrap_select_irq_line(service->can_id, sources, ET_CAN_IRQ_LINE0);
+    }
+
+    if ((status == ET_WRAP_STATUS_OK) && (line1_sources != 0u))
+    {
+        status = et_can_wrap_select_irq_line(service->can_id, line1_sources, ET_CAN_IRQ_LINE1);
+    }
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        service->watched_sources = 0u;
+        service->line1_sources = 0u;
+
+        return status;
+    }
+
+    /* Phase 3: Bind and enable only lines that own at least one requested semantic source. */
+    for (line = ET_CAN_IRQ_LINE0; line < ET_CAN_IRQ_LINE_COUNT; ++line)
+    {
+        uint8_t line_bit = (uint8_t)(1u << line);
+
+        if (route_events[line] == 0u)
+        {
+            continue;
+        }
+
+        status = et_can_wrap_get_irq_route(service->can_id, line, route_events[line],
+                                           &service->irq_routes[line]);
+
+        if ((status != ET_WRAP_STATUS_OK) ||
+            (et_irq_manager_bind(service->irq_manager, &service->irq_routes[line],
+                                 service->irq_priority, can_irq_callback, service) != 0))
+        {
+            (void)stop_irq_capture(service);
+
+            return status == ET_WRAP_STATUS_OK ? ET_WRAP_STATUS_IO_ERROR : status;
+        }
+
+        service->bound_lines |= line_bit;
+        status = et_can_wrap_set_irq_line_enabled(service->can_id, line, 1u);
+
+        if (status != ET_WRAP_STATUS_OK)
+        {
+            (void)stop_irq_capture(service);
+
+            return status;
+        }
+    }
+
+    /* Phase 4: Expose peripheral sources only after every required route is operational. */
+    status = et_can_wrap_set_irq_enabled(service->can_id, sources, 1u);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        (void)stop_irq_capture(service);
+    }
+
+    return status;
+}
+
+/**
+ * @brief Execute CAN interrupt configuration, observation and managed-capture commands.
+ * @param[in,out] service CAN Service selected by the request prefix.
+ * @param[in] command Validated IRQ command.
+ * @param[in] body Validated request words after the instance prefix.
+ * @param[out] response Capacity-checked response storage when required.
+ * @return Own Wrap or IRQ-session result.
+ * @note No test stimulus, polling or PASS/FAIL decision is hidden here.
+ */
+static et_wrap_status_t execute_irq_command(et_can_service_t *service, uint16_t command,
+                                            const uint8_t *body, uint8_t *response)
+{
+    et_can_irq_snapshot_t snapshot;
+    et_wrap_status_t status;
+    uint32_t words[ET_CAN_IRQ_EVENT_WORDS];
+    uint32_t sources;
+    uint32_t value;
+    uint16_t index;
+
+    /* Phase 1: Route direct source/line controls while no managed capture owns them. */
+    switch (command)
+    {
+        case ET_CAN_COMMAND_IRQ_MASK_SET:
+        {
+            sources = read_word(body);
+            value = read_word(&body[ET_CAN_WIRE_WORD_BYTES]);
+
+            if (value > 1u)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (service->bound_lines != 0u)
+            {
+                return ET_WRAP_STATUS_BUSY;
+            }
+
+            return et_can_wrap_set_irq_enabled(service->can_id, sources, (uint8_t)value);
+        }
+
+        case ET_CAN_COMMAND_IRQ_LINE_SELECT_SET:
+        {
+            sources = read_word(body);
+            value = read_word(&body[ET_CAN_WIRE_WORD_BYTES]);
+
+            if (value >= ET_CAN_IRQ_LINE_COUNT)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            if (service->bound_lines != 0u)
+            {
+                return ET_WRAP_STATUS_BUSY;
+            }
+
+            return et_can_wrap_select_irq_line(service->can_id, sources, (et_can_irq_line_t)value);
+        }
+
+        case ET_CAN_COMMAND_IRQ_SNAPSHOT_GET:
+        {
+            /* Phase 2: Return a non-destructive hardware view independent of callback evidence. */
+            status = et_can_wrap_get_irq_snapshot(service->can_id, &snapshot);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_IRQ_SNAPSHOT_RAW * ET_CAN_WIRE_WORD_BYTES],
+                           snapshot.raw_status);
+                write_word(&response[ET_CAN_IRQ_SNAPSHOT_ENABLED * ET_CAN_WIRE_WORD_BYTES],
+                           snapshot.enabled_sources);
+                write_word(&response[ET_CAN_IRQ_SNAPSHOT_LINE1 * ET_CAN_WIRE_WORD_BYTES],
+                           snapshot.line1_sources);
+                write_word(&response[ET_CAN_IRQ_SNAPSHOT_LINES_ENABLED * ET_CAN_WIRE_WORD_BYTES],
+                           snapshot.enabled_lines);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_IRQ_CLEAR:
+        {
+            return et_can_wrap_clear_irq(service->can_id, read_word(body));
+        }
+
+        case ET_CAN_COMMAND_IRQ_CAPTURE_START:
+        {
+            return start_irq_capture(service, read_word(body),
+                                     read_word(&body[ET_CAN_WIRE_WORD_BYTES]));
+        }
+
+        case ET_CAN_COMMAND_IRQ_CAPTURE_STOP:
+        {
+            return stop_irq_capture(service);
+        }
+
+        case ET_CAN_COMMAND_IRQ_EVENT_GET:
+        {
+            /* Phase 3: Copy only fixed Service evidence under its IRQ critical section. */
+            status = irq_event_access(service, 0u, words);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                for (index = 0u; index < ET_CAN_IRQ_EVENT_WORDS; ++index)
+                {
+                    write_word(&response[index * ET_CAN_WIRE_WORD_BYTES], words[index]);
+                }
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_IRQ_EVENT_RESET:
+        {
+            return irq_event_access(service, 1u, NULL);
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_NOT_SUPPORTED;
+        }
+    }
+}
+
 /**
  * @brief Decode the four named physical timing counts of one CAN phase.
  * @param[in] body Validated phase payload.
@@ -773,16 +1202,17 @@ static et_wrap_status_t execute_status_command(et_can_id_t id, uint16_t command,
 
 /**
  * @brief Execute one validated basic CAN command through the own Wrap.
- * @param[in] id Logical controller identity.
+ * @param[in,out] service Selected CAN Service and managed IRQ state.
  * @param[in] command Public command number.
  * @param[in] body Validated payload after the instance prefix.
  * @param[out] response Validated output storage, nullable for writes.
  * @return Own Wrap status without performing retry or test assertions.
  * @note All configuration queries read hardware independently of prior requests.
  */
-static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const uint8_t *body,
-                                        uint8_t *response)
+static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t command,
+                                        const uint8_t *body, uint8_t *response)
 {
+    et_can_id_t id = service->can_id;
     et_wrap_status_t status;
     et_can_identity_t identity;
     et_can_timing_t timing;
@@ -791,6 +1221,11 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if ((command >= ET_CAN_COMMAND_IRQ_MASK_SET) && (command <= ET_CAN_COMMAND_IRQ_EVENT_RESET))
+    {
+        return execute_irq_command(service, command, body, response);
+    }
 
     if ((command >= ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME) &&
         (command <= ET_CAN_COMMAND_CLOCK_STOP_ACK_GET))
@@ -984,7 +1419,11 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_FILTER_SET] = ET_CAN_FILTER_SET_WORDS,
         [ET_CAN_COMMAND_FILTER_GET] = ET_CAN_FILTER_SELECT_WORDS,
         [ET_CAN_COMMAND_EXTENDED_MASK_SET] = 1u,
-        [ET_CAN_COMMAND_CLOCK_STOP_SET] = 1u};
+        [ET_CAN_COMMAND_CLOCK_STOP_SET] = 1u,
+        [ET_CAN_COMMAND_IRQ_MASK_SET] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_IRQ_LINE_SELECT_SET] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_IRQ_CLEAR] = 1u,
+        [ET_CAN_COMMAND_IRQ_CAPTURE_START] = ET_CAN_IRQ_CONTROL_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -1006,7 +1445,9 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME] = ET_CAN_PROTOCOL_STATUS_WORDS,
         [ET_CAN_COMMAND_TIMESTAMP_GET] = 1u,
         [ET_CAN_COMMAND_TIMEOUT_COUNTER_GET] = 1u,
-        [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u};
+        [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u,
+        [ET_CAN_COMMAND_IRQ_SNAPSHOT_GET] = ET_CAN_IRQ_SNAPSHOT_WORDS,
+        [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;
@@ -1036,8 +1477,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
     }
 
     /* Phase 2: Execute one action and publish the contract length only on success. */
-    status = execute_command(service->can_id, command_id,
-                             &request_body[ET_CAN_REQUEST_PREFIX_BYTES], response_body);
+    status = execute_command(service, command_id, &request_body[ET_CAN_REQUEST_PREFIX_BYTES],
+                             response_body);
 
     if (status == ET_WRAP_STATUS_OK)
     {
@@ -1052,7 +1493,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
  * @param[out] service Application-owned storage.
  * @param[in] can_id Logical controller identity representable by the instance byte.
  * @param[in,out] irq_manager Required factory dependency; no IRQ binding occurs here.
- * @param[in] irq_priority Reserved factory priority, unused by basic commands.
+ * @param[in] irq_priority Board-selected priority used by explicit managed IRQ capture.
  * @return Zero on success, minus one for invalid descriptor inputs.
  * @note Does not enable clocks, configure GPIO, initialize CAN or allocate resources.
  */
@@ -1064,9 +1505,10 @@ int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,
         return -1;
     }
 
-    (void)irq_priority;
     (void)memset(service, 0, sizeof(*service));
     service->can_id = can_id;
+    service->irq_manager = irq_manager;
+    service->irq_priority = irq_priority;
     service->descriptor.service_id = ET_CAN_SERVICE_ID;
     service->descriptor.instance_id = can_id;
     service->descriptor.context = service;

@@ -13,6 +13,9 @@ from .models import (
     CanBusLimits,
     CanFilter,
     CanIdentity,
+    CanIrqEvent,
+    CanIrqSnapshot,
+    CanIrqSource,
     CanLoopback,
     CanOptionLimits,
     CanOptions,
@@ -68,6 +71,79 @@ class CanDriver:
         if value not in (0, 1):
             raise ProtocolError(f"CAN clock stop acknowledgement is not Boolean: {value}")
         return bool(value)
+
+    # 直接使能或屏蔽公共CAN中断源；仅用于未启动托管Capture时的寄存器语义测试。
+    # 不绑定NVIC、不选择中断线，非法位图和非Boolean在发命令前拒绝。
+    def irq_mask_set(
+        self, sources: CanIrqSource, enabled: bool, *, timeout_s: float | None = None
+    ) -> None:
+        self._request(
+            CanCommand.IRQ_MASK_SET,
+            (codec.irq_sources(sources), codec.boolean(enabled)),
+            timeout_s=timeout_s,
+        )
+
+    # 把指定公共事件选择到控制器Line0或Line1；物理IRQn始终由固件映射。
+    # 只接受0/1且不启用事件，便于Case将路由读回与事件投递分开断言。
+    # 仅等待本次配置响应；超时或设备失败直接上抛，不自动改选另一条Line。
+    def irq_line_select_set(
+        self, sources: CanIrqSource, line: int, *, timeout_s: float | None = None
+    ) -> None:
+        if type(line) is not int or line not in (0, 1):
+            raise ValueError(f"CAN interrupt line must be 0 or 1: {line!r}")
+        self._request(
+            CanCommand.IRQ_LINE_SELECT_SET,
+            (codec.irq_sources(sources), line),
+            timeout_s=timeout_s,
+        )
+
+    # 非破坏读取IR/IE/ILS/ILE公共事实；不清Pending、不消费Service事件证据。
+    # 在调用者Deadline内执行一次只读查询；协议或通信失败直接上抛。
+    def irq_snapshot_get(self, *, timeout_s: float | None = None) -> CanIrqSnapshot:
+        return codec.decode_irq_snapshot(
+            self._request(CanCommand.IRQ_SNAPSHOT_GET, timeout_s=timeout_s)
+        )
+
+    # 显式W1C清除所选CAN源；不清Service已经锁存的回调证据。
+    # Level条件未解除时硬件可再次置位，Case必须独立观测该事实。
+    # 仅等待本次清除响应；超时或设备失败直接上抛，不重复W1C。
+    def irq_clear(self, sources: CanIrqSource, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.IRQ_CLEAR, (codec.irq_sources(sources),), timeout_s=timeout_s)
+
+    # 建立一个托管中断Capture；line1_sources必须是sources的子集。
+    # 固件负责源清理、逻辑路由和固定ISR证据，不产生测试结论。
+    # 不轮询事件；启动失败由固件回退本次路由，错误直接上抛。
+    def irq_capture_start(
+        self,
+        sources: CanIrqSource,
+        *,
+        line1_sources: CanIrqSource = CanIrqSource.NONE,
+        timeout_s: float | None = None,
+    ) -> None:
+        source_mask = codec.irq_sources(sources)
+        line1_mask = codec.irq_sources(line1_sources)
+        if source_mask == 0 or line1_mask & ~source_mask:
+            raise ValueError("CAN capture sources must be nonzero and contain the Line1 subset")
+        self._request(
+            CanCommand.IRQ_CAPTURE_START,
+            (source_mask, line1_mask),
+            timeout_s=timeout_s,
+        )
+
+    # 先屏蔽CAN源，再关闭控制器输出并释放IRQ Manager路由；保留已采集证据。
+    # 仅等待本次停止响应；失败直接上抛，调用者仍可读取故障Evidence。
+    def irq_capture_stop(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.IRQ_CAPTURE_STOP, timeout_s=timeout_s)
+
+    # 原子复制固定ISR证据；只读不清硬件Pending或软件计数。
+    # 在调用者Deadline内执行一次只读查询；协议或通信失败直接上抛。
+    def irq_event_get(self, *, timeout_s: float | None = None) -> CanIrqEvent:
+        return codec.decode_irq_event(self._request(CanCommand.IRQ_EVENT_GET, timeout_s=timeout_s))
+
+    # 在Capture停止后开启新的空证据代次；不触碰CAN硬件。
+    # 仅等待本次复位响应；活动Capture会明确失败，不自动停止它。
+    def irq_event_reset(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.IRQ_EVENT_RESET, timeout_s=timeout_s)
 
     # 查询真实只读身份；只等待本次响应，通信失败直接上抛。
     def identity_get(self, *, timeout_s: float | None = None) -> CanIdentity:

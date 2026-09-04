@@ -1509,6 +1509,9 @@ void CAN_testGetInitConfig(CAN_Type *CANx, CAN_InitParams *initParams);
 /** Read one configured filter from Message RAM, without writing acceptance state. */
 int32_t CAN_testGetStdMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_StdMsgIDFilterElement *element);
 int32_t CAN_testGetExtMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_ExtMsgIDFilterElement *element);
+/** Read IE, ILS and ILE once each without consuming IR. */
+void CAN_testGetInterruptConfig(CAN_Type *CANx, uint32_t *enabled, uint32_t *lineSelection,
+                                uint32_t *lineEnabled);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

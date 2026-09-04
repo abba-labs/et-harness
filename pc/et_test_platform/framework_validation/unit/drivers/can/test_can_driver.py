@@ -18,6 +18,7 @@ from et_test_platform.drivers.can import (
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
+    CanIrqSource,
     CanLoopback,
     CanOptions,
     CanPhaseTiming,
@@ -458,3 +459,68 @@ def test_clock_stop_boolean_bounds() -> None:
     assert target.requests == []
     with pytest.raises(ProtocolError):
         CanDriver(TargetStub([pack("<I", 2)]), 0).clock_stop_ack_get()
+
+
+# IRQ控制分别编码Source、Line、Capture和清除；物理IRQn不会进入PC Wire。
+def test_irq_control_and_capture_contract() -> None:
+    sources = CanIrqSource.RX_FIFO0_NEW | CanIrqSource.TX_COMPLETE
+    target = TargetStub(
+        [
+            b"",
+            b"",
+            pack("<4I", int(sources), int(sources), int(CanIrqSource.TX_COMPLETE), 3),
+            b"",
+            b"",
+            pack("<8I", int(sources), int(sources), int(sources), 2, 0, 0, 1, 0),
+            b"",
+            b"",
+        ]
+    )
+    driver = CanDriver(target, 2)
+
+    driver.irq_mask_set(sources, True)
+    driver.irq_line_select_set(CanIrqSource.TX_COMPLETE, 1)
+    snapshot = driver.irq_snapshot_get()
+    driver.irq_clear(CanIrqSource.RX_FIFO0_NEW)
+    driver.irq_capture_start(sources, line1_sources=CanIrqSource.TX_COMPLETE)
+    event = driver.irq_event_get()
+    driver.irq_capture_stop()
+    driver.irq_event_reset()
+
+    assert snapshot.enabled_sources == sources and snapshot.enabled_lines == 3
+    assert snapshot.line1_sources == CanIrqSource.TX_COMPLETE
+    assert event.latched_events == sources and event.event_count == 2
+    assert [request["command"] for request in target.requests] == [35, 36, 37, 38, 39, 41, 40, 42]
+    assert target.requests[0]["body"] == pack("<B2I", 2, int(sources), 1)
+    assert target.requests[4]["body"] == pack(
+        "<B2I", 2, int(sources), int(CanIrqSource.TX_COMPLETE)
+    )
+    assert [request["retry_safe"] for request in target.requests] == [
+        False,
+        False,
+        True,
+        False,
+        False,
+        True,
+        False,
+        False,
+    ]
+
+
+# 非法Source、Line、Capture子集和固件异常位图均失败关闭，不产生设备请求。
+def test_irq_contract_rejects_invalid_values() -> None:
+    target = TargetStub()
+    driver = CanDriver(target, 0)
+
+    with pytest.raises(ValueError):
+        driver.irq_mask_set(CanIrqSource(1 << 30), True)
+    with pytest.raises(ValueError):
+        driver.irq_line_select_set(CanIrqSource.RX_FIFO0_NEW, 2)
+    with pytest.raises(ValueError):
+        driver.irq_capture_start(CanIrqSource.RX_FIFO0_NEW, line1_sources=CanIrqSource.TX_COMPLETE)
+    assert target.requests == []
+
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<4I", 1 << 30, 0, 0, 0)]), 0).irq_snapshot_get()
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<8I", 0, 0, 1 << 30, 0, 0, 0, 0, 0)]), 0).irq_event_get()

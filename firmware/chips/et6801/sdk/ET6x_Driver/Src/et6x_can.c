@@ -2485,5 +2485,26 @@ int32_t CAN_testGetExtMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_ExtMsgIDFi
     element->eft = (second & CAN_EXT_ID_FILTER_EFT_MASK) >> CAN_EXT_ID_FILTER_EFT_SHIFT;
     return DRV_OK;
 }
+
+/**
+ * @brief Read the complete CAN interrupt configuration without consuming pending state.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param enabled Caller storage for the IE source mask.
+ * @param lineSelection Caller storage for ILS; set bits are routed to line 1.
+ * @param lineEnabled Caller storage for the ILE line-enable mask.
+ * @note Each configuration register is read exactly once. IR is intentionally not read here.
+ */
+void CAN_testGetInterruptConfig(CAN_Type *CANx, uint32_t *enabled, uint32_t *lineSelection,
+                                uint32_t *lineEnabled)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(enabled != NULL);
+    assert_param(lineSelection != NULL);
+    assert_param(lineEnabled != NULL);
+
+    *enabled = READ_REG(CANx->IE);
+    *lineSelection = READ_REG(CANx->ILS);
+    *lineEnabled = READ_REG(CANx->ILE);
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

@@ -13,6 +13,9 @@ from .models import (
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
+    CanIrqEvent,
+    CanIrqSnapshot,
+    CanIrqSource,
     CanOptions,
     CanPhaseTiming,
     CanProtocolStatus,
@@ -39,6 +42,35 @@ RX_FLAGS = (
     | CanFrameFlags.ESI
 )
 TX_FLAGS = RX_FLAGS | CanFrameFlags.STORE_EVENT | CanFrameFlags.CAPTURE_TIME
+IRQ_ALL = (1 << 30) - 1
+
+
+# 中断位图必须只包含公共CAN事件，禁止未知位穿过Wire进入芯片适配。
+def irq_sources(value: CanIrqSource) -> int:
+    if not isinstance(value, CanIrqSource) or int(value) & ~IRQ_ALL:
+        raise ValueError(f"CAN interrupt sources are invalid: {value!r}")
+    return int(value)
+
+
+# 解码非破坏IRQ硬件快照；控制器只有两条输出线，因此使能位只允许bit0/1。
+def decode_irq_snapshot(words: tuple[int, ...]) -> CanIrqSnapshot:
+    if len(words) != 4 or any(value & ~IRQ_ALL for value in words[:3]) or words[3] & ~0x3:
+        raise ProtocolError(f"CAN invalid interrupt snapshot: {words}")
+    return CanIrqSnapshot(
+        CanIrqSource(words[0]), CanIrqSource(words[1]), CanIrqSource(words[2]), words[3]
+    )
+
+
+# 解码固定ISR证据；前三项是公共事件位图，其余项保留原始计数和诊断值。
+def decode_irq_event(words: tuple[int, ...]) -> CanIrqEvent:
+    if len(words) != 8 or any(value & ~IRQ_ALL for value in words[:3]):
+        raise ProtocolError(f"CAN invalid interrupt event evidence: {words}")
+    return CanIrqEvent(
+        CanIrqSource(words[0]),
+        CanIrqSource(words[1]),
+        CanIrqSource(words[2]),
+        *words[3:],
+    )
 
 
 # 过滤器只校验协议语义；配置列表长度和具体RAM容量仍由固件读取硬件确认。

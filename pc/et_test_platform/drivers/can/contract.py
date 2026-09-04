@@ -57,6 +57,14 @@ class CanCommand(IntEnum):
     TIMEOUT_COUNTER_GET = 32
     CLOCK_STOP_SET = 33
     CLOCK_STOP_ACK_GET = 34
+    IRQ_MASK_SET = 35
+    IRQ_LINE_SELECT_SET = 36
+    IRQ_SNAPSHOT_GET = 37
+    IRQ_CLEAR = 38
+    IRQ_CAPTURE_START = 39
+    IRQ_CAPTURE_STOP = 40
+    IRQ_EVENT_GET = 41
+    IRQ_EVENT_RESET = 42
 
 
 REQUEST_WORDS = (
@@ -95,6 +103,14 @@ REQUEST_WORDS = (
     0,
     1,
     0,
+    2,
+    2,
+    0,
+    1,
+    2,
+    0,
+    0,
+    0,
 )
 RESPONSE_WORDS = (
     2,
@@ -132,6 +148,14 @@ RESPONSE_WORDS = (
     1,
     0,
     1,
+    0,
+    0,
+    4,
+    0,
+    0,
+    0,
+    8,
+    0,
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -239,5 +263,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TIMESTAMP_GET,
         CanCommand.TIMEOUT_COUNTER_GET,
         CanCommand.CLOCK_STOP_ACK_GET,
+        CanCommand.IRQ_SNAPSHOT_GET,
+        CanCommand.IRQ_EVENT_GET,
     }
 )

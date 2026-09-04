@@ -37,6 +37,8 @@
 #define ET_CAN_RX_SELECT_INDEX 1u
 #define ET_CAN_RX_BITMAP_LOW 0u
 #define ET_CAN_RX_BITMAP_HIGH 1u
+/** Two-word IRQ controls carry a source mask plus a Boolean, line or subset. */
+#define ET_CAN_IRQ_CONTROL_WORDS 2u
 /** Public tx_field word order; DATA marks the start of 64 payload bytes. */
 typedef enum
 {
@@ -205,8 +207,48 @@ typedef enum
     ET_CAN_COMMAND_TIMEOUT_COUNTER_GET = 32u,
     ET_CAN_COMMAND_CLOCK_STOP_SET = 33u,
     ET_CAN_COMMAND_CLOCK_STOP_ACK_GET = 34u,
+    ET_CAN_COMMAND_IRQ_MASK_SET = 35u,
+    ET_CAN_COMMAND_IRQ_LINE_SELECT_SET = 36u,
+    ET_CAN_COMMAND_IRQ_SNAPSHOT_GET = 37u,
+    ET_CAN_COMMAND_IRQ_CLEAR = 38u,
+    ET_CAN_COMMAND_IRQ_CAPTURE_START = 39u,
+    ET_CAN_COMMAND_IRQ_CAPTURE_STOP = 40u,
+    ET_CAN_COMMAND_IRQ_EVENT_GET = 41u,
+    ET_CAN_COMMAND_IRQ_EVENT_RESET = 42u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
+
+/** Four non-destructive CAN interrupt-controller facts returned in this order. */
+typedef enum
+{
+    ET_CAN_IRQ_SNAPSHOT_RAW = 0u,
+    ET_CAN_IRQ_SNAPSHOT_ENABLED = 1u,
+    ET_CAN_IRQ_SNAPSHOT_LINE1 = 2u,
+    ET_CAN_IRQ_SNAPSHOT_LINES_ENABLED = 3u,
+    ET_CAN_IRQ_SNAPSHOT_WORDS
+} et_can_irq_snapshot_word_t;
+
+/** Fixed callback-owned evidence; indexes are public Wire fields, not register positions. */
+typedef enum
+{
+    ET_CAN_IRQ_EVENT_RAW_STATUS = 0u,
+    ET_CAN_IRQ_EVENT_MASKED_STATUS = 1u,
+    ET_CAN_IRQ_EVENT_LATCHED_EVENTS = 2u,
+    ET_CAN_IRQ_EVENT_COUNT = 3u,
+    ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT = 4u,
+    ET_CAN_IRQ_EVENT_OVERFLOW_COUNT = 5u,
+    ET_CAN_IRQ_EVENT_GENERATION = 6u,
+    ET_CAN_IRQ_EVENT_FAULT_FLAGS = 7u,
+    ET_CAN_IRQ_EVENT_WORDS
+} et_can_irq_event_word_t;
+
+/** Service-local callback diagnostics; these are not CAN hardware interrupt sources. */
+typedef enum
+{
+    ET_CAN_IRQ_FAULT_IO = (1u << 0),
+    ET_CAN_IRQ_FAULT_UNEXPECTED = (1u << 1),
+    ET_CAN_IRQ_FAULT_OVERFLOW = (1u << 2)
+} et_can_irq_fault_t;
 
 /** Protocol consume returns 15 explicit u32 observations; no C structure image is sent. */
 #define ET_CAN_PROTOCOL_STATUS_WORDS 15u
@@ -248,6 +290,13 @@ typedef struct
 {
     et_can_id_t can_id;
     et_service_descriptor_t descriptor;
+    et_irq_manager_t *irq_manager;
+    et_irq_route_t irq_routes[ET_CAN_IRQ_LINE_COUNT];
+    volatile uint32_t irq_event[ET_CAN_IRQ_EVENT_WORDS];
+    uint32_t watched_sources;
+    uint32_t line1_sources;
+    uint8_t irq_priority;
+    uint8_t bound_lines;
 } et_can_service_t;
 
 int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,

@@ -27,6 +27,63 @@ class CanActivity(IntEnum):
     TRANSMITTER = 3
 
 
+# CAN中断源使用公共语义位图；数值不允许Case解释为ET6801 IR寄存器位。
+class CanIrqSource(IntFlag):
+    NONE = 0
+    RX_FIFO0_NEW = 1 << 0
+    RX_FIFO0_WATERMARK = 1 << 1
+    RX_FIFO0_FULL = 1 << 2
+    RX_FIFO0_LOST = 1 << 3
+    RX_FIFO1_NEW = 1 << 4
+    RX_FIFO1_WATERMARK = 1 << 5
+    RX_FIFO1_FULL = 1 << 6
+    RX_FIFO1_LOST = 1 << 7
+    HIGH_PRIORITY = 1 << 8
+    TX_COMPLETE = 1 << 9
+    TX_CANCEL_FINISHED = 1 << 10
+    TX_FIFO_EMPTY = 1 << 11
+    TX_EVENT_NEW = 1 << 12
+    TX_EVENT_WATERMARK = 1 << 13
+    TX_EVENT_FULL = 1 << 14
+    TX_EVENT_LOST = 1 << 15
+    TIMESTAMP_WRAP = 1 << 16
+    RAM_ACCESS_FAILURE = 1 << 17
+    TIMEOUT = 1 << 18
+    RX_BUFFER_NEW = 1 << 19
+    BIT_ERROR_CORRECTED = 1 << 20
+    BIT_ERROR_UNCORRECTED = 1 << 21
+    ERROR_LOG_OVERFLOW = 1 << 22
+    ERROR_PASSIVE = 1 << 23
+    WARNING = 1 << 24
+    BUS_OFF = 1 << 25
+    RAM_WATCHDOG = 1 << 26
+    PROTOCOL_ARBITRATION = 1 << 27
+    PROTOCOL_DATA = 1 << 28
+    RESERVED_ACCESS = 1 << 29
+
+
+# 非破坏读取控制器IRQ配置；line1_sources表示被选择到第二条控制器输出线的源。
+@dataclass(frozen=True, slots=True)
+class CanIrqSnapshot:
+    raw_status: CanIrqSource
+    enabled_sources: CanIrqSource
+    line1_sources: CanIrqSource
+    enabled_lines: int
+
+
+# 固定ISR证据由Service维护；硬件状态和软件诊断字段保持分离。
+@dataclass(frozen=True, slots=True)
+class CanIrqEvent:
+    raw_status: CanIrqSource
+    masked_status: CanIrqSource
+    latched_events: CanIrqSource
+    event_count: int
+    unexpected_count: int
+    overflow_count: int
+    generation: int
+    fault_flags: int
+
+
 # PSR类状态再ECR类计数的连续一次采样；不是同时快照，会消费读清字段。
 @dataclass(frozen=True, slots=True)
 class CanProtocolStatus:

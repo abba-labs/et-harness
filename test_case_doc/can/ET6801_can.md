@@ -1,8 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-05 00:25 CST
+更新时间：2026-09-05 07:35 CST
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及29条基础/收发/过滤命令；已注册P0_002、P1_001，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；2项SPEC、37项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及43条基础/收发/过滤/状态/中断命令；已注册P0_002、P1_001，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；2项SPEC、37项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -96,6 +96,8 @@ Classic CAN适合小型控制消息；CAN FD提供更长payload及可变数据�
 优先复用现有接口；预计需要原子多项TX请求、受保护写测试、完整无隐式清除快照、受限Message RAM测试访问、完整TSU元素读取及DMU一次非法刺激接口。具体缺口须逐函数对照后定，不预先重复新增同名近似函数。所有测试补充函数放Chip Driver头/源底部隔离区，命名区分SDK常规驱动；Wrap调用Driver，Service只解码/执行对应Wrap动作。
 
 **本轮没有确认“全部驱动接口已足够”，没有实现任何上述补充函数。**
+
+中断补充（2026-09-05 07:35 CST）：使用现有`CAN_enableIntr`、`CAN_selectIntrLine`、`CAN_enableIntrLine`、`CAN_getIntrStatus`和`CAN_clearIntrStatus`完成源控制；仅在测试扩展区增加`CAN_testGetInterruptConfig`，一次分别读取IE、ILS、ILE，不读取或清除IR。公共事件到`CAN_INTR_SRC_*`、CAN0/1/2本地Line 0/1到对应INT0/INT1 IRQn的映射只位于Chip Config；公共Wrap、Service、PC Driver和Wire不包含ET6801 IRQn或Handler名。
 
 ## 第三章 IP寄存器分析
 
@@ -462,6 +464,8 @@ GPIO依赖同步：公共GPIO功能新增CAN_RX/CAN_TX，ET6801映射为GPIO58_M
 PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、不可变配置Model及CanDriver已实现。20项专项软件测试验证精确Wire、独立读回、非法参数无请求、Deadline、GPIO CAN信号和CRG CAN类别编码；无真实CAN收发，不能作为正式Case通过证据。
 
 ### 6.4 当前测试状态
+
+中断管理开发（2026-09-05 07:35 CST）：在既有35条命令后追加IRQ源使能、Line选择、快照、清除、捕获启停和固定Evidence共8条命令，累计43条。CAN Service通过IRQ Manager绑定CAN0/1/2各自INT0/INT1，回调只执行固定快照、锁存、计数及防风暴屏蔽；物理IRQ映射保持芯片私有，未加入Case判断、动态内存或跨IP调用。真实CAN Driver/Wrap/Service Native回归、PC Wire/非法参数专项回归及总软件门禁通过；总门禁1215 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_irq_gate.log`。配置流水线ET6801_SILICON_FLASH构建通过，证据`artifacts/runs/20260904_can_development/stages/can_irq_build.log`和`artifacts/runs/20260905_072001_727590_can_firmware_build_only/stages/build_firmware_silicon/`。本批未烧录，尚无CAN HIL结论。
 
 状态/计时接口开发（2026-09-05 06:47 CST）：新增协议状态消费、时间戳读取/清零、Timeout读取、Clock Stop请求/应答六条命令，累计35条。D12：原CAN_getErrCounters对ECR分别读取四次，CEL读清导致首次计数丢失；修为一次READ_REG后解码，原生回归加入ECR.CEL读清模型并断言恰好一次读取。D13：CAN_getClockStopAck原读CCCR.CSR[4]，误把请求当应答；改为CCCR.CSA[3]，与已有CAN_getClkStopAck语义一致。Native独立验证CSR/CSA不相同场景，Service长度拒绝、PC读清命令retry_safe=false；本批配置流水线固件编译PASS；总软件门禁1205 PASS、0 FAIL、0 SKIP，证据为`artifacts/runs/20260904_can_development/stages/can_status_build.log`和`can_status_gate.log`。没有烧录或CAN HIL结论。
 

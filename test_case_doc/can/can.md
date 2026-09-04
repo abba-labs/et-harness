@@ -94,7 +94,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、协议状态消费和计时控制，共35条命令，详见0.7。P0_002、P1_001已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、协议状态消费、计时控制和中断管理，共43条命令，详见0.7。P0_002、P1_001已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -104,6 +104,9 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 | `et_can_wrap_set_timing` / `get_timing` | 两阶段实际正整数计数 / 独立硬件读回 | 仅INIT中配置；非法计数无写入；硬件减一编码由内部Driver适配 |
 | `et_can_wrap_set_options` / `get_options` | FD、BRS、自动重传、TX Pause、Edge Filter、Protocol Exception、TDC及RAM Watchdog | 各Boolean必须0/1；TDC Offset/Filter和Watchdog为实际控制器周期数；仅INIT中配置；不修改位时序、RAM布局、过滤规则 |
 | `et_can_wrap_get_option_limits` | TDC Offset、Filter、RAM Watchdog上限 | 只描述芯片字段上限，不填测试默认值 |
+| `et_can_wrap_set_irq_enabled` / `select_irq_line` / `set_irq_line_enabled` | 公共事件位图、控制器本地Line 0/1及Boolean | 仅配置CAN自身IE/ILS/ILE；不暴露物理IRQn，不直接操作NVIC或向量表 |
+| `et_can_wrap_get_irq_snapshot` / `clear_irq` | raw、enabled、line1_sources、enabled_lines / 待清事件位图 | 快照独立读取硬件；只清调用者指定的CAN源，电平条件未消除时允许再次置位 |
+| `et_can_wrap_get_irq_route` | 逻辑实例、本地Line、事件集合→Service内部物理路由 | 仅供CAN Service绑定IRQ Manager；PC、Wire和公共Case不可见物理IRQn |
 
 公共Header只用固定宽度类型和统一Wrap状态；实现不访问寄存器，不调用GPIO、CRG、DMA或IRQ Wrap。芯片实例和计数上限来自Chip Config。SDK没有revision读取接口，因此仅在CAN Driver底部隔离区增加`CAN_testGetRevision`，未增加任意寄存器访问接口。
 
@@ -148,6 +151,18 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | TIMEOUT_COUNTER_GET | 32 | 无 | 当前Timeout计数，不重装 |
 | CLOCK_STOP_SET | 33 | requested Boolean | 无；只设置或撤回请求，不等待Ack、不自动清INIT |
 | CLOCK_STOP_ACK_GET | 34 | 无 | 硬件应答Boolean，不是请求值 |
+| IRQ_MASK_SET | 35 | sources事件位图、enabled Boolean | 无；仅改变CAN IE源使能，不绑定NVIC |
+| IRQ_LINE_SELECT_SET | 36 | sources事件位图、line（0或1） | 无；仅改变CAN ILS路由，不使能源或物理IRQ |
+| IRQ_SNAPSHOT_GET | 37 | 无 | raw、enabled、line1_sources、enabled_lines共4项 |
+| IRQ_CLEAR | 38 | sources事件位图 | 无；仅确认指定IR源，不隐式清FIFO或协议条件 |
+| IRQ_CAPTURE_START | 39 | watched_sources、line1_sources | 无；line1_sources必须是watched_sources子集 |
+| IRQ_CAPTURE_STOP | 40 | 无 | 无；按源、控制器Line、IRQ Manager路由顺序停止，不清已保存Evidence |
+| IRQ_EVENT_GET | 41 | 无 | raw、masked、latched、count、unexpected、overflow、generation、fault共8项 |
+| IRQ_EVENT_RESET | 42 | 无 | 无；只清Service固定Evidence，不改变CAN或NVIC配置 |
+
+中断sources使用公共语义位图，覆盖RX FIFO0/1、Dedicated RX、TX完成/取消、TX Event、Timestamp、Timeout、错误状态和协议错误等30类事件。PC只传事件和控制器本地Line，不传芯片物理中断符号。Chip Config将事件映射到本芯片Driver枚举，并将本地Line映射为物理IRQ；CAN Service是唯一的Service→IRQ Manager绑定位置。
+
+`IRQ_CAPTURE_START`先清旧Evidence和目标pending，再完成ILS、IRQ Manager路由、ILE及IE配置；任一步失败都按相反顺序回退。ISR只做固定次数快照、首次状态锁存、计数和防风暴屏蔽，不执行Case判断、等待、动态分配或跨IP动作，也不自动清pending。Case读取Evidence并完成最终判定；停止捕获后Evidence保留到显式`IRQ_EVENT_RESET`。
 
 协议状态响应顺序：`last_error, activity, error_passive, warning, bus_off, data_last_error, received_esi, received_brs, received_fd, protocol_exception, tdc_position, tx_error_count, rx_error_count, rx_error_passive, error_log_count`。Error公开枚举为0无错误、1Stuff、2Form、3ACK、4Bit1、5Bit0、6CRC、7自前次读取无变化；Activity为0同步中、1Idle、2接收、3发送。布尔字段严格0/1，其余为实际计数；TDC位置为控制器周期数，不等于独立测得的物理传播延迟。
 
@@ -176,7 +191,7 @@ Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试
 
 ### 0.8 PC基础接口
 
-`CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
+`CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。中断接口使用`CanIrqSource`、`CanIrqSnapshot`和`CanIrqEvent`，只公开事件、控制器本地Line及固定Evidence，不公开芯片IRQn或Handler名称。
 
 `wait_initializing`仅在单一Deadline内查询INIT，不发送切换请求、不复位IP。GPIO、CRG及外部CAN盒子由Case分别调用各自Driver/Adapter；CAN Driver不代为编排。只有只读命令允许声明安全重试。
 

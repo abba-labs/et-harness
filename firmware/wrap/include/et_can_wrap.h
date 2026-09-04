@@ -3,6 +3,7 @@
 
 /** @file et_can_wrap.h @brief Chip-neutral, non-waiting CAN controller primitives. */
 #include <stdint.h>
+#include "et_irq_types.h"
 #include "et_wrap_status.h"
 
 /** Logical controller identity from Capability; never an external CAN-box channel. */
@@ -370,5 +371,69 @@ et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id);
 et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *count);
 et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested);
 et_wrap_status_t et_can_wrap_get_clock_stop_ack(et_can_id_t id, uint32_t *acknowledged);
+
+/** Stable CAN interrupt-source namespace; bit values are public events, not register bits. */
+typedef enum
+{
+    ET_CAN_IRQ_RX_FIFO0_NEW = (1u << 0),
+    ET_CAN_IRQ_RX_FIFO0_WATERMARK = (1u << 1),
+    ET_CAN_IRQ_RX_FIFO0_FULL = (1u << 2),
+    ET_CAN_IRQ_RX_FIFO0_LOST = (1u << 3),
+    ET_CAN_IRQ_RX_FIFO1_NEW = (1u << 4),
+    ET_CAN_IRQ_RX_FIFO1_WATERMARK = (1u << 5),
+    ET_CAN_IRQ_RX_FIFO1_FULL = (1u << 6),
+    ET_CAN_IRQ_RX_FIFO1_LOST = (1u << 7),
+    ET_CAN_IRQ_HIGH_PRIORITY = (1u << 8),
+    ET_CAN_IRQ_TX_COMPLETE = (1u << 9),
+    ET_CAN_IRQ_TX_CANCEL_FINISHED = (1u << 10),
+    ET_CAN_IRQ_TX_FIFO_EMPTY = (1u << 11),
+    ET_CAN_IRQ_TX_EVENT_NEW = (1u << 12),
+    ET_CAN_IRQ_TX_EVENT_WATERMARK = (1u << 13),
+    ET_CAN_IRQ_TX_EVENT_FULL = (1u << 14),
+    ET_CAN_IRQ_TX_EVENT_LOST = (1u << 15),
+    ET_CAN_IRQ_TIMESTAMP_WRAP = (1u << 16),
+    ET_CAN_IRQ_RAM_ACCESS_FAILURE = (1u << 17),
+    ET_CAN_IRQ_TIMEOUT = (1u << 18),
+    ET_CAN_IRQ_RX_BUFFER_NEW = (1u << 19),
+    ET_CAN_IRQ_BIT_ERROR_CORRECTED = (1u << 20),
+    ET_CAN_IRQ_BIT_ERROR_UNCORRECTED = (1u << 21),
+    ET_CAN_IRQ_ERROR_LOG_OVERFLOW = (1u << 22),
+    ET_CAN_IRQ_ERROR_PASSIVE = (1u << 23),
+    ET_CAN_IRQ_WARNING = (1u << 24),
+    ET_CAN_IRQ_BUS_OFF = (1u << 25),
+    ET_CAN_IRQ_RAM_WATCHDOG = (1u << 26),
+    ET_CAN_IRQ_PROTOCOL_ARBITRATION = (1u << 27),
+    ET_CAN_IRQ_PROTOCOL_DATA = (1u << 28),
+    ET_CAN_IRQ_RESERVED_ACCESS = (1u << 29)
+} et_can_irq_event_t;
+
+#define ET_CAN_IRQ_ALL ((1u << 30) - 1u)
+
+/** Controller interrupt line selector; physical IRQ numbers remain private. */
+typedef enum
+{
+    ET_CAN_IRQ_LINE0 = 0u,
+    ET_CAN_IRQ_LINE1 = 1u,
+    ET_CAN_IRQ_LINE_COUNT
+} et_can_irq_line_t;
+
+/** Non-destructive controller interrupt configuration and pending-state snapshot. */
+typedef struct
+{
+    uint32_t raw_status;
+    uint32_t enabled_sources;
+    uint32_t line1_sources;
+    uint32_t enabled_lines;
+} et_can_irq_snapshot_t;
+
+et_wrap_status_t et_can_wrap_set_irq_enabled(et_can_id_t id, uint32_t sources, uint8_t enabled);
+et_wrap_status_t et_can_wrap_select_irq_line(et_can_id_t id, uint32_t sources,
+                                             et_can_irq_line_t line);
+et_wrap_status_t et_can_wrap_set_irq_line_enabled(et_can_id_t id, et_can_irq_line_t line,
+                                                  uint8_t enabled);
+et_wrap_status_t et_can_wrap_get_irq_snapshot(et_can_id_t id, et_can_irq_snapshot_t *snapshot);
+et_wrap_status_t et_can_wrap_clear_irq(et_can_id_t id, uint32_t sources);
+et_wrap_status_t et_can_wrap_get_irq_route(et_can_id_t id, et_can_irq_line_t line, uint32_t events,
+                                           et_irq_route_t *route);
 
 #endif

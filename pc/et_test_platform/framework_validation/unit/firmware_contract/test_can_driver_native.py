@@ -34,6 +34,10 @@ def write_can_driver_harness(directory: Path) -> Path:
         for line in cmsis.splitlines()
         if re.match(r"#define\s+(CAN0_|CAN_MISC0_|SYSC_ECCEN_)", line)
     )
+    irq_definitions = "\n".join(
+        f"#define {name} {value}"
+        for name, value in re.findall(r"\b(CAN[0-2]_INT[01]_IRQn)\s*=\s*(\d+)", cmsis)
+    )
     fields = sorted(set(re.findall(r"CANx->(\w+)", source)))
     stub = (
         "#pragma once\n#include <stdint.h>\n#include <stddef.h>\n#include <assert.h>\n"
@@ -59,6 +63,8 @@ def write_can_driver_harness(directory: Path) -> Path:
         )
         + "\n"
         + definitions
+        + "\n"
+        + irq_definitions
         + "\n"
     )
     (directory / "et6x.h").write_text(stub, encoding="utf-8")
@@ -119,6 +125,70 @@ HARNESS = r"""
 CAN_TestMemory test_memory;
 CAN_MISC_Type misc_blocks[3];
 SYSC_Type system_control;
+
+/* The Service is tested with a bounded host-side IRQ Manager double. */
+static et_irq_callback_t bound_callback[2];
+static void *bound_context[2];
+static et_irq_line_t bound_irq_line[2];
+static uint32_t bound_route_events[2];
+
+uint32_t et_irq_manager_enter_critical(void)
+{
+    return 0;
+}
+
+void et_irq_manager_exit_critical(uint32_t key)
+{
+    (void)key;
+}
+
+int et_irq_manager_bind(et_irq_manager_t *manager, const et_irq_route_t *route, uint8_t priority,
+                        et_irq_callback_t callback, void *context)
+{
+    unsigned slot;
+
+    (void)manager;
+    (void)priority;
+
+    for (slot = 0; slot < 2; ++slot)
+    {
+        if (bound_callback[slot] == NULL)
+        {
+            bound_callback[slot] = callback;
+            bound_context[slot] = context;
+            bound_irq_line[slot] = route->irq_line;
+            bound_route_events[slot] = route->route_events;
+
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
+                          et_irq_callback_t callback, void *context)
+{
+    unsigned slot;
+
+    (void)manager;
+
+    for (slot = 0; slot < 2; ++slot)
+    {
+        if ((bound_callback[slot] == callback) && (bound_context[slot] == context) &&
+            (bound_irq_line[slot] == irq_line))
+        {
+            bound_callback[slot] = NULL;
+            bound_context[slot] = NULL;
+            bound_irq_line[slot] = 0;
+            bound_route_events[slot] = 0;
+
+            return 0;
+        }
+    }
+
+    return -1;
+}
 
 /* Optional ECR.CEL read-clear model catches accidental repeated reads in a getter. */
 static unsigned consume_enabled, ecr_reads, psr_reads;
@@ -678,6 +748,52 @@ int main(void)
         request[1]=2;
         assert(descriptor->handle(descriptor->context,33,request,5,NULL,0,&length)==ET_STATUS_INVALID_PARAM);
         assert(CAN0->CCCR==8);
+    }
+
+    /* Public semantic sources route through Service and leave fixed IRQ evidence. */
+    {
+        const uint32_t watched = ET_CAN_IRQ_RX_FIFO0_NEW | ET_CAN_IRQ_TX_COMPLETE;
+        et_can_irq_snapshot_t snapshot;
+        uint8_t request[9]={0}, response[32]={0};
+        uint16_t length=99;
+
+        memset(bound_callback, 0, sizeof(bound_callback));
+        memset(bound_context, 0, sizeof(bound_context));
+        CAN0->IR=0;
+        CAN0->IE=0;
+        CAN0->ILS=0;
+        CAN0->ILE=0;
+
+        request[1]=(uint8_t)watched;
+        request[2]=(uint8_t)(watched>>8);
+        request[5]=(uint8_t)ET_CAN_IRQ_TX_COMPLETE;
+        request[6]=(uint8_t)(ET_CAN_IRQ_TX_COMPLETE>>8);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_START,
+                                  request, 9, NULL, 0, &length)==ET_STATUS_OK);
+        assert(length==0 && CAN0->IE==watched && CAN0->ILS==ET_CAN_IRQ_TX_COMPLETE);
+        assert(CAN0->ILE==3 && bound_callback[0]!=NULL && bound_callback[1]!=NULL);
+        assert(bound_irq_line[0]==CAN0_INT0_IRQn && bound_irq_line[1]==CAN0_INT1_IRQn);
+
+        CAN0->IR=watched;
+        bound_callback[0](bound_context[0], bound_irq_line[0], bound_route_events[0]);
+        bound_callback[1](bound_context[1], bound_irq_line[1], bound_route_events[1]);
+        assert(CAN0->IE==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_EVENT_GET,
+                                  request, 1, response, 32, &length)==ET_STATUS_OK);
+        assert(length==32);
+        assert(*(uint32_t *)&response[0]==watched);
+        assert(*(uint32_t *)&response[4]==ET_CAN_IRQ_RX_FIFO0_NEW);
+        assert(*(uint32_t *)&response[8]==watched);
+        assert(*(uint32_t *)&response[12]==2);
+        assert(*(uint32_t *)&response[16]==0 && *(uint32_t *)&response[28]==0);
+        assert(*(uint32_t *)&response[24]==1);
+
+        assert(et_can_wrap_get_irq_snapshot(0, &snapshot)==ET_WRAP_STATUS_OK);
+        assert(snapshot.raw_status==watched && snapshot.enabled_sources==0);
+        assert(snapshot.line1_sources==ET_CAN_IRQ_TX_COMPLETE && snapshot.enabled_lines==3);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_STOP,
+                                  request, 1, NULL, 0, &length)==ET_STATUS_OK);
+        assert(CAN0->ILE==0 && bound_callback[0]==NULL && bound_callback[1]==NULL);
     }
 
     return 0;

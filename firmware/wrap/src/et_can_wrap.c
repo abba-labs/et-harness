@@ -11,9 +11,17 @@ typedef struct
 {
     et_can_id_t id;
     CAN_Type *instance;
+    et_irq_line_t irq_lines[ET_CAN_IRQ_LINE_COUNT];
 } et_can_mapping_t;
 
+typedef struct
+{
+    uint32_t public_event;
+    uint32_t driver_event;
+} et_can_irq_mapping_t;
+
 static const et_can_mapping_t mappings[] = ET_CHIP_CAN_MAP_TABLE;
+static const et_can_irq_mapping_t irq_mappings[] = ET_CHIP_CAN_IRQ_MAP_TABLE;
 static const et_can_timing_limits_t timing_limits = ET_CHIP_CAN_TIMING_LIMIT_MAP_TABLE;
 static const et_can_option_limits_t option_limits = ET_CHIP_CAN_OPTION_LIMIT_MAP_TABLE;
 
@@ -23,7 +31,7 @@ static const et_can_option_limits_t option_limits = ET_CHIP_CAN_OPTION_LIMIT_MAP
  * @return Driver instance, or NULL when the logical identity is not mapped.
  * @note Performs no MMIO and never falls back to another controller.
  */
-static CAN_Type *find_instance(et_can_id_t id)
+static const et_can_mapping_t *find_mapping(et_can_id_t id)
 {
     size_t index;
 
@@ -31,11 +39,52 @@ static CAN_Type *find_instance(et_can_id_t id)
     {
         if (mappings[index].id == id)
         {
-            return mappings[index].instance;
+            return &mappings[index];
         }
     }
 
     return NULL;
+}
+
+/**
+ * @brief Resolve only the selected controller instance.
+ * @param[in] id Public logical controller identity.
+ * @return Driver instance, or NULL when no exact mapping exists.
+ * @note Route metadata stays private to find_mapping().
+ */
+static CAN_Type *find_instance(et_can_id_t id)
+{
+    const et_can_mapping_t *mapping = find_mapping(id);
+
+    return mapping == NULL ? NULL : mapping->instance;
+}
+
+/**
+ * @brief Translate an event mask between public and Driver namespaces.
+ * @param[in] mask Source namespace mask.
+ * @param[in] to_driver Nonzero maps public events to Driver events.
+ * @return Mask in the requested destination namespace.
+ * @note Unknown bits are ignored only after callers have validated the public mask.
+ */
+static uint32_t translate_irq_events(uint32_t mask, uint8_t to_driver)
+{
+    uint32_t result = 0u;
+    size_t index;
+
+    for (index = 0u; index < sizeof(irq_mappings) / sizeof(irq_mappings[0]); ++index)
+    {
+        uint32_t source =
+            to_driver != 0u ? irq_mappings[index].public_event : irq_mappings[index].driver_event;
+        uint32_t target =
+            to_driver != 0u ? irq_mappings[index].driver_event : irq_mappings[index].public_event;
+
+        if ((mask & source) != 0u)
+        {
+            result |= target;
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -1812,6 +1861,182 @@ et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested)
     }
 
     CAN_addClockStopRequest(instance, requested);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Enable or mask selected CAN interrupt sources through the own Driver.
+ * @param[in] id Logical controller identity.
+ * @param[in] sources Public semantic event mask.
+ * @param[in] enabled Boolean source-enable request.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note This changes IE only; IRQ Manager owns NVIC and vector binding.
+ */
+et_wrap_status_t et_can_wrap_set_irq_enabled(et_can_id_t id, uint32_t sources, uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((enabled > 1u) || ((sources & ~ET_CAN_IRQ_ALL) != 0u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_enableIntr(instance, translate_irq_events(sources, 1u), enabled);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Route selected CAN sources to controller interrupt line 0 or 1.
+ * @param[in] id Logical controller identity.
+ * @param[in] sources Public semantic event mask.
+ * @param[in] line Stable controller-local line selector.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note This changes ILS only and does not enable the source, controller line or NVIC route.
+ */
+et_wrap_status_t et_can_wrap_select_irq_line(et_can_id_t id, uint32_t sources,
+                                             et_can_irq_line_t line)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (((sources & ~ET_CAN_IRQ_ALL) != 0u) || (line >= ET_CAN_IRQ_LINE_COUNT))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_selectIntrLine(instance, translate_irq_events(sources, 1u),
+                       line == ET_CAN_IRQ_LINE0 ? CAN_INTR_LINE_NUM_0 : CAN_INTR_LINE_NUM_1);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Enable or disable one controller-local interrupt output line.
+ * @param[in] id Logical controller identity.
+ * @param[in] line Stable controller-local line selector.
+ * @param[in] enabled Boolean line-enable request.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note This changes ILE only; physical NVIC ownership remains in IRQ Manager.
+ */
+et_wrap_status_t et_can_wrap_set_irq_line_enabled(et_can_id_t id, et_can_irq_line_t line,
+                                                  uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((line >= ET_CAN_IRQ_LINE_COUNT) || (enabled > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_enableIntrLine(
+        instance, line == ET_CAN_IRQ_LINE0 ? CAN_INTR_LINE_NUM_0 : CAN_INTR_LINE_NUM_1, enabled);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read current pending, source-enable, line-selection and line-enable facts.
+ * @param[in] id Logical controller identity.
+ * @param[out] snapshot Four non-destructive public interrupt observations.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note IR is read once; the Driver extension separately reads IE, ILS and ILE once each.
+ */
+et_wrap_status_t et_can_wrap_get_irq_snapshot(et_can_id_t id, et_can_irq_snapshot_t *snapshot)
+{
+    CAN_Type *instance = find_instance(id);
+    uint32_t enabled;
+    uint32_t line_selection;
+    uint32_t line_enabled;
+
+    if (snapshot == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    snapshot->raw_status = translate_irq_events(CAN_getIntrStatus(instance), 0u);
+    CAN_testGetInterruptConfig(instance, &enabled, &line_selection, &line_enabled);
+    snapshot->enabled_sources = translate_irq_events(enabled, 0u);
+    snapshot->line1_sources = translate_irq_events(line_selection, 0u);
+    snapshot->enabled_lines = line_enabled & CAN_INTR_LINE_EN_MASK;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Clear exactly the selected CAN pending sources.
+ * @param[in] id Logical controller identity.
+ * @param[in] sources Public semantic event mask.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Level conditions may assert again until the owning FIFO or protocol condition is removed.
+ */
+et_wrap_status_t et_can_wrap_clear_irq(et_can_id_t id, uint32_t sources)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((sources & ~ET_CAN_IRQ_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_clearIntrStatus(instance, translate_irq_events(sources, 1u));
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Resolve one controller-local line to its private physical IRQ route.
+ * @param[in] id Logical controller identity.
+ * @param[in] line Stable controller-local line selector.
+ * @param[in] events Nonzero public events owned by this route.
+ * @param[out] route Route consumed only by Service-to-IRQ-Manager binding.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note No source, ILE or NVIC state is changed and no physical IRQ is exposed to PC.
+ */
+et_wrap_status_t et_can_wrap_get_irq_route(et_can_id_t id, et_can_irq_line_t line, uint32_t events,
+                                           et_irq_route_t *route)
+{
+    const et_can_mapping_t *mapping = find_mapping(id);
+
+    if ((route == NULL) || (line >= ET_CAN_IRQ_LINE_COUNT) || (events == 0u) ||
+        ((events & ~ET_CAN_IRQ_ALL) != 0u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (mapping == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    route->irq_line = mapping->irq_lines[line];
+    route->reserved = 0u;
+    route->route_events = events;
 
     return ET_WRAP_STATUS_OK;
 }
