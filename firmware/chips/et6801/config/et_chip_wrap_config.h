@@ -38,6 +38,20 @@
 #define ET_CHIP_CAN_FRAME_MAP_TABLE \
     {CAN_TEST_STANDARD_ID_SHIFT, CAN_TEST_STANDARD_ID_MAX, \
      CAN_TEST_EXTENDED_ID_MAX, CAN_TEST_BASIC_MARKER_MAX}
+/** Public Filter type order: RANGE, DUAL, MASK, RANGE_NO_MASK, DISABLED.
+ * UINT32_MAX denotes a format/type pair not provided by this controller.
+ */
+#define ET_CHIP_CAN_STD_FILTER_MAP_TABLE \
+    {CAN_STDFILT_RANGE, CAN_STDFILT_DUAL, CAN_STDFILT_CLASSIC, UINT32_MAX, CAN_STDFILT_DISABLED}
+#define ET_CHIP_CAN_EXT_FILTER_MAP_TABLE \
+    {CAN_STDFILT_RANGE, CAN_STDFILT_DUAL, CAN_STDFILT_CLASSIC, CAN_TEST_EXTFILT_RANGE_NO_MASK, UINT32_MAX}
+/** Standard/extended RAM element sizes in bytes, from the Driver RAM format. */
+#define ET_CHIP_CAN_FILTER_SIZE_MAP_TABLE \
+    {CAN_STD_ID_FILTER_SIZE_WORDS * sizeof(uint32_t), CAN_EXT_ID_FILTER_SIZE_WORDS * sizeof(uint32_t)}
+/** Public acceptance action order; existing SDK uses the same actions for both lists. */
+#define ET_CHIP_CAN_FILTER_ACTION_MAP_TABLE \
+    {CAN_STDFILTEC_DISABLE, CAN_STDFILTEC_FIFO0, CAN_STDFILTEC_FIFO1, CAN_STDFILTEC_REJECT, \
+     CAN_STDFILTEC_PRI, CAN_STDFILTEC_PRI_FIFO0, CAN_STDFILTEC_PRI_FIFO1, CAN_STDFILTEC_RXBUFF}
 /** Public FIFO index order mapped to SDK receive-FIFO enum values. */
 #define ET_CHIP_CAN_RX_FIFO_MAP_TABLE {CAN_RX_FIFO_NUM_0, CAN_RX_FIFO_NUM_1}
 /** Public source/policy enum order mapped to SDK selectors; not raw bit positions. */

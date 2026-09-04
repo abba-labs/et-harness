@@ -596,6 +596,72 @@ static et_wrap_status_t execute_rx_command(et_can_id_t id, uint16_t command, con
 }
 
 /**
+ * @brief Decode one filter action and encode only independently read values.
+ * @param[in] id Logical CAN controller.
+ * @param[in] command Validated filter-group command.
+ * @param[in] body Validated request words after instance prefix.
+ * @param[out] response Validated response storage, nullable for writes.
+ * @return Own Wrap result without assigning any Case verdict.
+ * @note No filter defaults, iteration across lists, or other IP operations.
+ */
+static et_wrap_status_t execute_filter_command(et_can_id_t id, uint16_t command,
+                                               const uint8_t *body, uint8_t *response)
+{
+    et_can_filter_t filter;
+    et_wrap_status_t status;
+    uint32_t mask;
+    const uint8_t *config;
+
+    if (command == ET_CAN_COMMAND_EXTENDED_MASK_SET)
+    {
+        return et_can_wrap_set_extended_mask(id, read_word(body));
+    }
+
+    if (command == ET_CAN_COMMAND_EXTENDED_MASK_GET)
+    {
+        status = et_can_wrap_get_extended_mask(id, &mask);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(response, mask);
+        }
+
+        return status;
+    }
+
+    /* Phase 1: Decode an explicit SET tuple; no hardware-encoded Buffer bitfields. */
+    if (command == ET_CAN_COMMAND_FILTER_SET)
+    {
+        config = &body[ET_CAN_FILTER_SELECT_WORDS * ET_CAN_WIRE_WORD_BYTES];
+        filter.type = read_word(&config[ET_CAN_FILTER_FIELD_TYPE * ET_CAN_WIRE_WORD_BYTES]);
+        filter.action = read_word(&config[ET_CAN_FILTER_FIELD_ACTION * ET_CAN_WIRE_WORD_BYTES]);
+        filter.id1 = read_word(&config[ET_CAN_FILTER_FIELD_ID1 * ET_CAN_WIRE_WORD_BYTES]);
+        filter.id2 = read_word(&config[ET_CAN_FILTER_FIELD_ID2 * ET_CAN_WIRE_WORD_BYTES]);
+        filter.buffer_index =
+            read_word(&config[ET_CAN_FILTER_FIELD_BUFFER * ET_CAN_WIRE_WORD_BYTES]);
+
+        return et_can_wrap_set_filter(id, read_word(body), read_word(&body[ET_CAN_WIRE_WORD_BYTES]),
+                                      &filter);
+    }
+
+    /* Phase 2: Serialize only successful actual RAM readback, never the request. */
+    status = et_can_wrap_get_filter(id, read_word(body), read_word(&body[ET_CAN_WIRE_WORD_BYTES]),
+                                    &filter);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        write_word(&response[ET_CAN_FILTER_FIELD_TYPE * ET_CAN_WIRE_WORD_BYTES], filter.type);
+        write_word(&response[ET_CAN_FILTER_FIELD_ACTION * ET_CAN_WIRE_WORD_BYTES], filter.action);
+        write_word(&response[ET_CAN_FILTER_FIELD_ID1 * ET_CAN_WIRE_WORD_BYTES], filter.id1);
+        write_word(&response[ET_CAN_FILTER_FIELD_ID2 * ET_CAN_WIRE_WORD_BYTES], filter.id2);
+        write_word(&response[ET_CAN_FILTER_FIELD_BUFFER * ET_CAN_WIRE_WORD_BYTES],
+                   filter.buffer_index);
+    }
+
+    return status;
+}
+
+/**
  * @brief Execute one validated basic CAN command through the own Wrap.
  * @param[in] id Logical controller identity.
  * @param[in] command Public command number.
@@ -615,6 +681,11 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if ((command >= ET_CAN_COMMAND_FILTER_SET) && (command <= ET_CAN_COMMAND_EXTENDED_MASK_GET))
+    {
+        return execute_filter_command(id, command, body, response);
+    }
 
     /* RAM commands form one own-IP codec group; no orchestration is hidden here. */
     if ((command >= ET_CAN_COMMAND_RAM_LIMITS_GET) && (command <= ET_CAN_COMMAND_RAM_LAYOUT_GET))
@@ -793,7 +864,10 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RX_FIFO_STATUS_GET] = 1u,
         [ET_CAN_COMMAND_RX_READ] = ET_CAN_RX_SELECT_WORDS,
         [ET_CAN_COMMAND_RX_FIFO_ACK] = ET_CAN_RX_SELECT_WORDS,
-        [ET_CAN_COMMAND_RX_BUFFER_ACK] = ET_CAN_RX_BITMAP_WORDS};
+        [ET_CAN_COMMAND_RX_BUFFER_ACK] = ET_CAN_RX_BITMAP_WORDS,
+        [ET_CAN_COMMAND_FILTER_SET] = ET_CAN_FILTER_SET_WORDS,
+        [ET_CAN_COMMAND_FILTER_GET] = ET_CAN_FILTER_SELECT_WORDS,
+        [ET_CAN_COMMAND_EXTENDED_MASK_SET] = 1u};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -809,7 +883,9 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TX_STATUS_GET] = ET_CAN_TX_STATUS_WORDS,
         [ET_CAN_COMMAND_RX_FIFO_STATUS_GET] = ET_CAN_RX_FIFO_STATUS_WORDS,
         [ET_CAN_COMMAND_RX_READ] = ET_CAN_RX_FRAME_WORDS,
-        [ET_CAN_COMMAND_RX_BUFFER_STATUS_GET] = ET_CAN_RX_BITMAP_WORDS};
+        [ET_CAN_COMMAND_RX_BUFFER_STATUS_GET] = ET_CAN_RX_BITMAP_WORDS,
+        [ET_CAN_COMMAND_FILTER_GET] = ET_CAN_FILTER_CONFIG_WORDS,
+        [ET_CAN_COMMAND_EXTENDED_MASK_GET] = 1u};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

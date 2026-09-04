@@ -47,10 +47,74 @@ class CanCommand(IntEnum):
     RX_FIFO_ACK = 22
     RX_BUFFER_STATUS_GET = 23
     RX_BUFFER_ACK = 24
+    FILTER_SET = 25
+    FILTER_GET = 26
+    EXTENDED_MASK_SET = 27
+    EXTENDED_MASK_GET = 28
 
 
-REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0, 11, 0, 1, 0, 0, 21, 1, 0, 1, 2, 2, 0, 2)
-RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24, 0, 11, 0, 1, 2, 0, 0, 7, 5, 24, 0, 2, 0)
+REQUEST_WORDS = (
+    0,
+    1,
+    0,
+    0,
+    8,
+    0,
+    10,
+    0,
+    0,
+    0,
+    24,
+    0,
+    11,
+    0,
+    1,
+    0,
+    0,
+    21,
+    1,
+    0,
+    1,
+    2,
+    2,
+    0,
+    2,
+    7,
+    2,
+    1,
+    0,
+)
+RESPONSE_WORDS = (
+    2,
+    0,
+    1,
+    8,
+    0,
+    8,
+    0,
+    10,
+    3,
+    7,
+    0,
+    24,
+    0,
+    11,
+    0,
+    1,
+    2,
+    0,
+    0,
+    7,
+    5,
+    24,
+    0,
+    2,
+    0,
+    0,
+    5,
+    0,
+    1,
+)
 BUS_FIELDS = (
     "monitor",
     "restricted",
@@ -122,5 +186,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.RX_FIFO_STATUS_GET,
         CanCommand.RX_READ,
         CanCommand.RX_BUFFER_STATUS_GET,
+        CanCommand.FILTER_GET,
+        CanCommand.EXTENDED_MASK_GET,
     }
 )

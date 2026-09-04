@@ -11,6 +11,7 @@ from .contract import CanCommand
 from .models import (
     CanBusConfig,
     CanBusLimits,
+    CanFilter,
     CanIdentity,
     CanLoopback,
     CanOptionLimits,
@@ -241,6 +242,44 @@ class CanDriver:
         self._request(
             CanCommand.RX_BUFFER_ACK, (codec.uint32(low), codec.uint32(high)), timeout_s=timeout_s
         )
+
+    # 写一个已经配置的过滤器槽；只等待单次响应，失败直接上抛。
+    # 调用者先进入INIT并设置RAM布局，本接口不扩大列表、不复位其他过滤器。
+    def filter_set(
+        self, index: int, config: CanFilter, *, extended: bool, timeout_s: float | None = None
+    ) -> None:
+        words = (codec.boolean(extended), codec.uint32(index)) + codec.filter_words(
+            extended, config
+        )
+        self._request(CanCommand.FILTER_SET, words, timeout_s=timeout_s)
+
+    # 独立读取过滤器RAM；只等待本次响应，不返回SET缓存或消费接收FIFO。
+    # 超出列表范围或未知编码直接失败，不自动切换标准/扩展格式。
+    def filter_get(
+        self, index: int, *, extended: bool, timeout_s: float | None = None
+    ) -> CanFilter:
+        return codec.decode_filter(
+            self._request(
+                CanCommand.FILTER_GET,
+                (codec.boolean(extended), codec.uint32(index)),
+                timeout_s=timeout_s,
+            )
+        )
+
+    # 设置扩展ID全局AND掩码；只等待本次响应，失败不重试。
+    # 调用者先进入INIT；不更改单条过滤器或未匹配帧接收策略。
+    def extended_mask_set(self, mask: int, *, timeout_s: float | None = None) -> None:
+        if codec.uint32(mask) > contract.EXTENDED_ID_MAX:
+            raise ValueError("CAN extended mask exceeds protocol identifier width")
+        self._request(CanCommand.EXTENDED_MASK_SET, (mask,), timeout_s=timeout_s)
+
+    # 读取实际扩展ID掩码；只等待单次响应，不清除任何中断或接收数据。
+    # 响应越过协议ID宽度时作为错误，不能静默截断。
+    def extended_mask_get(self, *, timeout_s: float | None = None) -> int:
+        (mask,) = self._request(CanCommand.EXTENDED_MASK_GET, timeout_s=timeout_s)
+        if mask > contract.EXTENDED_ID_MAX:
+            raise ProtocolError(f"CAN extended mask is invalid: {mask:#x}")
+        return mask
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

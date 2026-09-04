@@ -62,7 +62,7 @@ typedef enum
     ET_CAN_RX_FIELD_DATA = 8u,
 } et_can_rx_field_word_t;
 
-/** Public tx_status word order; DATA marks the start of 64 payload bytes. */
+/** Public TX request/completion/FIFO status word order. */
 typedef enum
 {
     ET_CAN_TX_STATUS_PENDING = 0u,
@@ -74,7 +74,7 @@ typedef enum
     ET_CAN_TX_STATUS_FULL = 6u,
 } et_can_tx_status_word_t;
 
-/** Public rx_fifo word order; DATA marks the start of 64 payload bytes. */
+/** Public RX FIFO fill/indices/full/lost word order. */
 typedef enum
 {
     ET_CAN_RX_FIFO_FILL = 0u,
@@ -195,8 +195,26 @@ typedef enum
     ET_CAN_COMMAND_RX_FIFO_ACK = 22u,
     ET_CAN_COMMAND_RX_BUFFER_STATUS_GET = 23u,
     ET_CAN_COMMAND_RX_BUFFER_ACK = 24u,
+    ET_CAN_COMMAND_FILTER_SET = 25u,
+    ET_CAN_COMMAND_FILTER_GET = 26u,
+    ET_CAN_COMMAND_EXTENDED_MASK_SET = 27u,
+    ET_CAN_COMMAND_EXTENDED_MASK_GET = 28u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
+
+/** Filter selector is extended/index; configuration adds type/action/ID1/ID2/Buffer index. */
+#define ET_CAN_FILTER_SELECT_WORDS 2u
+#define ET_CAN_FILTER_CONFIG_WORDS 5u
+#define ET_CAN_FILTER_SET_WORDS (ET_CAN_FILTER_SELECT_WORDS + ET_CAN_FILTER_CONFIG_WORDS)
+/** Word positions within the configuration, following the separate selector. */
+typedef enum
+{
+    ET_CAN_FILTER_FIELD_TYPE = 0u,
+    ET_CAN_FILTER_FIELD_ACTION = 1u,
+    ET_CAN_FILTER_FIELD_ID1 = 2u,
+    ET_CAN_FILTER_FIELD_ID2 = 3u,
+    ET_CAN_FILTER_FIELD_BUFFER = 4u
+} et_can_filter_field_t;
 
 /** No cached configuration or test state; all reads return current hardware facts. */
 typedef struct

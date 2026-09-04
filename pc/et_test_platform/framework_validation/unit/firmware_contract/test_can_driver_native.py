@@ -535,6 +535,87 @@ int main(void)
         assert(response_length==28 && response[4]==1 && response[8]==2);
     }
 
+/* Filters read independently seeded RAM, including all eleven standard ID bits. */
+    {
+        et_can_filter_t filter = {ET_CAN_FILTER_DUAL, ET_CAN_FILTER_ACTION_FIFO0, 0x401, 0x7FF, 0};
+        et_can_filter_t actual;
+        uint32_t mask;
+        uint32_t *std_words = (uint32_t *)test_memory.ram;
+        uint32_t *ext_words = (uint32_t *)(test_memory.ram + 8);
+        CAN_StdMsgIDFilterElement std_actual;
+        CAN_ExtMsgIDFilterElement ext_actual;
+        const uint32_t wire[] = {1,0,3,2,0x10000001,0x1FFFFFFF,0};
+
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+        CAN0->SIDFC = (2U << CAN0_SIDFC_LSS_Pos);
+        CAN0->XIDFC = (2U << CAN0_XIDFC_LSE_Pos) | 8U;
+        assert(et_can_wrap_set_filter(0, 0, 0, &filter) == ET_WRAP_STATUS_OK);
+        assert(std_words[0] == 0x4C0107FFU);
+        std_words[0] = 0xA7FF0401U; /* MASK + PRIORITY + ID1=7FF, ID2=401 */
+        assert(et_can_wrap_get_filter(0, 0, 0, &actual) == ET_WRAP_STATUS_OK);
+        assert(actual.type==ET_CAN_FILTER_MASK && actual.action==ET_CAN_FILTER_ACTION_PRIORITY);
+        assert(actual.id1==0x7FF && actual.id2==0x401 && actual.buffer_index==0);
+        assert(CAN_testGetStdMsgIDFilter(CAN0, 2, &std_actual)==DRV_ERROR);
+        assert(et_can_wrap_set_filter(0, 0, 2, &filter)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_get_filter(0, 0, 2, &actual)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        filter.type=ET_CAN_FILTER_RANGE_NO_MASK;
+        assert(et_can_wrap_set_filter(0, 0, 0, &filter)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+
+        filter.action=ET_CAN_FILTER_ACTION_FIFO1;
+        filter.id1=0x10000001; filter.id2=0x1FFFFFFF;
+        assert(et_can_wrap_set_filter(0, 1, 0, &filter)==ET_WRAP_STATUS_OK);
+        assert(ext_words[0]==0x50000001U && ext_words[1]==0xDFFFFFFFU);
+        ext_words[0]=0x61234567U; ext_words[1]=0x4ABCDEF0U;
+        assert(et_can_wrap_get_filter(0, 1, 0, &actual)==ET_WRAP_STATUS_OK);
+        assert(actual.type==ET_CAN_FILTER_DUAL && actual.action==ET_CAN_FILTER_ACTION_REJECT);
+        assert(actual.id1==0x01234567 && actual.id2==0x0ABCDEF0);
+        assert(CAN_testGetExtMsgIDFilter(CAN0, 2, &ext_actual)==DRV_ERROR);
+        filter.type=ET_CAN_FILTER_DISABLED;
+        assert(et_can_wrap_set_filter(0, 1, 0, &filter)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+
+        filter=(et_can_filter_t){ET_CAN_FILTER_RANGE, ET_CAN_FILTER_ACTION_BUFFER, 0x7FF, 0, 63};
+        assert(et_can_wrap_set_filter(0, 0, 1, &filter)==ET_WRAP_STATUS_OK);
+        assert(std_words[1]==0x3FFF003FU);
+        assert(et_can_wrap_get_filter(0, 0, 1, &actual)==ET_WRAP_STATUS_OK);
+        assert(actual.buffer_index==63 && actual.id2==0 && actual.id1==0x7FF);
+        filter.buffer_index=64;
+        assert(et_can_wrap_set_filter(0, 0, 1, &filter)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        std_words[1] |= 0x100U; /* This basic API must not hide timestamp/debug mode. */
+        assert(et_can_wrap_get_filter(0, 0, 1, &actual)==ET_WRAP_STATUS_NOT_SUPPORTED);
+        filter.buffer_index=0;
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_NORMAL);
+        assert(et_can_wrap_set_filter(0, 0, 1, &filter)==ET_WRAP_STATUS_STATE_ERROR);
+        assert(et_can_wrap_set_extended_mask(0, 0x1FFFFFFF)==ET_WRAP_STATUS_STATE_ERROR);
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+        assert(et_can_wrap_set_extended_mask(0, 0x1FFFFFFF)==ET_WRAP_STATUS_OK);
+        CAN0->XIDAM=0x12345678;
+        assert(et_can_wrap_get_extended_mask(0, &mask)==ET_WRAP_STATUS_OK && mask==0x12345678);
+        assert(et_can_wrap_set_extended_mask(0, 0x20000000)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(CAN0->XIDAM==0x12345678);
+
+        memset(request, 0, sizeof(request));
+        for (unsigned i=0; i<7; ++i)
+        {
+            for (unsigned byte=0; byte<4; ++byte)
+            {
+                request[1+i*4+byte]=(uint8_t)(wire[i]>>(byte*8));
+            }
+        }
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_FILTER_SET,
+                                  request, 29, NULL, 0, &response_length)==ET_STATUS_OK);
+        assert(ext_words[0]==0x50000001U && ext_words[1]==0xDFFFFFFFU);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_FILTER_GET,
+                                  request, 9, response, 20, &response_length)==ET_STATUS_OK);
+        assert(response_length==20 && memcmp(response, request+9, 20)==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_FILTER_GET,
+                                  request, 9, response, 19, &response_length)==ET_STATUS_INVALID_PARAM);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_FILTER_SET,
+                                  request, 28, NULL, 0, &response_length)==ET_STATUS_INVALID_PARAM);
+        assert(response_length==0);
+        CAN0->SIDFC=(2U<<CAN0_SIDFC_LSS_Pos) | 0x3FFCU;
+        assert(et_can_wrap_get_filter(0, 0, 0, &actual)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+    }
+
     return 0;
 }
 """

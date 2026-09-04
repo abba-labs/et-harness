@@ -7,6 +7,9 @@ from ...core.errors import ProtocolError
 from . import contract
 from .models import (
     CanBusConfig,
+    CanFilter,
+    CanFilterAction,
+    CanFilterType,
     CanFrameFlags,
     CanOptions,
     CanPhaseTiming,
@@ -33,6 +36,44 @@ RX_FLAGS = (
     | CanFrameFlags.ESI
 )
 TX_FLAGS = RX_FLAGS | CanFrameFlags.STORE_EVENT | CanFrameFlags.CAPTURE_TIME
+
+
+# 过滤器只校验协议语义；配置列表长度和具体RAM容量仍由固件读取硬件确认。
+# 专用Buffer精确匹配不接受隐藏的ID2编码，防止Case把芯片位域写进公共参数。
+def filter_words(extended: bool, config: CanFilter) -> tuple[int, ...]:
+    boolean(extended)
+    if not isinstance(config, CanFilter):
+        raise ValueError("CAN filter requires CanFilter")
+    if not isinstance(config.type, CanFilterType) or not isinstance(config.action, CanFilterAction):
+        raise ValueError("CAN filter selectors require public enums")
+    maximum = contract.EXTENDED_ID_MAX if extended else contract.STANDARD_ID_MAX
+    if uint32(config.id1) > maximum or uint32(config.id2) > maximum:
+        raise ValueError("CAN filter identifier exceeds the selected frame format")
+    uint32(config.buffer_index)
+    if (extended and config.type is CanFilterType.DISABLED) or (
+        not extended and config.type is CanFilterType.RANGE_NO_MASK
+    ):
+        raise ValueError("CAN filter type is not defined for this frame format")
+    if config.action is CanFilterAction.BUFFER:
+        if config.type is not CanFilterType.RANGE or config.id2 != 0:
+            raise ValueError("CAN Buffer filter uses exact ID1, RANGE and ID2 zero")
+    elif config.buffer_index != 0:
+        raise ValueError("CAN non-Buffer filter cannot select a Buffer index")
+    elif (
+        config.type in {CanFilterType.RANGE, CanFilterType.RANGE_NO_MASK}
+        and config.id2 < config.id1
+    ):
+        raise ValueError("CAN filter range has reversed bounds")
+    return (int(config.type), int(config.action), config.id1, config.id2, config.buffer_index)
+
+
+# 解码独立RAM读回，不调用SET校验去否认硬件确实保存的字段组合。
+# 未知枚举作为协议错误，不能以默认配置替代原始结果。
+def decode_filter(words: tuple[int, ...]) -> CanFilter:
+    try:
+        return CanFilter(CanFilterType(words[0]), CanFilterAction(words[1]), *words[2:])
+    except ValueError as error:
+        raise ProtocolError(f"CAN filter selectors are invalid: {words}") from error
 
 
 # 不接受bool冒充计数，负值和超宽值必须在发命令前被拒绝。

@@ -116,9 +116,9 @@
  * @brief  Mask and shift for Standard Message ID Filter Elements.
  */
 #define CAN_STD_ID_FILTER_SFID2_SHIFT        (0U)
-#define CAN_STD_ID_FILTER_SFID2_MASK         (0x000003FFU)
+#define CAN_STD_ID_FILTER_SFID2_MASK         (0x000007FFU)
 #define CAN_STD_ID_FILTER_SFID1_SHIFT        (16U)
-#define CAN_STD_ID_FILTER_SFID1_MASK         (0x03FF0000U)
+#define CAN_STD_ID_FILTER_SFID1_MASK         (0x07FF0000U)
 #define CAN_STD_ID_FILTER_SFEC_SHIFT         (27U)
 #define CAN_STD_ID_FILTER_SFEC_MASK          (0x38000000U)
 #define CAN_STD_ID_FILTER_SFT_SHIFT          (30U)
@@ -928,7 +928,12 @@ void CAN_addStdMsgIDFilter(CAN_Type                        *CANx,
     //
     totalFilt = CAN_RD_FIELD32(CANx->SIDFC,
                                CAN0_SIDFC_LSS);
-    assert_param(filtNum <= totalFilt);
+    assert_param(elem != NULL);
+    assert_param(filtNum < totalFilt);
+    if ((elem == NULL) || (filtNum >= totalFilt))
+    {
+        return;
+    }
 
     startAddr = CAN_RD_FIELD32(CANx->SIDFC,
                                CAN0_SIDFC_FLSSA);
@@ -968,7 +973,12 @@ void CAN_addExtMsgIDFilter(CAN_Type                        *CANx,
     //
     totalFilt = CAN_RD_FIELD32(CANx->XIDFC,
                                CAN0_XIDFC_LSE);
-    assert_param(filtNum <= totalFilt);
+    assert_param(elem != NULL);
+    assert_param(filtNum < totalFilt);
+    if ((elem == NULL) || (filtNum >= totalFilt))
+    {
+        return;
+    }
 
     startAddr = CAN_RD_FIELD32(CANx->XIDFC,
                                CAN0_XIDFC_FLESA);
@@ -2410,6 +2420,66 @@ void CAN_testRequestTxMask(CAN_Type *CANx, uint32_t mask)
     assert_param(IS_CAN_PERIPH(CANx));
     CAN_writeProtectedRegAccessLock(CANx);
     WRITE_REG(CANx->TXBAR, mask);
+}
+/**
+ * @brief Read one standard filter from its configured Message RAM region.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param index Zero-based filter index, strictly below SIDFC.LSS.
+ * @param element Actual decoded RAM contents.
+ * @return DRV_OK or DRV_ERROR without reading outside the configured list.
+ */
+int32_t CAN_testGetStdMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_StdMsgIDFilterElement *element)
+{
+    uint32_t offset, value;
+    assert_param(IS_CAN_PERIPH(CANx));
+
+    if ((element == NULL) || (index >= CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_LSS)))
+    {
+        return DRV_ERROR;
+    }
+    offset = CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_FLSSA) * sizeof(uint32_t) +
+             index * CAN_STD_ID_FILTER_SIZE_WORDS * sizeof(uint32_t);
+    if (offset > CAN_TEST_MSG_RAM_BYTES - sizeof(uint32_t))
+    {
+        return DRV_ERROR;
+    }
+    value = READ_REG(REG32((uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + offset));
+    element->sfid1 = (value & CAN_STD_ID_FILTER_SFID1_MASK) >> CAN_STD_ID_FILTER_SFID1_SHIFT;
+    element->sfid2 = (value & CAN_STD_ID_FILTER_SFID2_MASK) >> CAN_STD_ID_FILTER_SFID2_SHIFT;
+    element->sfec = (value & CAN_STD_ID_FILTER_SFEC_MASK) >> CAN_STD_ID_FILTER_SFEC_SHIFT;
+    element->sft = (value & CAN_STD_ID_FILTER_SFT_MASK) >> CAN_STD_ID_FILTER_SFT_SHIFT;
+    return DRV_OK;
+}
+
+/**
+ * @brief Read one extended filter from its configured Message RAM region.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param index Zero-based filter index, strictly below XIDFC.LSE.
+ * @param element Actual decoded words; no expected configuration cache.
+ * @return DRV_OK or DRV_ERROR before an invalid address is read.
+ */
+int32_t CAN_testGetExtMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_ExtMsgIDFilterElement *element)
+{
+    uint32_t offset, first, second;
+    assert_param(IS_CAN_PERIPH(CANx));
+
+    if ((element == NULL) || (index >= CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_LSE)))
+    {
+        return DRV_ERROR;
+    }
+    offset = CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_FLESA) * sizeof(uint32_t) +
+             index * CAN_EXT_ID_FILTER_SIZE_WORDS * sizeof(uint32_t);
+    if (offset > CAN_TEST_MSG_RAM_BYTES - CAN_EXT_ID_FILTER_SIZE_WORDS * sizeof(uint32_t))
+    {
+        return DRV_ERROR;
+    }
+    first = READ_REG(REG32((uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + offset));
+    second = READ_REG(REG32((uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + offset + sizeof(uint32_t)));
+    element->efid1 = (first & CAN_EXT_ID_FILTER_EFID1_MASK) >> CAN_EXT_ID_FILTER_EFID1_SHIFT;
+    element->efec = (first & CAN_EXT_ID_FILTER_EFEC_MASK) >> CAN_EXT_ID_FILTER_EFEC_SHIFT;
+    element->efid2 = (second & CAN_EXT_ID_FILTER_EFID2_MASK) >> CAN_EXT_ID_FILTER_EFID2_SHIFT;
+    element->eft = (second & CAN_EXT_ID_FILTER_EFT_MASK) >> CAN_EXT_ID_FILTER_EFT_SHIFT;
+    return DRV_OK;
 }
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

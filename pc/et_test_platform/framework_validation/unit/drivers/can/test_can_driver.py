@@ -14,6 +14,9 @@ from et_test_platform.core.errors import ProtocolError
 from et_test_platform.drivers.can import (
     CanBusConfig,
     CanDriver,
+    CanFilter,
+    CanFilterAction,
+    CanFilterType,
     CanFrameFlags,
     CanLoopback,
     CanOptions,
@@ -338,3 +341,64 @@ def test_frame_waits_only_query_hardware_state() -> None:
     assert [request["command"] for request in target.requests] == [19, 19, 20, 20]
     assert target.requests[1]["timeout_s"] <= target.requests[0]["timeout_s"] <= 0.5
     assert target.requests[3]["timeout_s"] <= target.requests[2]["timeout_s"] <= 0.5
+
+
+# Extended RANGE_NO_MASK请求的Golden独立给出，GET必须返回后续独立观测而非写入缓存。
+def test_filter_golden_and_independent_readback() -> None:
+    target = TargetStub([b"", pack("<5I", 1, 3, 0x01234567, 0x0ABCDEF0, 0)])
+    driver = CanDriver(target, 0)
+    config = CanFilter(CanFilterType.RANGE_NO_MASK, CanFilterAction.FIFO1, 0x10000001, 0x1FFFFFFF)
+    driver.filter_set(0, config, extended=True, timeout_s=0.25)
+    assert target.requests[0]["body"] == bytes.fromhex(
+        "00 01000000 00000000 03000000 02000000 01000010 ffffff1f 00000000"
+    )
+    assert target.requests[0]["command"] == 25 and not target.requests[0]["retry_safe"]
+    assert target.requests[0]["timeout_s"] == 0.25
+    actual = driver.filter_get(0, extended=True)
+    assert actual == CanFilter(CanFilterType.DUAL, CanFilterAction.REJECT, 0x01234567, 0x0ABCDEF0)
+    assert target.requests[1]["body"] == bytes.fromhex("00 01000000 00000000")
+    assert target.requests[1]["retry_safe"]
+
+
+# 非法帧格式、范围和Buffer选择在发命令前拒绝，不能静默取低位或改写目的地。
+@pytest.mark.parametrize(
+    ("extended", "config"),
+    [
+        (False, CanFilter(CanFilterType.RANGE_NO_MASK, CanFilterAction.FIFO0, 1, 2)),
+        (True, CanFilter(CanFilterType.DISABLED, CanFilterAction.DISABLED, 0, 0)),
+        (False, CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 2, 1)),
+        (False, CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x800, 0)),
+        (False, CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 1, 2, 3)),
+        (False, CanFilter(CanFilterType.DUAL, CanFilterAction.BUFFER, 1, 0, 3)),
+        (False, CanFilter(CanFilterType.RANGE, CanFilterAction.BUFFER, 1, 2, 3)),
+    ],
+)
+def test_invalid_filter_has_no_request(extended, config) -> None:
+    target = TargetStub()
+    with pytest.raises(ValueError):
+        CanDriver(target, 0).filter_set(0, config, extended=extended)
+    assert target.requests == []
+
+
+# Buffer索引为独立字段，不冒充ID2；扩展掩码读取仍独立于之前的SET。
+def test_buffer_filter_and_extended_mask_contract() -> None:
+    target = TargetStub([b"", b"", pack("<I", 0x12345678)])
+    driver = CanDriver(target, 0)
+    driver.filter_set(
+        1, CanFilter(CanFilterType.RANGE, CanFilterAction.BUFFER, 0x7FF, 0, 63), extended=False
+    )
+    assert target.requests[0]["body"] == pack("<B7I", 0, 0, 1, 0, 7, 0x7FF, 0, 63)
+    driver.extended_mask_set(0x1FFFFFFF)
+    assert target.requests[1]["body"] == pack("<BI", 0, 0x1FFFFFFF)
+    assert driver.extended_mask_get() == 0x12345678
+    with pytest.raises(ValueError):
+        driver.extended_mask_set(0x20000000)
+    assert len(target.requests) == 3
+
+
+# 未知过滤动作或掩码非法高位不能返回成功，避免报告把损坏数据当有效配置。
+def test_invalid_filter_response_fails_closed() -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<5I", 0, 99, 0, 0, 0)]), 0).filter_get(0, extended=False)
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<I", 0x20000000)]), 0).extended_mask_get()

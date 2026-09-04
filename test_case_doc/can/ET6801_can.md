@@ -462,6 +462,8 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 
 ### 6.4 当前测试状态
 
+过滤器开发（2026-09-05 00:47 CST）：新增标准/扩展单槽设置与独立RAM读回、XIDAM设置/读回。SDK问题D10：CAN_addStdMsgIDFilter和CAN_addExtMsgIDFilter原检查允许index==列表长度，现改为严格小于，Release构建也在越界或空指针时直接返回。D11：SDK标准SFID1/SFID2读回掩码只含10位，现按11-bit标准ID改为0x07FF0000/0x000007FF；原写函数不使用这两个掩码，原总线过滤写入不因此被误判为已损坏。公共BUFFER目的地用独立buffer_index，时间戳/debug编码不冒充普通Buffer。新增Native Golden必须包括ID bit10、双字扩展过滤器、最大Buffer63、真实RAM变化与Wire长度；当前处于软件验证，未执行总线过滤HIL。
+
 收发原语接入（2026-09-05 00:25 CST）：新增显式TX装载/原子请求/状态、RX读取/FIFO Ack/Buffer位图接口。标准ID移位仅在Chip Driver/Mapping内部处理，PC不传物理地址。新增问题D09：SDK旧CAN_readMsg按帧DLC读取，即使RX槽较小也会继续读邻槽；现以实际槽容量限制读取，公共RX同时保留原DLC与实际data_length。Native使用独立构造的真实宿主RAM头/数据，验证64-byte FD编码、原子TXBAR、不覆盖Pending、短槽邻接哨兵、Dedicated Buffer63及Service字节序；这是软件RAM模型，不模拟总线、ACK或IRQ。
 
 总线控制接入（2026-09-05 00:09 CST）：追加11字段总线配置、回环和计时上限共5条命令。CAN_testGetConfig从CCCR/GFC/TSCC/TOCC独立读回，CAN_testGetLoopback从CCCR.TEST、TEST.LBCK及CCCR.MON判断有效回环；这些读取不触碰协议错误计数。SDK新增问题D08：从内部直接切外部回环原先不清CCCR.MON，现按外部回环语义清零，避免仍处于内部总线隔离。Native覆盖内部→外部→关闭和INIT/参数拒绝，不能替代外部引脚收发实测。
@@ -470,7 +472,7 @@ RAM配置接入（2026-09-04 23:52 CST）：新增RAM布局SET/GET和上限查�
 
 SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致旧Filter/FIFO配置残留；TX数量校验晚于其他配置写入，且拒绝合法RX-only配置。本轮改为TX数量先校验、全部区域显式更新、允许TX数量为0。Native测试验证关闭后数量清零、非法TX数量无任何寄存器变化；新增`CAN_testGetMsgRAMConfig`在测试驱动隔离区读取真实配置，Wrap不访问寄存器。该软件回归不代表总线HIL通过。
 
-状态更新时间：2026-09-05 00:34 CST。基础命令、RAM布局、总线配置、回环控制和单次收发已贯通PC、Service、Wrap和Driver，共25条命令；具体ID过滤、中断与正式Case仍在开发。当前批次总门禁1162 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_frames_gate_final.log`；配置流水线Keil构建0 Error、0 Warning，证据`artifacts/runs/20260905_003255_058569_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。尚未注册CAN正式Case，未执行CAN硬件测试。下表只统计正式Case，不把软件回归数量混入。
+状态更新时间：2026-09-05 00:53 CST。基础命令、RAM布局、总线配置、回环、单次收发和具体ID过滤已贯通PC、Service、Wrap和Driver，共29条命令；中断与正式Case仍在开发。当前批次总门禁1176 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_filter_gate.log`；配置流水线Keil构建0 Error、0 Warning，证据`artifacts/runs/20260905_004908_611574_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。尚未注册CAN正式Case，未执行CAN硬件测试。下表只统计正式Case，不把软件回归数量混入。
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | 说明 |
 |---|---:|---:|---:|---:|---:|---|

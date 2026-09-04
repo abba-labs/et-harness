@@ -1483,6 +1483,11 @@ void CAN_testGetLoopback(CAN_Type *CANx, uint32_t *enabled, CAN_LpbkMode *mode);
 uint32_t CAN_testGetRevision(CAN_Type *CANx);
 /** Read the actual core initialization controls, including watchdog and TDC. */
 void CAN_testGetInitConfig(CAN_Type *CANx, CAN_InitParams *initParams);
+/** M_CAN extended EFT=3 bypasses XIDAM; standard SFT=3 instead disables the entry. */
+#define CAN_TEST_EXTFILT_RANGE_NO_MASK (3U)
+/** Read one configured filter from Message RAM, without writing acceptance state. */
+int32_t CAN_testGetStdMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_StdMsgIDFilterElement *element);
+int32_t CAN_testGetExtMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_ExtMsgIDFilterElement *element);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

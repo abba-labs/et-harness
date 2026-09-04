@@ -1359,3 +1359,275 @@ et_wrap_status_t et_can_wrap_read_rx(et_can_id_t id, et_can_rx_source_t source, 
 
     return ET_WRAP_STATUS_OK;
 }
+
+static const uint32_t standard_filter_types[] = ET_CHIP_CAN_STD_FILTER_MAP_TABLE;
+static const uint32_t extended_filter_types[] = ET_CHIP_CAN_EXT_FILTER_MAP_TABLE;
+static const uint32_t filter_actions[] = ET_CHIP_CAN_FILTER_ACTION_MAP_TABLE;
+static const uint32_t filter_sizes[] = ET_CHIP_CAN_FILTER_SIZE_MAP_TABLE;
+
+/**
+ * @brief Validate an allocated filter location against the actual RAM layout.
+ * @param[in] instance Resolved CAN Driver instance.
+ * @param[in] extended Zero for standard, one for extended.
+ * @param[in] index Filter index, not byte offset.
+ * @return One when the complete element is inside the configured list and RAM.
+ * @note Guards a corrupted layout without resetting it or guessing an address.
+ */
+static int filter_location_valid(CAN_Type *instance, uint32_t extended, uint32_t index)
+{
+    CAN_MsgRAMConfigParams layout;
+    uint32_t count;
+    et_can_ram_region_t region;
+
+    CAN_testGetMsgRAMConfig(instance, &layout);
+    count = extended ? layout.lse : layout.lss;
+
+    if ((index >= count) || (count > (extended ? ram_limits.ext_count : ram_limits.std_count)))
+    {
+        return 0;
+    }
+
+    region.offset = extended ? layout.flesa : layout.flssa;
+    region.length = count * filter_sizes[extended];
+
+    return ram_regions_valid(&region, 1u);
+}
+
+/**
+ * @brief Check public filter semantics before writing a RAM element.
+ * @param[in] extended Validated frame format selector.
+ * @param[in] filter Public operation and identifiers.
+ * @return One for representable semantics, zero otherwise.
+ * @note Dedicated Buffer mode is exact ID matching; debug/timestamp bits are excluded.
+ */
+static int filter_values_valid(uint32_t extended, const et_can_filter_t *filter)
+{
+    uint32_t maximum = extended ? frame_mapping.extended_id_max : frame_mapping.standard_id_max;
+    const uint32_t *types = extended ? extended_filter_types : standard_filter_types;
+
+    if ((filter->type > ET_CAN_FILTER_DISABLED) || (filter->action > ET_CAN_FILTER_ACTION_BUFFER) ||
+        (filter->id1 > maximum) || (filter->id2 > maximum) || (types[filter->type] == UINT32_MAX))
+    {
+        return 0;
+    }
+
+    if (filter->action == ET_CAN_FILTER_ACTION_BUFFER)
+    {
+        return (filter->type == ET_CAN_FILTER_RANGE) && (filter->id2 == 0u) &&
+               (filter->buffer_index < ram_limits.rx_buffer_count);
+    }
+
+    if (filter->buffer_index != 0u)
+    {
+        return 0;
+    }
+
+    if (((filter->type == ET_CAN_FILTER_RANGE) || (filter->type == ET_CAN_FILTER_RANGE_NO_MASK)) &&
+        (filter->id2 < filter->id1))
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Program one existing filter slot through the CAN Driver.
+ * @param[in] id Logical CAN controller.
+ * @param[in] extended Zero for standard, one for extended.
+ * @param[in] index Slot within the configured list.
+ * @param[in] filter Explicit matching operation and destination.
+ * @return OK or an argument, mapping or initialization error.
+ * @note Requires INIT; does not resize lists, clear other entries or start CAN.
+ */
+et_wrap_status_t et_can_wrap_set_filter(et_can_id_t id, uint32_t extended, uint32_t index,
+                                        const et_can_filter_t *filter)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_StdMsgIDFilterElement standard;
+    CAN_ExtMsgIDFilterElement ext;
+    uint32_t second;
+
+    /* Phase 1: Reject malformed selectors and locations before any RAM write. */
+    if ((filter == NULL) || (extended > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (!filter_values_valid(extended, filter) || !filter_location_valid(instance, extended, index))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    /* Phase 2: Map semantic Buffer index separately from the ordinary second ID. */
+    second = filter->action == ET_CAN_FILTER_ACTION_BUFFER ? filter->buffer_index : filter->id2;
+
+    if (extended != 0u)
+    {
+        ext.efid1 = filter->id1;
+        ext.efid2 = second;
+        ext.efec = filter_actions[filter->action];
+        ext.eft = extended_filter_types[filter->type];
+        CAN_addExtMsgIDFilter(instance, index, &ext);
+    }
+    else
+    {
+        standard.sfid1 = filter->id1;
+        standard.sfid2 = second;
+        standard.sfec = filter_actions[filter->action];
+        standard.sft = standard_filter_types[filter->type];
+        CAN_addStdMsgIDFilter(instance, index, &standard);
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read actual filter RAM and translate its basic acceptance semantics.
+ * @param[in] id Logical CAN controller.
+ * @param[in] extended Zero for standard, one for extended.
+ * @param[in] index Slot within the current list.
+ * @param[out] filter Independently decoded RAM contents.
+ * @return OK or an argument, mapping, Driver or unrepresentable-format error.
+ * @note Does not return the last SET; timestamp/debug-buffer forms require another API.
+ */
+et_wrap_status_t et_can_wrap_get_filter(et_can_id_t id, uint32_t extended, uint32_t index,
+                                        et_can_filter_t *filter)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_StdMsgIDFilterElement standard;
+    CAN_ExtMsgIDFilterElement ext;
+    uint32_t type;
+    uint32_t action;
+    uint32_t second;
+    const uint32_t *types;
+
+    /* Phase 1: Validate the location and read only the requested RAM element. */
+    if ((filter == NULL) || (extended > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (!filter_location_valid(instance, extended, index))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (extended != 0u)
+    {
+        if (CAN_testGetExtMsgIDFilter(instance, index, &ext) != DRV_OK)
+        {
+            return ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        filter->id1 = ext.efid1;
+        second = ext.efid2;
+        type = ext.eft;
+        action = ext.efec;
+        types = extended_filter_types;
+    }
+    else
+    {
+        if (CAN_testGetStdMsgIDFilter(instance, index, &standard) != DRV_OK)
+        {
+            return ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        filter->id1 = standard.sfid1;
+        second = standard.sfid2;
+        type = standard.sft;
+        action = standard.sfec;
+        types = standard_filter_types;
+    }
+
+    /* Phase 2: Decode actual selectors; never silently discard unsupported Buffer bits. */
+    if (!selector_from_driver(types, sizeof(standard_filter_types) / sizeof(types[0]), type,
+                              &filter->type) ||
+        !selector_from_driver(filter_actions, sizeof(filter_actions) / sizeof(filter_actions[0]),
+                              action, &filter->action))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    filter->buffer_index = filter->action == ET_CAN_FILTER_ACTION_BUFFER ? second : 0u;
+    filter->id2 = filter->action == ET_CAN_FILTER_ACTION_BUFFER ? 0u : second;
+
+    if ((filter->action == ET_CAN_FILTER_ACTION_BUFFER) &&
+        (filter->buffer_index >= ram_limits.rx_buffer_count))
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Program the extended acceptance AND mask via the existing CAN Driver.
+ * @param[in] id Logical controller.
+ * @param[in] mask Public unshifted extended identifier mask.
+ * @return OK or an argument, state or Driver error.
+ * @note Requires INIT and does not change individual filters or global acceptance.
+ */
+et_wrap_status_t et_can_wrap_set_extended_mask(et_can_id_t id, uint32_t mask)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (mask > frame_mapping.extended_id_max)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    return CAN_setExtIDAndMask(instance, mask) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                         : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read the extended acceptance AND mask without changing controller state.
+ * @param[in] id Logical controller.
+ * @param[out] mask Actual unshifted mask from hardware.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note No cached requests, filter rewrites or receive acknowledgements.
+ */
+et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (mask == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *mask = CAN_getExtIDANDMask(instance);
+
+    return ET_WRAP_STATUS_OK;
+}

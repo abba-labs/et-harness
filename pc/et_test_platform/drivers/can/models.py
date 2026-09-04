@@ -226,3 +226,37 @@ class CanRxSource(IntEnum):
     BUFFER = 0
     FIFO0 = 1
     FIFO1 = 2
+
+
+# 过滤匹配的公共语义，不向Case暴露SFT/EFT位值。
+# RANGE_NO_MASK只对扩展格式有效，DISABLED类型只对标准格式有效。
+class CanFilterType(IntEnum):
+    RANGE = 0
+    DUAL = 1
+    MASK = 2
+    RANGE_NO_MASK = 3
+    DISABLED = 4
+
+
+# 过滤命中后的存储/优先级事件动作，不配置NVIC或全局过滤策略。
+# BUFFER是精确ID匹配，独立buffer_index指定目标，不把它塞入第二个ID。
+class CanFilterAction(IntEnum):
+    DISABLED = 0
+    FIFO0 = 1
+    FIFO1 = 2
+    REJECT = 3
+    PRIORITY = 4
+    PRIORITY_FIFO0 = 5
+    PRIORITY_FIFO1 = 6
+    BUFFER = 7
+
+
+# 一个过滤器的显式配置或实际读回，格式和列表索引由Driver方法参数指定。
+# 普通过滤buffer_index必须为0；BUFFER使用RANGE、id2=0，不隐式选择时间戳捕获。
+@dataclass(frozen=True, slots=True)
+class CanFilter:
+    type: CanFilterType
+    action: CanFilterAction
+    id1: int
+    id2: int
+    buffer_index: int = 0

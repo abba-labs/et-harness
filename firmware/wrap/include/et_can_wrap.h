@@ -276,4 +276,47 @@ et_wrap_status_t et_can_wrap_get_rx_buffer_status(et_can_id_t id,
 et_wrap_status_t et_can_wrap_ack_rx_buffers(et_can_id_t id,
                                             const et_can_rx_buffer_status_t *status);
 
+/** Public matching operations; unsupported format/type pairs are rejected. */
+typedef enum
+{
+    ET_CAN_FILTER_RANGE = 0u,
+    ET_CAN_FILTER_DUAL = 1u,
+    ET_CAN_FILTER_MASK = 2u,
+    ET_CAN_FILTER_RANGE_NO_MASK = 3u,
+    ET_CAN_FILTER_DISABLED = 4u
+} et_can_filter_type_t;
+
+/** Acceptance destination/event, not a hardware register encoding. */
+typedef enum
+{
+    ET_CAN_FILTER_ACTION_DISABLED = 0u,
+    ET_CAN_FILTER_ACTION_FIFO0 = 1u,
+    ET_CAN_FILTER_ACTION_FIFO1 = 2u,
+    ET_CAN_FILTER_ACTION_REJECT = 3u,
+    ET_CAN_FILTER_ACTION_PRIORITY = 4u,
+    ET_CAN_FILTER_ACTION_PRIORITY_FIFO0 = 5u,
+    ET_CAN_FILTER_ACTION_PRIORITY_FIFO1 = 6u,
+    ET_CAN_FILTER_ACTION_BUFFER = 7u
+} et_can_filter_action_t;
+
+/** ID2 is upper bound/second ID/mask. BUFFER uses ID1 and buffer_index only;
+ * type must be RANGE and ID2 zero because matching is exact and type is ignored.
+ * Timestamp/debug-buffer encodings are not part of this basic filter operation.
+ */
+typedef struct
+{
+    uint32_t type;
+    uint32_t action;
+    uint32_t id1;
+    uint32_t id2;
+    uint32_t buffer_index;
+} et_can_filter_t;
+
+et_wrap_status_t et_can_wrap_set_filter(et_can_id_t id, uint32_t extended, uint32_t index,
+                                        const et_can_filter_t *filter);
+et_wrap_status_t et_can_wrap_get_filter(et_can_id_t id, uint32_t extended, uint32_t index,
+                                        et_can_filter_t *filter);
+et_wrap_status_t et_can_wrap_set_extended_mask(et_can_id_t id, uint32_t mask);
+et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask);
+
 #endif

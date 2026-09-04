@@ -6,6 +6,9 @@ from .driver import CanDriver
 from .models import (
     CanBusConfig,
     CanBusLimits,
+    CanFilter,
+    CanFilterAction,
+    CanFilterType,
     CanFrameFlags,
     CanIdentity,
     CanLoopback,
@@ -27,6 +30,9 @@ from .models import (
 )
 
 __all__ = [
+    "CanFilter",
+    "CanFilterAction",
+    "CanFilterType",
     "CanFrameFlags",
     "CanTxFrame",
     "CanRxFrame",

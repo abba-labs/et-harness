@@ -138,6 +138,12 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | RX_FIFO_ACK | 22 | FIFO索引、已观测的Get Index | 无；只Ack当前非空FIFO头，拒绝过期索引 |
 | RX_BUFFER_STATUS_GET | 23 | 无 | low、high两组u32新数据位图 |
 | RX_BUFFER_ACK | 24 | low、high两组显式位图 | 无；不读取Buffer，不清FIFO |
+| FILTER_SET | 25 | extended、index、type、action、id1、id2、buffer_index，共7项 | 无；INIT前提，只修改已分配的一个槽 |
+| FILTER_GET | 26 | extended、index | type、action、id1、id2、buffer_index，来自实际RAM |
+| EXTENDED_MASK_SET | 27 | 未移位29-bit mask | 无；INIT前提，不修改过滤器列表 |
+| EXTENDED_MASK_GET | 28 | 无 | 实际扩展ID AND mask |
+
+过滤器语义：extended严格0/1。type为0 RANGE、1 DUAL、2 MASK、3 RANGE_NO_MASK、4 DISABLED；标准格式不接受3，扩展格式不接受4（可用action=DISABLED关闭）。action为0关闭、1FIFO0、2FIFO1、3拒绝、4仅Priority、5Priority+FIFO0、6Priority+FIFO1、7Dedicated Buffer。普通模式id2表示范围上限/第二ID/掩码，buffer_index必须0；Buffer模式为ID1精确匹配，type=RANGE、id2=0，buffer_index独立传入。基础操作不包含Debug/TSU Filter编码；读到这些未表示的Buffer位时返回NOT_SUPPORTED，不截断后声称读回成功。过滤器读回不是SET缓存；不存在槽、非法格式及超出ID宽度均无写入。
 
 帧flags是公共Wire位图：EXTENDED=1、REMOTE=2、FD=4、BRS=8、ESI=16、STORE_EVENT=32、CAPTURE_TIME=64；后两项仅用于TX。Identifier为未移位的正常ID；DLC是协议四位编码，Classic DLC9～15仍为8-byte，Remote没有payload。TX有效payload长度必须匹配DLC，Wire剩余区填零；FD不允许Remote，Classic不接受BRS/ESI标记。基础TX Marker当前是8-bit，宽Marker功能必须另行实现后才能覆盖P1_010，不默默截断。
 
