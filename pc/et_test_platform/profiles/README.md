@@ -6,6 +6,7 @@
 ```text
 profiles/
   bench.py                         # Bench强类型加载器
+  hardware_connections.py          # 生效环境的handle/GPIO读取及单Case冲突检查
   capabilities.py                  # 芯片Capability稳定公共入口
   _capability_models.py            # 只读模型与查询
   _capability_loader.py            # YAML Schema加载与校验

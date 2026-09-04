@@ -1,0 +1,25 @@
+# 只启用一套：fpga或silicon。代码只读取active指定的分区。
+chip: et6801
+active: fpga
+
+fpga:
+  # SPI：两端CLK/CS/MOSI/MISO同名相连；主从模式由Case配置。
+  spi:
+    dut:
+      handle: spi0
+      gpio: {clk: 60, cs: 61, mosi: 16, miso: 55}
+    ref:
+      handle: spi1
+      gpio: {clk: 65, cs: 66, mosi: 63, miso: 64}
+
+  # UART：UART1 TX接UART2 RX，UART1 RX接UART2 TX。
+  uart:
+    dut:
+      handle: uart1
+      gpio: {tx: 44, rx: 45}
+    ref:
+      handle: uart2
+      gpio: {tx: 8, rx: 9}
+
+# 硅后接线未配置，不继承FPGA数据；配置后再将active改为silicon。
+silicon: {}
