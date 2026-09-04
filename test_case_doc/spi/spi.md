@@ -180,10 +180,9 @@ Service ID为`0x010B`；沿用R400 ET-Frame v1，不改变公共帧或其他IP�
 
 ### SPI_P0_001 SPI基础配置读回
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P0_001
 case_name: SPI基础配置读回
 report_feature: |-
@@ -217,16 +216,15 @@ failure_observations:
   - {"key":"role","label":"CONFIG.ROLE","source":"dut","role":"actual","format":"text"}
   - {"key":"divider","label":"CONFIG.DIVIDER","source":"dut","role":"actual","format":"decimal"}
   - {"key":"enable_sequence","label":"CONFIG.ENABLE启停序列","source":"dut","role":"actual","format":"text"}
-gap: [case_implementation_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P0_002 SPI片内回环模式与帧宽
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: SPI_P0_002
 case_name: SPI片内回环模式与帧宽
 report_feature: |-
@@ -258,12 +256,12 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "无额外接线"
 backend: [FPGA, Silicon]
 evidence: ["SPI片内回环模式与帧宽的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {"key":"expected","label":"期望回环帧","source":"oracle","role":"expected","format":"bytes_hex"}
-  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"expected","label":"期望回环帧","source":"oracle","role":"expected","format":"text"}
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"text"}
   - {"key":"busy","label":"STATUS.BUSY","source":"dut","role":"actual","format":"bool"}
-gap: [case_implementation_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### SPI_P1_001 SPI单实例外部回接
 
@@ -795,6 +793,25 @@ failure_observations:
 gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+<!-- ET_CASE_REPORT_BEGIN -->
+```yaml
+schema: et.case-report-note.v1
+cases:
+  SPI_P0_001:
+    summary: 对照输入检查角色、分频和模块启停读回。
+    fields:
+      - {source: observation, path: role, label: 实际角色, format: text, aggregate: distinct}
+      - {source: observation, path: divider, label: 实际分频, format: decimal, aggregate: distinct}
+      - {source: observation, path: enable_sequence, label: Enable启停序列, format: text, aggregate: all}
+  SPI_P0_002:
+    summary: 对照独立Pattern检查片内回环帧和完成状态。
+    fields:
+      - {source: measurement, path: expected, label: 期望帧, format: text, aggregate: all}
+      - {source: observation, path: rx, label: 实际RX帧, format: text, aggregate: all}
+      - {source: observation, path: busy, label: 完成后BUSY, format: bool, aggregate: same}
+```
+<!-- ET_CASE_REPORT_END -->
 
 ## 4. Chip Adaptation Summary
 
