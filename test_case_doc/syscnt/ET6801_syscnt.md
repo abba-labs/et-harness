@@ -1,8 +1,8 @@
 # ET6801 SYSCNT分析与公共契约适配
 
-更新时间：2026-09-04 06:42 CST。
+更新时间：2026-09-04 08:50 CST。
 
-当前固件、PC九条原子命令及七条正式Case已完成；bitfile、BootROM与PFLASH部署通过。最终统一门禁951 PASS/14条件软件SKIP；7条硬件Case、23项参数执行全部PASS，Excel报告与流水线均通过。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
+当前共8条Case：7条正式Case已完成，1条外部脉宽测量PLAN待实现、按人工指令暂不测试。已有bitfile、BootROM与PFLASH部署通过；最近一次HIL为7条Case、23项参数执行全部PASS，Excel报告与流水线均通过。新增PLAN不改变旧运行统计。公共测试方法以[syscnt.md](syscnt.md)为唯一入口。本文件只记录ET6801硬件、SDK、历史证据、映射和未解决项，不定义第二套公共Case。
 
 ## 第一章 IP分析与Evidence
 
@@ -216,10 +216,10 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 | 6003 SOC_TC_024；3101 Case26 | F007/F008 → P2_001 | MERGED | 内部时钟源、1秒窗口、与校准DWT对比。 |
 | 6003 SOC_TC_025；3101 Case27 | F007/F008 → P2_001 | MERGED | XO时钟源，同一计时方法参数化。 |
 | 6003/3101 sysc CRG_TP_013及RESET标题 | F008 → P2_001；独立复位G01 | MERGED | 此处RESET是分类标题，不是SYSCNT硬复位寄存器证据。 |
-| 3101 bootrom Case6脉冲计时 | G07；F007仅覆盖其中片内计时部分 | UNKNOWN | 外部脉冲观测未有等价Case；不能以片内DWT替代后记作完整覆盖。须明确外部时间基准、脉冲生成和误差预算。 |
+| 3101 bootrom Case6脉冲计时 | F007/F008 → P2_003 PLAN；G07跟踪实现与台架 | MAPPED | 2026-09-04补充外部脉宽测量设计，保留独立示波器Oracle；只是规划映射，尚无实现或外部实测证据。 |
 | 6801/6003/3101 UnitTest与Smoke暂停函数 | F006 → P2_002 | SUPERSEDED | 用停核状态和停核期间读数替代“连续两读差值小”。 |
 | UnitTest/Smoke/SOC计时函数 | F007/F008 → P2_001 | MERGED | 按时钟源×时间窗口收敛，不按历史文件数量复制Case。 |
-| 3101 Smoke `#if 0`脉冲段的50ms；活动SYSCNT_TestCase0的10000ms | F007/F008 → P2_001；外部脉冲G07 | SPLIT | 50ms/10s计时参数纳入同一Case；旧代码打印不是有效PASS，外部Observer路径仍单列未闭合。 |
+| 3101 Smoke `#if 0`脉冲段的10/50/100ms；活动SYSCNT_TestCase0的10000ms | F007/F008 → P2_001、P2_003 PLAN | SPLIT | P2_001保留片内计时；P2_003保留三个外部脉宽参数，分别形成单脉冲。旧代码打印或被屏蔽段不作为历史PASS证明。 |
 | FPGA SYSCNT_1两个上界判据 | F007 → P2_001 | SUPERSEDED | 保留计数推进目的，改为独立参考有界比较。 |
 | 单纯DELAY_US/DWT打印与其他IP计时调用 | 不发布独立Feature | NOT_APPLICABLE | 工具使用不等于SYSCNT功能已验证。 |
 | SVD两窗口与frequency字段 | F004/F005 → P0_001/P1_001/P1_002 | MAPPED | 补齐历史未完整覆盖的硬件行为。 |
@@ -257,8 +257,8 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 | SYSCNT_F_004 | SUPPORTED | 两个窗口指向同一计数，运行读数需连贯性保护 | ADAPTED | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
 | SYSCNT_F_005 | SUPPORTED | CNTFID0.FREQ是信息登记，不改变输入频率 | ADAPTED | SYSCNT_P1_002 |
 | SYSCNT_F_006 | SUPPORTED | Core0实际Halt期间两种策略均通过；不外推双核同时活动场景 | ADAPTED | SYSCNT_P2_002 |
-| SYSCNT_F_007 | SUPPORTED | DWT参考25MHz，当前FPGA计数12.5MHz，双端夹取通过 | ADAPTED | SYSCNT_P2_001 |
-| SYSCNT_F_008 | SUPPORTED | SEL_IN两个编码读回正确，当前FPGA两路计数均为DWT/2；不证明独立振荡源 | ADAPTED | SYSCNT_P2_001 |
+| SYSCNT_F_007 | SUPPORTED | 片内DWT双端夹取通过；外部示波器测量链尚未实现 | PARTIAL_ADAPTATION | SYSCNT_P2_001、SYSCNT_P2_003 |
+| SYSCNT_F_008 | SUPPORTED | SEL_IN两个编码读回正确，当前FPGA两路计数均为DWT/2；外部时间基准仍需验证 | PARTIAL_ADAPTATION | SYSCNT_P2_001、SYSCNT_P2_003 |
 
 SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明不得因读数异常被静默改成较小位宽以规避FAIL。
 
@@ -272,6 +272,7 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 | SYSCNT_P1_002 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
 | SYSCNT_P2_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
 | SYSCNT_P2_002 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
+| SYSCNT_P2_003 | IMPLEMENTATION_GAP | PLAN已定义；目标端本地脉冲执行接口归属与代码待完成，GPIO到示波器的物理映射未确认。按人工指令本轮暂不测试；不能把软件缺口记成硬件不支持。 |
 | SYSCNT_P3_001 | ADAPTED | 正式链路已实现，首轮HIL通过；当前FPGA时钟和Core0暂停证据见第七章。 |
 
 ### 6.1 实施前必须裁决的Gap
@@ -284,7 +285,7 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 | G04 | CONFLICT / 非阻断读取 | RO窗口SVD标RW而通用TRM规定RO；目标SVD未列管理ID寄存器 | 设计人员或目标RTL/SVD修订确认访问属性；当前Case只读该窗口，不测试写保护或未列寄存器。 |
 | G05 | CLOSED / 当前Core0配置 | 当前Core0暂停可使DBGH置位并冻结计数；其他核并行参与条件不在本次结论内 | 补目标Execution Mapping，明确需要停哪个Core及系统路由；先确认DHCSR.S_HALT，再观察DBGH和计数。不假定STIMER失败则SYSCNT也失败。 |
 | G06 | CLOSED / 原子采样已验证 | 缺短三元组参考采样，跨串口命令时间不可当亚毫秒同步快照 | 复用或评审SYSCNT测试扩展中的短本地参考采样，参考启停所有权明确；只返回原始计数，不搬运Case判断进固件。 |
-| G07 | UNKNOWN / 未覆盖历史要求 | 3101 bootrom Case6明确要求脉冲观测；当前没有等价外部Case，原资料也未给完整误差预算及脉冲实现约束 | 明确外部参考/误差预算和不把跨IP测试循环塞进SYSCNT Service的可实现路径，再设计独立Observer Case。不能因希望不接线而删除历史要求，也不能把仅片内相对计时记为完整替代。 |
+| G07 | PLANNED / 实现与台架未闭合 | 已由SYSCNT_P2_003承接外部脉宽目的，定义10/50/100ms、独立示波器Oracle和1ms测试预算；暂无该Case代码或外部结果 | 完成本地脉冲执行接口归属评审与实现，确认安全GPIO输出、示波器通道、共地和测量误差依据后再执行。本轮人工指定暂不测试；不能用旧7条PASS关闭本项。 |
 
 2026-09-03 21:36 CST实施授权：用户明确允许CRG/SYSCTRL的SYSCNT最小前置修改及G01替代基线。CRG/SYSCTRL改动分别使用独立Task Context和Commit；不扩大到其他IP功能、公共协议或规则修改。G01设计决策已闭合，尚待实现验证；G02/G05/G06仍需按各自证据条件闭合，不把未知硬件事实写成PASS。
 
@@ -339,7 +340,7 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-04 06:42 CST`
+状态更新时间：`2026-09-04 08:50 CST`
 
 ### 最近一次运行身份
 
@@ -369,6 +370,17 @@ Session Spec SHA256：`a9bfba50840b79c18a3b9d1c08b296bf39c1b985cbc5f08eaae5f8576
 - SYSCNT_P2_002：PAUSE和RUN_FREE，实际DHCSR停核读回；2项PASS。
 - SYSCNT_P3_001：每轮重建基线的20轮装载/启停；1项PASS。
 
+### 新增规划Case的执行安排（不是运行结果）
+
+`SYSCNT_P2_003`：规划状态为PLANNED；本轮安排为**SKIP（人工要求暂不测试）**；实际结果为NOT_EXECUTED，未产生波形或测量值。
+
+- 外部条件：GPIO输出引脚、示波器通道、电压与共地接线尚未确认；完成安全连接确认后才具备外部测量条件。
+- 实现条件：另有本地脉冲接口及Case实现缺口，须先完成，不能用SKIP掩盖。
+
+当前总规划8条，已实现/注册7条，未实现PLAN 1条。上表SKIP仅表示本轮人工执行安排，不是pytest运行SKIP；最近一次运行仍保持7 PASS、0 FAIL、0 SKIP、23 Executions，不生成新的Session、Excel或虚假Evidence。既有示波器已接入平台不等于本Case的信号线与测量配置已确认。
+
+ET6801适配要点：使用已确认的SYSCNT计数使能、64-bit连贯读取和时钟源映射；当前FPGA两个源名义输入均12.5MHz，外部测量不得用本次脉宽反向校准频率。输出GPIO从空闲安全引脚选择，不占用控制串口或其他已接线IP；本轮未指定端口、PAD或示波器通道。1ms为沿用片内Case的功能验收预算，不是3101 Case6给出的数字，也不是已确认的ET6801电气精度规格；仪器误差上界按实际仪器规格和采样设置计算。
+
 首轮Report导出失败（不是硬件FAIL）：P1数组被重复聚合，P2暂停数组存在同类形状问题，P3重复使用final_count键。修复限于本IP Observation形状和文档模板，不修改断言、公共报告器或原始结果。新增真实数组形状软件测试；最终重跑全部SYSCNT及报告阶段成功，旧失败Run保留原状态。
 
 关键实测：PAUSE两次计数均为`0x0000000100455EAF`；RUN_FREE从`0x00000001002FAF1E`增加到`0x00000001004419A4`。两个参数各四次DHCSR均为`0x00030003`，bit17 S_HALT=1。DBGH在PAUSE为1、RUN_FREE为0，恢复后为0且计数继续推进。原始DHCSR按参数保存，不依赖调试工具可能重名的日志附件。
@@ -385,7 +397,7 @@ Session Spec SHA256：`a9bfba50840b79c18a3b9d1c08b296bf39c1b985cbc5f08eaae5f8576
 
 - 7条已注册Case及8个准入数字Feature均已执行；23为参数Execution数，不是23条Case。
 - 当前FPGA/Core0的Halt响应已证实；不据此改变STIMER结论，也不宣称双Core活动组合已覆盖。
-- G07历史外部脉冲观测仍未形成等价Case，没有外部仪器结果；不是运行SKIP，不能宣称参考要求全集已经100%覆盖。G04只读窗口访问属性争议仍保留。
+- G07已形成P2_003 PLAN，但没有对应实现和外部仪器结果；人工SKIP安排不改变历史运行统计。不能宣称参考要求全集已实测覆盖或整体Implementation Ready。G04只读窗口访问属性争议仍保留。
 - 当前顶层Pipeline缺少单IP选择，会遍历全部Registry。本轮仅在调用进程中把Registry选择限制为原注册表的syscnt条目，再调用原Pipeline main；其全部Case仍由既有`run_ip_tests.py --ip syscnt`执行。选择入口留在诊断Artifact的`run_selected_ip.py`，不是新的平台Runner。连接和动作仍取同一run_config，源码注册表、公共Runner均未修改；没有运行其他IP HIL。
 - 编码环境设置PYTHONUTF8=1，修复Windows GBK读取UTF-8 Git Diff的启动环境问题；没有修改公共Checker。
 <!-- ET_CHIP_TEST_STATUS_END -->

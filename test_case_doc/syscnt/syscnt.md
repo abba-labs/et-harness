@@ -1,8 +1,8 @@
 # SYSCNT Stable IP Contract
 
-更新时间：2026-09-04 06:36 CST。
+更新时间：2026-09-04 08:50 CST。
 
-本文件定义SYSCNT公共测试契约。7条Case已实现并注册，当前芯片执行结果见同目录芯片文档；硬件事实、历史资料处置及待确认映射不在公共Case中硬编码。遵循R100、R110、R120、R130、R140，不新增规则。
+本文件定义SYSCNT公共测试契约。共8条Case：7条已实现并注册，1条外部脉宽测量PLAN待实现；当前芯片执行结果和暂缓安排见同目录芯片文档。硬件事实、历史资料处置及待确认映射不在公共Case中硬编码。遵循R100、R110、R120、R130、R140，不新增规则。
 
 ## 0. Stable IP Contract
 
@@ -46,7 +46,7 @@ SYSCNT是持续递增的系统时间戳计数器，不是带周期比较中断�
 
 公共链路保持`Case -> Own Driver -> TargetClient -> Own Service -> Own Wrap -> Own Chip Driver`。实例解析、位布局和SDK符号在芯片层。Service只校验长度/参数并调用SYSCNT动作，不做Case循环、数学判定或跨IP编排。
 
-下表为本IP命令契约；Service ID为`0x010A`。使用现有ET-Frame，全部整数小端；每个Request以`instance_id:u8`起始，必须与公共消息头的实例一致，保留字段必须为0。响应沿用公共Status，失败不返回伪造观测。当前已实现Own Service/Wrap，Application注册和PC链路尚待接入，不能把文件存在当作可运行Case。
+下表为本IP命令契约；Service ID为`0x010A`。使用现有ET-Frame，全部整数小端；每个Request以`instance_id:u8`起始，必须与公共消息头的实例一致，保留字段必须为0。响应沿用公共Status，失败不返回伪造观测。九条命令已接入Application与PC链路；它们不包含外部脉宽PLAN所需的目标端本地脉冲执行能力。
 
 | 局部Command | Request（实例之后） | Success Response | 稳定动作 |
 |---|---|---|---|
@@ -94,8 +94,8 @@ Feature flags依次对应计数使能、停止装载、双窗口读取、频率�
 | SYSCNT_F_004 | SYSCNT双窗口计数读取 | 两个访问窗口读取同一计数，运行态读数连贯。 | P0/P1 | SYSCNT_P0_001、SYSCNT_P1_001、SYSCNT_P3_001 |
 | SYSCNT_F_005 | SYSCNT频率标识 | 软件可登记和读取Tick频率信息。 | P1 | SYSCNT_P1_002 |
 | SYSCNT_F_006 | SYSCNT Debug Halt计数暂停 | PAUSE时停核冻结，RUN_FREE时停核仍计数。 | P2 | SYSCNT_P2_002 |
-| SYSCNT_F_007 | SYSCNT计时间隔 | Tick差值与独立参考时间符合测试预算。 | P2 | SYSCNT_P2_001 |
-| SYSCNT_F_008 | SYSCNT输入时钟源 | 在能力声明的时钟源下计数并保持对应时间比例。 | P2 | SYSCNT_P2_001 |
+| SYSCNT_F_007 | SYSCNT计时间隔 | Tick差值与独立参考时间符合测试预算。 | P2 | SYSCNT_P2_001、SYSCNT_P2_003 |
+| SYSCNT_F_008 | SYSCNT输入时钟源 | 在能力声明的时钟源下计数并保持对应时间比例。 | P2 | SYSCNT_P2_001、SYSCNT_P2_003 |
 
 ## 2. Case Catalog
 
@@ -107,9 +107,10 @@ Feature flags依次对应计数使能、停止装载、双窗口读取、频率�
 | SYSCNT_P1_002 | 频率标识设置与读取 | P1 | 停止时设置2个合法非零标识，读回且计数不变 | R0 | IMPLEMENTED |
 | SYSCNT_P2_001 | 时钟源与独立参考计时 | P2 | 每个支持时钟源下10/50/100/1000/10000ms窗口，对比参考计数 | R0 | IMPLEMENTED |
 | SYSCNT_P2_002 | CPU停核时的计数策略 | P2 | PAUSE/RUN_FREE下真实Halt并在停核期间读取 | R4 | IMPLEMENTED |
+| SYSCNT_P2_003 | 外部脉宽测量计时间隔 | P2 | 目标端按SYSCNT计数产生10/50/100ms高脉冲，示波器测量实际脉宽 | R4 | PLANNED；集成与接线待完成 |
 | SYSCNT_P3_001 | 20轮装载启停重复验证 | P3 | 固定20轮短流程，每轮重新建立基线 | R0 | IMPLEMENTED |
 
-统计：8个Feature、7条逻辑Case，P0=2、P1=2、P2=2、P3=1。6条R0使用片内数字资源，1条R4使用现有外部调试仪器；现有7条不需要示波器、逻辑分析仪或新增引脚连线。历史外部脉冲测时尚未由这7条完整覆盖，见第5节。全部Case未实现、未执行，不统计为PASS/FAIL/SKIP；20轮属于单Case内部重复，不计20条Case。
+统计：8个Feature、8条逻辑Case，P0=2、P1=2、P2=3、P3=1；其中7条SPEC、1条PLAN。6条R0使用片内数字资源，2条R4分别使用调试器和外部示波器。新增PLAN承接历史外部脉冲测时，不计入已实现/已注册数量；历史7条的23项参数执行结果仍以芯片文档为准。20轮属于单Case内部重复，不计20条Case。
 
 ## 3. Machine-readable Case Contract
 
@@ -379,6 +380,64 @@ gap: []
 ```
 <!-- ET_CASE_SPEC_END -->
 
+### SYSCNT_P2_003：外部脉宽测量计时间隔
+
+测试目的：将SYSCNT计时间隔变成一个可见的GPIO高脉冲，用示波器自身时间基准测量，不以DWT或PC睡眠代替外部测量。复用F007/F008，不新增虚构的SYSCNT PWM Feature。
+
+目标端测量动作需求：一次配置一个`clock_source`、逻辑`output_endpoint`和`duration_ticks`；PC先Arm示波器，再请求目标端在本地执行“GPIO置高→读取起始COUNT→等待Tick差达到目标→GPIO置低”，返回起止原始计数及完成状态。计数差按模M计算，`0 < duration_ticks < M/2`；不得用PC两条GPIO命令之间的串口延迟生成脉宽。脉冲期间不打印、不重新配置时钟、不启动无关IP；目标端必须有独立于被测计数器的有界退出手段，超时必须拉低输出。
+
+这段跨IP时序尚无现成公共执行接口，属于明确的实现/归属评审缺口，不是新发布的Wire命令。本PLAN不授权SYSCNT Service/Wrap调用GPIO Wrap/Driver，也不授权新增通用执行框架；正式实现前必须确定符合现有分层的本地执行位置及接口。手动固件可以按同一方法诊断，但不替代Formal Case。
+
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: SYSCNT_P2_003
+case_name: 外部脉宽测量计时间隔
+report_feature: |-
+  1. SYSCNT计时间隔
+  2. SYSCNT输入时钟源
+p_level: P2
+feature_refs: [SYSCNT_F_007, SYSCNT_F_008]
+method:
+  inputs:
+    - 计时参数：每个已确认可用时钟源分别测试10、50、100ms，每组产生一个高脉冲；Fcnt来自当前Lane的独立时钟依据，duration_ticks向上取整为Fcnt乘以目标秒数，不从本次实测反向校准。
+    - 外部连接：Board/Bench指定一个可安全输出的逻辑GPIO接示波器测量通道并共地；电压、探头倍率、阈值和通道由台架映射提供，不固定引脚或仪器型号。
+    - 验收预算：沿用本契约1ms功能计时预算，非芯片绝对精度规格；外部测量误差上界U必须不超过0.1ms，来源为仪器时间基准指标、采样分辨率和边沿定位误差之和，不能用被测结果拟合。
+  steps:
+    - 前置确认：解析SYSCNT时钟、GPIO输出和示波器映射，核对接线电压与本地脉冲执行能力；物理资源缺失按运行规则SKIP，实现或映射缺口单独报错，不操作硬件。
+    - 初始化配置：对参与GPIO按确认的复位映射复位，按0.4节建立SYSCNT基线并复位资源池；配置当前时钟源、RUN_FREE、计数初值0和GPIO输出低电平，再启动SYSCNT。
+    - 示波器准备：清除旧采集，以输出通道上升沿单次触发，阈值取确认逻辑电平中点；采集窗口覆盖完整高脉冲及两侧低电平，按当前参数核算U并Arm。
+    - 本地脉冲输出：一次请求目标端按duration_ticks完成置高、计数等待和置低，保存起止COUNT原值；计时边沿之间不经过PC通信，不用其他计时器代替SYSCNT决定下降沿。
+    - 外部结果读取：等待本次单次采集完成，读取波形及上升/下降沿时间戳，计算高脉宽W；必须确认为本轮一个完整正脉冲，不能读取旧波形或仪器无效值。
+    - 数据判定：先记录目标时长T、Tick目标、原始计数、W及U，再要求计数差达到目标且abs(W-T)+U不超过1ms；提前结束、缺失边沿或无完整波形均不得PASS。
+    - 参数收口：输出恢复低电平、停止计数和仪器采集、归一资源，每个源和时长重新建立基线；全部参数通过后才形成Case PASS。
+  observations:
+    - 计数与时钟：保存CLOCK.SOURCE、CONTROL.ENABLE及脉冲起止COUNT.READ原值，证明本轮使用指定源且由SYSCNT计数推进；原始计数用于解释现场，不替代示波器Oracle。
+    - 实际高脉冲：示波器测量通道的本轮波形包含低到高再到低的完整转换，保存两沿时间戳及高脉宽；该端点证明真实PAD输出的持续时间。
+    - 测量有效性：保存仪器身份、通道、阈值、采样间隔、时间基准误差依据和采集完成状态，证明U有依据且波形属于本轮。
+  pass_criteria:
+    - 输入覆盖：每个已确认可用源的10、50、100ms均有独立执行记录和完整单脉冲波形。
+    - 计数驱动：起止计数模M差值达到duration_ticks，无停核、计时源切换或本地执行超时。
+    - 外部计时：每个参数均满足U不超过0.1ms且abs(W-T)+U不超过1ms；不得事后减去未知软件延迟或放大预算。
+    - 结束状态：目标输出恢复低电平，SYSCNT停止；缺边沿、无效测量或清理失败不能发布完整PASS。
+timeout: 每参数PC统一deadline为5秒，目标端单脉冲独立超时不超过200ms；超时拉低GPIO并保存现场，禁止因SYSCNT不计数而无限等待。
+cleanup: [确保输出低电平，停止SYSCNT与示波器采集，释放输出和仪器资源，资源池整池复位；不修改无关引脚。]
+resources: {minimum_level: R4, full_coverage_level: R4, board: 一个安全GPIO输出到示波器输入并共地, bench: 具备独立时间基准和单次采集能力的示波器，量程与采样配置满足误差预算}
+backend: [FPGA, Silicon]
+evidence: [每参数的原始波形及两沿时间戳, 仪器身份与误差依据, 时钟配置和SYSCNT起止原始计数, 目标时长及实际脉宽的状态中立记录]
+failure_observations:
+  - {key: expected_duration_s, label: 配置目标时长秒数, source: oracle, role: expected, format: decimal}
+  - {key: pulse_start_count, label: 脉冲起点SYSCNT计数, source: dut, role: actual, format: hex64}
+  - {key: pulse_end_count, label: 脉冲终点SYSCNT计数, source: dut, role: actual, format: hex64}
+  - {key: measured_pulse_width_s, label: 示波器实际高脉宽秒数, source: instrument, role: actual, format: decimal}
+  - {key: measurement_uncertainty_s, label: 外部测量误差上界秒数, source: oracle, role: expected, format: decimal}
+gap: [target_local_pulse_execution_gap, case_implementation_gap, external_pulse_bench_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
+报告备注设计：实现时展示目标时长、示波器实际高脉宽、绝对偏差和测量误差上界四项；SYSCNT起止计数、完整波形与仪器配置保留为Observation/Artifact。当前仍为PLAN，不向仅绑定SPEC的ET_CASE_REPORT添加占位字段或虚构仪器结果。
+
 ### SYSCNT_P3_001：20轮装载启停重复验证
 
 <!-- ET_CASE_SPEC_BEGIN -->
@@ -495,16 +554,16 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=8 | ADAPTED=7 | 七条Case首轮HIL通过；时钟和Core0停核已确认，G07外部脉冲要求仍未完整覆盖 | `ET6801_syscnt.md` |
+| ET6801 | ADAPTED=6; PARTIAL_ADAPTATION=2 | ADAPTED=7; IMPLEMENTATION_GAP=1 | 原七条保持已有证据；G07已由P2_003 PLAN承接，外部执行链与台架待完成 | `ET6801_syscnt.md` |
 
 ## 5. Common Gap / Evolution
 
-- `implementation_gap`：七条SPEC已经具有Driver、Case、Service、Wrap与注册；当前代码完成不等于硬件PASS。
+- `implementation_gap`：七条SPEC已经具有Driver、Case、Service、Wrap与注册；P2_003仍为PLAN，不能将七条已实现说成八条代码完成。
 - `baseline_mapping_review`：没有独立复位的目标必须先批准可证明的状态归一基线；禁止用错误CRG编号凑齐流程。
 - `coherent_read_extension`：需要有界连贯读取，防止低字进位时读数撕裂。
 - `clock_mapping`：实际Tick频率、参考频率与可用源必须来自目标事实；不能采用历史固定频率或由待测值校准自身。
 - `reference_sample_extension_review`：只评审短原子采样，不引入Firmware Case或跨IP测试状态机。
 - `halt_execution_mapping`：复用已有调试器能力；需明确CPU停核到计数暂停请求的实际连接，不能继承其他定时器的HIL结论。
-- `external_timing_observation`：历史外部脉冲测时与片内参考比较不是等价证据。外部参考时间基准、脉冲与计数的绑定及误差预算未闭合前，不宣称完整覆盖该测试要求；闭合后使用独立Observer Case承接，不把片内DWT结果当作外部测量。
+- `external_timing_observation`：P2_003已定义目标端计数控制脉冲、示波器测量和预算；本地执行接口归属仍待评审，GPIO/仪器映射及代码尚未实现，不宣称整体Implementation Ready。测试安排和缺失物理条件只记录在芯片文档，不用片内DWT结果替代外部测量。
 
-覆盖结论：8项已确认数字Feature都有SPEC；历史50ms/10s参数已补入同一计时Case。外部脉冲测时仅有Gap，尚无等价Case，因此不能宣称参考资料全部覆盖或整体Implementation Ready。RO窗口写属性、未列入目标SVD的识别寄存器和未证实的独立复位继续在芯片文档保留边界，不以SKIP掩盖缺口。
+覆盖结论：8项已确认数字Feature由7条SPEC与1条PLAN表达；外部脉冲要求不再只有Gap，但PLAN不计实现或实测覆盖。历史50ms/10s片内参数保留不变，P2_003补足10/50/100ms外部测量设计；本地执行接口评审未完成前不宣称整体Implementation Ready。RO窗口写属性、未列入目标SVD的识别寄存器等继续保留边界，不以SKIP掩盖缺口。
