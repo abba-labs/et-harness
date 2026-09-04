@@ -40,6 +40,15 @@ def _cleanup_actions(support, resource):
 def _dma_cleanup(support, resource, dma, sysctrl, interfaces):
 
     return (
+        *(
+            (f"DMA channel {channel} stop", lambda channel=channel: dma.stop(channel))
+            for channel in range(4)
+        ),
+        *(
+            (f"DMA channel {channel} release", lambda channel=channel: dma.deconfigure(channel))
+            for channel in range(4)
+        ),
+        ("DMA controller disable", dma.controller_disable),
         ("DMA reset", lambda: support.crg.reset(CrgPeripheral.DMA, instance=dma.instance_id)),
         *(
             (
@@ -87,7 +96,13 @@ def test_spi_p2_001_dma_watermarks(
     count = 2 * depth + (scenario == "full_tail")
     sent, reply = pattern(count, bits), pattern(count, bits, inverse=True)
 
-    # 隔离：先切断DMA总线访问，再复位SPI和整池资源，不能复用旧DMA地址。
+    # 释放：先停止通道并解除Service配置，再关闭Controller，最后复位。
+    for channel in range(4):
+        dma.stop(channel)
+        dma.deconfigure(channel)
+    dma.controller_disable()
+
+    # 隔离：配置前复位DMA、两端SPI和整池资源，不能复用旧DMA地址。
     support.crg.reset(CrgPeripheral.DMA, instance=dma.instance_id)
     support.crg.reset(CrgPeripheral.SPI, instance=master.instance_id)
     support.crg.reset(CrgPeripheral.SPI, instance=slave.instance_id)
@@ -121,6 +136,8 @@ def test_spi_p2_001_dma_watermarks(
         resource_driver.write(rx_b, bytes([0xCD]) * rx_b.size)
         slave.configure(basic_config(target, role=SpiRole.TARGET, bits=bits))
         master.configure(basic_config(controller, bits=bits))
+        # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+        slave.cs_set(True)
         slave.enable_set(True)
         master.enable_set(True)
         dma.controller_enable()
@@ -305,6 +322,10 @@ def test_spi_p2_001_dma_watermarks(
         # CPU恢复：明确关闭DMA请求和通道，保持SPI配置再发8帧，不复位掩盖残留。
         master.dma_configure(False, False, 0, 0)
         slave.dma_configure(False, False, 0, 0)
+
+        # DMA已完成，先释放四个通道，再关闭Controller，满足Service的独占配置约束。
+        for channel in range(4):
+            dma.deconfigure(channel)
         dma.controller_disable()
         slave.write_frames(reply[:8])
         master.write_frames(sent[:8])
@@ -357,6 +378,8 @@ def test_spi_p2_005_no_clock_recovery(spi_support, resource_driver, record_prope
             # 配置：先预装Target返回数据；Controller保持CS未选择，不产生SCLK。
             slave.configure(basic_config(support.ref, role=SpiRole.TARGET, bits=config.frame_bits))
             master.configure(config)
+            # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+            slave.cs_set(True)
             slave.enable_set(True)
             master.enable_set(True)
             slave.write_frames(reply)
@@ -400,6 +423,7 @@ def test_spi_p2_005_no_clock_recovery(spi_support, resource_driver, record_prope
                 {"phase": phase, "controller_rx": list(controller_rx), "target_rx": list(target_rx)}
             )
             record_property("phases", phases)
+            record_property("last_controller_rx", list(controller_rx))
             record_observation(
                 record_property,
                 key="rx",

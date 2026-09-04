@@ -12,7 +12,7 @@ from ...drivers.crg import CrgPeripheral
 from ...drivers.spi import SpiClockMode, SpiIrq, SpiRole, SpiStatusFlag, SpiTransferMode
 from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
-from ._support import TIMEOUT_S, basic_config, pattern
+from ._support import TIMEOUT_S, basic_config, frame_text, pattern
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("spi")]
 
@@ -165,6 +165,8 @@ def test_spi_p1_002_paired_transfer(
                 target, role=SpiRole.TARGET, mode=mode, bits=bits, loopback=target_loopback
             )
         )
+        # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+        slave.cs_set(True)
         slave.enable_set(True)
         target_written = slave.write_frames(reply)
 
@@ -174,7 +176,7 @@ def test_spi_p1_002_paired_transfer(
         master_written = master.write_frames(sent)
         master.cs_set(True)
         controller_rx = master.read_exact(count, timeout_s=TIMEOUT_S)
-        target_rx = slave.read_exact(count, timeout_s=TIMEOUT_S)
+        target_rx = slave.read_frames(count, timeout_s=TIMEOUT_S)
         master.cs_set(False)
 
         # 观测：两个硬件端点分别留证，不把同芯片Target标为外部设备。
@@ -256,6 +258,8 @@ def test_spi_p1_007_target_tx_error(spi_support, resource_driver, record_propert
         # 正常对照：先装Target再启动Controller，排空两端RX并读取无错误基线。
         slave.configure(basic_config(support.ref, role=SpiRole.TARGET, bits=config.frame_bits))
         master.configure(config)
+        # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+        slave.cs_set(True)
         slave.enable_set(True)
         master.enable_set(True)
         slave.try_write_frame(data[0])
@@ -359,6 +363,8 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
             # 配置：Target先准备全部返回，Controller只写T帧并选CS。
             slave.configure(basic_config(support.ref, role=SpiRole.TARGET, bits=config.frame_bits))
             master.configure(config)
+            # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+            slave.cs_set(True)
             slave.enable_set(True)
             slave.write_frames(reply)
             master.fifo_thresholds_set(0, 0, threshold)
@@ -371,6 +377,8 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
             below = slave.snapshot_get().rx_level
             snapshot = master.snapshot_get()
             configured = snapshot.start_threshold
+            record_property("last_threshold", configured)
+            record_property("last_before", [snapshot.tx_level, below])
             record_observation(
                 record_property,
                 key="before",
@@ -402,6 +410,7 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
                 }
             )
             record_property("nodes", nodes)
+            record_property("last_rx", frame_text(target_rx))
             record_observation(
                 record_property,
                 key="rx",
@@ -451,6 +460,7 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
         for frame in frames:
             accepted = spi.try_write_frame(frame)
             tx_levels.append(spi.snapshot_get().tx_level)
+            record_property("tx_levels", tx_levels)
             record_observation(
                 record_property,
                 key="tx_level",
@@ -469,6 +479,25 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
             source="dut",
             endpoint="STATUS.TX_FULL",
         )
+        # 诊断：若声明容量后仍可写，有界补写直到硬件满，仍按原容量判定，不修改Expected。
+        if full_tx.flags & SpiStatusFlag.TX_NOT_FULL:
+            observed_depth = depth
+
+            # 最多追加三倍声明容量，遇实际满标志立即停止。
+            for frame in pattern(depth * 3, config.frame_bits):
+                if not spi.error_status_read().flags & SpiStatusFlag.TX_NOT_FULL:
+                    break
+                spi.test_fifo_write_once(frame)
+                observed_depth += 1
+            record_observation(
+                record_property,
+                key="observed_capacity",
+                value=spi.snapshot_get().tx_level,
+                source="dut",
+                endpoint="FIFO.TX_LEVEL_AT_FULL",
+            )
+            record_property("declared_capacity", depth)
+            assert observed_depth == depth, f"SPI FIFO declared={depth}, observed={observed_depth}"
         assert not full_tx.flags & SpiStatusFlag.TX_NOT_FULL
         spi.fifo_thresholds_set(threshold, rx_threshold, start_threshold)
         thresholds = spi.snapshot_get()
@@ -510,6 +539,7 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
         for index, expected in enumerate(frames):
             actual = spi.try_read_frame()
             rx_levels.append(spi.snapshot_get().rx_level)
+            record_property("rx_levels", rx_levels)
             record_observation(
                 record_property,
                 key="rx_level",
@@ -702,6 +732,8 @@ def test_spi_p1_003_transfer_modes(
 
         # 配置：Target始终TX_RX；Controller的N使用真实帧数而非寄存器减一编码。
         slave.configure(basic_config(target, role=SpiRole.TARGET, bits=config.frame_bits))
+        # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+        slave.cs_set(True)
         slave.enable_set(True)
         target_written = slave.write_frames(slave_input)
         master.configure(replace(config, transfer_mode=transfer_mode, frame_count=count))

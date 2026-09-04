@@ -330,7 +330,7 @@ method:
     - "Target回环：在相同外部SCLK/CS接线下增加Target内部Loopback节点；外接双向节点SRL关闭，两者结果分开记录。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
-    - "Target准备：先配置并Enable Target，打开输出后装满本次发送帧。"
+    - "Target准备：先配置Target并选择其CS通道，再Enable、打开输出并装满本次发送帧；与SDK初始化中设置SER的顺序对齐。"
     - "Controller准备：配置相同模式和帧宽，CS未选中时装入另一组帧。"
     - "传输启动：选择Target发出SCLK，两个实例完成同一笔全双工传输。"
     - "双端采集：读取两端RX数据、帧数和完成后的BUSY、FIFO状态。"
@@ -609,7 +609,7 @@ evidence: ["SPI TX启动阈值边界的配置、输入Expected、硬件Actual及
 failure_observations:
   - {"key":"before","label":"启动前TX/RX Level","source":"dut","role":"actual","format":"text"}
   - {"key":"rx","label":"启动后RX数据","source":"dut","role":"actual","format":"text"}
-  - {"key":"threshold","label":"FIFO.START_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"threshold","label":"FIFO.START_THRESHOLD","source":"dut","role":"actual","format":"text"}
 gap: []
 ```
 <!-- ET_CASE_SPEC_END -->
@@ -633,11 +633,11 @@ method:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "静止TX请求：Controller不选CS，FIFO预填L帧；水位L-1时已Arm的单笔TX DMA未完成，改水位为L后应完成且Level增加1；另在空FIFO、水位0时确认单笔请求。"
     - "RX请求边界：独立复位后Target累积R帧且RX DMA不完成；再输入一帧达R+1，单次P2M应完成，记录真实搬运前后状态。"
-    - "双向配置：复位双方SPI和DMA；PC先准备接收通道，再准备发送通道，使用硬件握手和端点发布的数据宽度，最后释放CS启动。"
+    - "双向配置：基线前按Stop Channel、Deconfigure Channel、Disable Controller顺序解除旧DMA状态，再CRG复位DMA、双方SPI和资源池。准备RX后TX，使用硬件握手和端点宽度，最后选择Controller CS启动。"
     - "持续传输：若返回路径由CPU预装则限定不超过FIFO；跨FIFO双向使用四个DMA通道，先Arm两端RX再Arm两端TX，禁止软件喂数冒充DMA。"
     - "终态等待：按统一deadline轮询通道完成/错误和SPI BUSY，最后读取两个DMA目的内存。"
     - "数据比较：逐帧掩码后与对端Pattern比较，包含2D+1尾帧；交换角色重新执行。"
-    - "恢复验证：关闭DMA请求、停止通道，再用CPU发送一笔8帧数据并核对返回，记录所有节点。"
+    - "恢复验证：关闭DMA请求，Stop/Deconfigure四通道后Disable Controller，再用CPU发送一笔8帧数据并核对返回，记录所有节点。"
   observations:
     - "水位证据：DMA单笔未完成→完成及目的内容变化，与SPI水位/Level从不满足到满足请求条件对应。"
     - "搬运证据：DMA硬件完成置位、错误为0，两个目的内存按frame_bits取有效位后精确等于对端输入。"
@@ -760,12 +760,12 @@ method:
   inputs:
     - "连续范围：双SPI四线连接、MODE1、8-bit；20轮，每轮32帧，双方Pattern按轮次改变，使用独立四DMA通道。"
   steps:
-    - "独立基线：开始前复位两个SPI、DMA及其Service状态，整池复位资源。"
+    - "独立基线：先Stop/Deconfigure四个DMA通道，再Disable Controller，随后CRG复位DMA和两个SPI、整池复位资源；结束按相同释放顺序恢复，不访问已复位的旧通道配置。"
     - "初始配置：配置双SPI和四个硬件握手DMA端点，水位取0，先准备两端接收，再准备Target发送，最后Controller发送。"
     - "逐轮收发：先保证Target已有发送数据再启动Controller，轮内DMA完成全部32帧，不用CPU搬运代替。"
     - "逐轮等待：按统一deadline轮询四通道硬件完成及错误，停止本轮通道但保留SPI配置。"
     - "双向比较：读取两端目的内存，逐帧比较对端本轮Pattern，检查BUSY=0及无FIFO错误。"
-    - "下一轮准备：在正常完成后更换输入与目的区，重Arm通道继续；失败则记录轮号及硬件状态停止，不能复位重试掩盖。"
+    - "下一轮准备：正常完成后deconfigure四通道，解除Service配置归属，再更换输入与目的区、重新配置并Arm；不复位SPI。失败记录轮号及状态后停止，不能复位重试掩盖。"
     - "连续结论：20/20轮双向数据及终态全部正确；保存实际频率和累计帧数，不声称无限期压力已通过。"
   observations:
     - "DMA终态：每轮四通道完成置位且错误为0，两端目的内存等于对端独立Pattern。"
@@ -802,11 +802,11 @@ cases:
       - {source: observation, path: second, label: 第二次Target TX Error, format: bool, aggregate: same}
       - {source: observation, path: rx, label: 恢复后RX, format: text, aggregate: all}
   SPI_P1_008:
-    summary: 对照阈值前后的FIFO及接收数据，验证真实启动条件。
+    summary: 逐阈值对照启动前后FIFO及数据；以下显示最后节点，全部节点保留在原始结果。
     fields:
-      - {source: observation, path: threshold, label: 启动阈值, format: decimal, aggregate: distinct}
-      - {source: observation, path: before, label: 启动前TX/RX Level, format: text, aggregate: all}
-      - {source: observation, path: rx, label: 启动后RX, format: text, aggregate: all}
+      - {source: measurement, path: last_threshold, label: 最后节点启动阈值, format: decimal, aggregate: all}
+      - {source: measurement, path: last_before, label: 最后节点启动前Controller TX及Target RX Level, format: text, aggregate: all}
+      - {source: measurement, path: last_rx, label: 最后节点Target实际RX, format: text, aggregate: all}
   SPI_P2_001:
     summary: 核对DMA水位边界、实际完成事件及双端目的数据。
     fields:
@@ -819,18 +819,19 @@ cases:
     fields:
       - {source: measurement, path: response_ms, label: 查询耗时ms, format: float, aggregate: distinct}
       - {source: observation, path: rx_level, label: 无时钟RX Level, format: decimal, aggregate: same}
-      - {source: observation, path: rx, label: 恢复后RX, format: text, aggregate: all}
+      - {source: measurement, path: last_controller_rx, label: 第二次恢复后Controller实际RX, format: text, aggregate: all}
   SPI_P3_002:
     summary: 连续20轮双向DMA，逐轮检查通道事件和目的数据。
     fields:
       - {source: measurement, path: round, label: 最后完成轮次, format: decimal, aggregate: same}
       - {source: observation, path: dma, label: 四通道事件, format: text, aggregate: all}
-      - {source: observation, path: data, label: 双端目的数据, format: text, aggregate: all}
+      - {source: measurement, path: last_controller_rx, label: 最后一轮Controller实际目的数据, format: text, aggregate: all}
+      - {source: measurement, path: last_target_rx, label: 最后一轮Target实际目的数据, format: text, aggregate: all}
   SPI_P1_004:
     summary: 逐步核对TX填充、RX排空和双FIFO复位结果。
     fields:
-      - {source: observation, path: tx_level, label: TX Level序列, format: text, aggregate: all}
-      - {source: observation, path: rx_level, label: RX Level序列, format: text, aggregate: all}
+      - {source: measurement, path: tx_levels, label: TX Level完整序列, format: text, aggregate: all}
+      - {source: measurement, path: rx_levels, label: RX Level完整序列, format: text, aggregate: all}
       - {source: observation, path: reset_tx, label: 复位后TX Level, format: decimal, aggregate: same}
       - {source: observation, path: reset_rx, label: 复位后RX Level, format: decimal, aggregate: same}
   SPI_P1_005:
@@ -860,10 +861,10 @@ cases:
       - {source: observation, path: divider, label: 实际分频, format: decimal, aggregate: distinct}
       - {source: observation, path: enable_sequence, label: Enable启停序列, format: text, aggregate: all}
   SPI_P0_002:
-    summary: 对照独立Pattern检查片内回环帧和完成状态。
+    summary: 每种帧宽均逐帧比较；以下显示最后帧宽节点，全部节点保留在原始结果。
     fields:
       - {source: measurement, path: expected, label: 期望帧, format: text, aggregate: all}
-      - {source: observation, path: rx, label: 实际RX帧, format: text, aggregate: all}
+      - {source: measurement, path: received_frames, label: 最后节点实际RX帧, format: text, aggregate: all}
       - {source: observation, path: busy, label: 完成后BUSY, format: bool, aggregate: same}
 ```
 <!-- ET_CASE_REPORT_END -->
@@ -872,7 +873,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | IMPLEMENTATION_GAP=4; MAPPING_GAP=8; BENCH_GAP=2; NEEDS_VERIFICATION=3 | 19 Feature、17测试目标；14 PLAN、3项设计草案待确认；5项外部设备测试暂缓；未实现、未实测 | `ET6801_spi.md` |
+| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | ADAPTED=9; BENCH_GAP=3; NEEDS_VERIFICATION=5 | 19 Feature、17测试目标；12 SPEC、2 PLAN、3项设计草案；完整Capability仍待补，具体适配依据见芯片文档 | `ET6801_spi.md` |
 
 ## 5. Common Gap / Evolution
 

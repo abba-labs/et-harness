@@ -20,6 +20,15 @@ pytestmark = [pytest.mark.hardware, pytest.mark.ip("spi")]
 def _cleanup_actions(support, resource, dma, sysctrl, interfaces):
 
     return (
+        *(
+            (f"DMA channel {channel} stop", lambda channel=channel: dma.stop(channel))
+            for channel in range(4)
+        ),
+        *(
+            (f"DMA channel {channel} release", lambda channel=channel: dma.deconfigure(channel))
+            for channel in range(4)
+        ),
+        ("DMA controller disable", dma.controller_disable),
         ("DMA reset", lambda: support.crg.reset(CrgPeripheral.DMA, instance=dma.instance_id)),
         *(
             (
@@ -63,6 +72,12 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
     access_bits = mapping.SPI_DMA_ACCESS_BITS
     count, rounds, history = 32, 20, []
 
+    # 释放：先停止通道并解除Service配置，再关闭Controller，最后复位。
+    for channel in range(4):
+        dma.stop(channel)
+        dma.deconfigure(channel)
+    dma.controller_disable()
+
     # 隔离：仅开始时复位全部参与IP和整池资源，连续传输中不靠复位修复错误。
     support.crg.reset(CrgPeripheral.DMA, instance=dma.instance_id)
     support.crg.reset(CrgPeripheral.SPI, instance=master.instance_id)
@@ -94,6 +109,8 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
             basic_config(support.ref, role=SpiRole.TARGET, mode=SpiClockMode.MODE1, bits=8)
         )
         master.enable_set(True)
+        # Target按SDK初始化序列开放本实例CS通道，再启用移位模块。
+        slave.cs_set(True)
         slave.enable_set(True)
         master.dma_configure(True, True, 0, 0)
         slave.dma_configure(True, True, 0, 0)
@@ -129,6 +146,7 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
                 dma.interrupt_pending_clear(
                     configuration.channel, DmaIrqEvent.TRANSFER_DONE | DmaIrqEvent.ERROR
                 )
+                dma.deconfigure(configuration.channel)
                 dma.configure(configuration)
                 dma.start(configuration.channel)
             slave.wait_tx_level(1, timeout_s=TIMEOUT_S)
@@ -155,6 +173,8 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
                 }
             )
             record_property("rounds", history)
+            record_property("last_controller_rx", list(actual_a))
+            record_property("last_target_rx", list(actual_b))
             record_observation(
                 record_property, key="dma", value=flags, source="dut", endpoint="DMA.CHANNEL.EVENTS"
             )

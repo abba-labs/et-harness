@@ -1,8 +1,8 @@
 # ET6801 SPI Chip Analysis & Adaptation Contract
 
-更新时间：2026-09-04 17:05 CST
+更新时间：2026-09-04 17:50 CST
 
-范围：ET6801 SPI0～SPI3，FPGA/Silicon。SPI SDK、Wrap、Service及PC Driver已接入；GPIO独立Service/Wrap负责Pinmux。12个Case已进入代码及SPEC，待本批软件门禁和硬件实测。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP；未执行的本版本Case不引用历史PASS。
+范围：ET6801 SPI0～SPI3，FPGA/Silicon。SPI SDK、Wrap、Service及PC Driver已接入；GPIO独立Service/Wrap负责Pinmux。12个Case已进入代码及SPEC；软件门禁已通过，首轮硬件测试存在失败。接线修正后的SPI_P1_002专项复测48个参数组合全部PASS，详见6.5；不代表整个SPI已通过。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP；未执行的本版本Case不引用历史PASS。
 
 # 第一章 IP分析与Source Coverage
 
@@ -229,30 +229,30 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| SPI_P0_001 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
-| SPI_P0_002 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
-| SPI_P1_001 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
-| SPI_P1_002 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
-| SPI_P1_003 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
-| SPI_P1_004 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
-| SPI_P1_005 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
+| SPI_P0_001 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
+| SPI_P0_002 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
+| SPI_P1_001 | BENCH_GAP | Case已实现；当前四线对接不满足独立MOSI/MISO回接要求，实际运行SKIP。 |
+| SPI_P1_002 | ADAPTED | SPI0/SPI1四线接线已修正；48个参数组合正式Case复测PASS，证据见6.5。 |
+| SPI_P1_003 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
+| SPI_P1_004 | NEEDS_VERIFICATION | 实测FIFO为32帧，SDK容量声明16不一致；待修正容量与独立阈值范围后复测。 |
+| SPI_P1_005 | NEEDS_VERIFICATION | 实测FIFO为32帧，SDK容量声明16不一致；待修正容量与独立阈值范围后复测。 |
 | SPI_P1_006 | BENCH_GAP | 方法已明确；外部配测条件未就绪，本轮计划SKIP（未运行）；另有公共代码待实现，不把缺代码写成硬件原因。 |
-| SPI_P1_007 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
-| SPI_P1_008 | MAPPING_GAP | 方法已明确；补代码并固定双SPI接线，保留历史独立Target观测，不改成片内回环替代。 |
-| SPI_P2_001 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P1_007 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
+| SPI_P1_008 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
+| SPI_P2_001 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
 | SPI_P2_002 | NEEDS_VERIFICATION | Motorola已有完整Case；TI帧同步边沿、Microwire控制段装载顺序及ready电平/采样边沿尚缺目标适用时序依据。MHS约束的是末位之后BUSY释放，不是数据开始，旧计划判断方向错误。 |
 | SPI_P2_003 | NEEDS_VERIFICATION | RX延迟内部移位深度、输入建立/保持预算未定；不得用扫描中任意一个成功点证明整个Feature。 |
 | SPI_P2_004 | NEEDS_VERIFICATION | 已知触发为Controller传输时ss_in_n有效；目标芯片该输入到PAD/FPGA的集成连接仍未知，不能用短接两个Controller输出来替代。 |
-| SPI_P2_005 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P2_005 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
 | SPI_P2_007 | BENCH_GAP | 方法已明确；外部配测条件未就绪，本轮计划SKIP（未运行）；另有公共代码待实现，不把缺代码写成硬件原因。 |
-| SPI_P3_002 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P3_002 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
 
 ## 6.1 统计与覆盖边界
 
 - 19个Feature；17个测试目标，P0=2、P1=8、P2=6、P3=1。
 - 14个完整PLAN；P2_002、P2_003、P2_004保留ID、简明设计草案和待确认项；当前外部设备测试执行安排见6.4，不把草案算作完整PLAN。
 - R0/R1片内4项；R2板级简单连接8项；R3 FPGA4项（其中3项待分析）；R4电气测量1项；不再包含NOR应用。
-- 当前12个注册Formal Case：P0=2、P1=7、P2=2、P3=1；本批硬件执行尚未开始，不声明PASS。其余5个外部设备目标仍按6.4保留边界，不能将草案算作已实现。
+- 当前12个注册Formal Case：P0=2、P1=7、P2=2、P3=1；首轮已执行，接线修正后仅重测P1_002，当前结果与证据见6.5。其余5个外部设备目标仍按6.4保留边界，不能将草案算作已实现。
 - 当前不是“整体分析闭合”：所有已找到的需求条目均有处置，但3项设计及SPI_QSPI_entry定义缺口仍公开保留。不能以结构Checker通过代替语义闭合。
 - 每份报告必须区分已测逻辑Case、参数执行数与实例覆盖。代表实例PASS不能证明4实例全覆盖；可复用同一Case参数对可达实例逐一运行。
 
@@ -262,7 +262,7 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 2. 依据本芯片SVD补SPI Capability，再按固定层次实现Wrap、Service、PC Driver。
 3. 实现14个方法明确的PLAN；先片内、外部回接/双实例和DMA；波形和电气测量保留设计，当前先不执行。未具备物理资源仍保留代码和明确环境条件，不为了免接线弱化Case。
 4. 补齐P2_002的目标协议时序、P2_003的实际延迟深度/时序预算、P2_004的ss_in_n连接。再完善原ID PLAN，不以“难测”判硬件不支持。
-5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；当前仅进入源码与软件验证阶段，尚未执行SPI硬件测试。
+5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；当前通信专项已通过，其余首轮失败项仍需按各自证据定位和复测。
 
 ## 6.3 Board/Capability待落地事实
 
@@ -289,3 +289,19 @@ Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用
 固定接线目标：双SPI四线互联，FPGA或示波器以固定探头并接观察；FPGA主动驱动时先确认闲置SPI引脚高阻。高阻测试的上下拉通过夹具切换，不人工换线。冲突输入若需额外引脚，应在一次接线表中预留；该路径未确认前不发布最终接线表。此处未指定实际GPIO/连接器，也未证明任一接线可用。
 
 范围排除：SPI_P2_006、SPI_P3_001是用户明确排除的NOR应用Case，不是SKIP、不计当前17项；保留第四章来源以解释范围变化。实际SPI功能测试和原始来源记录不受删除应用PLAN影响。
+
+## 6.5 当前FPGA测试记录
+
+更新时间：2026-09-04 17:50 CST。统计区分稳定Case与参数执行，不将专项PASS推广到全部SPI。
+
+| 范围 | 执行时间CST | 参数执行结果 | 结论与边界 |
+|---|---|---|---|
+| 首轮12个Formal Case | 2026-09-04 17:20～17:28 | 19 PASS / 97 FAIL / 36 SKIP | 原始证据保留；P1_001为当前四线对接不满足单实例MOSI/MISO回接。此轮用户随后确认接线有误，不能据外部通信失败判硬件故障；FIFO容量、DMA通道状态及报告重复键问题仍独立跟踪。 |
+| SPI_P1_002专项复测（1个稳定Case） | 2026-09-04 17:47～17:48 | 48 PASS / 0 FAIL / 0 SKIP | 用户修正接线后，SPI0/SPI1交换Controller/Target，4种CPOL/CPHA、3种帧宽节点、Target内部回环开/关，共48组，每组8帧。关闭Target回环的24组验证两端PAD双向数据；回环开启的24组不冒充外部完整双向数据证据。 |
+
+专项复测沿用已从PFLASH运行的固件，未重新编译、烧录bitfile、加载BootROM或下载Flash。PC使用当前工作树：Target启用前设置CS通道；Controller收完后读取Target当前FIFO并保持完整数据/数量断言。因为接线和此PC准备动作均有变化，本次只证明当前组合可正常通信，不据此证明CS准备动作是原失败根因。
+
+- 首轮：`artifacts/runs/20260904_171618_161538_local_et6801_fpga_atp_testing/tests/spi/session.json`；首轮Excel导出失败，不作为有效报告。
+- 专项：`artifacts/runs/20260904_174726_773200_local_et6801_fpga_atp_testing/tests/spi/session.json`；Run ID=`5b0fbf53-c260-457f-a863-d81af5a9b1ac`，源码基线=`db57a69b2f4dc1a272937b3ddb47d022d8250398`，`source_dirty=true`。
+- 专项报告：`artifacts/reports/20260904_174841_957816_ET6801_SPI测试报告.xlsx`；流水线退出码0，未选其他104个参数执行。
+- 本次结束恢复完整SPI Case注册表；后续全量执行必须重新明确范围。其他Case尚未在修正后的接线上复测，不改写旧失败结论。
