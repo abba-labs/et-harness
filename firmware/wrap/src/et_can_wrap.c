@@ -2,6 +2,8 @@
 #include "et_can_wrap.h"
 
 #include <stddef.h>
+#include <limits.h>
+#include <string.h>
 #include "et6x_can.h"
 #include "et_chip_wrap_config.h"
 
@@ -865,6 +867,494 @@ et_wrap_status_t et_can_wrap_get_ram_layout(et_can_id_t id, et_can_ram_layout_t 
     if (!payload_from_driver(config.rxFIFO1ElemSize, &layout->rx1_payload_bytes))
     {
         return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+static const uint32_t rx_fifo_numbers[] = ET_CHIP_CAN_RX_FIFO_MAP_TABLE;
+
+/** Private SDK message packing facts; public frames never contain shifted identifiers. */
+typedef struct
+{
+    uint32_t standard_id_shift;
+    uint32_t standard_id_max;
+    uint32_t extended_id_max;
+    uint32_t basic_marker_max;
+} et_can_frame_mapping_t;
+
+static const et_can_frame_mapping_t frame_mapping = ET_CHIP_CAN_FRAME_MAP_TABLE;
+
+/**
+ * @brief Validate protocol fields before converting to the existing SDK TX element.
+ * @param[in] frame Public unshifted frame and explicit control flags.
+ * @param[out] element Driver-format header and payload on success.
+ * @return One for a supported basic element; zero without hardware access otherwise.
+ * @note Wide-marker mode is not implied by an oversized basic marker.
+ */
+static int encode_tx_element(const et_can_tx_frame_t *frame, CAN_TxBufElement *element)
+{
+    const uint32_t allowed_flags = ET_CAN_FRAME_EXTENDED | ET_CAN_FRAME_REMOTE | ET_CAN_FRAME_FD |
+                                   ET_CAN_FRAME_BRS | ET_CAN_FRAME_ESI | ET_CAN_FRAME_STORE_EVENT |
+                                   ET_CAN_FRAME_CAPTURE_TIME;
+    size_t index;
+
+    if ((frame == NULL) || (frame->flags & ~allowed_flags) || (frame->dlc > ET_CAN_FRAME_DLC_MAX) ||
+        (frame->marker > frame_mapping.basic_marker_max))
+    {
+        return 0;
+    }
+
+    (void)memset(element, 0, sizeof(*element));
+    element->xtd = (frame->flags & ET_CAN_FRAME_EXTENDED) != 0u;
+    element->rtr = (frame->flags & ET_CAN_FRAME_REMOTE) != 0u;
+    element->fdf = (frame->flags & ET_CAN_FRAME_FD) != 0u;
+    element->brs = (frame->flags & ET_CAN_FRAME_BRS) != 0u;
+    element->esi = (frame->flags & ET_CAN_FRAME_ESI) != 0u;
+
+    if ((frame->identifier >
+         (element->xtd ? frame_mapping.extended_id_max : frame_mapping.standard_id_max)) ||
+        (element->fdf && element->rtr) || (!element->fdf && (element->brs || element->esi)))
+    {
+        return 0;
+    }
+
+    element->id =
+        element->xtd ? frame->identifier : frame->identifier << frame_mapping.standard_id_shift;
+    element->dlc = frame->dlc;
+    element->mm = frame->marker;
+    element->efc = (frame->flags & ET_CAN_FRAME_STORE_EVENT) != 0u;
+    element->tx_tsce = (frame->flags & ET_CAN_FRAME_CAPTURE_TIME) != 0u;
+
+    for (index = 0u; index < ET_CAN_FRAME_DATA_BYTES; ++index)
+    {
+        element->data[index] = frame->data[index];
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Prepare one allocated TX element without requesting transmission.
+ * @param[in] id Logical controller.
+ * @param[in] index Dedicated buffer or current FIFO/Queue put index.
+ * @param[in] frame Explicit protocol frame; unused payload bytes are ignored by the Driver.
+ * @return OK or an argument, busy, state, unsupported-instance or Driver error.
+ * @note Checks actual RAM configuration and pending state; no polling or implicit reset.
+ */
+et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
+                                      const et_can_tx_frame_t *frame)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+    CAN_TxFIFOStatus fifo;
+    CAN_TxBufElement element;
+    uint32_t capacity;
+    uint32_t total;
+
+    /* Phase 1: Validate the public frame and independently read the allocated slot. */
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (!encode_tx_element(frame, &element))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+    total = config.txBufNum + config.txFIFOSize;
+
+    if ((total > ram_limits.tx_count) || (index >= total) ||
+        (index >= sizeof(uint32_t) * CHAR_BIT) ||
+        !payload_from_driver(config.txBufElemSize, &capacity) ||
+        (CAN_testGetPayloadSize(element.dlc, element.fdf, element.rtr) > capacity))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    {
+        const et_can_ram_region_t region = {
+            config.txStartAddr, total * CAN_getMsgObjSize(config.txBufElemSize) * sizeof(uint32_t)};
+
+        if (!ram_regions_valid(&region, 1u))
+        {
+            return ET_WRAP_STATUS_STATE_ERROR;
+        }
+    }
+
+    /* Phase 2: Protect hardware-owned pending/queued slots; acceptance is not completion. */
+    if ((CAN_getTxBufReqPend(instance) & (1u << index)) != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    if (index >= config.txBufNum)
+    {
+        CAN_getTxFIFOQueStatus(instance, &fifo);
+
+        if ((fifo.fifoFull != 0u) || (index != fifo.putIdx))
+        {
+            return ET_WRAP_STATUS_BUSY;
+        }
+    }
+
+    if (element.fdf && !CAN_isFDOpEnable(instance))
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    CAN_writeMsgRam(instance, CAN_MEM_TYPE_BUF, index, &element);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Request one or more prepared buffers using one atomic Driver write.
+ * @param[in] id Logical controller.
+ * @param[in] mask Nonzero bitmap of allocated TX buffers.
+ * @return OK or invalid mask, state, busy or unsupported-instance result.
+ * @note Does not populate frames, poll completion or retry a request.
+ */
+et_wrap_status_t et_can_wrap_request_tx(et_can_id_t id, uint32_t mask)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+    uint32_t total;
+    uint32_t allowed;
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+    total = config.txBufNum + config.txFIFOSize;
+
+    if ((total == 0u) || (total > ram_limits.tx_count) || (total > sizeof(mask) * CHAR_BIT))
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    allowed = total == sizeof(mask) * CHAR_BIT ? UINT32_MAX : (1u << total) - 1u;
+
+    if ((mask == 0u) || ((mask & ~allowed) != 0u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (CAN_getOpMode(instance) == CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    if ((CAN_getTxBufReqPend(instance) & mask) != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    CAN_testRequestTxMask(instance, mask);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read TX request/completion/cancellation and FIFO state.
+ * @param[in] id Logical controller.
+ * @param[out] status Independent hardware status fields.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not clear completion bits or consume TX events.
+ */
+et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TxFIFOStatus fifo;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_getTxFIFOQueStatus(instance, &fifo);
+    status->pending = CAN_getTxBufReqPend(instance);
+    status->completed = CAN_getTxBufTransmissionStatus(instance);
+    status->cancelled = CAN_txBufCancellationStatus(instance);
+    status->free_count = fifo.freeLvl;
+    status->get_index = fifo.getIdx;
+    status->put_index = fifo.putIdx;
+    status->full = fifo.fifoFull;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read one selected receive FIFO without acknowledging entries.
+ * @param[in] id Logical controller.
+ * @param[in] fifo Public FIFO index.
+ * @param[out] status Actual fill, get, put, full and lost status.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not poll, reset or read protocol error counters.
+ */
+et_wrap_status_t et_can_wrap_get_rx_fifo_status(et_can_id_t id, uint32_t fifo,
+                                                et_can_rx_fifo_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_RxFIFOStatus driver;
+
+    if ((status == NULL) || (fifo >= sizeof(rx_fifo_numbers) / sizeof(rx_fifo_numbers[0])))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    driver.num = rx_fifo_numbers[fifo];
+    CAN_getRxFIFOStatus(instance, &driver);
+    status->fill = driver.fillLvl;
+    status->get_index = driver.getIdx;
+    status->put_index = driver.putIdx;
+    status->full = driver.fifoFull;
+    status->lost = driver.msgLost;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read dedicated-buffer new-data status without clearing it.
+ * @param[in] id Logical controller.
+ * @param[out] status Actual low and high new-data bitmaps.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note No buffer data is consumed and no acknowledgement is issued.
+ */
+et_wrap_status_t et_can_wrap_get_rx_buffer_status(et_can_id_t id, et_can_rx_buffer_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_RxNewDataStatus driver;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_getNewDataStatus(instance, &driver);
+    status->low = driver.statusLow;
+    status->high = driver.statusHigh;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Acknowledge explicit dedicated-buffer new-data bits.
+ * @param[in] id Logical controller.
+ * @param[in] status Caller-selected low/high masks, not an implicit clear-all.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note Does not change filters, data bytes or receive FIFO state.
+ */
+et_wrap_status_t et_can_wrap_ack_rx_buffers(et_can_id_t id, const et_can_rx_buffer_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_RxNewDataStatus driver;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    driver.statusLow = status->low;
+    driver.statusHigh = status->high;
+    CAN_clearNewDataStatus(instance, &driver);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Acknowledge the current head of a nonempty receive FIFO.
+ * @param[in] id Logical controller.
+ * @param[in] fifo Public FIFO index.
+ * @param[in] index Previously observed head index, preventing accidental acknowledgement drift.
+ * @return OK or invalid index, empty FIFO, unsupported instance or Driver error.
+ * @note Acknowledges exactly one head; no bulk draining or polling is performed.
+ */
+et_wrap_status_t et_can_wrap_ack_rx_fifo(et_can_id_t id, uint32_t fifo, uint32_t index)
+{
+    et_can_rx_fifo_status_t status;
+    et_wrap_status_t result = et_can_wrap_get_rx_fifo_status(id, fifo, &status);
+
+    if (result != ET_WRAP_STATUS_OK)
+    {
+        return result;
+    }
+
+    if (status.fill == 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    if (index != status.get_index)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    return CAN_writeRxFIFOAck(find_instance(id), rx_fifo_numbers[fifo], index) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read one available RX element without acknowledging it.
+ * @param[in] id Logical controller.
+ * @param[in] source Dedicated buffer, FIFO0 or FIFO1.
+ * @param[in] index Dedicated-buffer index; must be zero for FIFO head reads.
+ * @param[out] frame Observed header, valid stored bytes and selected storage index.
+ * @return OK, invalid selector/index, empty storage, bad layout or unsupported instance.
+ * @note No polling or automatic acknowledgement; a short slot returns only stored bytes.
+ */
+et_wrap_status_t et_can_wrap_read_rx(et_can_id_t id, et_can_rx_source_t source, uint32_t index,
+                                     et_can_rx_frame_t *frame)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+    CAN_RxBufElement element;
+    et_can_rx_fifo_status_t fifo_status;
+    et_can_rx_buffer_status_t buffer_status;
+    et_wrap_status_t result;
+    uint32_t fifo = 0u;
+    uint32_t driver_size;
+    uint32_t offset;
+    uint32_t capacity;
+    uint32_t mem_type;
+    uint32_t data_length;
+    size_t byte;
+
+    /* Phase 1: Resolve an available hardware-owned element and its actual RAM slot. */
+    if ((frame == NULL) || ((source != ET_CAN_RX_BUFFER) && (source != ET_CAN_RX_FIFO0) &&
+                            (source != ET_CAN_RX_FIFO1)))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+
+    if (source == ET_CAN_RX_BUFFER)
+    {
+        const uint32_t word_bits = sizeof(uint32_t) * CHAR_BIT;
+        uint32_t active;
+
+        if ((index >= ram_limits.rx_buffer_count) || (index >= word_bits + word_bits))
+        {
+            return ET_WRAP_STATUS_INVALID_ARGUMENT;
+        }
+
+        result = et_can_wrap_get_rx_buffer_status(id, &buffer_status);
+
+        if (result != ET_WRAP_STATUS_OK)
+        {
+            return result;
+        }
+
+        active = index < word_bits ? buffer_status.low : buffer_status.high;
+
+        if ((active & (1u << (index % word_bits))) == 0u)
+        {
+            return ET_WRAP_STATUS_BUSY;
+        }
+
+        driver_size = config.rxBufElemSize;
+        offset = config.rxBufStartAddr;
+        mem_type = CAN_MEM_TYPE_BUF;
+    }
+    else
+    {
+        if (index != 0u)
+        {
+            return ET_WRAP_STATUS_INVALID_ARGUMENT;
+        }
+
+        fifo = source == ET_CAN_RX_FIFO0 ? 0u : 1u;
+        result = et_can_wrap_get_rx_fifo_status(id, fifo, &fifo_status);
+
+        if (result != ET_WRAP_STATUS_OK)
+        {
+            return result;
+        }
+
+        if (fifo_status.fill == 0u)
+        {
+            return ET_WRAP_STATUS_BUSY;
+        }
+
+        index = fifo_status.get_index;
+
+        if (index >= (fifo == 0u ? config.rxFIFO0size : config.rxFIFO1size))
+        {
+            return ET_WRAP_STATUS_STATE_ERROR;
+        }
+
+        driver_size = fifo == 0u ? config.rxFIFO0ElemSize : config.rxFIFO1ElemSize;
+        offset = fifo == 0u ? config.rxFIFO0startAddr : config.rxFIFO1startAddr;
+        mem_type = CAN_MEM_TYPE_FIFO;
+    }
+
+    /* Phase 2: Bound the physical slot before the Driver reads Message RAM. */
+    if (!payload_from_driver(driver_size, &capacity))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    {
+        const uint32_t stride = CAN_getMsgObjSize(driver_size) * sizeof(uint32_t);
+        const et_can_ram_region_t region = {offset + index * stride, stride};
+
+        if (!ram_regions_valid(&region, 1u))
+        {
+            return ET_WRAP_STATUS_STATE_ERROR;
+        }
+    }
+
+    (void)memset(&element, 0, sizeof(element));
+    CAN_readMsgRam(instance, mem_type, index, rx_fifo_numbers[fifo], &element);
+    data_length = CAN_testGetPayloadSize(element.dlc, element.fdf, element.rtr);
+
+    /* Phase 3: Publish actual metadata and stored bytes, keeping acknowledgement explicit. */
+    (void)memset(frame, 0, sizeof(*frame));
+    frame->identifier = element.xtd ? element.id : element.id >> frame_mapping.standard_id_shift;
+    frame->flags = (element.xtd ? ET_CAN_FRAME_EXTENDED : 0u) |
+                   (element.rtr ? ET_CAN_FRAME_REMOTE : 0u) | (element.fdf ? ET_CAN_FRAME_FD : 0u) |
+                   (element.brs ? ET_CAN_FRAME_BRS : 0u) | (element.esi ? ET_CAN_FRAME_ESI : 0u);
+    frame->dlc = element.dlc;
+    frame->timestamp = element.rxts;
+    frame->filter_index = element.fidx;
+    frame->nonmatching = element.anmf;
+    frame->data_length = data_length < capacity ? data_length : capacity;
+    frame->index = index;
+
+    for (byte = 0u; byte < frame->data_length; ++byte)
+    {
+        frame->data[byte] = (uint8_t)element.data[byte];
     }
 
     return ET_WRAP_STATUS_OK;

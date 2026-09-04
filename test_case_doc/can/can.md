@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 00:09 CST
+更新时间：2026-09-05 00:25 CST
 
 分析稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；39项形成ET_CASE_PLAN，3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。本轮逐项复核现有Case，修正过滤、DLC、IRQ、停钟和观察前提，并将原DMU时间戳目标拆为RX与TX Event。没有SPEC、注册Case或硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -130,6 +130,20 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | LOOPBACK_SET | 14 | mode：0关闭、1内部、2外部 | 无；INIT前提，内部MON=1，外部/关闭MON=0 |
 | LOOPBACK_GET | 15 | 无 | 实际有效mode；由TEST/LBCK与MON共同决定 |
 | BUS_LIMITS_GET | 16 | 无 | timestamp_divisor、timeout_period上限 |
+| TX_WRITE | 17 | index、identifier、flags、dlc、marker共5个u32，加64-byte固定payload区 | 无；只装载，不请求发送 |
+| TX_REQUEST | 18 | 非零TX Buffer位图mask | 无；一次原子请求，不代表完成 |
+| TX_STATUS_GET | 19 | 无 | pending、completed、cancelled、free_count、get_index、put_index、full，共7项 |
+| RX_FIFO_STATUS_GET | 20 | FIFO索引 | fill、get_index、put_index、full、lost，共5项 |
+| RX_READ | 21 | source、index | 下述8个u32及64-byte固定payload区；不Ack |
+| RX_FIFO_ACK | 22 | FIFO索引、已观测的Get Index | 无；只Ack当前非空FIFO头，拒绝过期索引 |
+| RX_BUFFER_STATUS_GET | 23 | 无 | low、high两组u32新数据位图 |
+| RX_BUFFER_ACK | 24 | low、high两组显式位图 | 无；不读取Buffer，不清FIFO |
+
+帧flags是公共Wire位图：EXTENDED=1、REMOTE=2、FD=4、BRS=8、ESI=16、STORE_EVENT=32、CAPTURE_TIME=64；后两项仅用于TX。Identifier为未移位的正常ID；DLC是协议四位编码，Classic DLC9～15仍为8-byte，Remote没有payload。TX有效payload长度必须匹配DLC，Wire剩余区填零；FD不允许Remote，Classic不接受BRS/ESI标记。基础TX Marker当前是8-bit，宽Marker功能必须另行实现后才能覆盖P1_010，不默默截断。
+
+RX source：0为Dedicated Buffer，1为FIFO0，2为FIFO1。FIFO读取index参数固定为0表示当前头；响应顺序是`identifier, flags, dlc, timestamp, filter_index, nonmatching, data_length, index`，后接64-byte数据区。`index`为实际读取位置；`data_length`为真实槽内存储长度，可能短于DLC表达的总线长度，不能用零补成“完整帧”。Case应在刺激停止或明确受控窗口内读取，硬件状态快照不宣称跨寄存器原子采样。
+
+TX_WRITE检查实际RAM容量和Pending，不允许覆盖硬件占用的槽；FIFO/Queue写入必须使用当前Put Index。TX_REQUEST只接受已分配Buffer范围内的mask，不自动装帧；先前准备的数据、发送请求、完成状态和RX观测必须在Case中分别执行并验证。TX/RX等待由PC Driver单一Deadline实现；超时保留最后事实，不自动重发、复位或延长预算。
 
 总线配置顺序：`monitor, restricted, timestamp_divisor, timestamp_source, timeout_source, timeout_period, timeout_enabled, reject_remote_ext, reject_remote_std, unmatched_ext, unmatched_std`。Boolean严格0/1；timestamp_divisor为实际正分频数，timeout_period为计数重装值。Timestamp来源0关闭/1内部/2外部；Timeout来源0连续/1TX Event/2RX0/3RX1；未命中策略0RX0/1RX1/2拒绝。
 

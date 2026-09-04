@@ -192,7 +192,10 @@ static void CAN_writeProtectedRegAccessUnlock(CAN_Type *CANx);
 static void CAN_writeProtectedRegAccessLock(CAN_Type *CANx);
 static CAN_MISC_Type *CAN_getMiscInstance(CAN_Type *CANx);
 static uint32_t CAN_getDataSize(uint32_t dlc, uint32_t fd, uint32_t remote);
-static void CAN_readMsg(uint32_t baseAddr, uint32_t elemAddr, CAN_RxBufElement *elem);
+/* Two fixed header words precede the payload in each RX/TX RAM element. */
+#define CAN_MSG_HEADER_SIZE_BYTES (2U * sizeof(uint32_t))
+static void CAN_readMsg(uint32_t baseAddr, uint32_t elemAddr, CAN_RxBufElement *elem,
+                       uint32_t payloadCapacity);
 static void CAN_writeMsg(uint32_t baseAddr, uint32_t elemAddr, const CAN_TxBufElement *elem);
 
 /* ========================================================================== */
@@ -788,7 +791,7 @@ void CAN_readMsgRam(CAN_Type         *CANx,
         elemSize *= 4U;
         elemAddr  = startAddr + (elemSize * idx);
         elemAddr += CAN_CAN_MSG_MEM;
-        CAN_readMsg((uint32_t)CANx, elemAddr, elem);
+        CAN_readMsg((uint32_t)CANx, elemAddr, elem, elemSize - CAN_MSG_HEADER_SIZE_BYTES);
     }
 }
 
@@ -841,7 +844,7 @@ void CAN_readHighPriorityMsgRam(CAN_Type *CANx, CAN_RxBufElement *elem)
         elemSize *= 4U;
         elemAddr  = startAddr + (elemSize * idx);
         elemAddr += CAN_CAN_MSG_MEM;
-        CAN_readMsg((uint32_t)CANx, elemAddr, elem);
+        CAN_readMsg((uint32_t)CANx, elemAddr, elem, elemSize - CAN_MSG_HEADER_SIZE_BYTES);
     }
 }
 
@@ -1854,9 +1857,10 @@ static void CAN_writeProtectedRegAccessLock(CAN_Type *CANx)
 
 static void CAN_readMsg(uint32_t         baseAddr,
                         uint32_t         elemAddr,
-                        CAN_RxBufElement *elem)
+                        CAN_RxBufElement *elem, uint32_t payloadCapacity)
 {
     uint32_t regVal = 0U, loopCnt = 0U;
+    uint32_t dataSize;
 
     baseAddr -= 0x4000U;
 
@@ -1886,10 +1890,17 @@ static void CAN_readMsg(uint32_t         baseAddr,
                             >> CAN_RX_BUFFER_ELEM_ANMF_SHIFT);
     elemAddr += 4U;
 
+    /* DLC describes the bus frame, not necessarily the configured RAM slot size. */
+    dataSize = CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr);
+    if (dataSize > payloadCapacity)
+    {
+        dataSize = payloadCapacity;
+    }
+
     loopCnt = 0U;
     /* Reading words from message RAM and forming payload bytes out of it */
-    while ((4U <= (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)) &&
-           (0U != (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)))
+    while ((4U <= (dataSize - loopCnt)) &&
+           (0U != (dataSize - loopCnt)))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = READ_REG(REG32(baseAddr + elemAddr));
@@ -1901,7 +1912,7 @@ static void CAN_readMsg(uint32_t         baseAddr,
         loopCnt  += 4U;
     }
     /* Reading remaining bytes from message RAM */
-    if (0U < (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt))
+    if (0U < (dataSize - loopCnt))
     {
         assert_param((loopCnt + 2U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = READ_REG(REG32(baseAddr + elemAddr));
@@ -2372,5 +2383,33 @@ void CAN_testGetLoopback(CAN_Type *CANx, uint32_t *enabled, CAN_LpbkMode *mode)
             CAN_LPBK_MODE_INTERNAL : CAN_LPBK_MODE_EXTERNAL;
 }
 
+/**
+ * @brief Expose the existing protocol DLC conversion without message RAM access.
+ * @param dlc Four-bit DLC, including Classic DLC 9..15.
+ * @param fd One for FD, zero for Classic.
+ * @param remote One for Remote, which has no payload.
+ * @return Valid protocol payload length in bytes.
+ */
+uint32_t CAN_testGetPayloadSize(uint32_t dlc, uint32_t fd, uint32_t remote)
+{
+    assert_param(dlc < 16U);
+    assert_param(fd <= 1U);
+    assert_param(remote <= 1U);
+
+    return CAN_getDataSize(dlc, fd, remote);
+}
+
+/**
+ * @brief Request several prepared TX buffers with a single W1S transaction.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param mask Requested buffers; never read-modify-write the pending request register.
+ * @note Needed for deterministic arbitration input, not a transmit-completion wait.
+ */
+void CAN_testRequestTxMask(CAN_Type *CANx, uint32_t mask)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    CAN_writeProtectedRegAccessLock(CANx);
+    WRITE_REG(CANx->TXBAR, mask);
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

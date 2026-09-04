@@ -419,6 +419,183 @@ static et_wrap_status_t execute_bus_command(et_can_id_t id, uint16_t command, co
 }
 
 /**
+ * @brief Decode one fixed-size TX element after full envelope validation.
+ * @param[in] body Validated index, header and payload bytes.
+ * @param[out] frame Public frame; payload is copied byte-for-byte.
+ * @note Does not populate RAM or issue a transmit request.
+ */
+static void decode_tx_frame(const uint8_t *body, et_can_tx_frame_t *frame)
+{
+    frame->identifier = read_word(&body[ET_CAN_TX_FIELD_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES]);
+    frame->flags = read_word(&body[ET_CAN_TX_FIELD_FLAGS * ET_CAN_WIRE_WORD_BYTES]);
+    frame->dlc = read_word(&body[ET_CAN_TX_FIELD_DLC * ET_CAN_WIRE_WORD_BYTES]);
+    frame->marker = read_word(&body[ET_CAN_TX_FIELD_MARKER * ET_CAN_WIRE_WORD_BYTES]);
+    (void)memcpy(frame->data, &body[ET_CAN_TX_FIELD_DATA * ET_CAN_WIRE_WORD_BYTES],
+                 ET_CAN_FRAME_DATA_BYTES);
+}
+
+/**
+ * @brief Encode the observed RX header and fixed-capacity byte envelope.
+ * @param[out] body Validated response storage.
+ * @param[in] frame Actual frame; data_length marks the valid stored bytes.
+ * @note Does not acknowledge the element or compare it with expected data.
+ */
+static void encode_rx_frame(uint8_t *body, const et_can_rx_frame_t *frame)
+{
+    write_word(&body[ET_CAN_RX_FIELD_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES], frame->identifier);
+    write_word(&body[ET_CAN_RX_FIELD_FLAGS * ET_CAN_WIRE_WORD_BYTES], frame->flags);
+    write_word(&body[ET_CAN_RX_FIELD_DLC * ET_CAN_WIRE_WORD_BYTES], frame->dlc);
+    write_word(&body[ET_CAN_RX_FIELD_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES], frame->timestamp);
+    write_word(&body[ET_CAN_RX_FIELD_FILTER_INDEX * ET_CAN_WIRE_WORD_BYTES], frame->filter_index);
+    write_word(&body[ET_CAN_RX_FIELD_NONMATCHING * ET_CAN_WIRE_WORD_BYTES], frame->nonmatching);
+    write_word(&body[ET_CAN_RX_FIELD_DATA_LENGTH * ET_CAN_WIRE_WORD_BYTES], frame->data_length);
+    write_word(&body[ET_CAN_RX_FIELD_INDEX * ET_CAN_WIRE_WORD_BYTES], frame->index);
+    (void)memcpy(&body[ET_CAN_RX_FIELD_DATA * ET_CAN_WIRE_WORD_BYTES], frame->data,
+                 ET_CAN_FRAME_DATA_BYTES);
+}
+
+/**
+ * @brief Execute one TX preparation, request or status query.
+ * @param[in] id Logical controller.
+ * @param[in] command One validated TX command.
+ * @param[in] body Validated request after the instance prefix.
+ * @param[out] response Storage required only by status queries.
+ * @return Own Wrap status.
+ * @note Preparing a frame never implies starting or waiting for transmission.
+ */
+static et_wrap_status_t execute_tx_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                           uint8_t *response)
+{
+    et_can_tx_frame_t frame;
+    et_can_tx_status_t status;
+    et_wrap_status_t result;
+
+    if (command == ET_CAN_COMMAND_TX_WRITE)
+    {
+        decode_tx_frame(body, &frame);
+
+        return et_can_wrap_write_tx(
+            id, read_word(&body[ET_CAN_TX_FIELD_INDEX * ET_CAN_WIRE_WORD_BYTES]), &frame);
+    }
+
+    if (command == ET_CAN_COMMAND_TX_REQUEST)
+    {
+        return et_can_wrap_request_tx(id, read_word(body));
+    }
+
+    result = et_can_wrap_get_tx_status(id, &status);
+
+    if (result == ET_WRAP_STATUS_OK)
+    {
+        write_word(&response[ET_CAN_TX_STATUS_PENDING * ET_CAN_WIRE_WORD_BYTES], status.pending);
+        write_word(&response[ET_CAN_TX_STATUS_COMPLETED * ET_CAN_WIRE_WORD_BYTES],
+                   status.completed);
+        write_word(&response[ET_CAN_TX_STATUS_CANCELLED * ET_CAN_WIRE_WORD_BYTES],
+                   status.cancelled);
+        write_word(&response[ET_CAN_TX_STATUS_FREE_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   status.free_count);
+        write_word(&response[ET_CAN_TX_STATUS_GET_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                   status.get_index);
+        write_word(&response[ET_CAN_TX_STATUS_PUT_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                   status.put_index);
+        write_word(&response[ET_CAN_TX_STATUS_FULL * ET_CAN_WIRE_WORD_BYTES], status.full);
+    }
+
+    return result;
+}
+
+/**
+ * @brief Execute a receive FIFO, buffer or frame primitive.
+ * @param[in] id Logical controller.
+ * @param[in] command Validated receive-group command.
+ * @param[in] body Validated source/index or bitmap fields.
+ * @param[out] response Validated output storage when the command returns facts.
+ * @return Own Wrap status.
+ * @note Reads and acknowledgements remain separate commands; no draining loops or verdicts.
+ */
+static et_wrap_status_t execute_rx_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                           uint8_t *response)
+{
+    et_can_rx_frame_t frame;
+    et_can_rx_fifo_status_t fifo;
+    et_can_rx_buffer_status_t buffers;
+    et_wrap_status_t result;
+    uint32_t source;
+
+    switch (command)
+    {
+        case ET_CAN_COMMAND_RX_READ:
+        {
+            /* Step 1: Decode one explicit storage selector and return the observed element. */
+            source = read_word(&body[ET_CAN_RX_SELECT_SOURCE * ET_CAN_WIRE_WORD_BYTES]);
+
+            if (source > ET_CAN_RX_FIFO1)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            result = et_can_wrap_read_rx(
+                id, (et_can_rx_source_t)source,
+                read_word(&body[ET_CAN_RX_SELECT_INDEX * ET_CAN_WIRE_WORD_BYTES]), &frame);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                encode_rx_frame(response, &frame);
+            }
+
+            return result;
+        }
+
+        case ET_CAN_COMMAND_RX_FIFO_ACK:
+        {
+            /* Step 2: Acknowledgement is a separate caller-requested write, never a read side effect. */
+            return et_can_wrap_ack_rx_fifo(
+                id, read_word(&body[ET_CAN_RX_SELECT_SOURCE * ET_CAN_WIRE_WORD_BYTES]),
+                read_word(&body[ET_CAN_RX_SELECT_INDEX * ET_CAN_WIRE_WORD_BYTES]));
+        }
+
+        case ET_CAN_COMMAND_RX_BUFFER_ACK:
+        {
+            buffers.low = read_word(&body[ET_CAN_RX_BITMAP_LOW * ET_CAN_WIRE_WORD_BYTES]);
+            buffers.high = read_word(&body[ET_CAN_RX_BITMAP_HIGH * ET_CAN_WIRE_WORD_BYTES]);
+
+            return et_can_wrap_ack_rx_buffers(id, &buffers);
+        }
+
+        case ET_CAN_COMMAND_RX_BUFFER_STATUS_GET:
+        {
+            result = et_can_wrap_get_rx_buffer_status(id, &buffers);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_RX_BITMAP_LOW * ET_CAN_WIRE_WORD_BYTES], buffers.low);
+                write_word(&response[ET_CAN_RX_BITMAP_HIGH * ET_CAN_WIRE_WORD_BYTES], buffers.high);
+            }
+
+            return result;
+        }
+
+        default:
+        {
+            result = et_can_wrap_get_rx_fifo_status(id, read_word(body), &fifo);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_RX_FIFO_FILL * ET_CAN_WIRE_WORD_BYTES], fifo.fill);
+                write_word(&response[ET_CAN_RX_FIFO_GET_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                           fifo.get_index);
+                write_word(&response[ET_CAN_RX_FIFO_PUT_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                           fifo.put_index);
+                write_word(&response[ET_CAN_RX_FIFO_FULL * ET_CAN_WIRE_WORD_BYTES], fifo.full);
+                write_word(&response[ET_CAN_RX_FIFO_LOST * ET_CAN_WIRE_WORD_BYTES], fifo.lost);
+            }
+
+            return result;
+        }
+    }
+}
+
+/**
  * @brief Execute one validated basic CAN command through the own Wrap.
  * @param[in] id Logical controller identity.
  * @param[in] command Public command number.
@@ -446,6 +623,16 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     }
 
     /* Phase 1: Decode state-changing requests without inventing missing parameters. */
+    if ((command >= ET_CAN_COMMAND_TX_WRITE) && (command <= ET_CAN_COMMAND_TX_STATUS_GET))
+    {
+        return execute_tx_command(id, command, body, response);
+    }
+
+    if ((command >= ET_CAN_COMMAND_RX_FIFO_STATUS_GET) && (command <= ET_CAN_COMMAND_RX_BUFFER_ACK))
+    {
+        return execute_rx_command(id, command, body, response);
+    }
+
     if ((command >= ET_CAN_COMMAND_BUS_CONFIG_SET) && (command <= ET_CAN_COMMAND_BUS_LIMITS_GET))
     {
         return execute_bus_command(id, command, body, response);
@@ -600,7 +787,13 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_OPTIONS_SET] = ET_CAN_OPTIONS_WORDS,
         [ET_CAN_COMMAND_RAM_LAYOUT_SET] = ET_CAN_RAM_LAYOUT_WORDS,
         [ET_CAN_COMMAND_BUS_CONFIG_SET] = ET_CAN_BUS_CONFIG_WORDS,
-        [ET_CAN_COMMAND_LOOPBACK_SET] = 1u};
+        [ET_CAN_COMMAND_LOOPBACK_SET] = 1u,
+        [ET_CAN_COMMAND_TX_WRITE] = ET_CAN_TX_WRITE_WORDS,
+        [ET_CAN_COMMAND_TX_REQUEST] = 1u,
+        [ET_CAN_COMMAND_RX_FIFO_STATUS_GET] = 1u,
+        [ET_CAN_COMMAND_RX_READ] = ET_CAN_RX_SELECT_WORDS,
+        [ET_CAN_COMMAND_RX_FIFO_ACK] = ET_CAN_RX_SELECT_WORDS,
+        [ET_CAN_COMMAND_RX_BUFFER_ACK] = ET_CAN_RX_BITMAP_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -612,7 +805,11 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RAM_LAYOUT_GET] = ET_CAN_RAM_LAYOUT_WORDS,
         [ET_CAN_COMMAND_BUS_CONFIG_GET] = ET_CAN_BUS_CONFIG_WORDS,
         [ET_CAN_COMMAND_LOOPBACK_GET] = 1u,
-        [ET_CAN_COMMAND_BUS_LIMITS_GET] = ET_CAN_BUS_LIMIT_WORDS};
+        [ET_CAN_COMMAND_BUS_LIMITS_GET] = ET_CAN_BUS_LIMIT_WORDS,
+        [ET_CAN_COMMAND_TX_STATUS_GET] = ET_CAN_TX_STATUS_WORDS,
+        [ET_CAN_COMMAND_RX_FIFO_STATUS_GET] = ET_CAN_RX_FIFO_STATUS_WORDS,
+        [ET_CAN_COMMAND_RX_READ] = ET_CAN_RX_FRAME_WORDS,
+        [ET_CAN_COMMAND_RX_BUFFER_STATUS_GET] = ET_CAN_RX_BITMAP_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

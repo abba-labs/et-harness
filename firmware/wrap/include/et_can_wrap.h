@@ -185,4 +185,95 @@ et_wrap_status_t et_can_wrap_get_bus_limits(et_can_id_t id, et_can_bus_limits_t 
 et_wrap_status_t et_can_wrap_set_loopback(et_can_id_t id, et_can_loopback_t mode);
 et_wrap_status_t et_can_wrap_get_loopback(et_can_id_t id, et_can_loopback_t *mode);
 
+/** CAN-FD protocol maximum payload and four-bit DLC; these are not chip RAM capacities. */
+#define ET_CAN_FRAME_DATA_BYTES 64u
+#define ET_CAN_FRAME_DLC_MAX 15u
+
+/** Public frame flags, independent of physical Message RAM bit positions. */
+typedef enum
+{
+    ET_CAN_FRAME_EXTENDED = 1u,
+    ET_CAN_FRAME_REMOTE = 2u,
+    ET_CAN_FRAME_FD = 4u,
+    ET_CAN_FRAME_BRS = 8u,
+    ET_CAN_FRAME_ESI = 16u,
+    ET_CAN_FRAME_STORE_EVENT = 32u,
+    ET_CAN_FRAME_CAPTURE_TIME = 64u
+} et_can_frame_flag_t;
+
+/** Complete transmit frame. Valid data length is derived from DLC, FD and Remote. */
+typedef struct
+{
+    uint32_t identifier;
+    uint32_t flags;
+    uint32_t dlc;
+    uint32_t marker;
+    uint8_t data[ET_CAN_FRAME_DATA_BYTES];
+} et_can_tx_frame_t;
+
+/** Actual TX requests, completions, cancellations and FIFO/Queue indices. */
+typedef struct
+{
+    uint32_t pending;
+    uint32_t completed;
+    uint32_t cancelled;
+    uint32_t free_count;
+    uint32_t get_index;
+    uint32_t put_index;
+    uint32_t full;
+} et_can_tx_status_t;
+
+/** Actual receive FIFO state; querying does not acknowledge or clear lost status. */
+typedef struct
+{
+    uint32_t fill;
+    uint32_t get_index;
+    uint32_t put_index;
+    uint32_t full;
+    uint32_t lost;
+} et_can_rx_fifo_status_t;
+
+/** Stable receive storage selector, separate from the buffer index. */
+typedef enum
+{
+    ET_CAN_RX_BUFFER = 0u,
+    ET_CAN_RX_FIFO0 = 1u,
+    ET_CAN_RX_FIFO1 = 2u
+} et_can_rx_source_t;
+
+/** A received element and its observed storage index. data_length reflects slot truncation. */
+typedef struct
+{
+    uint32_t identifier;
+    uint32_t flags;
+    uint32_t dlc;
+    uint32_t timestamp;
+    uint32_t filter_index;
+    uint32_t nonmatching;
+    uint32_t data_length;
+    uint32_t index;
+    uint8_t data[ET_CAN_FRAME_DATA_BYTES];
+} et_can_rx_frame_t;
+
+/** Independent new-data bitmaps for dedicated RX buffers, not PC observation state. */
+typedef struct
+{
+    uint32_t low;
+    uint32_t high;
+} et_can_rx_buffer_status_t;
+
+et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
+                                      const et_can_tx_frame_t *frame);
+et_wrap_status_t et_can_wrap_request_tx(et_can_id_t id, uint32_t mask);
+et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *status);
+et_wrap_status_t et_can_wrap_get_rx_fifo_status(et_can_id_t id, uint32_t fifo,
+                                                et_can_rx_fifo_status_t *status);
+et_wrap_status_t et_can_wrap_read_rx(et_can_id_t id, et_can_rx_source_t source, uint32_t index,
+                                     et_can_rx_frame_t *frame);
+et_wrap_status_t et_can_wrap_ack_rx_fifo(et_can_id_t id, uint32_t fifo, uint32_t index);
+et_wrap_status_t et_can_wrap_get_rx_buffer_status(et_can_id_t id,
+                                                  et_can_rx_buffer_status_t *status);
+et_wrap_status_t et_can_wrap_ack_rx_buffers(et_can_id_t id,
+                                            const et_can_rx_buffer_status_t *status);
+
 #endif

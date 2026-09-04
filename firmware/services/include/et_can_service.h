@@ -26,6 +26,64 @@
 #define ET_CAN_BUS_LIMIT_WORDS 2u
 #define ET_CAN_BUS_LIMIT_TIMESTAMP 0u
 #define ET_CAN_BUS_LIMIT_TIMEOUT 1u
+/** Fixed frame envelopes: five TX words plus 64 bytes; eight RX words plus 64 bytes. */
+#define ET_CAN_TX_WRITE_WORDS 21u
+#define ET_CAN_RX_FRAME_WORDS 24u
+#define ET_CAN_TX_STATUS_WORDS 7u
+#define ET_CAN_RX_FIFO_STATUS_WORDS 5u
+#define ET_CAN_RX_SELECT_WORDS 2u
+#define ET_CAN_RX_BITMAP_WORDS 2u
+#define ET_CAN_RX_SELECT_SOURCE 0u
+#define ET_CAN_RX_SELECT_INDEX 1u
+#define ET_CAN_RX_BITMAP_LOW 0u
+#define ET_CAN_RX_BITMAP_HIGH 1u
+/** Public tx_field word order; DATA marks the start of 64 payload bytes. */
+typedef enum
+{
+    ET_CAN_TX_FIELD_INDEX = 0u,
+    ET_CAN_TX_FIELD_IDENTIFIER = 1u,
+    ET_CAN_TX_FIELD_FLAGS = 2u,
+    ET_CAN_TX_FIELD_DLC = 3u,
+    ET_CAN_TX_FIELD_MARKER = 4u,
+    ET_CAN_TX_FIELD_DATA = 5u,
+} et_can_tx_field_word_t;
+
+/** Public rx_field word order; DATA marks the start of 64 payload bytes. */
+typedef enum
+{
+    ET_CAN_RX_FIELD_IDENTIFIER = 0u,
+    ET_CAN_RX_FIELD_FLAGS = 1u,
+    ET_CAN_RX_FIELD_DLC = 2u,
+    ET_CAN_RX_FIELD_TIMESTAMP = 3u,
+    ET_CAN_RX_FIELD_FILTER_INDEX = 4u,
+    ET_CAN_RX_FIELD_NONMATCHING = 5u,
+    ET_CAN_RX_FIELD_DATA_LENGTH = 6u,
+    ET_CAN_RX_FIELD_INDEX = 7u,
+    ET_CAN_RX_FIELD_DATA = 8u,
+} et_can_rx_field_word_t;
+
+/** Public tx_status word order; DATA marks the start of 64 payload bytes. */
+typedef enum
+{
+    ET_CAN_TX_STATUS_PENDING = 0u,
+    ET_CAN_TX_STATUS_COMPLETED = 1u,
+    ET_CAN_TX_STATUS_CANCELLED = 2u,
+    ET_CAN_TX_STATUS_FREE_COUNT = 3u,
+    ET_CAN_TX_STATUS_GET_INDEX = 4u,
+    ET_CAN_TX_STATUS_PUT_INDEX = 5u,
+    ET_CAN_TX_STATUS_FULL = 6u,
+} et_can_tx_status_word_t;
+
+/** Public rx_fifo word order; DATA marks the start of 64 payload bytes. */
+typedef enum
+{
+    ET_CAN_RX_FIFO_FILL = 0u,
+    ET_CAN_RX_FIFO_GET_INDEX = 1u,
+    ET_CAN_RX_FIFO_PUT_INDEX = 2u,
+    ET_CAN_RX_FIFO_FULL = 3u,
+    ET_CAN_RX_FIFO_LOST = 4u,
+} et_can_rx_fifo_word_t;
+
 /** Word positions in the public bus-configuration tuple, unrelated to register bits. */
 typedef enum
 {
@@ -129,6 +187,14 @@ typedef enum
     ET_CAN_COMMAND_LOOPBACK_SET = 14u,
     ET_CAN_COMMAND_LOOPBACK_GET = 15u,
     ET_CAN_COMMAND_BUS_LIMITS_GET = 16u,
+    ET_CAN_COMMAND_TX_WRITE = 17u,
+    ET_CAN_COMMAND_TX_REQUEST = 18u,
+    ET_CAN_COMMAND_TX_STATUS_GET = 19u,
+    ET_CAN_COMMAND_RX_FIFO_STATUS_GET = 20u,
+    ET_CAN_COMMAND_RX_READ = 21u,
+    ET_CAN_COMMAND_RX_FIFO_ACK = 22u,
+    ET_CAN_COMMAND_RX_BUFFER_STATUS_GET = 23u,
+    ET_CAN_COMMAND_RX_BUFFER_ACK = 24u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

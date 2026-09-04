@@ -4,7 +4,7 @@
 # 依赖：标准库dataclass。
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 
 
 # 值直接来自控制器身份查询，不从Profile制造读回。
@@ -149,3 +149,80 @@ class CanBusConfig:
 class CanBusLimits:
     timestamp_divisor: int
     timeout_period: int
+
+
+# 公共帧格式与发送附加控制，位号属于Wire合同，不是Message RAM寄存器位号。
+# RX只返回EXTENDED至ESI五项；STORE_EVENT和CAPTURE_TIME仅用于TX。
+class CanFrameFlags(IntFlag):
+    NONE = 0
+    EXTENDED = 1
+    REMOTE = 2
+    FD = 4
+    BRS = 8
+    ESI = 16
+    STORE_EVENT = 32
+    CAPTURE_TIME = 64
+
+
+# 明确的待发帧；DLC与有效payload长度必须匹配，Remote帧没有payload。
+# identifier使用正常整数ID，不要求Case自行做芯片Message RAM移位。
+@dataclass(frozen=True, slots=True)
+class CanTxFrame:
+    identifier: int
+    flags: CanFrameFlags
+    dlc: int
+    marker: int
+    data: bytes
+
+
+# 真实接收帧和存储位置；data可因RAM槽容量而短于DLC表达的总线长度。
+# timestamp保留实际字段值；它的来源由Case读取配置后解释，不伪装为秒。
+@dataclass(frozen=True, slots=True)
+class CanRxFrame:
+    identifier: int
+    flags: CanFrameFlags
+    dlc: int
+    timestamp: int
+    filter_index: int
+    nonmatching: bool
+    index: int
+    data: bytes
+
+
+# 发送请求、完成和取消为独立硬件位图；命令被接受不代表completed已经置位。
+# FIFO计数和索引保留真实值，不在Model中判断Case是否通过。
+@dataclass(frozen=True, slots=True)
+class CanTxStatus:
+    pending: int
+    completed: int
+    cancelled: int
+    free_count: int
+    get_index: int
+    put_index: int
+    full: bool
+
+
+# 接收FIFO非破坏性观测；查询不Ack、不清lost，也不将fill自动转换成测试结果。
+@dataclass(frozen=True, slots=True)
+class CanRxFifoStatus:
+    fill: int
+    get_index: int
+    put_index: int
+    full: bool
+    lost: bool
+
+
+# Dedicated RX Buffer新数据位图，两组u32覆盖公共Wire的64个标志位置。
+# 实际可用Buffer数量仍取目标能力和RAM上限，不能由这两个整数猜测。
+@dataclass(frozen=True, slots=True)
+class CanRxBufferStatus:
+    low: int
+    high: int
+
+
+# 指定读取Dedicated Buffer或某个FIFO的当前头；不是物理RAM地址。
+# FIFO读取的index参数必须为0，返回帧会给出实际硬件Get Index以供显式Ack。
+class CanRxSource(IntEnum):
+    BUFFER = 0
+    FIFO0 = 1
+    FIFO1 = 2

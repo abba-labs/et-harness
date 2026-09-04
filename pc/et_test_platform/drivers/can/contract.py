@@ -10,6 +10,14 @@ CAN_SERVICE_ID = 0x010C
 WORD = Struct("<I")
 INSTANCE = Struct("<B")
 POLL_INTERVAL_S = 0.001
+FRAME_DATA_BYTES = 64
+CLASSIC_DATA_BYTES = 8
+STANDARD_ID_MAX = 0x7FF
+EXTENDED_ID_MAX = 0x1FFFFFFF
+RX_HEADER_WORDS = 8
+TX_HEADER_WORDS = 5
+# CAN-FD标准DLC对应的长度，不是芯片的RAM或FIFO容量。
+FD_DATA_LENGTHS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64)
 
 
 # 只追加新命令，不复用已发布ID；与can.md和CAN Service保持一致。
@@ -31,10 +39,18 @@ class CanCommand(IntEnum):
     LOOPBACK_SET = 14
     LOOPBACK_GET = 15
     BUS_LIMITS_GET = 16
+    TX_WRITE = 17
+    TX_REQUEST = 18
+    TX_STATUS_GET = 19
+    RX_FIFO_STATUS_GET = 20
+    RX_READ = 21
+    RX_FIFO_ACK = 22
+    RX_BUFFER_STATUS_GET = 23
+    RX_BUFFER_ACK = 24
 
 
-REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0, 11, 0, 1, 0, 0)
-RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24, 0, 11, 0, 1, 2)
+REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0, 11, 0, 1, 0, 0, 21, 1, 0, 1, 2, 2, 0, 2)
+RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24, 0, 11, 0, 1, 2, 0, 0, 7, 5, 24, 0, 2, 0)
 BUS_FIELDS = (
     "monitor",
     "restricted",
@@ -102,5 +118,9 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.BUS_CONFIG_GET,
         CanCommand.LOOPBACK_GET,
         CanCommand.BUS_LIMITS_GET,
+        CanCommand.TX_STATUS_GET,
+        CanCommand.RX_FIFO_STATUS_GET,
+        CanCommand.RX_READ,
+        CanCommand.RX_BUFFER_STATUS_GET,
     }
 )

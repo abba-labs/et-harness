@@ -17,7 +17,13 @@ from .models import (
     CanOptions,
     CanRamLayout,
     CanRamLimits,
+    CanRxBufferStatus,
+    CanRxFifoStatus,
+    CanRxFrame,
+    CanRxSource,
     CanTiming,
+    CanTxFrame,
+    CanTxStatus,
 )
 
 
@@ -141,6 +147,100 @@ class CanDriver:
             return CanLoopback(value)
         except ValueError as error:
             raise ProtocolError(f"CAN loopback mode is invalid: {value}") from error
+
+    # 只把帧写入指定TX槽，不发TX请求；只等待本次响应，非法帧在发送命令前拒绝。
+    # 槽被占用或配置不足时固件返回错误，不隐式等待、复位或扩大RAM。
+    def tx_write(self, index: int, frame: CanTxFrame, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.TX_WRITE, codec.tx_frame_words(index, frame), timeout_s=timeout_s)
+
+    # 一次提交显式非零TX Buffer位图；只等待接受响应，不代表总线完成。
+    # 失败直接上抛且不重试；帧准备和完成检查由调用者分开执行。
+    def tx_request(self, mask: int, *, timeout_s: float | None = None) -> None:
+        if codec.uint32(mask) == 0:
+            raise ValueError("CAN TX mask must not be zero")
+        self._request(CanCommand.TX_REQUEST, (mask,), timeout_s=timeout_s)
+
+    # 非破坏读取TX状态，只等待本次响应；非法长度或Boolean直接作为协议错误。
+    # 不读取TX Event，也不清除已完成/已取消状态。
+    def tx_status_get(self, *, timeout_s: float | None = None) -> CanTxStatus:
+        words = self._request(CanCommand.TX_STATUS_GET, timeout_s=timeout_s)
+        return CanTxStatus(*words[:-1], codec.status_boolean(words[-1]))
+
+    # 单一Deadline内等待指定请求全部完成，不重发帧；超时保留最后TX事实。
+    # 这是硬件等待，不代表ID、数据或测试Feature已经通过。
+    def wait_tx_complete(self, mask: int, *, timeout_s: float) -> CanTxStatus:
+        if codec.uint32(mask) == 0:
+            raise ValueError("CAN TX mask must not be zero")
+        deadline = OperationDeadline.start(timeout_s, label=f"CAN TX {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.tx_status_get(timeout_s=deadline.remaining_s())
+                if last.completed & mask == mask:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"CAN TX mask={mask:#010x}, last={last}") from error
+
+    # 查询指定FIFO的真实fill/get/put/full/lost；只等待单次响应，不Ack或清状态。
+    # 参数或响应无效直接失败，不自动回退到另一个FIFO。
+    def rx_fifo_status_get(self, fifo: int, *, timeout_s: float | None = None) -> CanRxFifoStatus:
+        words = self._request(
+            CanCommand.RX_FIFO_STATUS_GET, (codec.uint32(fifo),), timeout_s=timeout_s
+        )
+        return CanRxFifoStatus(*words[:-2], *(codec.status_boolean(value) for value in words[-2:]))
+
+    # 在统一Deadline内等待FIFO达到指定最小填充数，不读取帧或隐式Ack。
+    # 超时给出最后状态，不扩大超时掩盖无接收；最终内容比较仍由Case执行。
+    def wait_rx_available(
+        self, fifo: int, *, minimum: int = 1, timeout_s: float
+    ) -> CanRxFifoStatus:
+        if codec.uint32(minimum) == 0:
+            raise ValueError("CAN RX minimum must be positive")
+        deadline = OperationDeadline.start(timeout_s, label=f"CAN RX {self.instance_id}/{fifo}")
+        last = None
+        try:
+            while True:
+                last = self.rx_fifo_status_get(fifo, timeout_s=deadline.remaining_s())
+                if last.fill >= minimum:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"CAN RX minimum={minimum}, last={last}") from error
+
+    # 读取Dedicated Buffer或FIFO当前头，只等待单次响应，不做Ack。
+    # 空接收区原样返回设备错误；FIFO参数index必须为0，实际索引在返回帧中。
+    def rx_read(
+        self, source: CanRxSource, index: int = 0, *, timeout_s: float | None = None
+    ) -> CanRxFrame:
+        if not isinstance(source, CanRxSource):
+            raise ValueError("CAN receive source requires CanRxSource")
+        codec.uint32(index)
+        if source is not CanRxSource.BUFFER and index != 0:
+            raise ValueError("CAN FIFO reads use the current head, index argument must be zero")
+        return codec.decode_rx_frame(
+            self._request(CanCommand.RX_READ, (int(source), index), timeout_s=timeout_s)
+        )
+
+    # 显式Ack已读取的FIFO头索引；只等待本次响应，过期索引或空FIFO直接失败。
+    # 不循环清空后续帧，也不在失败时复位控制器。
+    def rx_fifo_ack(self, fifo: int, index: int, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.RX_FIFO_ACK, (codec.uint32(fifo), codec.uint32(index)), timeout_s=timeout_s
+        )
+
+    # 非破坏读取两组Dedicated Buffer新数据位图，只等待响应，失败直接上抛。
+    def rx_buffer_status_get(self, *, timeout_s: float | None = None) -> CanRxBufferStatus:
+        return CanRxBufferStatus(
+            *self._request(CanCommand.RX_BUFFER_STATUS_GET, timeout_s=timeout_s)
+        )
+
+    # 只清除调用者指定的两组新数据位图；只等待本次响应，失败不自动重试。
+    # 不读取帧、不清FIFO，也不把资源池复位混入CAN命令。
+    def rx_buffer_ack(self, low: int, high: int, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.RX_BUFFER_ACK, (codec.uint32(low), codec.uint32(high)), timeout_s=timeout_s
+        )
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

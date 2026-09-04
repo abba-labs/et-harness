@@ -3,6 +3,7 @@
 # 边界：寄存器桩不模拟CAN总线，不替代FPGA收发或ECC硬件验证。
 # 依赖：本机C编译器及ET6801生成头文件中的真实位定义。
 
+import os
 import re
 import shutil
 import subprocess
@@ -45,7 +46,10 @@ def write_can_driver_harness(directory: Path) -> Path:
         "typedef struct { " + " ".join(f"uint32_t {field};" for field in fields) + " } CAN_Type;\n"
         "typedef struct {uint32_t MISC_STATUS, MISC_CTRL, DMU_DMA_CFG;} CAN_MISC_Type;\n"
         "typedef struct {uint32_t ECCEN;} SYSC_Type;\n"
-        "extern CAN_Type controllers[3];\nextern CAN_MISC_Type misc_blocks[3];\n"
+        # CAN0前保留16KiB真实宿主内存，验证SDK地址偏移和RAM编码；其他实例仅测寄存器隔离。
+        "typedef struct {uint8_t ram[16384]; CAN_Type blocks[3];} CAN_TestMemory;\n"
+        "extern CAN_TestMemory test_memory;\n#define controllers test_memory.blocks\n"
+        "extern CAN_MISC_Type misc_blocks[3];\n"
         "extern SYSC_Type system_control;\n#define SYSC (&system_control)\n"
         + "\n".join(
             f"#define CAN{index} (&controllers[{index}])\n"
@@ -78,6 +82,12 @@ def test_can_driver_register_contract(tmp_path: Path) -> None:
             compiler,
             "-std=c11",
             "-DET_ENABLE_TEST_DRIVER_EXTENSIONS",
+            # SDK使用32-bit地址；仅此临时Native测试映像放在32-bit可表示区，不修改正式链接。
+            *(
+                ["-Wl,--image-base,0x10000000", "-Wl,--disable-dynamicbase"]
+                if os.name == "nt"
+                else ["-no-pie"]
+            ),
             "-I",
             str(tmp_path),
             "-I",
@@ -105,7 +115,7 @@ HARNESS = r"""
 #include "et_can_wrap.h"
 #include "et_can_service.h"
 #include <string.h>
-CAN_Type controllers[3];
+CAN_TestMemory test_memory;
 CAN_MISC_Type misc_blocks[3];
 SYSC_Type system_control;
 
@@ -415,6 +425,114 @@ int main(void)
         request[1]=2;
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_BUS_CONFIG_SET,
                                   request, 45, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    }
+
+
+    /* Real host RAM exercises the SDK message packing, not a fake round-trip serializer. */
+    {
+        et_can_tx_frame_t outgoing = {0};
+        et_can_rx_frame_t incoming;
+        et_can_tx_status_t tx_status;
+        et_can_rx_fifo_status_t fifo_status;
+        et_can_rx_buffer_status_t buffer_status;
+        CAN_RxBufElement raw;
+        uint32_t *tx_words = (uint32_t *)(test_memory.ram + 24);
+        uint32_t *rx_words = (uint32_t *)(test_memory.ram + 184);
+        uint32_t *dedicated = (uint32_t *)(test_memory.ram + 760 + 63*72);
+
+        assert((uintptr_t)CAN0 <= UINT32_MAX);
+        assert((uint8_t *)CAN0 - test_memory.ram == 16384);
+        CAN0->CCCR |= CAN0_CCCR_FDOE_Msk | CAN0_CCCR_BRSE_Msk;
+        CAN0->TXBRP=0;
+        outgoing.identifier=0x123;
+        outgoing.flags=ET_CAN_FRAME_FD | ET_CAN_FRAME_BRS | ET_CAN_FRAME_STORE_EVENT;
+        outgoing.dlc=15; outgoing.marker=0x5A;
+        for (unsigned i=0; i<64; ++i) {outgoing.data[i]=(uint8_t)i;}
+        assert(et_can_wrap_write_tx(0, 0, &outgoing) == ET_WRAP_STATUS_OK);
+        assert(tx_words[0] == (0x123U << 18));
+        assert(tx_words[1] == 0x5ABF0000U);
+        assert(tx_words[2] == 0x03020100U && tx_words[17] == 0x3F3E3D3CU);
+        CAN0->TXBRP=1;
+        outgoing.data[0]=99;
+        assert(et_can_wrap_write_tx(0, 0, &outgoing) == ET_WRAP_STATUS_BUSY);
+        assert(tx_words[2] == 0x03020100U);
+        CAN0->TXBRP=0;
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_NORMAL);
+        CAN0->TXBAR=0x80;
+        assert(et_can_wrap_request_tx(0, 3) == ET_WRAP_STATUS_OK && CAN0->TXBAR==3);
+        assert(et_can_wrap_request_tx(0, 4) == ET_WRAP_STATUS_INVALID_ARGUMENT && CAN0->TXBAR==3);
+        CAN0->TXBTO=1; CAN0->TXBCF=2;
+        assert(et_can_wrap_get_tx_status(0, &tx_status) == ET_WRAP_STATUS_OK);
+        assert(tx_status.completed==1 && tx_status.cancelled==2 && tx_status.pending==0);
+
+        rx_words[0]=(0x321U << 18);
+        rx_words[1]=0x003F1234U; /* FD BRS, DLC15, captured timestamp 0x1234. */
+        for (unsigned i=0; i<16; ++i) {rx_words[2+i]=0xA0A0A000U+i;}
+        CAN0->RXF0S=1; /* one entry, get index zero */
+        assert(et_can_wrap_get_rx_fifo_status(0, 0, &fifo_status) == ET_WRAP_STATUS_OK);
+        assert(fifo_status.fill==1 && fifo_status.get_index==0);
+        assert(et_can_wrap_read_rx(0, ET_CAN_RX_FIFO0, 0, &incoming) == ET_WRAP_STATUS_OK);
+        assert(incoming.identifier==0x321 && incoming.dlc==15 && incoming.timestamp==0x1234);
+        assert(incoming.data_length==64 && incoming.index==0);
+        assert(incoming.data[0]==0 && incoming.data[60]==15);
+        assert(et_can_wrap_ack_rx_fifo(0, 0, 1) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_ack_rx_fifo(0, 0, 0) == ET_WRAP_STATUS_OK && CAN0->RXF0A==0);
+
+        /* Slot capacity eight with DLC64: raw SDK must not read the following element. */
+        CAN0->RXESC &= ~CAN0_RXESC_F0DS_Msk;
+        memset(&raw, 0xCC, sizeof(raw));
+        CAN_readMsgRam(CAN0, CAN_MEM_TYPE_FIFO, 0, CAN_RX_FIFO_NUM_0, &raw);
+        assert(raw.data[7]==0xA0 && raw.data[8]==0xCCCC && raw.data[63]==0xCCCC);
+        assert(et_can_wrap_read_rx(0, ET_CAN_RX_FIFO0, 0, &incoming) == ET_WRAP_STATUS_OK);
+        assert(incoming.dlc==15 && incoming.data_length==8 && incoming.data[8]==0);
+        CAN0->RXF0S=0;
+        assert(et_can_wrap_read_rx(0, ET_CAN_RX_FIFO0, 0, &incoming) == ET_WRAP_STATUS_BUSY);
+
+        dedicated[0]=(0x456U << 18); dedicated[1]=(8U << 16);
+        dedicated[2]=0x44332211; dedicated[3]=0x88776655;
+        CAN0->NDAT1=0; CAN0->NDAT2=0x80000000;
+        assert(et_can_wrap_read_rx(0, ET_CAN_RX_BUFFER, 63, &incoming) == ET_WRAP_STATUS_OK);
+        assert(incoming.identifier==0x456 && incoming.index==63 && incoming.data_length==8);
+        assert(incoming.data[0]==0x11 && incoming.data[7]==0x88);
+        assert(et_can_wrap_get_rx_buffer_status(0, &buffer_status) == ET_WRAP_STATUS_OK);
+        assert(buffer_status.low==0 && buffer_status.high==0x80000000);
+        assert(et_can_wrap_read_rx(0, ET_CAN_RX_BUFFER, 64, &incoming) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+    }
+
+
+    /* Service sends the same public frame bytes to the real Driver and returns actual RAM. */
+    {
+        const uint32_t header[] = {0, 0x123, 12, 15, 0x5A};
+        memset(request, 0, sizeof(request));
+        for (unsigned i=0; i<5; ++i)
+        {
+            for (unsigned byte=0; byte<4; ++byte)
+            {
+                request[1+i*4+byte]=(uint8_t)(header[i]>>(byte*8));
+            }
+        }
+        for (unsigned i=0; i<64; ++i) {request[21+i]=(uint8_t)i;}
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_WRITE,
+                                  request, 85, NULL, 0, &response_length) == ET_STATUS_OK);
+        assert(response_length==0);
+        assert(*(uint32_t *)(test_memory.ram+24)==(0x123U<<18));
+        assert(*(uint32_t *)(test_memory.ram+28)==0x5A3F0000U);
+        assert(memcmp(test_memory.ram+32, request+21, 64)==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_WRITE,
+                                  request, 84, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+        memset(request, 0, sizeof(request)); request[5]=63;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RX_READ,
+                                  request, 9, response, 96, &response_length) == ET_STATUS_OK);
+        assert(response_length==96 && response[0]==0x56 && response[1]==0x04);
+        assert(response[24]==8 && response[28]==63);
+        assert(response[32]==0x11 && response[39]==0x88 && response[40]==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RX_READ,
+                                  request, 9, response, 95, &response_length) == ET_STATUS_INVALID_PARAM);
+        assert(response_length==0);
+        memset(request, 0, sizeof(request));
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_STATUS_GET,
+                                  request, 1, response, 28, &response_length) == ET_STATUS_OK);
+        assert(response_length==28 && response[4]==1 && response[8]==2);
     }
 
     return 0;

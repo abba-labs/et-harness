@@ -34,6 +34,12 @@
  * Consumed by et_can_mapping_t; no GPIO or external CAN-box channel belongs here.
  */
 #define ET_CHIP_CAN_MAP_TABLE {{0u, CAN0}, {1u, CAN1}, {2u, CAN2}}
+/** Message RAM packing is SDK-owned; public frames carry unshifted identifiers. */
+#define ET_CHIP_CAN_FRAME_MAP_TABLE \
+    {CAN_TEST_STANDARD_ID_SHIFT, CAN_TEST_STANDARD_ID_MAX, \
+     CAN_TEST_EXTENDED_ID_MAX, CAN_TEST_BASIC_MARKER_MAX}
+/** Public FIFO index order mapped to SDK receive-FIFO enum values. */
+#define ET_CHIP_CAN_RX_FIFO_MAP_TABLE {CAN_RX_FIFO_NUM_0, CAN_RX_FIFO_NUM_1}
 /** Public source/policy enum order mapped to SDK selectors; not raw bit positions. */
 #define ET_CHIP_CAN_TIMESTAMP_MAP_TABLE {CAN_TIMESTAMP_NONE, CAN_TIMESTAMP_INTERNAL, CAN_TIMESTAMP_EXTERNAL}
 #define ET_CHIP_CAN_TIMEOUT_MAP_TABLE {CAN_TIMEOUT_CONTINUOUS, CAN_TIMEOUT_TX_EVENT_FIFO, CAN_TIMEOUT_RX_FIFO0, CAN_TIMEOUT_RX_FIFO1}

@@ -7,12 +7,15 @@ from ...core.errors import ProtocolError
 from . import contract
 from .models import (
     CanBusConfig,
+    CanFrameFlags,
     CanOptions,
     CanPhaseTiming,
     CanRamLayout,
+    CanRxFrame,
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTxFrame,
     CanUnmatchedPolicy,
 )
 
@@ -22,6 +25,14 @@ BUS_SELECTORS = {
     "unmatched_ext": CanUnmatchedPolicy,
     "unmatched_std": CanUnmatchedPolicy,
 }
+RX_FLAGS = (
+    CanFrameFlags.EXTENDED
+    | CanFrameFlags.REMOTE
+    | CanFrameFlags.FD
+    | CanFrameFlags.BRS
+    | CanFrameFlags.ESI
+)
+TX_FLAGS = RX_FLAGS | CanFrameFlags.STORE_EVENT | CanFrameFlags.CAPTURE_TIME
 
 
 # 不接受bool冒充计数，负值和超宽值必须在发命令前被拒绝。
@@ -168,3 +179,79 @@ def decode_bus_config(words: tuple[int, ...]) -> CanBusConfig:
         return config
     except ValueError as error:
         raise ProtocolError(str(error)) from error
+
+
+# 标准协议DLC长度转换；Remote无payload，Classic的DLC9～15仍只有8字节。
+def frame_payload_length(dlc: int, flags: CanFrameFlags) -> int:
+    uint32(dlc)
+    if dlc >= len(contract.FD_DATA_LENGTHS):
+        raise ValueError("CAN DLC exceeds four bits")
+    if flags & CanFrameFlags.REMOTE:
+        return 0
+    return (
+        contract.FD_DATA_LENGTHS[dlc]
+        if flags & CanFrameFlags.FD
+        else min(dlc, contract.CLASSIC_DATA_BYTES)
+    )
+
+
+# TX必须提供完整有效payload，不替调用者补测试数据；Wire尾部保留区固定补零。
+def tx_frame_words(index: int, frame: CanTxFrame) -> tuple[int, ...]:
+    uint32(index)
+    if not isinstance(frame, CanTxFrame) or not isinstance(frame.flags, CanFrameFlags):
+        raise ValueError("CAN TX requires CanTxFrame and CanFrameFlags")
+    uint32(frame.identifier)
+    uint32(frame.marker)
+    flags = frame.flags
+    maximum_id = (
+        contract.EXTENDED_ID_MAX if flags & CanFrameFlags.EXTENDED else contract.STANDARD_ID_MAX
+    )
+    if int(flags) & ~int(TX_FLAGS) or frame.identifier > maximum_id:
+        raise ValueError("CAN TX flags or identifier are invalid")
+    if (flags & CanFrameFlags.REMOTE and flags & CanFrameFlags.FD) or (
+        not flags & CanFrameFlags.FD and flags & (CanFrameFlags.BRS | CanFrameFlags.ESI)
+    ):
+        raise ValueError("CAN TX frame format is inconsistent")
+    length = frame_payload_length(frame.dlc, flags)
+    if not isinstance(frame.data, bytes) or len(frame.data) != length:
+        raise ValueError(f"CAN TX requires exactly {length} payload bytes")
+    padded = frame.data.ljust(contract.FRAME_DATA_BYTES, b"\x00")
+    return (index, frame.identifier, int(flags), frame.dlc, frame.marker) + tuple(
+        word[0] for word in contract.WORD.iter_unpack(padded)
+    )
+
+
+# 只返回固件实际存储的payload；短槽保留原DLC，不能把缺失字节补成完整帧。
+def decode_rx_frame(words: tuple[int, ...]) -> CanRxFrame:
+    expected = contract.RESPONSE_WORDS[contract.CanCommand.RX_READ]
+    if len(words) != expected:
+        raise ProtocolError("CAN RX envelope has invalid field count")
+    identifier, raw_flags, dlc, timestamp, filter_index, nonmatching, length, index = words[
+        : contract.RX_HEADER_WORDS
+    ]
+    flags = CanFrameFlags(raw_flags)
+    maximum_id = (
+        contract.EXTENDED_ID_MAX if flags & CanFrameFlags.EXTENDED else contract.STANDARD_ID_MAX
+    )
+    if raw_flags & ~int(RX_FLAGS) or identifier > maximum_id or nonmatching not in (0, 1):
+        raise ProtocolError("CAN RX header contains invalid fields")
+    if (flags & CanFrameFlags.FD and flags & CanFrameFlags.REMOTE) or (
+        not flags & CanFrameFlags.FD and flags & (CanFrameFlags.BRS | CanFrameFlags.ESI)
+    ):
+        raise ProtocolError("CAN RX frame format is inconsistent")
+    try:
+        if length > frame_payload_length(dlc, flags):
+            raise ValueError("CAN stored payload exceeds protocol DLC length")
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
+    data = b"".join(contract.WORD.pack(word) for word in words[contract.RX_HEADER_WORDS :])[:length]
+    return CanRxFrame(
+        identifier, flags, dlc, timestamp, filter_index, bool(nonmatching), index, data
+    )
+
+
+# 状态Boolean必须为0/1；不能将未知数值当作True隐藏固件编码错误。
+def status_boolean(value: int) -> bool:
+    if value not in (0, 1):
+        raise ProtocolError(f"CAN status is not Boolean: {value}")
+    return bool(value)

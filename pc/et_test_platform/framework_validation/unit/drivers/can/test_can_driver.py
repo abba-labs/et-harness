@@ -14,13 +14,16 @@ from et_test_platform.core.errors import ProtocolError
 from et_test_platform.drivers.can import (
     CanBusConfig,
     CanDriver,
+    CanFrameFlags,
     CanLoopback,
     CanOptions,
     CanPhaseTiming,
     CanRamLayout,
+    CanRxSource,
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTxFrame,
     CanUnmatchedPolicy,
     codec,
     contract,
@@ -247,3 +250,91 @@ def test_bus_config_and_loopback_wire() -> None:
     assert len(target.requests) == 5
     with pytest.raises(ProtocolError):
         codec.decode_bus_config((2,) + words[1:])
+
+
+# TX_WRITE只准备数据、TX_REQUEST才提交；独立Golden验证64-byte FD帧没有结构体布局依赖。
+def test_frame_write_request_and_readback_wire() -> None:
+    payload = bytes(range(64))
+    frame = CanTxFrame(0x123, CanFrameFlags.FD | CanFrameFlags.BRS, 15, 0x5A, payload)
+    received = pack("<8I", 0x321, 12, 15, 0x1234, 3, 0, 64, 2) + payload
+    target = TargetStub(
+        [
+            b"",
+            b"",
+            received,
+            b"",
+            pack("<7I", 0, 3, 0, 0, 0, 0, 0),
+            pack("<5I", 1, 2, 3, 0, 0),
+            pack("<2I", 0, 0x80000000),
+            b"",
+        ]
+    )
+    driver = CanDriver(target, 0)
+    driver.tx_write(1, frame)
+    assert target.requests[0]["body"] == b"\x00" + pack("<5I", 1, 0x123, 12, 15, 0x5A) + payload
+    assert len(target.requests) == 1
+    driver.tx_request(3)
+    actual = driver.rx_read(CanRxSource.FIFO0)
+    assert actual.identifier == 0x321 and actual.data == payload and actual.index == 2
+    driver.rx_fifo_ack(0, actual.index)
+    assert driver.tx_status_get().completed == 3
+    assert driver.rx_fifo_status_get(0).fill == 1
+    assert driver.rx_buffer_status_get().high == 0x80000000
+    driver.rx_buffer_ack(0, 0x80000000)
+    assert [item["command"] for item in target.requests] == [17, 18, 21, 22, 19, 20, 23, 24]
+    assert not any(target.requests[index]["retry_safe"] for index in (0, 1, 3, 7))
+
+
+# Classic DLC15为8字节、Remote为0；协议元数据与长度矛盾时不能发命令。
+def test_frame_lengths_reject_invalid_input_without_io() -> None:
+    target = TargetStub()
+    driver = CanDriver(target, 0)
+    frame = CanTxFrame(0x123, CanFrameFlags.NONE, 15, 0, b"12345678")
+    driver.tx_write(0, frame)
+    driver.tx_write(0, replace(frame, flags=CanFrameFlags.REMOTE, data=b""))
+    for invalid in (
+        replace(frame, data=b"123"),
+        replace(frame, identifier=0x800),
+        replace(frame, flags=CanFrameFlags.BRS),
+        replace(frame, flags=CanFrameFlags.FD | CanFrameFlags.REMOTE),
+    ):
+        with pytest.raises(ValueError):
+            driver.tx_write(0, invalid)
+    with pytest.raises(ValueError):
+        driver.rx_read(CanRxSource.FIFO1, 1)
+    with pytest.raises(ValueError):
+        driver.tx_request(0)
+    assert len(target.requests) == 2
+
+
+# RX短槽只暴露真实8字节，保留总线DLC15；非法元数据不能被静默转成成功对象。
+def test_short_rx_slot_and_invalid_observations() -> None:
+    payload_words = tuple(range(16))
+    words = (0x123, 4, 15, 0, 0, 1, 8, 0) + payload_words
+    actual = codec.decode_rx_frame(words)
+    assert actual.dlc == 15 and len(actual.data) == 8 and actual.nonmatching is True
+    for bad in (
+        (0x123, 4, 0, 0, 0, 0, 1, 0) + payload_words,
+        (0x123, 4, 15, 0, 0, 2, 8, 0) + payload_words,
+        (0x123, 32, 15, 0, 0, 0, 8, 0) + payload_words,
+    ):
+        with pytest.raises(ProtocolError):
+            codec.decode_rx_frame(bad)
+
+
+# 等待只观察状态，不自动发送、读取或Ack；每次查询共享同一剩余预算。
+def test_frame_waits_only_query_hardware_state() -> None:
+    target = TargetStub(
+        [
+            pack("<7I", 1, 0, 0, 0, 0, 0, 0),
+            pack("<7I", 0, 1, 0, 0, 0, 0, 0),
+            pack("<5I", 0, 0, 0, 0, 0),
+            pack("<5I", 1, 0, 1, 0, 0),
+        ]
+    )
+    driver = CanDriver(target, 0)
+    assert driver.wait_tx_complete(1, timeout_s=0.5).completed == 1
+    assert driver.wait_rx_available(0, timeout_s=0.5).fill == 1
+    assert [request["command"] for request in target.requests] == [19, 19, 20, 20]
+    assert target.requests[1]["timeout_s"] <= target.requests[0]["timeout_s"] <= 0.5
+    assert target.requests[3]["timeout_s"] <= target.requests[2]["timeout_s"] <= 0.5

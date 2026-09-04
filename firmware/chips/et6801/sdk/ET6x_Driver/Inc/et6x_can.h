@@ -1458,6 +1458,16 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem);
 /******************** TEST DRIVER EXTENSION BEGIN ********************/
 /** ET6801 Message RAM aperture: driver uses CANx - 0x4000, UT5 tests 16 KiB. */
 #define CAN_TEST_MSG_RAM_BYTES (0x4000U)
+/** Message RAM R0/T0 stores standard ID in ID[28:18], extended ID in ID[28:0]. */
+#define CAN_TEST_STANDARD_ID_SHIFT (18U)
+#define CAN_TEST_STANDARD_ID_MAX (0x7FFU)
+#define CAN_TEST_EXTENDED_ID_MAX (0x1FFFFFFFU)
+/** Basic TX element stores an eight-bit marker; wide-marker mode is a separate operation. */
+#define CAN_TEST_BASIC_MARKER_MAX (0xFFU)
+/** Read protocol payload length; FD and Remote selectors use existing SDK values. */
+uint32_t CAN_testGetPayloadSize(uint32_t dlc, uint32_t fd, uint32_t remote);
+/** Write one atomic TXBAR request mask; caller validates allocated-buffer membership. */
+void CAN_testRequestTxMask(CAN_Type *CANx, uint32_t mask);
 /** Controller architectural maxima; field widths alone also encode reserved values. */
 #define CAN_TEST_STD_FILTER_MAX (128U)
 #define CAN_TEST_EXT_FILTER_MAX (64U)
