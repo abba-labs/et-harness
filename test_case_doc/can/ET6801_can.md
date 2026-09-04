@@ -1,8 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-04 22:28 CST
+更新时间：2026-09-04 22:46 CST
 
-**状态：分析推进中，尚未完成全部Case设计审核。** 本轮只修改本文件和[公共契约](can.md)，未开发Firmware/PC、未生成Capability、未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；39项PLAN、3项DESIGN_GAP。本轮逐项复核38个已有PLAN及3个缺口；DMU RX补成PLAN，独立TX Event缺口迁为P2_013，保留原测试意图；仪器按刺激/观测职责明确列出。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS。这里的数量不是实测统计，未把未知硬件、未实现代码或未准备环境计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置和Capability身份同步，正在修正Chip Driver；尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；39项PLAN、3项DESIGN_GAP。本轮逐项复核38个已有PLAN及3个缺口；DMU RX补成PLAN，独立TX Event缺口迁为P2_013，保留原测试意图；仪器按刺激/观测职责明确列出。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS。这里的数量不是实测统计，未把未知硬件、未实现代码或未准备环境计为SKIP。
 
 ## 第一章 IP分析
 
@@ -75,7 +75,7 @@ Classic CAN适合小型控制消息；CAN FD提供更长payload及可变数据�
 | CAN_eccConfig | 现有实现涉及SYSC全局ECC开关；实施时由SYSCTRL与CAN各自接口分拆、PC组合，不能沿用跨IP调用作为Wrap捷径 |
 | CAN_TxBufElement / CAN_RxBufElement | data为uint16_t[64]，每元素低8-bit承载一个线上Byte。64-byte帧比较128个结构内存字节不自动等于越界，但公共接口必须使用byte[]并解码后比较 |
 
-### 2.2 已确认问题：实现前修复，不在本轮改代码
+### 2.2 已确认驱动问题与当前处理状态
 
 | ID | 当前位置/证据 | 问题及影响 | 正确处理边界 |
 |---|---|---|---|
@@ -86,6 +86,10 @@ Classic CAN适合小型控制消息；CAN FD提供更长payload及可变数据�
 | D05 | et6x_crg.h只列CRG_PERIPH_CAN0/CAN1，而SVD有FDCAN2门控 | 三实例复位/门控的公开枚举及底层映射需进一步核对，不能用旧枚举数值推断SRST位置 | 将CAN复位序列、共享时钟影响与CAN2映射核对列为开发前项；此项是待核对缺口，不断言已证全部复位错误 |
 
 注意：CAN_enableDMUTransferTS关闭分支只清UTSU，**本轮不据此认定DMUC.TTS残留Bug**。SVD明确UTSU=0时TTS被硬件保持为0，后续应读回验证；不能按软件赋值缺一行就盲改。
+
+2026-09-04修复进展：D01已补齐三实例MISC选择；D02改读CCCR.FDOE；D03在任何写入前校验实际分频1～16及Timeout上限。D05已核对GTEN1/SRST1 bit0～2，并补CAN2枚举和CRG公共类别CAN=10映射，旧类别不变。D04时钟源事实仍待闭合，未改成猜测值。
+
+新增D06：原CAN_readMsg/CAN_writeMsg及DMU缓存编解码只按FD表换算DLC，导致Classic DLC9～15读取/写入超过8-byte，Remote也错误搬运payload。现按FDF/RTR分别计算实际数据长度，保留原始DLC。完整SDK源码的本机寄存器桩回归已执行通过，包括三实例隔离、FDOE/CCE独立对照、非法分频无副作用、Classic/FD/Remote搬运边界。它不是CAN硬件PASS；测试源码为`framework_validation/unit/firmware_contract/test_can_driver_native.py`。
 
 ### 2.3 需要补齐的Driver能力
 
@@ -433,7 +437,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 
 本轮用上文指纹对应的最新整片SVD和现有生成器v11重新生成候选，仅更新正式`ip/can.yaml`，没有修改其他IP或生成器。旧文件中的CAN基址属于旧SVD，现已与1.2一致。共享ECC向量仍仅在SVD的CAN2节点列出，不能据此断言只有CAN2具备ECC。当前通用生成器只能导出CAN的实例、基址及中断；Feature/Option等语义仍为空，开发必须补齐有证据的映射，不能把空集合当作硬件不支持。候选/Audit/Quality：`artifacts/runs/20260904_can_development/stages/capability/`。
 
-用户确认的FPGA连接为CANFD0 RX=GPIO58、TX=GPIO59，复用均为11，外部CAN盒子CAN1；尚待写入公共连接YAML并由GPIO Mapping验证。软件Handle遵循当前Capability的`can0`，不因PAD名CANFD0另外创建同一硬件的重复实例。
+用户确认的FPGA连接为CANFD0 RX=GPIO58、TX=GPIO59，复用均为11，外部CAN盒子CAN1；已写入公共连接YAML，54项连接与Bench专项测试通过，GPIO CAN信号Mapping仍待接入。软件Handle遵循当前Capability的`can0`，不因PAD名CANFD0另外创建同一硬件的重复实例。
 
 1. 先完成S01/S02/S03/S04及D01～D04核对，补全时钟、实例、RAM、DMU/TSU的芯片事实；这不是要求先做硬件全量回归。
 2. 原14项已有11项完整PLAN；继续只针对P2_006注入作用时点、P2_013事件TTS格式、P3_003同步观察的三个具体确认流程收口，不重复扫描已审源码或伪造PLAN。

@@ -190,7 +190,8 @@ static uint32_t objSize[8] = { 4, 5, 6, 7, 8, 10, 14, 18 };
 
 static void CAN_writeProtectedRegAccessUnlock(CAN_Type *CANx);
 static void CAN_writeProtectedRegAccessLock(CAN_Type *CANx);
-static uint32_t CAN_getDataSize(uint32_t dlc);
+static CAN_MISC_Type *CAN_getMiscInstance(CAN_Type *CANx);
+static uint32_t CAN_getDataSize(uint32_t dlc, uint32_t fd, uint32_t remote);
 static void CAN_readMsg(uint32_t baseAddr, uint32_t elemAddr, CAN_RxBufElement *elem);
 static void CAN_writeMsg(uint32_t baseAddr, uint32_t elemAddr, const CAN_TxBufElement *elem);
 
@@ -207,19 +208,10 @@ static void CAN_writeMsg(uint32_t baseAddr, uint32_t elemAddr, const CAN_TxBufEl
  */
 uint32_t CAN_isFDOpEnable(CAN_Type *CANx)
 {
-    uint32_t regVal = 0U;
-
     assert_param(IS_CAN_PERIPH(CANx));
 
-    if (CANx == CAN0)
-    {
-        regVal = CAN_RD_FIELD32(CAN_MISC0->MISC_STATUS, CAN_MISC0_MISC_STATUS_TTCAN_CCE);
-    }
-    else
-    {
-        regVal = CAN_RD_FIELD32(CAN_MISC1->MISC_STATUS, CAN_MISC0_MISC_STATUS_TTCAN_CCE);
-    }
-    return regVal;
+    /* FD operation is CCCR.FDOE; MISC_STATUS.TTCAN_CCE is configuration access. */
+    return CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_FDOE);
 }
 
 /**
@@ -316,6 +308,14 @@ int32_t CAN_config(CAN_Type *CANx, const CAN_ConfigParams *configParams)
 
     assert_param(IS_CAN_PERIPH(CANx));
 
+    /* TCP stores divisor minus one: validate before changing any configuration. */
+    if ((configParams == NULL) || (configParams->tsPrescalar == 0U) ||
+        (configParams->tsPrescalar > (CAN_TSCC_TCP_MAX + 1U)) ||
+        (configParams->timeoutPreload > CAN_TOCC_TOP_MAX))
+    {
+        return DRV_ERROR;
+    }
+
     CAN_writeProtectedRegAccessUnlock(CANx);
 
     /* Configure CAN control registers */
@@ -327,7 +327,7 @@ int32_t CAN_config(CAN_Type *CANx, const CAN_ConfigParams *configParams)
     CAN_WR_FIELD32(CANx->GFC, CAN0_GFC_ANFE, configParams->filterConfig.anfe);
     CAN_WR_FIELD32(CANx->GFC, CAN0_GFC_ANFS, configParams->filterConfig.anfs);
 
-    if ((CAN_TSCC_TCP_MAX >= configParams->tsPrescalar) &&
+    if (((CAN_TSCC_TCP_MAX + 1U) >= configParams->tsPrescalar) &&
         (CAN_TOCC_TOP_MAX >= configParams->timeoutPreload))
     {
         /* Configure Time-stamp counter */
@@ -360,20 +360,16 @@ int32_t CAN_config(CAN_Type *CANx, const CAN_ConfigParams *configParams)
  */
 void CAN_eccConfig(CAN_Type *CANx, const CAN_ECCConfigParams *configParams)
 {
+    CAN_MISC_Type *misc;
+
     assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(configParams != NULL);
+    misc = CAN_getMiscInstance(CANx);
 
     MODIFY_REG(SYSC->ECCEN, SYSC_ECCEN_SYSC_MTTCAN_ECC_EN_Msk,
                (uint32_t)(configParams->enable << SYSC_ECCEN_SYSC_MTTCAN_ECC_EN_Pos));
-    if (CANx == CAN0)
-    {
-        MODIFY_REG(CAN_MISC0->MISC_CTRL, CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Msk,
-                   (uint32_t)(configParams->enableRdModWr << CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Pos));
-    }
-    else
-    {
-        MODIFY_REG(CAN_MISC1->MISC_CTRL, CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Msk,
-                   (uint32_t)(configParams->enableRdModWr << CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Pos));
-    }
+    MODIFY_REG(misc->MISC_CTRL, CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Msk,
+               (uint32_t)(configParams->enableRdModWr << CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Pos));
 }
 
 /**
@@ -1886,8 +1882,8 @@ static void CAN_readMsg(uint32_t         baseAddr,
 
     loopCnt = 0U;
     /* Reading words from message RAM and forming payload bytes out of it */
-    while ((4U <= (CAN_getDataSize(elem->dlc) - loopCnt)) &&
-           (0U != (CAN_getDataSize(elem->dlc) - loopCnt)))
+    while ((4U <= (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)) &&
+           (0U != (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = READ_REG(REG32(baseAddr + elemAddr));
@@ -1899,7 +1895,7 @@ static void CAN_readMsg(uint32_t         baseAddr,
         loopCnt  += 4U;
     }
     /* Reading remaining bytes from message RAM */
-    if (0U < (CAN_getDataSize(elem->dlc) - loopCnt))
+    if (0U < (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt))
     {
         assert_param((loopCnt + 2U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = READ_REG(REG32(baseAddr + elemAddr));
@@ -1938,8 +1934,8 @@ static void CAN_writeMsg(uint32_t               baseAddr,
 
     loopCnt = 0U;
     /* Framing words out of the payload bytes and writing it to message RAM */
-    while ((4U <= (CAN_getDataSize(elem->dlc) - loopCnt)) &&
-           (0U != (CAN_getDataSize(elem->dlc) - loopCnt)))
+    while ((4U <= (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)) &&
+           (0U != (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal  = 0U;
@@ -1954,7 +1950,7 @@ static void CAN_writeMsg(uint32_t               baseAddr,
 
     /* Framing a word out of remaining payload bytes and writing it to
      * message RAM */
-    if (0U < (CAN_getDataSize(elem->dlc) - loopCnt))
+    if (0U < (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal  = 0U;
@@ -1966,9 +1962,18 @@ static void CAN_writeMsg(uint32_t               baseAddr,
     }
 }
 
-static uint32_t CAN_getDataSize(uint32_t dlc)
+static uint32_t CAN_getDataSize(uint32_t dlc, uint32_t fd, uint32_t remote)
 {
     assert_param(dlc < 16U);
+    /* Classic DLC 9..15 still carry 8 bytes; Remote frames carry no payload. */
+    if (remote != CAN_DATA_FRAME)
+    {
+        return 0U;
+    }
+    if ((fd == CAN_CLASSIC_CAN) && (dlc > CAN_DLC_BYTES_8))
+    {
+        return CAN_DLC_BYTES_8;
+    }
     return(dataSize[dlc]);
 }
 
@@ -2085,16 +2090,33 @@ int32_t CAN_configTSU(CAN_Type *CANx, const CAN_TSUConfigParams *configParams)
  */
 void CAN_setDMURxRequest(CAN_Type *CANx, CAN_DMURxRequest Request)
 {
+    CAN_MISC_Type *misc;
+
+    assert_param(IS_CAN_PERIPH(CANx));
+    misc = CAN_getMiscInstance(CANx);
+
+    CAN_WR_FIELD32(misc->DMU_DMA_CFG, CAN_MISC0_DMU_DMA_CFG_DMU_DMA_RX_SEL, Request);
+}
+
+/**
+ * @brief Resolve the MISC block paired with a validated CAN instance.
+ * @param CANx Pointer to CAN0, CAN1 or CAN2.
+ * @return MISC block belonging to the same controller.
+ * @note Only maps the SDK instances; no register is accessed here.
+ */
+static CAN_MISC_Type *CAN_getMiscInstance(CAN_Type *CANx)
+{
     assert_param(IS_CAN_PERIPH(CANx));
 
     if (CANx == CAN0)
     {
-        CAN_WR_FIELD32(CAN_MISC0->DMU_DMA_CFG, CAN_MISC0_DMU_DMA_CFG_DMU_DMA_RX_SEL, Request);
+        return CAN_MISC0;
     }
-    else
+    if (CANx == CAN1)
     {
-        CAN_WR_FIELD32(CAN_MISC1->DMU_DMA_CFG, CAN_MISC0_DMU_DMA_CFG_DMU_DMA_RX_SEL, Request);
+        return CAN_MISC1;
     }
+    return CAN_MISC2;
 }
 
 /**
@@ -2134,8 +2156,8 @@ void CAN_copyMsgToBuffer(const CAN_TxBufElement *elem,
 
     loopCnt = 0U;
     /* Framing words out of the payload bytes and writing it to message RAM */
-    while ((4U <= (CAN_getDataSize(elem->dlc) - loopCnt)) &&
-           (0U != (CAN_getDataSize(elem->dlc) - loopCnt)))
+    while ((4U <= (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)) &&
+           (0U != (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal  = 0U;
@@ -2150,7 +2172,7 @@ void CAN_copyMsgToBuffer(const CAN_TxBufElement *elem,
 
     /* Framing a word out of remaining payload bytes and writing it to
      * message RAM */
-    if (0U < (CAN_getDataSize(elem->dlc) - loopCnt))
+    if (0U < (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal  = 0U;
@@ -2204,8 +2226,8 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem)
 
     loopCnt = 0U;
     /* Reading words from message RAM and forming payload bytes out of it */
-    while ((4U <= (CAN_getDataSize(elem->dlc) - loopCnt)) &&
-           (0U != (CAN_getDataSize(elem->dlc) - loopCnt)))
+    while ((4U <= (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)) &&
+           (0U != (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt)))
     {
         assert_param((loopCnt + 3U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = *(buffer + elemAddr);
@@ -2217,7 +2239,7 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem)
         loopCnt  += 4U;
     }
     /* Reading remaining bytes from message RAM */
-    if (0U < (CAN_getDataSize(elem->dlc) - loopCnt))
+    if (0U < (CAN_getDataSize(elem->dlc, elem->fdf, elem->rtr) - loopCnt))
     {
         assert_param((loopCnt + 2U) < CAN_MAX_PAYLOAD_BYTES);
         regVal = *(buffer + elemAddr);

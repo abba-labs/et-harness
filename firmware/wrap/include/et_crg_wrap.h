@@ -20,7 +20,9 @@ typedef enum
     /** Inter-processor mailbox controller; instance is logical, not a CPU ID. */
     ET_CRG_WRAP_PERIPHERAL_IPCM = 8u,
     /** SPI controller instance; role selection does not change this category. */
-    ET_CRG_WRAP_PERIPHERAL_SPI = 9u
+    ET_CRG_WRAP_PERIPHERAL_SPI = 9u,
+    /** CAN controller, independent of Classic/FD frame format and external peer. */
+    ET_CRG_WRAP_PERIPHERAL_CAN = 10u
 } et_crg_wrap_peripheral_t;
 
 /** Stable WDG clock-source selections owned by the CRG, not by WDG. */

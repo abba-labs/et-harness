@@ -2,7 +2,7 @@
 
 > 本文件只保存 ET6801 对公共 `crg.md` 的芯片适配事实，不定义第二套公共命令、Feature 或 Case。
 
-更新时间：2026-09-04 11:02 CST。
+更新时间：2026-09-04 22:46 CST。
 
 ## 1. Source Basis
 
@@ -18,6 +18,7 @@
 | FMAC clock/reset logical instance `0` | Chip Config 映射到 ET6801 FMAC CRG selector |
 | IPCM clock/reset logical instance `0` | 已提供`CRG_PERIPH_IPCM`：`GTEN1/SRST1 bit25`；Chip Config行由IPCM接入批次加入。复位前须停止两个核访问 Mailbox |
 | SPI clock/reset logical instances `0..3` | `GTEN1/SRST1 bit14..17`；选择值为`BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI<n>_Pos`，分别映射SPI0～3；公共类别为SPI，不区分主从角色 |
+| CAN clock/reset logical instances `0..2` | `GTEN1/SRST1 bit0..2`；CAN0/1复用正确SDK枚举，补充CAN2枚举，保留旧枚举值；公共类别为CAN。配置前由PC分别使能时钟、复位，不在CAN Wrap调用CRG |
 | WDG logical instance `0` | `WDG0` |
 | WDG logical instance `1` | `WDG1` |
 | WDG source `HSOSC` | `CRG_WDG_CLKSRC_HSOSC` |
@@ -42,6 +43,8 @@
 - CRG Chip Driver选择值直接复用生成CMSIS位置；公共CRG Wrap不保存寄存器位置。
 
 ## 4. Current Validation Boundary
+
+- 2026-09-04新增CAN0～2时钟/复位映射，PC类别接入和硬件复位回归尚未完成；不得把生成位号匹配计为HIL PASS。
 
 - 2026-09-04新增SPI映射尚未执行HIL；静态映射、Wire和编译检查不能证明硬件复位已通过。
 - FPGA 与 Silicon 固件工程均已完成编译/链接验证。

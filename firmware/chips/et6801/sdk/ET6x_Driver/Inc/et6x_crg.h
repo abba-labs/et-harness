@@ -166,6 +166,8 @@ typedef enum
     /* Group 1 */
     CRG_PERIPH_CAN0     = 0x20,
     CRG_PERIPH_CAN1     = 0x21,
+    /* CAN2 is GTEN1/SRST1 bit 2 in ET6801; preserve all legacy enum values. */
+    CRG_PERIPH_CAN2     = BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_FDCAN2_Pos,
     CRG_PERIPH_UART0    = 0x22,
     CRG_PERIPH_UART1    = 0x23,
     CRG_PERIPH_IIC0     = 0x24,
