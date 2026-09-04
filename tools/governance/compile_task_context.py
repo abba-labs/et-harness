@@ -11,8 +11,9 @@ import subprocess
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
+from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, TypeVar
 
 import yaml
 
@@ -24,6 +25,7 @@ SUPPORTED_TOKENS = {"ip", "chip", "chip_upper"}
 TASK_PARAMETER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 WORKTREE_EXCLUDES = ("artifacts/runs/**", "artifacts/reports/**")
 HARDWARE_EXECUTION_LANES = {"fpga", "hil"}
+T = TypeVar("T")
 
 
 # Return one stable SHA256 for a source file.
@@ -133,6 +135,46 @@ def _validate_task_parameter(name: str, value: str | None) -> None:
 
     if value is not None and not TASK_PARAMETER_RE.fullmatch(value):
         raise ValueError(f"task parameter {name} must be one identifier, got {value!r}")
+
+
+# 解析显式IP/change列表；不接受通配符、路径或重复IP声明，也不猜测依赖关系。
+def _parse_ip_scopes(values: Sequence[str]) -> dict[str, list[str]]:
+
+    scopes: dict[str, list[str]] = {}
+    for value in values:
+        ip, separator, changes = value.partition(":")
+        if not separator or not changes or ip in scopes:
+            raise ValueError(f"--ip-scope requires a unique IP:change[,change...] entry: {value!r}")
+        scopes[ip] = changes.split(",")
+    return scopes
+
+
+# 校验逐IP最小范围，保留旧单IP入口；change合法性仍由对应模块画像判定。
+def _validate_ip_scopes(
+    ip: str | None, scopes: Mapping[str, Sequence[str]] | None
+) -> dict[str, list[str]]:
+
+    if scopes is None:
+        return {}
+    if not isinstance(scopes, Mapping) or not scopes:
+        raise ValueError("ip_scopes must be a non-empty mapping")
+    if ip is not None:
+        raise ValueError("--ip and --ip-scope cannot be combined")
+    normalized: dict[str, list[str]] = {}
+    for name, changes in scopes.items():
+        if not isinstance(name, str):
+            raise ValueError("each scoped IP must be one identifier")
+        _validate_task_parameter("ip", name)
+        if isinstance(changes, str) or not isinstance(changes, (list, tuple)) or not changes:
+            raise ValueError(f"IP {name} requires a non-empty change list")
+        for change in changes:
+            if not isinstance(change, str):
+                raise ValueError(f"IP {name} change must be one identifier")
+            _validate_task_parameter("change", change)
+        if len(set(changes)) != len(changes):
+            raise ValueError(f"IP {name} has duplicate changes")
+        normalized[name] = list(changes)
+    return normalized
 
 
 # Require hardware execution tasks to load the one governed Operator path.
@@ -588,7 +630,7 @@ def validate_navigation() -> list[str]:
 
 
 # Append unique scalar values while preserving their declared order.
-def _extend_unique(target: list[str], values: Iterable[str]) -> None:
+def _extend_unique(target: list[T], values: Iterable[T]) -> None:
 
     for value in values:
         if value not in target:
@@ -751,10 +793,47 @@ def _module_context_fragment(
         },
         "reads": reads,
         "rules": rules,
-        "write_scopes": write_scopes,
-        "protected_scopes": protected_scopes,
-        "validation": validations,
+        "write_scopes": [
+            value
+            for item in write_scopes
+            if (value := _expand_path(item, parameters, required=False)) is not None
+        ],
+        "protected_scopes": [
+            value
+            for item in protected_scopes
+            if (value := _expand_path(item, parameters, required=False)) is not None
+        ],
+        "validation": [_expand_command(item, parameters) for item in validations],
     }
+
+
+# 将各模块的请求拆成独立展开单元；仅IP模块消费逐IPchange，不交叉授权。
+def _module_requests(
+    modules: Sequence[str],
+    module_index: Mapping[str, Any],
+    changes: Sequence[str],
+    parameters: Mapping[str, str | None],
+    scoped_ips: Mapping[str, Sequence[str]],
+) -> list[tuple[str, Sequence[str], Mapping[str, str | None]]]:
+
+    if scoped_ips and "ip-package" not in modules:
+        raise ValueError("--ip-scope requires module 'ip-package'")
+    requests = []
+    for module_id in dict.fromkeys(modules):
+        if module_id == "ip-package" and scoped_ips:
+            profile = _load_yaml(_safe_repository_path(str(module_index[module_id]["profile"])))
+            if set(changes) & set(profile["changes"]):
+                raise ValueError(
+                    "with --ip-scope, IP changes must be declared per IP, not --change"
+                )
+            for scoped_ip, scoped_changes in scoped_ips.items():
+                unknown = set(scoped_changes) - set(profile["changes"])
+                if unknown:
+                    raise ValueError(f"IP {scoped_ip} has unsupported changes: {sorted(unknown)}")
+                requests.append((module_id, scoped_changes, {**parameters, "ip": scoped_ip}))
+        else:
+            requests.append((module_id, changes, parameters))
+    return requests
 
 
 # Build one Task Context without writing it, so compile and stale-check share exactly one path.
@@ -767,11 +846,13 @@ def build_task_context(
     ip: str | None = None,
     chip: str | None = None,
     lanes: Sequence[str] = (),
+    ip_scopes: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
 
     if not task_id.strip() or not intent.strip():
         raise ValueError("task_id and intent must be non-empty")
-    if not modules or not changes:
+    scoped_ips = _validate_ip_scopes(ip, ip_scopes)
+    if not modules or not (changes or scoped_ips):
         raise ValueError("at least one module and one change kind are required")
     _validate_task_parameter("ip", ip)
     _validate_task_parameter("chip", chip)
@@ -793,10 +874,11 @@ def build_task_context(
     unknown_modules = sorted(set(canonical_modules) - set(module_index))
     if unknown_modules:
         raise ValueError(f"unknown module(s): {unknown_modules}")
+    all_changes = list(dict.fromkeys(chain(changes, *scoped_ips.values())))
     _validate_hardware_execution_route(
         lanes=lanes,
         modules=canonical_modules,
-        changes=changes,
+        changes=all_changes,
     )
     parameters = {"ip": ip, "chip": chip, "chip_upper": chip.upper() if chip else None}
     must_read: list[dict[str, Any]] = []
@@ -815,12 +897,14 @@ def build_task_context(
     if ACTIVE_TASK.is_file():
         _source_input(source_inputs, ACTIVE_TASK)
 
-    for module_id in dict.fromkeys(canonical_modules):
+    for module_id, requested_changes, scoped_parameters in _module_requests(
+        canonical_modules, module_index, changes, parameters, scoped_ips
+    ):
         fragment = _module_context_fragment(
             module_id=module_id,
             module_entry=module_index[module_id],
-            changes=changes,
-            parameters=parameters,
+            changes=requested_changes,
+            parameters=scoped_parameters,
         )
         _source_input(source_inputs, fragment["profile_path"])
         matched_changes.update(fragment["matched_changes"])
@@ -828,10 +912,10 @@ def build_task_context(
         if not module_matches:
             raise ValueError(
                 f"module {module_id} does not support any requested change kind: "
-                f"{list(dict.fromkeys(changes))}"
+                f"{list(dict.fromkeys(requested_changes))}"
             )
-        matched_changes_by_module[module_id] = module_matches
-        architecture.append(fragment["architecture"])
+        _extend_unique(matched_changes_by_module.setdefault(module_id, []), module_matches)
+        _extend_unique(architecture, [fragment["architecture"]])
         for record in fragment["reads"]:
             if not any(prior["path"] == record["path"] for prior in must_read):
                 must_read.append(record)
@@ -840,7 +924,7 @@ def build_task_context(
         _extend_unique(write_scopes, fragment["write_scopes"])
         _extend_unique(validations, fragment["validation"])
 
-    unmatched_changes = sorted(set(changes) - matched_changes)
+    unmatched_changes = sorted(set(all_changes) - matched_changes)
     if unmatched_changes:
         raise ValueError(
             f"change kind(s) are not supported by selected modules: {unmatched_changes}"
@@ -870,17 +954,6 @@ def build_task_context(
                 }
             )
 
-    expanded_write_scopes = [
-        value
-        for item in write_scopes
-        if (value := _expand_path(item, parameters, required=False)) is not None
-    ]
-    expanded_protected_scopes = [
-        value
-        for item in protected_scopes
-        if (value := _expand_path(item, parameters, required=False)) is not None
-    ]
-    expanded_validations = [_expand_command(item, parameters) for item in validations]
     missing_required = [
         entry["path"] for entry in must_read if entry["required"] and not entry["exists"]
     ]
@@ -898,6 +971,8 @@ def build_task_context(
         "chip": chip,
         "matched_changes_by_module": matched_changes_by_module,
     }
+    # 仅新入口增加此字段，旧单IP上下文的结构和指纹保持兼容。
+    task.update({"ip_scopes": scoped_ips} if scoped_ips else {})
     git_state = _git_state()
     fingerprint_payload = {
         "task": task,
@@ -922,10 +997,10 @@ def build_task_context(
         "must_read": must_read,
         "rule_owners": rule_owners,
         "write_scope": {
-            "allowed": expanded_write_scopes,
-            "protected": expanded_protected_scopes,
+            "allowed": write_scopes,
+            "protected": protected_scopes,
         },
-        "validation": expanded_validations,
+        "validation": validations,
     }
     context["integrity_fingerprint"] = _context_integrity_fingerprint(context)
     return context
@@ -942,6 +1017,7 @@ def compile_task_context(args: argparse.Namespace) -> Path:
         ip=args.ip,
         chip=args.chip,
         lanes=args.lane,
+        ip_scopes=_parse_ip_scopes(args.ip_scope) if getattr(args, "ip_scope", None) else None,
     )
     if context["repository"]["available"] and context["repository"]["dirty"]:
         raise ValueError(
@@ -995,6 +1071,7 @@ def check_task_context(path: Path) -> list[str]:
             ip=task.get("ip"),
             chip=task.get("chip"),
             lanes=list(task.get("lanes", [])),
+            ip_scopes=task.get("ip_scopes"),
         )
     except (KeyError, TypeError, ValueError) as exc:
         return [f"cannot rebuild Task Context: {exc}"]
@@ -1076,9 +1153,16 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     compile_parser.add_argument("--task-id", required=True)
     compile_parser.add_argument("--intent", required=True)
     compile_parser.add_argument("--module", action="append", required=True)
-    compile_parser.add_argument("--change", action="append", required=True)
+    compile_parser.add_argument("--change", action="append", default=[])
     compile_parser.add_argument("--lane", action="append", default=[])
     compile_parser.add_argument("--ip")
+    compile_parser.add_argument(
+        "--ip-scope",
+        action="append",
+        default=[],
+        metavar="IP:CHANGE[,CHANGE...]",
+        help="explicit per-IP changes; repeat for each IP, mutually exclusive with --ip",
+    )
     compile_parser.add_argument("--chip")
     compile_parser.add_argument("--output")
     check_parser = subparsers.add_parser("check", help="check whether current context is stale")

@@ -107,12 +107,37 @@ Task Context中的任务声明、仓库身份、输入摘要、规则Owner、读
 才允许已位于原`allowed`范围内的输入变化继续使用原Context；不得采用修改后的宽泛范围。
 任务完成并恢复干净工作树后，后续任务再重新编译。
 
-目标IP任务只能修改该IP的Case、Driver、Service、Wrap、公共IP文档和明确路由的芯片适配文件。
-其他IP及冻结公共层默认只读。发现其他IP或公共层缺陷时必须停止当前任务，提交证据并取得用户明确批准；
-批准后使用独立Task Context和独立Commit处理，不得把它并入当前IP任务，也不得通过组合宽泛模块扩大权限。
+单IP任务只能修改该IP被路由的文件；多IP任务必须遵守第3.1节逐IP声明边界。
+未声明IP及冻结公共层默认只读。发现范围外缺陷时必须停止相关修改，提交证据并取得用户明确批准；
+批准后建立独立Task Context和独立Commit，不得将无关修复混入原任务，也不得组合宽泛模块绕过保护范围。
 
-任何执行真实芯片IP测试并形成Case结论的任务，必须同时选择`ip-package/test-result`并传入`--ip --chip`。
+任何执行真实芯片IP测试并形成Case结论的任务，必须为每个被测IP选择`ip-package/test-result`并传入`--chip`；
+单IP使用`--ip`，多IP按第3.1节逐项声明`test-result`。
 该路由只授权更新对应`<CHIP>_<ip>.md`的当前状态，不授权修改Case、Driver、Service、Wrap或其他IP。
+
+### 3.1 显式多IP任务
+
+允许把同一接入或修复目标所必需、且已获用户授权的多个IP放入一个Task Context和逻辑提交。
+例如新增IP依赖CRG复位、GPIO复用，或一个芯片映射需要同步多个IP文档。不得因此授权全部IP。
+
+- 旧单IP入口`--ip <ip> --change <kind>`保持不变。
+- 多IP使用可重复的`--ip-scope <ip>:<change>[,<change>...]`；每个IP只展开自己声明的change，禁止交叉套用。
+- `--ip-scope`必须选择`ip-package`，禁止与`--ip`混用。此时`--change`只用于其他模块。
+- IP和change必须是明确标识；禁止通配符、路径、空项、重复IP、重复change、未知change或缺少必要参数。
+- 只需同步已有契约时使用`contract-sync`：只允许该IP的公共文档和指定芯片文档，不授权Case、Driver、Service、Wrap或Capability文件；新IP分析仍使用`analysis`。
+- 编译器合并各范围的必读来源、Owner和验证入口并去重；`protected`优先、干净Git基线、Diff检查、完整性摘要和人工硬件门禁均不改变。
+- `task.ip_scopes`进入任务指纹；修改IP或change必须按扩围流程重新编译，禁止修改runtime JSON。
+- Agent必须逐项核对用户授权；填写`--ip-scope`不是取得授权，编译器也不自行推断依赖或批准。
+
+```powershell
+python tools/governance/compile_task_context.py compile `
+  --task-id SPI-CRG-ADAPT --intent "已批准：补齐CRG的SPI映射并同步SPI文档" `
+  --module ip-package --chip et6801 --lane firmware `
+  --ip-scope crg:wrap,driver,capability,chip-driver `
+  --ip-scope spi:contract-sync
+```
+
+该示例不允许修改SPI Case/Service、GPIO或其他IP；新增依赖仍须单独授权并明确加入范围。
 
 ## 4. 失败关闭规则
 

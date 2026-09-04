@@ -54,7 +54,19 @@ Task Context的强制执行链、失败关闭和扩展规则唯一由
   --chip et6801
 ```
 
-检查当前Task Context是否仍与工程地图、模块画像、规则目录、Git分支和当前任务记录一致：
+已批准的跨IP任务使用逐IP范围，例如：
+
+```powershell
+python tools/governance/compile_task_context.py compile `
+  --task-id SPI-CRG-ADAPT --intent "补齐CRG的SPI映射并同步SPI文档" `
+  --module ip-package --chip et6801 --lane firmware `
+  --ip-scope crg:wrap,driver,capability,chip-driver `
+  --ip-scope spi:contract-sync
+```
+
+参数边界和授权要求见[R002第3.1节](../report/design/rules/R002_task_context_navigation.md#31-显式多ip任务)。
+
+检查当前上下文：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\governance\compile_task_context.py check

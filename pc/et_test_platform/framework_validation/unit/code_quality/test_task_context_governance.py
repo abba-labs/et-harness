@@ -19,6 +19,186 @@ COMPILER = ROOT / "tools" / "governance" / "compile_task_context.py"
 VALIDATOR = ROOT / "tools" / "validate_pc.py"
 
 
+# 测试Feature：跨IP接入只展开各IP明确声明的修改类别。
+# 测试方法：CRG允许Wrap/Driver/映射，SPI仅同步契约；核对路径、规则和验证入口。
+# 通过条件：CRG实现及SPI文档可写；SPI代码、其他IP和公共层均不可写，清单无重复。
+def test_multi_ip_context_keeps_per_ip_changes_separate() -> None:
+
+    compiler = _load_compiler()
+    context = compiler.build_task_context(
+        task_id="MULTI-IP-001",
+        intent="已批准的CRG接入与SPI文档同步",
+        modules=["ip-package"],
+        changes=[],
+        chip="et6801",
+        ip_scopes={
+            "crg": ["wrap", "driver", "capability", "chip-driver"],
+            "spi": ["contract-sync"],
+        },
+    )
+    allowed = context["write_scope"]["allowed"]
+    paths = [entry["path"] for entry in context["must_read"]]
+    for path in (
+        "firmware/wrap/include/et_crg_wrap.h",
+        "pc/et_test_platform/drivers/crg/models.py",
+        "test_case_doc/spi/ET6801_spi.md",
+    ):
+        assert compiler._scope_violations(context, [path]) == []
+    for path in (
+        "firmware/wrap/include/et_spi_wrap.h",
+        "firmware/services/src/et_spi_service.c",
+        "pc/et_test_platform/drivers/spi/driver.py",
+        "pc/et_test_platform/profiles/chip_capabilities/et6801/ip/spi.yaml",
+        "firmware/wrap/include/et_uart_wrap.h",
+        "firmware/framework/et_frame.c",
+    ):
+        assert compiler._scope_violations(context, [path])
+    assert "test_case_doc/crg/crg.md" in paths
+    assert "test_case_doc/spi/spi.md" in paths
+    assert "report/design/rules/R310_firmware_wrap.md" in paths
+    assert len(paths) == len(set(paths))
+    assert len(allowed) == len(set(allowed))
+    assert len(context["validation"]) == len(set(context["validation"]))
+    assert any("et_crg_wrap.h" in command for command in context["validation"])
+    assert not any("et_spi_wrap.h" in command for command in context["validation"])
+
+
+# 测试Feature：CLI逐IP参数与单IP入口不能混用，不接受模糊范围。
+# 测试方法：输入路径、通配符、空值、重复项及错误change，直接调用正式解析/编译链。
+# 通过条件：所有非法输入失败关闭，不能生成宽泛写入范围。
+@pytest.mark.parametrize(
+    "entries",
+    [
+        ["crg"],
+        ["crg:"],
+        ["crg:wrap,"],
+        ["crg:wrap", "crg:driver"],
+        ["*:wrap"],
+        ["../spi:wrap"],
+        ["crg:wrap,wrap"],
+        ["crg:unknown"],
+        ["crg:wrap", "spi:framework"],
+        ["crg:wrap", "missing_ip:contract-sync"],
+    ],
+)
+def test_multi_ip_invalid_entries_fail_closed(entries: list[str]) -> None:
+
+    compiler = _load_compiler()
+    with pytest.raises(ValueError):
+        compiler.build_task_context(
+            task_id="MULTI-IP-INVALID",
+            intent="拒绝不明确或未登记的修改范围",
+            modules=["ip-package"],
+            changes=[],
+            chip="et6801",
+            ip_scopes=compiler._parse_ip_scopes(entries),
+        )
+
+
+# 测试Feature：多IP入口不能向其他模块泄漏change，也不能跳过芯片参数和HIL路由。
+# 测试方法：分别混用旧入口、全局IP change、遗漏模块、遗漏芯片及遗漏硬件流水线。
+# 通过条件：每种无效组合均明确拒绝。
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"ip": "crg"},
+        {"changes": ["driver"]},
+        {"modules": ["firmware-platform"], "changes": ["build"]},
+        {"chip": None},
+        {"lanes": ["hil"]},
+    ],
+)
+def test_multi_ip_rejects_ambiguous_or_incomplete_routes(overrides: dict[str, object]) -> None:
+
+    compiler = _load_compiler()
+    arguments = dict(
+        task_id="MULTI-IP-ROUTE",
+        intent="验证依赖路由没有被多IP绕过",
+        modules=["ip-package"],
+        changes=[],
+        chip="et6801",
+        ip_scopes={"crg": ["wrap"], "spi": ["contract-sync"]},
+    )
+    arguments.update(overrides)
+    with pytest.raises(ValueError):
+        compiler.build_task_context(**arguments)
+
+
+# 测试Feature：新增多IP表达不改变模块保护范围优先级。
+# 测试方法：组合Firmware构建、CRG Driver及SPI文档范围，检查保护冲突。
+# 通过条件：Driver即使出现在allowed中，仍被Firmware模块的protected拒绝。
+def test_multi_ip_cannot_override_protected_scope() -> None:
+
+    compiler = _load_compiler()
+    context = compiler.build_task_context(
+        task_id="MULTI-IP-PROTECTED",
+        intent="保护范围优先级回归",
+        modules=["ip-package", "firmware-platform"],
+        changes=["build"],
+        chip="et6801",
+        ip_scopes={"crg": ["driver"], "spi": ["contract-sync"]},
+    )
+    assert compiler._scope_violations(context, ["pc/et_test_platform/drivers/crg/models.py"])
+    assert context["task"]["matched_changes_by_module"]["firmware-platform"] == ["build"]
+
+
+# 测试Feature：多IP上下文可编译和重建，越界Diff、篡改授权和dirty基线仍拒绝。
+# 测试方法：在临时输出目录走CLI解析、编译、check和scope-check，然后分别注入错误。
+# 通过条件：合法SPI文档更新通过；SPI代码及未声明IP拒绝；篡改和dirty重新编译失败。
+def test_multi_ip_context_round_trip_and_scope_guards(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+
+    compiler = _load_compiler()
+    state = {"available": True, "branch": "test", "head": "a" * 40, "dirty": False}
+    monkeypatch.setattr(compiler, "_git_state", lambda: dict(state))
+    monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: {})
+    args = compiler._parse_args(
+        [
+            "compile",
+            "--task-id",
+            "MULTI-IP-CLI",
+            "--intent",
+            "回归实际多IP命令",
+            "--module",
+            "ip-package",
+            "--chip",
+            "et6801",
+            "--ip-scope",
+            "crg:wrap,driver,capability,chip-driver",
+            "--ip-scope",
+            "spi:contract-sync",
+            "--output",
+            str(tmp_path / "context.json"),
+        ]
+    )
+    path = compiler.compile_task_context(args)
+    context = json.loads(path.read_text(encoding="utf-8"))
+    assert context["task"]["ip"] is None
+    assert context["task"]["ip_scopes"]["spi"] == ["contract-sync"]
+    assert compiler.check_task_context(path) == []
+
+    # 编译后只能写原授权路径；多IP不会扩大到其他IP的代码。
+    for changed, valid in (
+        ("test_case_doc/spi/ET6801_spi.md", True),
+        ("firmware/wrap/src/et_spi_wrap.c", False),
+        ("test_case_doc/uart/ET6801_uart.md", False),
+    ):
+        monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda p=changed: {p: "changed"})
+        _, errors = compiler.check_task_scope(path)
+        assert (not errors) == valid
+
+    # 修改IP/change会改变完整性摘要；不能原地给SPI追加Wrap权限。
+    context["task"]["ip_scopes"]["spi"].append("wrap")
+    path.write_text(json.dumps(context), encoding="utf-8")
+    assert compiler.check_task_context(path)
+    assert compiler.check_task_scope(path)[1]
+    state["dirty"] = True
+    with pytest.raises(ValueError, match="worktree must be clean"):
+        compiler.compile_task_context(args)
+
+
 # 加载与总软件门禁相同的Task Context编译器。
 def _load_compiler() -> ModuleType:
 

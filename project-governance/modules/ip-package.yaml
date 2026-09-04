@@ -24,6 +24,25 @@ always:
     - firmware/framework/**
 
 changes:
+  contract-sync:
+    required_parameters: [chip]
+    read:
+      - path: test_case_doc/{ip}/{ip}.md
+        reason: 已有公共IP契约；关联实现变更时同步，不代替首次分析
+        required: true
+      - path: test_case_doc/{ip}/{chip_upper}_{ip}.md
+        reason: 需要同步的目标芯片适配事实
+        required: true
+    rules:
+      - contract_document_sync
+      - chip_adaptation_boundary
+    write_scopes:
+      - test_case_doc/{ip}/{ip}.md
+      - test_case_doc/{ip}/{chip_upper}_{ip}.md
+    validation:
+      - python tools/quality/check_public_ip_contracts.py
+      - python tools/quality/validate_chip_ip_docs.py
+
   analysis:
     required_parameters: [chip]
     read:
