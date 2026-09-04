@@ -1,6 +1,6 @@
 # GPIO Stable Support Contract
 
-更新时间：2026-09-04 15:20 CST。
+更新时间：2026-09-04 15:43 CST。
 
 本轮只定义SPI Case依赖的引脚复用动作，不表示GPIO独立Feature全集已经分析或测试。
 
@@ -28,6 +28,14 @@ Service ID `0x0014`，Service实例0表示引脚配置服务，不是被配置�
 | CONFIGURE_SIGNAL | 2 | 同上 | 空 |
 
 长度必须为6字节，未知命令NOT_SUPPORTED，错误长度INVALID_PARAM。VALIDATE允许既有安全重试；CONFIGURE不自动重试。配置成功仅表示Driver接受，不是引脚波形或SPI通信PASS。
+
+### 0.3 PC调用边界
+
+公共入口为`drivers.gpio.GpioDriver`和`GpioFunction`。PC调用的`instance_id`进入请求体，GPIO Service实例始终为0；不能把SPI实例写成GPIO Service实例。
+
+连接文件只提供handle/GPIO号。SPI Case的只读依赖解析负责实例、当前环境及引脚冲突核对；Case在配置前通过`validate_signal`核对所有待用引脚，再依次复位参与的SPI和资源池、调用`configure_signal`配置GPIO、调用SPI Driver配置和执行收发。引脚默认值不进入Case，也不进入SPI Driver/Service/Wrap。
+
+GPIO Driver不提供“配置SPI所有引脚”或“启动SPI对测”组合接口。当前只实现独立PC Driver和固件支持接口，SPI Formal Case接入状态以`spi.md`为准。
 
 ## 1. Feature Catalog
 
