@@ -443,10 +443,23 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
 
     assert_param(IS_CAN_PERIPH(CANx));
 
+    /* Validate TX counts before changing any protected register. */
+    if ((msgRAMConfigParams == NULL) ||
+        (msgRAMConfigParams->txBufNum > CAN_TX_BUFFER_MAX) ||
+        (msgRAMConfigParams->txFIFOSize > CAN_TX_BUFFER_MAX))
+    {
+        return DRV_ERROR;
+    }
+
+    elemNum = msgRAMConfigParams->txBufNum + msgRAMConfigParams->txFIFOSize;
+    if (elemNum > CAN_TX_BUFFER_MAX)
+    {
+        return DRV_ERROR;
+    }
+
     CAN_writeProtectedRegAccessUnlock(CANx);
 
-    /* Configure Message Filters section */
-    if (0U != msgRAMConfigParams->lss)
+    /* Zero size disables a section; never retain its previous configuration. */
     {
         CAN_WR_FIELD32(CANx->SIDFC,
                        CAN0_SIDFC_FLSSA,
@@ -455,7 +468,6 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                        CAN0_SIDFC_LSS,
                        msgRAMConfigParams->lss);
     }
-    if (0U != msgRAMConfigParams->lse)
     {
         CAN_WR_FIELD32(CANx->XIDFC,
                        CAN0_XIDFC_FLESA,
@@ -465,7 +477,6 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                        msgRAMConfigParams->lse);
     }
     /* Configure Rx FIFO 0 section */
-    if (0U != msgRAMConfigParams->rxFIFO0size)
     {
         CAN_WR_FIELD32(CANx->RXF0C,
                        CAN0_RXF0C_F0SA,
@@ -485,7 +496,6 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                        msgRAMConfigParams->rxFIFO0ElemSize);
     }
     /* Configure Rx FIFO 1 section */
-    if (0U != msgRAMConfigParams->rxFIFO1size)
     {
         CAN_WR_FIELD32(CANx->RXF1C,
                        CAN0_RXF1C_F1SA,
@@ -513,7 +523,6 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                    CAN0_RXESC_RBDS,
                    msgRAMConfigParams->rxBufElemSize);
     /* Configure Tx Event FIFO section */
-    if (0U != msgRAMConfigParams->txEventFIFOSize)
     {
         CAN_WR_FIELD32(CANx->TXEFC,
                        CAN0_TXEFC_EFSA,
@@ -526,10 +535,7 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                        msgRAMConfigParams->txEventFIFOWaterMark);
     }
     /* Configure Tx Buffer and FIFO/Q section */
-    elemNum = msgRAMConfigParams->txBufNum + msgRAMConfigParams->txFIFOSize;
-    if ((CAN_TX_BUFFER_MAX >= elemNum) &&
-        ((0U != msgRAMConfigParams->txBufNum) ||
-         (0U != msgRAMConfigParams->txFIFOSize)))
+    /* A receive-only controller legitimately configures zero TX elements. */
     {
         CAN_WR_FIELD32(CANx->TXBC,
                        CAN0_TXBC_TBSA,
@@ -549,11 +555,6 @@ int32_t CAN_msgRAMConfig(CAN_Type *CANx, const CAN_MsgRAMConfigParams *msgRAMCon
                        msgRAMConfigParams->txBufElemSize);
         status = DRV_OK;
     }
-    else
-    {
-        status = DRV_ERROR;
-    }
-
     CAN_writeProtectedRegAccessLock(CANx);
 
     return status;
@@ -2286,5 +2287,42 @@ void CAN_testGetInitConfig(CAN_Type *CANx, CAN_InitParams *initParams)
     initParams->tdcConfig.tdco = CAN_RD_FIELD32(CANx->TDCR, CAN0_TDCR_TDCO);
     initParams->tdcEnable = CAN_RD_FIELD32(CANx->DBTP, CAN0_DBTP_TDC);
 }
+/**
+ * @brief Read all Message RAM region settings independently from hardware.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param config Caller storage; start addresses are byte offsets within Message RAM.
+ * @note Does not read payload RAM, acknowledge FIFOs or cache prior requests.
+ */
+void CAN_testGetMsgRAMConfig(CAN_Type *CANx, CAN_MsgRAMConfigParams *config)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(config != NULL);
+
+    config->flssa = CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_FLSSA) * sizeof(uint32_t);
+    config->lss = CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_LSS);
+    config->flesa = CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_FLESA) * sizeof(uint32_t);
+    config->lse = CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_LSE);
+    config->txStartAddr = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_TBSA) * sizeof(uint32_t);
+    config->txBufNum = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_NDTB);
+    config->txFIFOSize = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_TFQS);
+    config->txBufMode = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_TFQM);
+    config->txBufElemSize = CAN_RD_FIELD32(CANx->TXESC, CAN0_TXESC_TBDS);
+    config->txEventFIFOStartAddr = CAN_RD_FIELD32(CANx->TXEFC, CAN0_TXEFC_EFSA) * sizeof(uint32_t);
+    config->txEventFIFOSize = CAN_RD_FIELD32(CANx->TXEFC, CAN0_TXEFC_EFS);
+    config->txEventFIFOWaterMark = CAN_RD_FIELD32(CANx->TXEFC, CAN0_TXEFC_EFWM);
+    config->rxFIFO0startAddr = CAN_RD_FIELD32(CANx->RXF0C, CAN0_RXF0C_F0SA) * sizeof(uint32_t);
+    config->rxFIFO0size = CAN_RD_FIELD32(CANx->RXF0C, CAN0_RXF0C_F0S);
+    config->rxFIFO0waterMark = CAN_RD_FIELD32(CANx->RXF0C, CAN0_RXF0C_F0WM);
+    config->rxFIFO0OpMode = CAN_RD_FIELD32(CANx->RXF0C, CAN0_RXF0C_F0OM);
+    config->rxFIFO1startAddr = CAN_RD_FIELD32(CANx->RXF1C, CAN0_RXF1C_F1SA) * sizeof(uint32_t);
+    config->rxFIFO1size = CAN_RD_FIELD32(CANx->RXF1C, CAN0_RXF1C_F1S);
+    config->rxFIFO1waterMark = CAN_RD_FIELD32(CANx->RXF1C, CAN0_RXF1C_F1WM);
+    config->rxFIFO1OpMode = CAN_RD_FIELD32(CANx->RXF1C, CAN0_RXF1C_F1OM);
+    config->rxBufStartAddr = CAN_RD_FIELD32(CANx->RXBC, CAN0_RXBC_RBSA) * sizeof(uint32_t);
+    config->rxBufElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_RBDS);
+    config->rxFIFO0ElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_F0DS);
+    config->rxFIFO1ElemSize = CAN_RD_FIELD32(CANx->RXESC, CAN0_RXESC_F1DS);
+}
+
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

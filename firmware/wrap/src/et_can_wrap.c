@@ -343,3 +343,293 @@ et_wrap_status_t et_can_wrap_get_options(et_can_id_t id, et_can_options_t *optio
 
     return ET_WRAP_STATUS_OK;
 }
+
+/** One allowed payload byte capacity and its private SDK encoding. */
+typedef struct
+{
+    uint32_t bytes;
+    uint32_t driver_value;
+} et_can_payload_mapping_t;
+
+static const et_can_payload_mapping_t payload_mappings[] = ET_CHIP_CAN_PAYLOAD_MAP_TABLE;
+static const et_can_ram_limits_t ram_limits = ET_CHIP_CAN_RAM_LIMIT_MAP_TABLE;
+
+/** A half-open occupied interval inside CAN Message RAM, expressed only in bytes. */
+typedef struct
+{
+    uint32_t offset;
+    uint32_t length;
+} et_can_ram_region_t;
+
+/**
+ * @brief Translate a public payload capacity to the existing SDK element encoding.
+ * @param[in] bytes Payload capacity in bytes, without the message header.
+ * @param[out] value SDK encoding on success.
+ * @return One when supported, zero without modifying hardware otherwise.
+ * @note Does not choose a fallback payload capacity.
+ */
+static int payload_to_driver(uint32_t bytes, uint32_t *value)
+{
+    size_t index;
+
+    for (index = 0u; index < sizeof(payload_mappings) / sizeof(payload_mappings[0]); ++index)
+    {
+        if (payload_mappings[index].bytes == bytes)
+        {
+            *value = payload_mappings[index].driver_value;
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Decode a real SDK element encoding to the public byte capacity.
+ * @param[in] value Actual hardware encoding from the CAN Driver.
+ * @param[out] bytes Public capacity on success.
+ * @return One when mapped, zero for an unknown encoding.
+ * @note No cached configuration is used.
+ */
+static int payload_from_driver(uint32_t value, uint32_t *bytes)
+{
+    size_t index;
+
+    for (index = 0u; index < sizeof(payload_mappings) / sizeof(payload_mappings[0]); ++index)
+    {
+        if (payload_mappings[index].driver_value == value)
+        {
+            *bytes = payload_mappings[index].bytes;
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Validate occupied regions before any configuration reaches hardware.
+ * @param[in] regions Complete list of requested byte intervals.
+ * @param[in] count Number of intervals in the local array.
+ * @return One for aligned, bounded, non-overlapping regions; zero otherwise.
+ * @note Empty regions do not reserve memory; offsets still require legal alignment.
+ */
+static int ram_regions_valid(const et_can_ram_region_t *regions, size_t count)
+{
+    size_t index;
+    size_t other;
+
+    for (index = 0u; index < count; ++index)
+    {
+        if ((regions[index].offset % sizeof(uint32_t) != 0u) ||
+            (regions[index].offset >= ram_limits.ram_bytes) ||
+            (regions[index].length > ram_limits.ram_bytes - regions[index].offset))
+        {
+            return 0;
+        }
+
+        for (other = 0u; other < index; ++other)
+        {
+            if ((regions[index].length != 0u) && (regions[other].length != 0u) &&
+                (regions[index].offset < regions[other].offset + regions[other].length) &&
+                (regions[other].offset < regions[index].offset + regions[index].length))
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Publish hardware region limits without selecting a test layout.
+ * @param[in] id Logical CAN controller.
+ * @param[out] limits Architectural counts and byte aperture.
+ * @return OK, INVALID_ARGUMENT or NOT_SUPPORTED.
+ * @note No reset or Message RAM access is performed.
+ */
+et_wrap_status_t et_can_wrap_get_ram_limits(et_can_id_t id, et_can_ram_limits_t *limits)
+{
+    if (limits == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (find_instance(id) == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *limits = ram_limits;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Configure one complete RAM layout through the CAN Driver only.
+ * @param[in] id Logical controller.
+ * @param[in] layout Explicit byte offsets, counts, capacities and FIFO policies.
+ * @return OK, INVALID_ARGUMENT, STATE_ERROR, NOT_SUPPORTED or IO_ERROR.
+ * @note INIT is required. Validation precedes all writes; no RAM contents are initialized.
+ */
+et_wrap_status_t et_can_wrap_set_ram_layout(et_can_id_t id, const et_can_ram_layout_t *layout)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+
+    /* Phase 1: Check instance, architectural counts and payload encodings without writes. */
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if ((layout == NULL) || (layout->std_count > ram_limits.std_count) ||
+        (layout->ext_count > ram_limits.ext_count) ||
+        (layout->tx_buffer_count > ram_limits.tx_count) ||
+        (layout->tx_fifo_count > ram_limits.tx_count) ||
+        (layout->tx_buffer_count + layout->tx_fifo_count > ram_limits.tx_count) ||
+        (layout->rx0_count > ram_limits.rx_fifo_count) ||
+        (layout->rx1_count > ram_limits.rx_fifo_count) ||
+        (layout->event_count > ram_limits.event_count) ||
+        (layout->rx0_watermark > layout->rx0_count) ||
+        (layout->rx1_watermark > layout->rx1_count) ||
+        (layout->event_watermark > layout->event_count) || (layout->tx_queue > 1u) ||
+        (layout->rx0_overwrite > 1u) || (layout->rx1_overwrite > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (!payload_to_driver(layout->tx_payload_bytes, &config.txBufElemSize) ||
+        !payload_to_driver(layout->rx0_payload_bytes, &config.rxFIFO0ElemSize) ||
+        !payload_to_driver(layout->rx1_payload_bytes, &config.rxFIFO1ElemSize) ||
+        !payload_to_driver(layout->rx_buffer_payload_bytes, &config.rxBufElemSize))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    /* Phase 2: Check actual occupied byte spans; register widths are not memory bounds. */
+    {
+        const et_can_ram_region_t regions[] = {
+            {layout->std_offset,
+             layout->std_count * CAN_STD_ID_FILTER_SIZE_WORDS * sizeof(uint32_t)},
+            {layout->ext_offset,
+             layout->ext_count * CAN_EXT_ID_FILTER_SIZE_WORDS * sizeof(uint32_t)},
+            {layout->tx_offset, (layout->tx_buffer_count + layout->tx_fifo_count) *
+                                    CAN_getMsgObjSize(config.txBufElemSize) * sizeof(uint32_t)},
+            {layout->event_offset,
+             layout->event_count * CAN_TX_EVENT_FIFO_SIZE_WORDS * sizeof(uint32_t)},
+            {layout->rx0_offset,
+             layout->rx0_count * CAN_getMsgObjSize(config.rxFIFO0ElemSize) * sizeof(uint32_t)},
+            {layout->rx1_offset,
+             layout->rx1_count * CAN_getMsgObjSize(config.rxFIFO1ElemSize) * sizeof(uint32_t)},
+            {layout->rx_buffer_offset, ram_limits.rx_buffer_count *
+                                           CAN_getMsgObjSize(config.rxBufElemSize) *
+                                           sizeof(uint32_t)}};
+
+        if (!ram_regions_valid(regions, sizeof(regions) / sizeof(regions[0])))
+        {
+            return ET_WRAP_STATUS_INVALID_ARGUMENT;
+        }
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    /* Phase 3: Translate a fully validated layout and execute one own-Driver operation. */
+    config.flssa = layout->std_offset;
+    config.lss = layout->std_count;
+    config.flesa = layout->ext_offset;
+    config.lse = layout->ext_count;
+    config.txStartAddr = layout->tx_offset;
+    config.txBufNum = layout->tx_buffer_count;
+    config.txFIFOSize = layout->tx_fifo_count;
+    config.txBufMode = layout->tx_queue ? CAN_TX_QUEUE_OPERATION : CAN_TX_FIFO_OPERATION;
+    config.txEventFIFOStartAddr = layout->event_offset;
+    config.txEventFIFOSize = layout->event_count;
+    config.txEventFIFOWaterMark = layout->event_watermark;
+    config.rxFIFO0startAddr = layout->rx0_offset;
+    config.rxFIFO0size = layout->rx0_count;
+    config.rxFIFO0waterMark = layout->rx0_watermark;
+    config.rxFIFO0OpMode = layout->rx0_overwrite ? CAN_RX_FIFO_OVERWRITE : CAN_RX_FIFO_BLOCKING;
+    config.rxFIFO1startAddr = layout->rx1_offset;
+    config.rxFIFO1size = layout->rx1_count;
+    config.rxFIFO1waterMark = layout->rx1_watermark;
+    config.rxFIFO1OpMode = layout->rx1_overwrite ? CAN_RX_FIFO_OVERWRITE : CAN_RX_FIFO_BLOCKING;
+    config.rxBufStartAddr = layout->rx_buffer_offset;
+
+    return CAN_msgRAMConfig(instance, &config) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                         : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read every RAM configuration field independently from hardware.
+ * @param[in] id Logical controller.
+ * @param[out] layout Actual offsets, counts, capacities and FIFO policies.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED or IO_ERROR for unknown size encoding.
+ * @note Does not read or acknowledge queued messages and does not rely on Service state.
+ */
+et_wrap_status_t et_can_wrap_get_ram_layout(et_can_id_t id, et_can_ram_layout_t *layout)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+
+    if (layout == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+    layout->std_offset = config.flssa;
+    layout->std_count = config.lss;
+    layout->ext_offset = config.flesa;
+    layout->ext_count = config.lse;
+    layout->tx_offset = config.txStartAddr;
+    layout->tx_buffer_count = config.txBufNum;
+    layout->tx_fifo_count = config.txFIFOSize;
+    layout->tx_queue = config.txBufMode;
+
+    if (!payload_from_driver(config.txBufElemSize, &layout->tx_payload_bytes))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    layout->event_offset = config.txEventFIFOStartAddr;
+    layout->event_count = config.txEventFIFOSize;
+    layout->event_watermark = config.txEventFIFOWaterMark;
+    layout->rx0_offset = config.rxFIFO0startAddr;
+    layout->rx0_count = config.rxFIFO0size;
+    layout->rx0_watermark = config.rxFIFO0waterMark;
+    layout->rx0_overwrite = config.rxFIFO0OpMode;
+    layout->rx1_offset = config.rxFIFO1startAddr;
+    layout->rx1_count = config.rxFIFO1size;
+    layout->rx1_watermark = config.rxFIFO1waterMark;
+    layout->rx1_overwrite = config.rxFIFO1OpMode;
+    layout->rx_buffer_offset = config.rxBufStartAddr;
+
+    if (!payload_from_driver(config.rxBufElemSize, &layout->rx_buffer_payload_bytes))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    if (!payload_from_driver(config.rxFIFO0ElemSize, &layout->rx0_payload_bytes))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    if (!payload_from_driver(config.rxFIFO1ElemSize, &layout->rx1_payload_bytes))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}

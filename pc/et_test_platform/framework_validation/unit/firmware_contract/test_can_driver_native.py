@@ -126,8 +126,8 @@ int main(void)
     uint8_t initializing;
     et_can_service_t service;
     et_irq_manager_t manager = {0};
-    uint8_t request[33] = {0};
-    uint8_t response[40];
+    uint8_t request[97] = {0};
+    uint8_t response[96];
     uint16_t response_length;
     uint32_t words[20];
     for (unsigned byte = 0; byte < CAN_MAX_PAYLOAD_BYTES; ++byte)
@@ -270,6 +270,89 @@ int main(void)
     assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_OPTIONS_GET, request, 1,
                               response, 39, &response_length) == ET_STATUS_INVALID_PARAM);
     assert(response_length == 0);
+
+    /* RAM configuration clears disabled sections and rejects TX overflow before writes. */
+    {
+        CAN_MsgRAMConfigParams ram = {0};
+        CAN_MsgRAMConfigParams actual;
+        et_can_ram_layout_t layout = {
+            .std_offset=0, .std_count=2, .ext_offset=8, .ext_count=2,
+            .tx_offset=24, .tx_buffer_count=2, .tx_fifo_count=0, .tx_queue=0,
+            .tx_payload_bytes=64, .event_offset=168, .event_count=2, .event_watermark=1,
+            .rx0_offset=184, .rx0_count=4, .rx0_watermark=2, .rx0_overwrite=0,
+            .rx1_offset=472, .rx1_count=4, .rx1_watermark=2, .rx1_overwrite=1,
+            .rx_buffer_offset=760, .rx_buffer_payload_bytes=64,
+            .rx0_payload_bytes=64, .rx1_payload_bytes=64
+        };
+        et_can_ram_layout_t readback;
+        et_can_ram_limits_t limits;
+        const uint32_t words[] = {
+            0,2,8,2,24,2,0,0,64,168,2,1,184,4,2,0,472,4,2,1,760,64,64,64
+        };
+
+        memset(&controllers[0], 0, sizeof(controllers[0]));
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+        ram.lss=2; ram.lse=2; ram.rxFIFO0size=4; ram.rxFIFO1size=4;
+        ram.txEventFIFOSize=2; ram.txBufNum=2;
+        assert(CAN_msgRAMConfig(CAN0, &ram) == DRV_OK);
+        unchanged = controllers[0];
+        ram.txBufNum=32; ram.txFIFOSize=1;
+        assert(CAN_msgRAMConfig(CAN0, &ram) == DRV_ERROR);
+        assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+        assert(CAN_msgRAMConfig(CAN0, NULL) == DRV_ERROR);
+        memset(&ram, 0, sizeof(ram));
+        assert(CAN_msgRAMConfig(CAN0, &ram) == DRV_OK);
+        CAN_testGetMsgRAMConfig(CAN0, &actual);
+        assert(actual.lss==0 && actual.lse==0 && actual.rxFIFO0size==0);
+        assert(actual.rxFIFO1size==0 && actual.txEventFIFOSize==0 && actual.txBufNum==0);
+
+        assert(et_can_wrap_get_ram_limits(0, &limits) == ET_WRAP_STATUS_OK);
+        assert(limits.ram_bytes==16384 && limits.rx_buffer_count==64);
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_ram_layout(0, &readback) == ET_WRAP_STATUS_OK);
+        assert(memcmp(&layout, &readback, sizeof(layout)) == 0);
+        unchanged = controllers[0];
+        layout.tx_offset=0; /* Collision with active standard filters. */
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+        layout=readback; layout.rx_buffer_offset=limits.ram_bytes-4;
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        layout=readback; layout.tx_payload_bytes=9;
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        layout=readback; layout.rx0_count=65;
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        layout=readback; layout.tx_queue=2;
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        layout=readback; layout.std_offset=1;
+        assert(et_can_wrap_set_ram_layout(0, &layout) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_NORMAL);
+        assert(et_can_wrap_set_ram_layout(0, &readback) == ET_WRAP_STATUS_STATE_ERROR);
+        CAN_setOpMode(CAN0, CAN_OPERATION_MODE_SW_INIT);
+
+        /* Service codec checks complete 97-byte SET and 96-byte GET independently. */
+        request[0]=0;
+        for (unsigned i=0; i<24; ++i)
+        {
+            for (unsigned byte=0; byte<4; ++byte)
+            {
+                request[1+i*4+byte]=(uint8_t)(words[i]>>(byte*8));
+            }
+        }
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RAM_LAYOUT_SET,
+                                  request, 97, NULL, 0, &response_length) == ET_STATUS_OK);
+        assert(response_length == 0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RAM_LAYOUT_GET,
+                                  request, 1, response, 96, &response_length) == ET_STATUS_OK);
+        assert(response_length==96 && memcmp(response, request+1, 96)==0);
+        unchanged=controllers[0];
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RAM_LAYOUT_SET,
+                                  request, 96, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+        assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged))==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_RAM_LAYOUT_GET,
+                                  request, 1, response, 95, &response_length) == ET_STATUS_INVALID_PARAM);
+        assert(response_length==0);
+    }
+
     return 0;
 }
 """

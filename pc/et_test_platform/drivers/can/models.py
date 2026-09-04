@@ -50,3 +50,45 @@ class CanOptionLimits:
     tdc_offset_cycles: int
     tdc_filter_cycles: int
     ram_watchdog_cycles: int
+
+
+# 完整RAM布局；offset为CAN RAM内字节偏移，不是CPU地址。
+# dedicated RX没有硬件数量字段，按ram_limits.rx_buffer_count预留，避免缓存虚构读回。
+@dataclass(frozen=True, slots=True)
+class CanRamLayout:
+    std_offset: int
+    std_count: int
+    ext_offset: int
+    ext_count: int
+    tx_offset: int
+    tx_buffer_count: int
+    tx_fifo_count: int
+    tx_queue: bool
+    tx_payload_bytes: int
+    event_offset: int
+    event_count: int
+    event_watermark: int
+    rx0_offset: int
+    rx0_count: int
+    rx0_watermark: int
+    rx0_overwrite: bool
+    rx1_offset: int
+    rx1_count: int
+    rx1_watermark: int
+    rx1_overwrite: bool
+    rx_buffer_offset: int
+    rx_buffer_payload_bytes: int
+    rx0_payload_bytes: int
+    rx1_payload_bytes: int
+
+
+# 由目标实例发布的区域最大数量，不使用寄存器字段位宽猜测上限。
+@dataclass(frozen=True, slots=True)
+class CanRamLimits:
+    ram_bytes: int
+    std_count: int
+    ext_count: int
+    tx_count: int
+    rx_fifo_count: int
+    event_count: int
+    rx_buffer_count: int

@@ -5,7 +5,7 @@
 
 from ...core.errors import ProtocolError
 from . import contract
-from .models import CanOptions, CanPhaseTiming, CanTiming
+from .models import CanOptions, CanPhaseTiming, CanRamLayout, CanTiming
 
 
 # 不接受bool冒充计数，负值和超宽值必须在发命令前被拒绝。
@@ -82,3 +82,30 @@ def decode_options(words: tuple[int, ...]) -> CanOptions:
     ):
         raise ProtocolError("CAN options readback has invalid flags or field count")
     return CanOptions(*(bool(value) for value in words[:count]), *words[count:])
+
+
+# RAM参数不包含芯片地址；范围和区域重叠由选中实例的Wrap在写入前统一验证。
+def ram_layout_words(layout: CanRamLayout) -> tuple[int, ...]:
+    if not isinstance(layout, CanRamLayout):
+        raise ValueError("CAN RAM layout requires CanRamLayout")
+    return tuple(
+        boolean(getattr(layout, name))
+        if name in contract.RAM_FLAGS
+        else uint32(getattr(layout, name))
+        for name in contract.RAM_FIELDS
+    )
+
+
+# GET只能解码独立硬件读回；严格检查长度和Boolean，不能补请求缓存。
+def decode_ram_layout(words: tuple[int, ...]) -> CanRamLayout:
+    if len(words) != len(contract.RAM_FIELDS):
+        raise ProtocolError("CAN RAM layout has invalid field count")
+    values = []
+    for name, value in zip(contract.RAM_FIELDS, words, strict=True):
+        if name in contract.RAM_FLAGS:
+            if value not in (0, 1):
+                raise ProtocolError(f"CAN RAM flag {name} is not Boolean: {value}")
+            values.append(bool(value))
+        else:
+            values.append(value)
+    return CanRamLayout(*values)

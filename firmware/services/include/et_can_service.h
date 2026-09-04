@@ -18,6 +18,49 @@
 #define ET_CAN_TIMING_WORDS 8u
 #define ET_CAN_OPTIONS_WORDS 10u
 #define ET_CAN_OPTION_LIMIT_WORDS 3u
+/** Message RAM configuration has 24 named u32 fields, limits have seven. */
+#define ET_CAN_RAM_LAYOUT_WORDS 24u
+#define ET_CAN_RAM_LIMIT_WORDS 7u
+/** Public byte offsets and region controls; not CMSIS register positions. */
+typedef enum
+{
+    ET_CAN_RAM_STD_OFFSET = 0u,
+    ET_CAN_RAM_STD_COUNT = 1u,
+    ET_CAN_RAM_EXT_OFFSET = 2u,
+    ET_CAN_RAM_EXT_COUNT = 3u,
+    ET_CAN_RAM_TX_OFFSET = 4u,
+    ET_CAN_RAM_TX_BUFFER_COUNT = 5u,
+    ET_CAN_RAM_TX_FIFO_COUNT = 6u,
+    ET_CAN_RAM_TX_QUEUE = 7u,
+    ET_CAN_RAM_TX_PAYLOAD_BYTES = 8u,
+    ET_CAN_RAM_EVENT_OFFSET = 9u,
+    ET_CAN_RAM_EVENT_COUNT = 10u,
+    ET_CAN_RAM_EVENT_WATERMARK = 11u,
+    ET_CAN_RAM_RX0_OFFSET = 12u,
+    ET_CAN_RAM_RX0_COUNT = 13u,
+    ET_CAN_RAM_RX0_WATERMARK = 14u,
+    ET_CAN_RAM_RX0_OVERWRITE = 15u,
+    ET_CAN_RAM_RX1_OFFSET = 16u,
+    ET_CAN_RAM_RX1_COUNT = 17u,
+    ET_CAN_RAM_RX1_WATERMARK = 18u,
+    ET_CAN_RAM_RX1_OVERWRITE = 19u,
+    ET_CAN_RAM_RX_BUFFER_OFFSET = 20u,
+    ET_CAN_RAM_RX_BUFFER_PAYLOAD_BYTES = 21u,
+    ET_CAN_RAM_RX0_PAYLOAD_BYTES = 22u,
+    ET_CAN_RAM_RX1_PAYLOAD_BYTES = 23u,
+} et_can_ram_word_t;
+
+/** Word positions of the seven hardware region maxima. */
+typedef enum
+{
+    ET_CAN_RAM_LIMIT_RAM_BYTES = 0u,
+    ET_CAN_RAM_LIMIT_STD_COUNT = 1u,
+    ET_CAN_RAM_LIMIT_EXT_COUNT = 2u,
+    ET_CAN_RAM_LIMIT_TX_COUNT = 3u,
+    ET_CAN_RAM_LIMIT_RX_FIFO_COUNT = 4u,
+    ET_CAN_RAM_LIMIT_EVENT_COUNT = 5u,
+    ET_CAN_RAM_LIMIT_RX_BUFFER_COUNT = 6u,
+} et_can_ram_limit_word_t;
 /** Word positions in the limits response are independent from the options tuple. */
 #define ET_CAN_LIMIT_TDC_OFFSET 0u
 #define ET_CAN_LIMIT_TDC_FILTER 1u
@@ -58,6 +101,9 @@ typedef enum
     ET_CAN_COMMAND_OPTIONS_SET = 6u,
     ET_CAN_COMMAND_OPTIONS_GET = 7u,
     ET_CAN_COMMAND_OPTION_LIMITS_GET = 8u,
+    ET_CAN_COMMAND_RAM_LIMITS_GET = 9u,
+    ET_CAN_COMMAND_RAM_LAYOUT_SET = 10u,
+    ET_CAN_COMMAND_RAM_LAYOUT_GET = 11u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

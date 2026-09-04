@@ -8,7 +8,7 @@ from ...core.deadline import OperationDeadline
 from ...core.errors import ProtocolError, RequestTimeout
 from . import codec, contract
 from .contract import CanCommand
-from .models import CanIdentity, CanOptionLimits, CanOptions, CanTiming
+from .models import CanIdentity, CanOptionLimits, CanOptions, CanRamLayout, CanRamLimits, CanTiming
 
 
 # 一个对象绑定一个逻辑CAN实例；构造不配置硬件或选择物理引脚。
@@ -79,6 +79,25 @@ class CanDriver:
     # 仅等待单次命令响应，超时或解码失败直接上抛，不重配置硬件。
     def option_limits_get(self, *, timeout_s: float | None = None) -> CanOptionLimits:
         return CanOptionLimits(*self._request(CanCommand.OPTION_LIMITS_GET, timeout_s=timeout_s))
+
+    # 查询实例的RAM容量和区域上限；只等待单次响应，失败直接上抛。
+    # 不根据这些上限自动分配布局，不操作资源池。
+    def ram_limits_get(self, *, timeout_s: float | None = None) -> CanRamLimits:
+        return CanRamLimits(*self._request(CanCommand.RAM_LIMITS_GET, timeout_s=timeout_s))
+
+    # 设置明确的完整RAM布局，调用者须先进入INIT。
+    # 只等待设置响应；参数/状态错误直接上抛，不清空RAM或隐式复位。
+    def ram_layout_set(self, layout: CanRamLayout, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.RAM_LAYOUT_SET, codec.ram_layout_words(layout), timeout_s=timeout_s
+        )
+
+    # 从硬件读取全部RAM布局，只等待单次响应，非法编码作为协议失败。
+    # 不返回本地布局对象；无读取数据、FIFO Ack或资源释放副作用。
+    def ram_layout_get(self, *, timeout_s: float | None = None) -> CanRamLayout:
+        return codec.decode_ram_layout(
+            self._request(CanCommand.RAM_LAYOUT_GET, timeout_s=timeout_s)
+        )
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

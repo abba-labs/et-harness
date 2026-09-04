@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-04 23:18 CST
+更新时间：2026-09-04 23:52 CST
 
 分析稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；39项形成ET_CASE_PLAN，3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。本轮逐项复核现有Case，修正过滤、DLC、IRQ、停钟和观察前提，并将原DMU时间戳目标拆为RX与TX Event。没有SPEC、注册Case或硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -122,6 +122,16 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | OPTIONS_SET | 6 | FD、BRS、automatic_retry、TX Pause、Edge Filter、Protocol Exception、TDC Enable、TDC Offset、TDC Filter、RAM Watchdog，共10项 | 无；INIT前提及参数校验与TIMING_SET相同 |
 | OPTIONS_GET | 7 | 无 | 上述10项独立硬件读回 |
 | OPTION_LIMITS_GET | 8 | 无 | TDC Offset、TDC Filter、RAM Watchdog三项上限 |
+| RAM_LIMITS_GET | 9 | 无 | ram_bytes、std_count、ext_count、tx_count、rx_fifo_count、event_count、rx_buffer_count，共7项 |
+| RAM_LAYOUT_SET | 10 | 下述完整RAM布局24项 | 无；INIT前提，全部范围和重叠检查先于写入 |
+| RAM_LAYOUT_GET | 11 | 无 | 24项真实配置读回，不使用请求缓存 |
+
+RAM布局顺序：`std_offset, std_count, ext_offset, ext_count, tx_offset, tx_buffer_count, tx_fifo_count, tx_queue, tx_payload_bytes, event_offset, event_count, event_watermark, rx0_offset, rx0_count, rx0_watermark, rx0_overwrite, rx1_offset, rx1_count, rx1_watermark, rx1_overwrite, rx_buffer_offset, rx_buffer_payload_bytes, rx0_payload_bytes, rx1_payload_bytes`。
+
+- Offset单位为CAN Message RAM内的字节偏移，不是CPU物理地址；要求自然字对齐，各有效区域不重叠、不越过RAM容量。
+- Payload字段为实际字节容量；queue/overwrite严格0或1。计数为0显式关闭对应区域，不能保持旧配置；允许RX-only布局。
+- Dedicated RX没有硬件数量寄存器，因此布局按RAM_LIMITS_GET发布的rx_buffer_count预留完整区域，不虚构数量读回。PC布局规划必须计算该区间；其他计数区域可设0。
+- SET仅配置布局，不清RAM、不Ack、不复位；数据准备与状态隔离仍是Case显式步骤。
 
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
 
@@ -130,6 +140,8 @@ Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试
 `CanDriver`绑定调用者提供的逻辑实例；构造不操作硬件。九个基础动作与0.7命令一一对应，配置模型使用实际正整数时序计数和Boolean，不暴露SDK枚举。GET独立读取硬件，不返回先前请求缓存。
 
 `wait_initializing`仅在单一Deadline内查询INIT，不发送切换请求、不复位IP。GPIO、CRG及外部CAN盒子由Case分别调用各自Driver/Adapter；CAN Driver不代为编排。只有只读命令允许声明安全重试。
+
+RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_get`。模型显式传参，不在Driver内选择测试布局；这些动作均只等待本次响应，失败原样上抛，不替调用者复位。
 
 ## 1. Feature Catalog
 

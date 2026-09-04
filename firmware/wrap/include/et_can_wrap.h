@@ -71,4 +71,53 @@ et_wrap_status_t et_can_wrap_set_options(et_can_id_t id, const et_can_options_t 
 et_wrap_status_t et_can_wrap_get_options(et_can_id_t id, et_can_options_t *options);
 et_wrap_status_t et_can_wrap_get_option_limits(et_can_id_t id, et_can_option_limits_t *limits);
 
+/** Message RAM byte offsets and counts; never physical CPU addresses.
+ * Disabled count-bearing regions use count zero. Dedicated RX storage has no
+ * hardware count field and reserves the published rx_buffer_count maximum.
+ * Payload capacities are bytes; queue and overwrite fields are Boolean.
+ */
+typedef struct
+{
+    uint32_t std_offset;
+    uint32_t std_count;
+    uint32_t ext_offset;
+    uint32_t ext_count;
+    uint32_t tx_offset;
+    uint32_t tx_buffer_count;
+    uint32_t tx_fifo_count;
+    uint32_t tx_queue;
+    uint32_t tx_payload_bytes;
+    uint32_t event_offset;
+    uint32_t event_count;
+    uint32_t event_watermark;
+    uint32_t rx0_offset;
+    uint32_t rx0_count;
+    uint32_t rx0_watermark;
+    uint32_t rx0_overwrite;
+    uint32_t rx1_offset;
+    uint32_t rx1_count;
+    uint32_t rx1_watermark;
+    uint32_t rx1_overwrite;
+    uint32_t rx_buffer_offset;
+    uint32_t rx_buffer_payload_bytes;
+    uint32_t rx0_payload_bytes;
+    uint32_t rx1_payload_bytes;
+} et_can_ram_layout_t;
+
+/** Architectural region maxima, not a default test layout. */
+typedef struct
+{
+    uint32_t ram_bytes;
+    uint32_t std_count;
+    uint32_t ext_count;
+    uint32_t tx_count;
+    uint32_t rx_fifo_count;
+    uint32_t event_count;
+    uint32_t rx_buffer_count;
+} et_can_ram_limits_t;
+
+et_wrap_status_t et_can_wrap_get_ram_limits(et_can_id_t id, et_can_ram_limits_t *limits);
+et_wrap_status_t et_can_wrap_set_ram_layout(et_can_id_t id, const et_can_ram_layout_t *layout);
+et_wrap_status_t et_can_wrap_get_ram_layout(et_can_id_t id, et_can_ram_layout_t *layout);
+
 #endif

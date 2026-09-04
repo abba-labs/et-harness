@@ -15,6 +15,7 @@ from et_test_platform.drivers.can import (
     CanDriver,
     CanOptions,
     CanPhaseTiming,
+    CanRamLayout,
     CanTiming,
     codec,
     contract,
@@ -153,3 +154,53 @@ def test_can_support_signals_keep_own_service_wire() -> None:
     assert target.requests[1]["body"] == bytes.fromhex("3b00 0800 0000")
     assert int(CrgPeripheral.CAN) == 10
     assert encode_reset(int(CrgPeripheral.CAN), 0) == bytes.fromhex("0a000000")
+
+
+# RAM配置Golden顺序独立列出；GET使用不同的硬件返回，证明没有请求缓存。
+def test_ram_layout_codec_and_independent_readback() -> None:
+    words = (0, 2, 8, 2, 24, 2, 0, 0, 64, 168, 2, 1, 184, 4, 2, 0, 472, 4, 2, 1, 760, 64, 64, 64)
+    layout = CanRamLayout(
+        0,
+        2,
+        8,
+        2,
+        24,
+        2,
+        0,
+        False,
+        64,
+        168,
+        2,
+        1,
+        184,
+        4,
+        2,
+        False,
+        472,
+        4,
+        2,
+        True,
+        760,
+        64,
+        64,
+        64,
+    )
+    observed = list(words)
+    observed[1] = 1
+    target = TargetStub([b"", pack("<24I", *observed), pack("<7I", 16384, 128, 64, 32, 64, 32, 64)])
+    driver = CanDriver(target, 2)
+
+    driver.ram_layout_set(layout, timeout_s=0.7)
+    assert target.requests[0]["body"] == b"\x02" + pack("<24I", *words)
+    assert target.requests[0]["command"] == 10
+    assert target.requests[0]["retry_safe"] is False
+    assert driver.ram_layout_get().std_count == 1
+    assert driver.ram_limits_get().ram_bytes == 16384
+    assert len(target.requests) == 3
+
+    with pytest.raises(ValueError):
+        driver.ram_layout_set(replace(layout, tx_queue=2))
+    assert len(target.requests) == 3
+    observed[7] = 2
+    with pytest.raises(ProtocolError):
+        codec.decode_ram_layout(tuple(observed))

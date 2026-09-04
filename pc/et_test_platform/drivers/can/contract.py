@@ -23,10 +23,40 @@ class CanCommand(IntEnum):
     OPTIONS_SET = 6
     OPTIONS_GET = 7
     OPTION_LIMITS_GET = 8
+    RAM_LIMITS_GET = 9
+    RAM_LAYOUT_SET = 10
+    RAM_LAYOUT_GET = 11
 
 
-REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0)
-RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3)
+REQUEST_WORDS = (0, 1, 0, 0, 8, 0, 10, 0, 0, 0, 24, 0)
+RESPONSE_WORDS = (2, 0, 1, 8, 0, 8, 0, 10, 3, 7, 0, 24)
+RAM_FIELDS = (
+    "std_offset",
+    "std_count",
+    "ext_offset",
+    "ext_count",
+    "tx_offset",
+    "tx_buffer_count",
+    "tx_fifo_count",
+    "tx_queue",
+    "tx_payload_bytes",
+    "event_offset",
+    "event_count",
+    "event_watermark",
+    "rx0_offset",
+    "rx0_count",
+    "rx0_watermark",
+    "rx0_overwrite",
+    "rx1_offset",
+    "rx1_count",
+    "rx1_watermark",
+    "rx1_overwrite",
+    "rx_buffer_offset",
+    "rx_buffer_payload_bytes",
+    "rx0_payload_bytes",
+    "rx1_payload_bytes",
+)
+RAM_FLAGS = frozenset({"tx_queue", "rx0_overwrite", "rx1_overwrite"})
 PHASE_FIELDS = ("prescaler", "segment1", "segment2", "sjw")
 OPTION_FLAGS = (
     "fd_enabled",
@@ -46,5 +76,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TIMING_GET,
         CanCommand.OPTIONS_GET,
         CanCommand.OPTION_LIMITS_GET,
+        CanCommand.RAM_LIMITS_GET,
+        CanCommand.RAM_LAYOUT_GET,
     }
 )

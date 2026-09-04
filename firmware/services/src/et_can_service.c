@@ -154,6 +154,141 @@ static void encode_options(uint8_t *body, const et_can_options_t *options)
 }
 
 /**
+ * @brief Decode the complete public Message RAM tuple.
+ * @param[in] body Validated RAM request bytes.
+ * @param[out] layout Explicit region parameters owned by the caller.
+ * @note No defaults, allocation or hardware access occur here.
+ */
+static void decode_ram_layout(const uint8_t *body, et_can_ram_layout_t *layout)
+{
+    layout->std_offset = read_word(&body[ET_CAN_RAM_STD_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->std_count = read_word(&body[ET_CAN_RAM_STD_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->ext_offset = read_word(&body[ET_CAN_RAM_EXT_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->ext_count = read_word(&body[ET_CAN_RAM_EXT_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->tx_offset = read_word(&body[ET_CAN_RAM_TX_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->tx_buffer_count = read_word(&body[ET_CAN_RAM_TX_BUFFER_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->tx_fifo_count = read_word(&body[ET_CAN_RAM_TX_FIFO_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->tx_queue = read_word(&body[ET_CAN_RAM_TX_QUEUE * ET_CAN_WIRE_WORD_BYTES]);
+    layout->tx_payload_bytes =
+        read_word(&body[ET_CAN_RAM_TX_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES]);
+    layout->event_offset = read_word(&body[ET_CAN_RAM_EVENT_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->event_count = read_word(&body[ET_CAN_RAM_EVENT_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->event_watermark = read_word(&body[ET_CAN_RAM_EVENT_WATERMARK * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx0_offset = read_word(&body[ET_CAN_RAM_RX0_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx0_count = read_word(&body[ET_CAN_RAM_RX0_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx0_watermark = read_word(&body[ET_CAN_RAM_RX0_WATERMARK * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx0_overwrite = read_word(&body[ET_CAN_RAM_RX0_OVERWRITE * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx1_offset = read_word(&body[ET_CAN_RAM_RX1_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx1_count = read_word(&body[ET_CAN_RAM_RX1_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx1_watermark = read_word(&body[ET_CAN_RAM_RX1_WATERMARK * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx1_overwrite = read_word(&body[ET_CAN_RAM_RX1_OVERWRITE * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx_buffer_offset =
+        read_word(&body[ET_CAN_RAM_RX_BUFFER_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx_buffer_payload_bytes =
+        read_word(&body[ET_CAN_RAM_RX_BUFFER_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx0_payload_bytes =
+        read_word(&body[ET_CAN_RAM_RX0_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES]);
+    layout->rx1_payload_bytes =
+        read_word(&body[ET_CAN_RAM_RX1_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES]);
+}
+
+/**
+ * @brief Encode actual RAM configuration in the declared word order.
+ * @param[out] body Validated response storage.
+ * @param[in] layout Independent hardware configuration readback.
+ * @note Does not present configuration requests as observed values.
+ */
+static void encode_ram_layout(uint8_t *body, const et_can_ram_layout_t *layout)
+{
+    write_word(&body[ET_CAN_RAM_STD_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->std_offset);
+    write_word(&body[ET_CAN_RAM_STD_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->std_count);
+    write_word(&body[ET_CAN_RAM_EXT_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->ext_offset);
+    write_word(&body[ET_CAN_RAM_EXT_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->ext_count);
+    write_word(&body[ET_CAN_RAM_TX_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->tx_offset);
+    write_word(&body[ET_CAN_RAM_TX_BUFFER_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->tx_buffer_count);
+    write_word(&body[ET_CAN_RAM_TX_FIFO_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->tx_fifo_count);
+    write_word(&body[ET_CAN_RAM_TX_QUEUE * ET_CAN_WIRE_WORD_BYTES], layout->tx_queue);
+    write_word(&body[ET_CAN_RAM_TX_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES],
+               layout->tx_payload_bytes);
+    write_word(&body[ET_CAN_RAM_EVENT_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->event_offset);
+    write_word(&body[ET_CAN_RAM_EVENT_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->event_count);
+    write_word(&body[ET_CAN_RAM_EVENT_WATERMARK * ET_CAN_WIRE_WORD_BYTES], layout->event_watermark);
+    write_word(&body[ET_CAN_RAM_RX0_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->rx0_offset);
+    write_word(&body[ET_CAN_RAM_RX0_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->rx0_count);
+    write_word(&body[ET_CAN_RAM_RX0_WATERMARK * ET_CAN_WIRE_WORD_BYTES], layout->rx0_watermark);
+    write_word(&body[ET_CAN_RAM_RX0_OVERWRITE * ET_CAN_WIRE_WORD_BYTES], layout->rx0_overwrite);
+    write_word(&body[ET_CAN_RAM_RX1_OFFSET * ET_CAN_WIRE_WORD_BYTES], layout->rx1_offset);
+    write_word(&body[ET_CAN_RAM_RX1_COUNT * ET_CAN_WIRE_WORD_BYTES], layout->rx1_count);
+    write_word(&body[ET_CAN_RAM_RX1_WATERMARK * ET_CAN_WIRE_WORD_BYTES], layout->rx1_watermark);
+    write_word(&body[ET_CAN_RAM_RX1_OVERWRITE * ET_CAN_WIRE_WORD_BYTES], layout->rx1_overwrite);
+    write_word(&body[ET_CAN_RAM_RX_BUFFER_OFFSET * ET_CAN_WIRE_WORD_BYTES],
+               layout->rx_buffer_offset);
+    write_word(&body[ET_CAN_RAM_RX_BUFFER_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES],
+               layout->rx_buffer_payload_bytes);
+    write_word(&body[ET_CAN_RAM_RX0_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES],
+               layout->rx0_payload_bytes);
+    write_word(&body[ET_CAN_RAM_RX1_PAYLOAD_BYTES * ET_CAN_WIRE_WORD_BYTES],
+               layout->rx1_payload_bytes);
+}
+
+/**
+ * @brief Handle the three RAM commands without test sequencing.
+ * @param[in] id Logical controller identity.
+ * @param[in] command Validated RAM command identifier.
+ * @param[in] body Validated request following the instance prefix.
+ * @param[out] response Output storage, nullable for SET.
+ * @return Own Wrap status.
+ * @note Only calls the CAN Wrap; no resource or GPIO calls.
+ */
+static et_wrap_status_t execute_ram_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                            uint8_t *response)
+{
+    et_can_ram_layout_t layout;
+    et_can_ram_limits_t limits;
+    et_wrap_status_t status;
+
+    if (command == ET_CAN_COMMAND_RAM_LAYOUT_SET)
+    {
+        decode_ram_layout(body, &layout);
+
+        return et_can_wrap_set_ram_layout(id, &layout);
+    }
+
+    if (command == ET_CAN_COMMAND_RAM_LAYOUT_GET)
+    {
+        status = et_can_wrap_get_ram_layout(id, &layout);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            encode_ram_layout(response, &layout);
+        }
+
+        return status;
+    }
+
+    status = et_can_wrap_get_ram_limits(id, &limits);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        write_word(&response[ET_CAN_RAM_LIMIT_RAM_BYTES * ET_CAN_WIRE_WORD_BYTES],
+                   limits.ram_bytes);
+        write_word(&response[ET_CAN_RAM_LIMIT_STD_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   limits.std_count);
+        write_word(&response[ET_CAN_RAM_LIMIT_EXT_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   limits.ext_count);
+        write_word(&response[ET_CAN_RAM_LIMIT_TX_COUNT * ET_CAN_WIRE_WORD_BYTES], limits.tx_count);
+        write_word(&response[ET_CAN_RAM_LIMIT_RX_FIFO_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   limits.rx_fifo_count);
+        write_word(&response[ET_CAN_RAM_LIMIT_EVENT_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   limits.event_count);
+        write_word(&response[ET_CAN_RAM_LIMIT_RX_BUFFER_COUNT * ET_CAN_WIRE_WORD_BYTES],
+                   limits.rx_buffer_count);
+    }
+
+    return status;
+}
+
+/**
  * @brief Execute one validated basic CAN command through the own Wrap.
  * @param[in] id Logical controller identity.
  * @param[in] command Public command number.
@@ -173,6 +308,12 @@ static et_wrap_status_t execute_command(et_can_id_t id, uint16_t command, const 
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    /* RAM commands form one own-IP codec group; no orchestration is hidden here. */
+    if ((command >= ET_CAN_COMMAND_RAM_LIMITS_GET) && (command <= ET_CAN_COMMAND_RAM_LAYOUT_GET))
+    {
+        return execute_ram_command(id, command, body, response);
+    }
 
     /* Phase 1: Decode state-changing requests without inventing missing parameters. */
     switch (command)
@@ -317,8 +458,18 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
                            uint16_t request_length, uint8_t *response_body,
                            uint16_t response_capacity, uint16_t *response_length)
 {
-    static const uint8_t input_words[ET_CAN_COMMAND_COUNT] = {
-        0u, 1u, 0u, 0u, ET_CAN_TIMING_WORDS, 0u, ET_CAN_OPTIONS_WORDS, 0u, 0u};
+    static const uint8_t input_words[ET_CAN_COMMAND_COUNT] = {0u,
+                                                              1u,
+                                                              0u,
+                                                              0u,
+                                                              ET_CAN_TIMING_WORDS,
+                                                              0u,
+                                                              ET_CAN_OPTIONS_WORDS,
+                                                              0u,
+                                                              0u,
+                                                              0u,
+                                                              ET_CAN_RAM_LAYOUT_WORDS,
+                                                              0u};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {ET_CAN_IDENTITY_WORDS,
                                                                0u,
                                                                1u,
@@ -327,7 +478,10 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
                                                                ET_CAN_TIMING_WORDS,
                                                                0u,
                                                                ET_CAN_OPTIONS_WORDS,
-                                                               ET_CAN_OPTION_LIMIT_WORDS};
+                                                               ET_CAN_OPTION_LIMIT_WORDS,
+                                                               ET_CAN_RAM_LIMIT_WORDS,
+                                                               0u,
+                                                               ET_CAN_RAM_LAYOUT_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

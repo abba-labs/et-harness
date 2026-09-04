@@ -1456,6 +1456,15 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem);
 
 #if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
 /******************** TEST DRIVER EXTENSION BEGIN ********************/
+/** ET6801 Message RAM aperture: driver uses CANx - 0x4000, UT5 tests 16 KiB. */
+#define CAN_TEST_MSG_RAM_BYTES (0x4000U)
+/** Controller architectural maxima; field widths alone also encode reserved values. */
+#define CAN_TEST_STD_FILTER_MAX (128U)
+#define CAN_TEST_EXT_FILTER_MAX (64U)
+#define CAN_TEST_RX_FIFO_MAX (64U)
+#define CAN_TEST_TX_EVENT_MAX (32U)
+/** Read exact RAM configuration; offsets are bytes, not absolute addresses. */
+void CAN_testGetMsgRAMConfig(CAN_Type *CANx, CAN_MsgRAMConfigParams *config);
 /** Read the controller revision without altering configuration or status. */
 uint32_t CAN_testGetRevision(CAN_Type *CANx);
 /** Read the actual core initialization controls, including watchdog and TDC. */

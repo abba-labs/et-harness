@@ -34,6 +34,16 @@
  * Consumed by et_can_mapping_t; no GPIO or external CAN-box channel belongs here.
  */
 #define ET_CHIP_CAN_MAP_TABLE {{0u, CAN0}, {1u, CAN1}, {2u, CAN2}}
+/** RAM aperture comes from the SDK test driver; maxima are architectural, not mask widths. */
+#define ET_CHIP_CAN_RAM_LIMIT_MAP_TABLE \
+    {CAN_TEST_MSG_RAM_BYTES, CAN_TEST_STD_FILTER_MAX, CAN_TEST_EXT_FILTER_MAX, \
+     CAN_TX_BUFFER_MAX, CAN_TEST_RX_FIFO_MAX, CAN_TEST_TX_EVENT_MAX, CAN_RX_BUFFER_MAX}
+/** Standard CAN-FD payload byte capacities mapped to existing SDK element-size enums. */
+#define ET_CHIP_CAN_PAYLOAD_MAP_TABLE \
+    {{8u, CAN_ELEM_SIZE_8BYTES}, {12u, CAN_ELEM_SIZE_12BYTES}, \
+     {16u, CAN_ELEM_SIZE_16BYTES}, {20u, CAN_ELEM_SIZE_20BYTES}, \
+     {24u, CAN_ELEM_SIZE_24BYTES}, {32u, CAN_ELEM_SIZE_32BYTES}, \
+     {48u, CAN_ELEM_SIZE_48BYTES}, {64u, CAN_ELEM_SIZE_64BYTES}}
 /* et_can_option_limits_t fields: TDCO, TDCF and RWD.WDC, all in core cycles. */
 #define ET_CHIP_CAN_OPTION_LIMIT_MAP_TABLE \
     {(CAN0_TDCR_TDCO_Msk >> CAN0_TDCR_TDCO_Pos), \
