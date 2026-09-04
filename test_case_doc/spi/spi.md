@@ -1,6 +1,6 @@
 # SPI Stable IP Contract
 
-更新时间：2026-09-04 18:22 CST
+更新时间：2026-09-04 18:50 CST
 
 本文件定义芯片中立的SPI测试意图。保留19个Feature ID；补入参考资料遗漏的测试目的，纠正不充分的判据。公共配置及数据格式在此定义，具体寄存器、SDK差异和接线仅见芯片文档。
 
@@ -875,7 +875,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | ADAPTED=9; BENCH_GAP=3; NEEDS_VERIFICATION=5 | 19 Feature、17测试目标；12 SPEC、2 PLAN、3项设计草案；完整Capability仍待补，具体适配依据见芯片文档 | `ET6801_spi.md` |
+| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | ADAPTED=11; BENCH_GAP=3; NEEDS_VERIFICATION=3 | 19 Feature、17测试目标；12 SPEC、2 PLAN、3项设计草案；完整Capability仍待补，具体适配依据见芯片文档 | `ET6801_spi.md` |
 
 ## 5. Common Gap / Evolution
 

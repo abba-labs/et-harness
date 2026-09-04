@@ -1,8 +1,8 @@
 # ET6801 SPI Chip Analysis & Adaptation Contract
 
-更新时间：2026-09-04 17:50 CST
+更新时间：2026-09-04 18:50 CST
 
-范围：ET6801 SPI0～SPI3，FPGA/Silicon。SPI SDK、Wrap、Service及PC Driver已接入；GPIO独立Service/Wrap负责Pinmux。12个Case已进入代码及SPEC；软件门禁已通过，首轮硬件测试存在失败。接线修正后的SPI_P1_002专项复测48个参数组合全部PASS，详见6.5；不代表整个SPI已通过。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP；未执行的本版本Case不引用历史PASS。
+范围：ET6801 SPI0～SPI3，FPGA/Silicon。12个Case已进入代码及SPEC；当前FPGA正式回归11 PASS、1 SKIP，参数执行116 PASS、36 SKIP、0 FAIL。实测仅SPI0/SPI1，不推广为四实例或硅后通过。另5个外部设备目标尚未实现/执行，不计本轮SKIP。公共Feature和Case以[spi.md](spi.md)为准；完整结果见6.5，QSPI不混入本IP。
 
 # 第一章 IP分析与Source Coverage
 
@@ -28,7 +28,7 @@
 | REQ6801 | test_case/6801下SPI定向查询 | NO_MATCH | 未找到专属SPI需求，不否定硬件功能或其他适用需求。 |
 | ATP | 当前仓库 | FOUND | firmware/chips/et6801/sdk/{CMSIS/Device/Include/et6801.h,ET6x_Driver/Inc/et6x_spi.h,ET6x_Driver/Src/et6x_spi.c}；SPI Capability及旧SPI文档。 |
 
-当前平台已新增SPI配置/IRQ Wrap、24条原子命令Service和PC Driver；SPI/GPIO应用注册及GPIO独立信号映射已完成，连接选择保存在硬件连接YAML。完整Capability、Formal Case及PC引脚调用仍待完成。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
+当前SPI配置/IRQ Wrap、25条原子命令Service和PC Driver、应用注册、12个Formal Case及PC引脚调用已完成。GPIO独立Service/Wrap负责Pinmux，连接选择保存在硬件连接YAML。第24号FIFO_LIMITS_GET是新增只读查询，0～23号布局不变。完整Capability语义仍待补，基础spi.yaml不等于完整芯片能力，也不能据缺字段跳过测试。
 
 证据路径：
 - 主SVD：V6801/`Tools/RegGen/ET6801.svd`；单IP：`Tools/RegGen/svd/SPI_DWC_ssi.svd`。
@@ -109,9 +109,9 @@
 | 项目 | 本批完成内容 | 验证边界 |
 |---|---|---|
 | Chip Driver / Wrap | 完整停机配置及读回、FIFO阈值/无损快照、独立错误读取、IRQ源屏蔽/清除/路由、DMA端点；公共Wrap不读写寄存器。 | 真实SDK、Wrap、Service通过ArmClang语法检查及原生寄存器桩回归；不证明总线时序。 |
-| SPI Service | `0x010B`、24条固定布局命令；每条仅执行本IP原子动作。通过现有IRQ Manager绑定，回调只锁存事实并屏蔽有效源；不自动排空FIFO，不执行Case断言。 | PC/C共用独立固定Config向量；验证错误长度、返回容量、实例校验及IRQ事件。薄工厂已实现，尚未加入Application/工程注册。 |
+| SPI Service | `0x010B`、25条固定布局命令；每条仅执行本IP原子动作。回调只锁存事实并屏蔽有效源，不排空FIFO，不执行Case断言。 | 固定向量、长度、实例及IRQ验证通过；薄工厂与Application/工程注册已完成。 |
 | IRQ故障边界 | 注册失败时只读取本回调的Manager所有权，区分未分配与部分保留；不写Manager内部状态。没有分配的失败不留下虚假BUSY，部分解绑失败保留重试所有权。 | 原生夹具覆盖注册前失败、部分注册后回滚成功/失败、解绑重试和事件计数溢出；不模拟NVIC硬件。 |
-| PC Driver / Codec | 24条直接命令、明确类型、严格响应长度、正常/强制FIFO访问分离；多次读取共享同一Deadline，无隐藏跨IP初始化。 | 56项SPI Driver/Codec软件测试；失败和超时不重放FIFO读写。 |
+| PC Driver / Codec | 25条直接命令、严格响应长度、正常/强制FIFO访问分离；多次读取共享Deadline，无跨IP初始化。 | 独立FIFO阈值响应及非法范围检查已增加。全软件门禁1080 PASS、16环境SKIP；SPI原生合同通过。证据：`artifacts/runs/20260904_spi_gpio/stages/spi_fifo_gate_closed.log`、`spi_fifo_native.log`。 |
 | 尚未完成 | Capability语义/执行映射、GPIO接线依赖、Application/Keil注册、17项目标对应的正式Case及报告模板。 | Formal Case仍为0，SPI HIL仍未执行；不能把本批软件测试数量填入第七章硬件PASS。 |
 
 证据目录：`artifacts/runs/20260904_123800_000000_spi_wire_software/stages/`。`armclang_final.log`记录目标工具链语法检查；`native_irq_failure.log`记录含IRQ故障注入的真实SDK/Wrap/Service原生执行；`software_gate_review.log`为本批最终软件门禁日志。Windows本机缺少原生C编译器，该pytest项目保持环境SKIP；WSL执行单独留证，不改写pytest计数。
@@ -212,11 +212,11 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 | SPI_F_005 | SUPPORTED | TMOD四值；RX_ONLY写启动字，EEPROM命令段与读段分开。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
 | SPI_F_006 | SUPPORTED | APB3/偶数BAUDR；25MHz不是默认FPGA事实，P1_006测可达节点。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_001`, `SPI_P1_006`, `SPI_P2_003` |
 | SPI_F_007 | SUPPORTED | SRL存在；P0_002测Controller回环，P1_002的Target回环节点由另一个实例提供SCLK/CS。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002` |
-| SPI_F_008 | SUPPORTED | PAD可映射；实际接线尚未固定。 | IMPLEMENTATION_GAP | `SPI_P1_001`, `SPI_P1_002`, `SPI_P2_005`, `SPI_P3_002` |
+| SPI_F_008 | SUPPORTED | SPI0/SPI1四线连接已固定；单SPI回接未配置。 | IMPLEMENTATION_GAP | `SPI_P1_001`, `SPI_P1_002`, `SPI_P2_005`, `SPI_P3_002` |
 | SPI_F_009 | SUPPORTED | SSTE限SCPH=0；SOFT_MODE批间保持；SER单选择位。 | IMPLEMENTATION_GAP | `SPI_P1_006` |
 | SPI_F_010 | SUPPORTED | NDF+1，仅Controller RX_ONLY/E2PROM；1～65536。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
-| SPI_F_011 | SUPPORTED | FPGA实测TX容量32；禁用清两FIFO，完整RX容量及阈值待本轮复测。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
-| SPI_F_012 | SUPPORTED | TFT/RFT/TXFTHR独立4bit，0～15；需修启动阈值getter。 | IMPLEMENTATION_GAP | `SPI_P1_004`, `SPI_P1_005`, `SPI_P1_008` |
+| SPI_F_011 | SUPPORTED | FPGA实测TX/RX容量32；逐帧Level、满空及清双FIFO通过。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
+| SPI_F_012 | SUPPORTED | TFT/RFT/TXFTHR独立4bit，0～15；getter/校验已修正，启动阈值逐值通过。 | IMPLEMENTATION_GAP | `SPI_P1_004`, `SPI_P1_005`, `SPI_P1_008` |
 | SPI_F_013 | SUPPORTED | SR[0:6]；TXE/DCOL读清，快照不能提前消耗。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004`, `SPI_P1_007`, `SPI_P2_005` |
 | SPI_F_014 | SUPPORTED | RISR/ISR/IMR五FIFO源；电平/读清不同。 | IMPLEMENTATION_GAP | `SPI_P1_005` |
 | SPI_F_015 | SUPPORTED | 每SPI TX/RX请求存在，水位4bit；Mux按目标芯片发布。 | IMPLEMENTATION_GAP | `SPI_P2_001`, `SPI_P3_002` |
@@ -224,6 +224,8 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 | SPI_F_017 | SUPPORTED | FRF/MWCR存在；TI同步、Microwire完整时序Oracle仍需目标资料。 | NEEDS_VERIFICATION | `SPI_P2_002` |
 | SPI_F_018 | SUPPORTED | SLV_OE=1高阻；必须以弱上拉/下拉独立证据证明。 | IMPLEMENTATION_GAP | `SPI_P2_007` |
 | SPI_F_019 | SUPPORTED | DCOL/MSTIR存在；ss_in_n在Controller模式的集成路由UNKNOWN。 | NEEDS_VERIFICATION | `SPI_P2_004` |
+
+Platform栏的IMPLEMENTATION_GAP仍指完整Capability语义未发布，不表示下列已通过Case缺代码或硬件失败。Case范围内映射由SDK、LIMITS_GET及FIFO_LIMITS_GET核对；波形/协议仍有独立缺口，不把当前PASS升级为19个Feature全部闭合。
 
 # 第六章 Chip -> Public Case Adaptation
 
@@ -234,8 +236,8 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 | SPI_P1_001 | BENCH_GAP | Case已实现；当前四线对接不满足独立MOSI/MISO回接要求，实际运行SKIP。 |
 | SPI_P1_002 | ADAPTED | SPI0/SPI1四线接线已修正；48个参数组合正式Case复测PASS，证据见6.5。 |
 | SPI_P1_003 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
-| SPI_P1_004 | NEEDS_VERIFICATION | 实测FIFO为32帧，SDK容量声明16不一致；待修正容量与独立阈值范围后复测。 |
-| SPI_P1_005 | NEEDS_VERIFICATION | 实测FIFO为32帧，SDK容量声明16不一致；待修正容量与独立阈值范围后复测。 |
+| SPI_P1_004 | ADAPTED | 容量修正32、阈值独立0～15，TX/RX容量、阈值与复位3个参数执行全部PASS。 |
+| SPI_P1_005 | ADAPTED | 按32帧容量构造第33帧Overflow，五源三阈值共15个参数执行全部PASS。 |
 | SPI_P1_006 | BENCH_GAP | 方法已明确；外部配测条件未就绪，本轮计划SKIP（未运行）；另有公共代码待实现，不把缺代码写成硬件原因。 |
 | SPI_P1_007 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
 | SPI_P1_008 | ADAPTED | 公共动作、GPIO/DMA映射及代码已实现，当前FPGA执行证据已取得；结果与范围见6.5。 |
@@ -262,7 +264,7 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 2. 依据本芯片SVD补SPI Capability，再按固定层次实现Wrap、Service、PC Driver。
 3. 实现14个方法明确的PLAN；先片内、外部回接/双实例和DMA；波形和电气测量保留设计，当前先不执行。未具备物理资源仍保留代码和明确环境条件，不为了免接线弱化Case。
 4. 补齐P2_002的目标协议时序、P2_003的实际延迟深度/时序预算、P2_004的ss_in_n连接。再完善原ID PLAN，不以“难测”判硬件不支持。
-5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；当前通信专项已通过，其余首轮失败项仍需按各自证据定位和复测。
+5. 本轮12个已实现Case的可执行项已完成门禁及FPGA回归；后续补完整Capability及外部设备缺口，不重复定位已闭合的首轮失败。
 
 ## 6.3 Board/Capability待落地事实
 
@@ -292,16 +294,38 @@ Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用
 
 ## 6.5 当前FPGA测试记录
 
-更新时间：2026-09-04 17:50 CST。统计区分稳定Case与参数执行，不将专项PASS推广到全部SPI。
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
 
-| 范围 | 执行时间CST | 参数执行结果 | 结论与边界 |
-|---|---|---|---|
-| 首轮12个Formal Case | 2026-09-04 17:20～17:28 | 19 PASS / 97 FAIL / 36 SKIP | 原始证据保留；P1_001为当前四线对接不满足单实例MOSI/MISO回接。此轮用户随后确认接线有误，不能据外部通信失败判硬件故障；FIFO容量、DMA通道状态及报告重复键问题仍独立跟踪。 |
-| SPI_P1_002专项复测（1个稳定Case） | 2026-09-04 17:47～17:48 | 48 PASS / 0 FAIL / 0 SKIP | 用户修正接线后，SPI0/SPI1交换Controller/Target，4种CPOL/CPHA、3种帧宽节点、Target内部回环开/关，共48组，每组8帧。关闭Target回环的24组验证两端PAD双向数据；回环开启的24组不冒充外部完整双向数据证据。 |
+状态更新时间：`2026-09-04 18:50 CST`
 
-专项复测沿用已从PFLASH运行的固件，未重新编译、烧录bitfile、加载BootROM或下载Flash。PC使用当前工作树：Target启用前设置CS通道；Controller收完后读取Target当前FIFO并保持完整数据/数量断言。因为接线和此PC准备动作均有变化，本次只证明当前组合可正常通信，不据此证明CS准备动作是原失败根因。
+### 最近一次运行身份
 
-- 首轮：`artifacts/runs/20260904_171618_161538_local_et6801_fpga_atp_testing/tests/spi/session.json`；首轮Excel导出失败，不作为有效报告。
-- 专项：`artifacts/runs/20260904_174726_773200_local_et6801_fpga_atp_testing/tests/spi/session.json`；Run ID=`5b0fbf53-c260-457f-a863-d81af5a9b1ac`，源码基线=`db57a69b2f4dc1a272937b3ddb47d022d8250398`，`source_dirty=true`。
-- 专项报告：`artifacts/reports/20260904_174841_957816_ET6801_SPI测试报告.xlsx`；流水线退出码0，未选其他104个参数执行。
-- 本次结束恢复完整SPI Case注册表；后续全量执行必须重新明确范围。其他Case尚未在修正后的接线上复测，不改写旧失败结论。
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-09-04 18:42 CST` | `d6832926244edeb4b8170ef66d652e395f7d3648` | `false` | `artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/session.json` |
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 12 | 12 | 11 | 0 | 1 | 0 | 152 |
+
+参数执行116 PASS、36 SKIP、0 FAIL、0 ERROR。Run ID=`c1e307a9-cc2a-475c-8013-3149baea392e`，Pipeline退出码0。P3_002内部20轮不是20个Case。17项设计目标中另5项见6.4，未进入注册表，不计本表或运行SKIP。
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| `SPI_P1_001` | FPGA | SKIP | SPI_F_008 / 单SPI PAD回接 | 配置前无loopback角色，36个参数执行在硬件动作前跳过；未观察回接收发 | 当前SPI0/SPI1四线互联，不满足单SPI MOSI→MISO短接 | 改为单实例回接并声明对应handle/GPIO及loopback角色后执行 | `artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/` |
+<!-- ET_CHIP_TEST_STATUS_END -->
+
+报告：`artifacts/reports/20260904_184643_846713_ET6801_SPI测试报告.xlsx`。原始结果及Excel均在规定artifacts目录，旧Run不改写。
+
+本轮闭合问题与证据边界：
+
+- 接线修正后，双SPI交换角色、4种CPOL/CPHA、3帧宽节点及Target回环开关共48组通过。关闭Target回环的24组证明PAD双向数据，回环开启的24组不冒充完整外部链路证据。
+- SDK FIFO容量16修正为实测32；IRQ/启动/DMA阈值仍按SVD四位字段限制0～15。容量、自然Overflow、IRQ清除及DMA64/65帧传输通过，未放宽断言。
+- SPI Case在CRG复位DMA前先停止、解除通道配置再关闭Controller，消除Service旧配置影响；未改DMA源码。DMA28组及连续20轮通过。
+- 报告摘要每个Execution只登记一次，完整节点/轮次观测保留。只修SPI Case及模板，未改公共报告层。
+- 部署证据：`artifacts/runs/20260904_182941_374065_local_et6801_fpga_atp_testing/`，固件源码`ba5ba0b535a4e45ba485caed564f7251f34dabc8`，按编译→bitfile→BootROM→PFLASH运行。该轮硬件同为116 PASS/36 SKIP，但报告失败，不能称整条Pipeline通过。最终Run仅修PC摘要并复用同一Flash固件，没有重复烧录。
