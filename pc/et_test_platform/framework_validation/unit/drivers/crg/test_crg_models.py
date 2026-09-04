@@ -22,3 +22,4 @@ def test_crg_peripheral_values_are_stable() -> None:
     assert int(CrgPeripheral.STIMER) == 6
     assert int(CrgPeripheral.WDG) == 7
     assert int(CrgPeripheral.IPCM) == 8
+    assert int(CrgPeripheral.SPI) == 9

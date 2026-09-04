@@ -26,6 +26,71 @@
  */
 
 /* -------------------------------------------------------------------------- */
+/* SPI                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * ET6801 generated header exposes SPI0..SPI3 as independent instances.
+ * Fields: public logical identity (unitless), SDK instance pointer, CMSIS IRQ line.
+ * Logical identities are local table keys; roles and board pins are not fixed.
+ * Consumer: et_spi_mapping_t in the common SPI Wrap.
+ */
+#define ET_CHIP_SPI_MAP_TABLE \
+    { \
+        {0u, SPI0, SPI0_IRQn}, \
+        {1u, SPI1, SPI1_IRQn}, \
+        {2u, SPI2, SPI2_IRQn}, \
+        {3u, SPI3, SPI3_IRQn}, \
+    }
+/* Public enum order -> corresponding SDK enum. No board choices or defaults. */
+#define ET_CHIP_SPI_ROLE_MAP_TABLE {SPI_SLAVE_MODE, SPI_MASTER_MODE}
+#define ET_CHIP_SPI_FORMAT_MAP_TABLE \
+    { \
+        SPI_TEST_FORMAT_MOTOROLA, SPI_TEST_FORMAT_TI, SPI_TEST_FORMAT_MICROWIRE \
+    }
+#define ET_CHIP_SPI_CLOCK_MAP_TABLE \
+    { \
+        SPI_PROT_POL0PHA0, SPI_PROT_POL0PHA1, SPI_PROT_POL1PHA0, SPI_PROT_POL1PHA1 \
+    }
+#define ET_CHIP_SPI_TRANSFER_MAP_TABLE \
+    { \
+        SPI_TRANSMIT_RECEIVE, SPI_TRANSMIT, SPI_RECEIVE, SPI_EEPROM_READ \
+    }
+#define ET_CHIP_SPI_CS_MAP_TABLE {SPI_TEST_CS_AUTO, SPI_TEST_CS_HOLD, SPI_TEST_CS_TOGGLE}
+/* Limits fields: minimum/maximum frame bits, FIFO frames, divider range,
+ * maximum receive frames, programmable RX delay cycles. Physical delay depth
+ * remains unverified; this last field only describes SVD RSD writable width. */
+#define ET_CHIP_SPI_LIMIT_MAP_TABLE \
+    { \
+        SPI_MIN_FRAME_BITS, SPI_MAX_FRAME_BITS, SPI_MAX_FIFO_DEPTH, SPI_CLOCK_DIVIDER_MIN, SPI_CLOCK_DIVIDER_MAX, SPI_TEST_FRAME_COUNT_MAX, SPI0_RX_SAMPLE_DELAY_RSD_Msk \
+    }
+/* Source pairs: public event then generated IMR mask. ISR/RISR share positions. */
+#define ET_CHIP_SPI_IRQ_MAP_TABLE \
+    { \
+        {ET_SPI_IRQ_TX_EMPTY, SPI0_IMR_TXEIM_Msk}, \
+        {ET_SPI_IRQ_TX_OVERFLOW, SPI0_IMR_TXOIM_Msk}, \
+        {ET_SPI_IRQ_RX_UNDERFLOW, SPI0_IMR_RXUIM_Msk}, \
+        {ET_SPI_IRQ_RX_OVERFLOW, SPI0_IMR_RXOIM_Msk}, \
+        {ET_SPI_IRQ_RX_FULL, SPI0_IMR_RXFIM_Msk}, \
+        {ET_SPI_IRQ_COLLISION, SPI0_IMR_MSTIM_Msk}, \
+    }
+#define ET_CHIP_SPI_STATUS_MAP_TABLE \
+    { \
+        {ET_SPI_STATUS_BUSY, SPI0_SR_BUSY_Msk}, \
+        {ET_SPI_STATUS_TX_NOT_FULL, SPI0_SR_TFNF_Msk}, \
+        {ET_SPI_STATUS_TX_EMPTY, SPI0_SR_TFE_Msk}, \
+        {ET_SPI_STATUS_RX_NOT_EMPTY, SPI0_SR_RFNE_Msk}, \
+        {ET_SPI_STATUS_RX_FULL, SPI0_SR_RFF_Msk}, \
+        {ET_SPI_STATUS_TARGET_TX_ERROR, SPI0_SR_TXE_Msk}, \
+        {ET_SPI_STATUS_COLLISION, SPI0_SR_DCOL_Msk}, \
+    }
+/* Snapshot extraction facts: TX IRQ mask, TX start mask/shift, DMA TX/RX masks. */
+#define ET_CHIP_SPI_SNAPSHOT_MAP_TABLE \
+    { \
+        SPI0_TXFTLR_TFT_Msk, SPI0_TXFTLR_TXFTHR_Msk, SPI0_TXFTLR_TXFTHR_Pos, SPI0_DMACR_TDMAE_Msk, SPI0_DMACR_RDMAE_Msk \
+    }
+
+/* -------------------------------------------------------------------------- */
 /* SYSCNT                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -217,6 +282,25 @@ enum
 #define ET6801_CRG_PERIPHERAL_CORDIC0 CRG_GTEN0_CRG_CLK_GTEN_CORDIC0_Pos
 
 /*
+ * ET6801 CMSIS/SVD puts SPI0..3 in GTEN1/SRST1 bits 14..17. The legacy
+ * SPIM0..2/SPIS0 SDK selectors target different bits and must not be reused.
+ * BITS_DWORD is the SDK CRG selector group stride (32 bits); these selectors
+ * feed et_crg_mapping_t.chip_peripheral_id, not SPI role or board pin choices.
+ * Logical IDs identify the four SPI instances in the ET6801 generated header.
+ */
+enum
+{
+    ET6801_CRG_SPI_LOGICAL_0 = 0u,
+    ET6801_CRG_SPI_LOGICAL_1 = 1u,
+    ET6801_CRG_SPI_LOGICAL_2 = 2u,
+    ET6801_CRG_SPI_LOGICAL_3 = 3u
+};
+#define ET6801_CRG_PERIPHERAL_SPI0 (BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI0_Pos)
+#define ET6801_CRG_PERIPHERAL_SPI1 (BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI1_Pos)
+#define ET6801_CRG_PERIPHERAL_SPI2 (BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI2_Pos)
+#define ET6801_CRG_PERIPHERAL_SPI3 (BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI3_Pos)
+
+/*
  * Field order: stable peripheral type, logical instance, SDK CRG selector.
  */
 #define ET_CHIP_CRG_MAP_TABLE \
@@ -237,7 +321,11 @@ enum
       {ET_CRG_WRAP_PERIPHERAL_STIMER, ET6801_STIMER_LOGICAL_1, CRG_PERIPH_STM1}, \
       {ET_CRG_WRAP_PERIPHERAL_WDG, ET6801_WDG_LOGICAL_0, CRG_PERIPH_WDG0}, \
       {ET_CRG_WRAP_PERIPHERAL_WDG, ET6801_WDG_LOGICAL_1, CRG_PERIPH_WDG1}, \
-      {ET_CRG_WRAP_PERIPHERAL_IPCM, 0u, CRG_PERIPH_IPCM}}
+      {ET_CRG_WRAP_PERIPHERAL_IPCM, 0u, CRG_PERIPH_IPCM}, \
+      {ET_CRG_WRAP_PERIPHERAL_SPI, ET6801_CRG_SPI_LOGICAL_0, ET6801_CRG_PERIPHERAL_SPI0}, \
+      {ET_CRG_WRAP_PERIPHERAL_SPI, ET6801_CRG_SPI_LOGICAL_1, ET6801_CRG_PERIPHERAL_SPI1}, \
+      {ET_CRG_WRAP_PERIPHERAL_SPI, ET6801_CRG_SPI_LOGICAL_2, ET6801_CRG_PERIPHERAL_SPI2}, \
+      {ET_CRG_WRAP_PERIPHERAL_SPI, ET6801_CRG_SPI_LOGICAL_3, ET6801_CRG_PERIPHERAL_SPI3}}
 
 /*
  * CRG owns the WDG clock source and divider. The divider is the encoded

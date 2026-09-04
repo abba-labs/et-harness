@@ -2,7 +2,7 @@
 
 <!-- Contract sync 2026-09-03: append IPCM clock/reset category without changing existing values or Wire layout. -->
 
-更新时间：2026-09-03 21:46 CST。新增独立计数器时钟命令，旧命令和类别编号不变。
+更新时间：2026-09-04 11:02 CST。追加SPI类别，旧命令、请求布局和类别编号不变。
 
 > 本文件只定义跨芯片稳定的 CRG 公共动作；芯片 Driver 的物理外设选择值仅允许出现在 Chip Config 映射中。
 
@@ -37,6 +37,7 @@
 | `6` | `STIMER` | STIMER 定时器逻辑实例 |
 | `7` | `WDG` | WDG 看门狗逻辑实例 |
 | `8` | `IPCM` | 核间 Mailbox 控制器逻辑实例，不是 CPU 编号 |
+| `9` | `SPI` | SPI控制器逻辑实例；Controller/Target角色不改变类别和实例号 |
 
 类别编号是公共协议的一部分，不得重用或改义。芯片不具备某类别或实例时返回 `NOT_SUPPORTED`，不得猜测其他外设。
 

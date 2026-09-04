@@ -20,6 +20,8 @@ class CrgPeripheral(IntEnum):
     WDG = 7
     # 核间 Mailbox 控制器类别；实例号不是执行核编号。
     IPCM = 8
+    # SPI控制器类别；Controller/Target角色共用同一逻辑实例。
+    SPI = 9
 
 
 # 表示 CRG 对 WDG 时基提供的稳定时钟源语义，不暴露芯片寄存器编码。

@@ -2,7 +2,7 @@
 
 > 本文件只保存 ET6801 对公共 `crg.md` 的芯片适配事实，不定义第二套公共命令、Feature 或 Case。
 
-更新时间：2026-09-03 21:46 CST。
+更新时间：2026-09-04 11:02 CST。
 
 ## 1. Source Basis
 
@@ -17,6 +17,7 @@
 | CORDIC clock/reset logical instance `0` | Chip Config 映射到 ET6801 CORDIC CRG selector |
 | FMAC clock/reset logical instance `0` | Chip Config 映射到 ET6801 FMAC CRG selector |
 | IPCM clock/reset logical instance `0` | 已提供`CRG_PERIPH_IPCM`：`GTEN1/SRST1 bit25`；Chip Config行由IPCM接入批次加入。复位前须停止两个核访问 Mailbox |
+| SPI clock/reset logical instances `0..3` | `GTEN1/SRST1 bit14..17`；选择值为`BITS_DWORD + CRG_GTEN1_CRG_CLK_GTEN_SPI<n>_Pos`，分别映射SPI0～3；公共类别为SPI，不区分主从角色 |
 | WDG logical instance `0` | `WDG0` |
 | WDG logical instance `1` | `WDG1` |
 | WDG source `HSOSC` | `CRG_WDG_CLKSRC_HSOSC` |
@@ -34,6 +35,7 @@
 
 ### 3.1 Reset Selector Correction
 
+- SPI旧SDK的`CRG_PERIPH_SPIM0/1/2/SPIS0`分别为`0x26..0x29`，不对应ET6801的SPI位。新增Chip Config映射使用生成CMSIS符号形成`0x2E..0x31`，复用现有CRG Driver原子操作，不改旧枚举和其他IP映射。此处不宣称整个旧SDK选择表已修复。
 - ET6801生成CMSIS将`CORDIC0`放在`SRST0/GTEN0 bit20`。
 - ET6801生成CMSIS将`CRC`、`FMAC`、`AES`放在`SRST1/GTEN1 bit22/23/24`。
 - ET6801生成CMSIS将`IPCM`放在`SRST1/GTEN1 bit25`，选择值复用`CRG_GTEN1_CRG_CLK_GTEN_IPCM_Pos`，不新增寄存器访问函数。
@@ -41,6 +43,7 @@
 
 ## 4. Current Validation Boundary
 
+- 2026-09-04新增SPI映射尚未执行HIL；静态映射、Wire和编译检查不能证明硬件复位已通过。
 - FPGA 与 Silicon 固件工程均已完成编译/链接验证。
 - 本文不声明 WDG 时钟切换的 HIL PASS；实际比例和恢复结论由 WDG Formal Case 及其运行证据给出。
 - 2026-09-03新增IPCM映射尚未进行HIL；不得将静态映射检查计为IPCM复位实测通过。

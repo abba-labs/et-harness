@@ -1,8 +1,8 @@
 # ET6801 SPI Chip Analysis & Adaptation Contract
 
-更新时间：2026-09-04 10:34 CST
+更新时间：2026-09-04 13:10 CST
 
-范围：ET6801 SPI0～SPI3，FPGA/Silicon；本轮只做资料分析。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP。未执行编译或硬件，历史结果不是本版本PASS。
+范围：ET6801 SPI0～SPI3，FPGA/Silicon；已开始SDK原子接口开发，尚未形成完整自动化执行链。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP。尚无本版本硬件结果，历史结果不是本版本PASS。
 
 # 第一章 IP分析与Source Coverage
 
@@ -28,7 +28,7 @@
 | REQ6801 | test_case/6801下SPI定向查询 | NO_MATCH | 未找到专属SPI需求，不否定硬件功能或其他适用需求。 |
 | ATP | 当前仓库 | FOUND | firmware/chips/et6801/sdk/{CMSIS/Device/Include/et6801.h,ET6x_Driver/Inc/et6x_spi.h,ET6x_Driver/Src/et6x_spi.c}；SPI Capability及旧SPI文档。 |
 
-当前平台尚无SPI公共Wrap/Service、PC Driver及Formal Case（NO_MATCH）。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
+当前平台已新增SPI配置/IRQ Wrap、24条原子命令Service和PC Driver；应用注册、完整Capability、Formal Case和板级映射仍待完成。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
 
 证据路径：
 - 主SVD：V6801/`Tools/RegGen/ET6801.svd`；单IP：`Tools/RegGen/svd/SPI_DWC_ssi.svd`。
@@ -59,7 +59,7 @@
 
 # 第二章 Driver分析
 
-基本启停、四模式、帧宽、传输方向、回环、FIFO、IRQ、DMA均有API，但不能直接包一层就使用。下表是后续固件开发前必须处理的清单，本轮没有修改SDK。
+基本启停、四模式、帧宽、传输方向、回环、FIFO、IRQ、DMA均有API，但不能直接包一层就使用。下表保留开发前发现的问题与处理要求；实际修复进度见2.1节。
 
 | ID | 源码锚点 | 问题与影响 | 后续处理 |
 |---|---|---|---|
@@ -78,6 +78,47 @@
 | SPI_DRV_013 | SPI_Config / MWCR | 未暴露FRF、CFS、Microwire模式/方向/握手，SER控制及完整直接快照也不足。 | 先补分析依据，再按测试Driver扩展区域约束补接口；Wrap不写寄存器。 |
 
 24/32-bit helper是多帧打包，不证明SPI硬件有24/32bit单帧。帧外高位忽略及4/16bit测试由公共frame_bits覆盖，不能把SDK helper当新硬件Feature。历史chipSel成员已不在当前Config内，按SER实际集成适配。
+
+## 2.1 本轮实现进度
+
+2026-09-04 11:54 CST：以下为源码变化，不表示芯片实测通过。
+
+| 项目 | 当前实现与保留边界 |
+|---|---|
+| CRG接入 | 公共CRG类别新增SPI=9；SPI0～3按生成CMSIS的GTEN1/SRST1 bit14～17映射。未使用旧SDK SPIM/SPIS选择值；尚未验证实机复位。 |
+| SPI_DRV_001/004/005 | 修正TXFTHR getter的括号，FIFO阈值合法域改为0～15，补DMA水位函数的实例与参数断言。 |
+| SPI_DRV_002 | 旧`SPI_configFrameNum`拒绝0；旧`SPI_Config.rxDataNum`仍保持NDF原始编码，避免静默改变历史API。新增`SPI_testSetFrameCount(uint32_t)`接受真实1～65536帧，启用状态返回BUSY，不自动清FIFO。 |
+| SPI_DRV_003 | 原SDK频率设置改为向上量化偶数分频，不超过请求频率；非法/不可表达请求不修改硬件。因旧API为void，Formal链使用返回DRV_Status的`SPI_testSetDivider`明确报告非法参数，不依赖旧API的静默返回。 |
+| SPI_DRV_007/008 | 新增SER选择接口，不改变SSIENR；修正`SPI_writeDataNonBlocking`，一次写入后立即返回，不轮询SR。旧Blocking接口保留，但不得进入Service。 |
+| 无损观测 | `SPI_testGetSnapshot`读取配置、FIFO、IRQ、DMA请求，不读SR/DR/ICR；`SPI_testReadStatus`明确执行一次SR读取并消费TXE/DCOL。普通读写用FIFO Level判断，不偷读SR。 |
+| 自然错误刺激 | 正常TryRead/TryWrite返回0或1帧；显式FIFOOnce接口绕过满空保护，供TXO/RXU刺激，不伪造错误状态。 |
+| DMA方向 | `SPI_testConfigureDMA`独立设置TX/RX开关和水位，不调用DMA Driver，不配置DMA通道。 |
+| 基础Wrap | 已增加公共`et_spi_wrap.h/.c`：启停、FIFO复位、精确分频、真实帧数、CS选择、正常/错误刺激单帧访问及独立DMA请求。实例只由Chip Config映射，Wrap不操作寄存器、不调用其他IP。 |
+| 尚待完成 | 完整配置/快照/IRQ Wrap、Service/IRQ事件、PC Driver/Case、Capability和接线映射。第5/6章适配状态仍保持缺口，不升级为ADAPTED。 |
+
+软件回归入口：`pc/et_test_platform/framework_validation/unit/firmware_contract/test_spi_driver_native.py`，编译真实SPI Driver，复用生成头位定义，验证非法参数无写入、帧数/分频边界、FIFO查询不清错误和非阻塞写无等待。寄存器桩不证明波形、真实FIFO或IRQ投递。
+
+本批验证：ArmClang对真实SDK和SPI Wrap的语法检查通过；同一回归夹具通过WSL GCC编译真实Driver与Wrap并执行全部断言，退出码0。包含四实例映射、公共返回值、非法参数、BUSY以及不消耗SR错误的检查。原生夹具位于`artifacts/runs/20260904_114000_000000_spi_sdk_software/stages/native/`。Windows PATH没有本机C编译器，pytest会跳过该原生测试；WSL执行证据不能计入pytest通过数量。尚未进行完整固件链接、下载或HIL。
+
+2026-09-04 12:02 CST：本批统一软件门禁`tools/validate_pc.py`通过，977 PASS、15 SKIP、0 FAIL；包含规则路由、范围、文档、C格式/注释、软件单测、既有Formal Case收集和报告导出检查。初次检查发现测试扩展缺少规范标记/编译开关，已按既有SDK隔离约定修正，未放宽Checker。关闭测试扩展的普通SDK语法检查及开启扩展的SDK/Wrap检查均通过。以上数量是软件门禁测试，不是SPI的17项硬件Case结果。
+
+2026-09-04 12:54 CST：完成SPI原子命令和PC Driver这一逻辑批次。以下更新接替上表“尚待完成”中的部分事项，不回改历史验证结论。
+
+| 项目 | 本批完成内容 | 验证边界 |
+|---|---|---|
+| Chip Driver / Wrap | 完整停机配置及读回、FIFO阈值/无损快照、独立错误读取、IRQ源屏蔽/清除/路由、DMA端点；公共Wrap不读写寄存器。 | 真实SDK、Wrap、Service通过ArmClang语法检查及原生寄存器桩回归；不证明总线时序。 |
+| SPI Service | `0x010B`、24条固定布局命令；每条仅执行本IP原子动作。通过现有IRQ Manager绑定，回调只锁存事实并屏蔽有效源；不自动排空FIFO，不执行Case断言。 | PC/C共用独立固定Config向量；验证错误长度、返回容量、实例校验及IRQ事件。薄工厂已实现，尚未加入Application/工程注册。 |
+| IRQ故障边界 | 注册失败时只读取本回调的Manager所有权，区分未分配与部分保留；不写Manager内部状态。没有分配的失败不留下虚假BUSY，部分解绑失败保留重试所有权。 | 原生夹具覆盖注册前失败、部分注册后回滚成功/失败、解绑重试和事件计数溢出；不模拟NVIC硬件。 |
+| PC Driver / Codec | 24条直接命令、明确类型、严格响应长度、正常/强制FIFO访问分离；多次读取共享同一Deadline，无隐藏跨IP初始化。 | 56项SPI Driver/Codec软件测试；失败和超时不重放FIFO读写。 |
+| 尚未完成 | Capability语义/执行映射、GPIO接线依赖、Application/Keil注册、17项目标对应的正式Case及报告模板。 | Formal Case仍为0，SPI HIL仍未执行；不能把本批软件测试数量填入第七章硬件PASS。 |
+
+证据目录：`artifacts/runs/20260904_123800_000000_spi_wire_software/stages/`。`armclang_final.log`记录目标工具链语法检查；`native_irq_failure.log`记录含IRQ故障注入的真实SDK/Wrap/Service原生执行；`software_gate_review.log`为本批最终软件门禁日志。Windows本机缺少原生C编译器，该pytest项目保持环境SKIP；WSL执行单独留证，不改写pytest计数。
+
+TI/Microwire仍保留第5/6章的依据缺口：寄存器桩只能验证当前Driver编码写回，不能证明目标FRF枚举及MWMOD极性的硬件正确性，也不能证明协议时序。目标SVD没有给出的枚举含义不得据此升级为已验证能力；P2_002不能凭编码读回宣布完成。
+
+2026-09-04 13:00 CST：与P1_005逐步对照后，取消`IRQ_CAPTURE_START`隐式清除锁存源及修改源屏蔽的行为。它只重置软件事件并绑定；PC负责Mask/Clear、制造刺激、保存Raw/Status，再开放投递。否则TXO/RXU/RXO会在投递前被清掉，Case无法按设计执行。新增原生回归检查启动不读ICR、不改变IMR，以及绑定期间立即进入ISR后不重新打开已被ISR屏蔽的源。公共IRQ Manager未修改。最新证据入口为`native_capture_final.log`、`armclang_capture_final.log`及`software_gate_closeout.log`，均位于上述stages目录；前述日志保留为阶段证据。
+
+2026-09-04 13:10 CST：最终统一软件门禁通过，**1033 PASS、15 SKIP、0 FAIL**，资源控制任务`20260904_130643_460602eb`，退出码0。包含最终IRQ原子性修正；上述原生夹具及ArmClang检查也通过。此处仅是软件质量结论：SPI正式Case仍未落地、完整工程尚未链接、本轮未烧录或运行硬件，不能填写SPI硬件PASS数量。没有修改冻结Framework、Runner、IRQ Manager或其他未授权IP。
 
 # 第三章 寄存器与Observation映射
 
@@ -219,7 +260,7 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 2. 依据本芯片SVD补SPI Capability，再按固定层次实现Wrap、Service、PC Driver。
 3. 实现14个方法明确的PLAN；先片内、外部回接/双实例和DMA；波形和电气测量保留设计，当前先不执行。未具备物理资源仍保留代码和明确环境条件，不为了免接线弱化Case。
 4. 补齐P2_002的目标协议时序、P2_003的实际延迟深度/时序预算、P2_004的ss_in_n连接。再完善原ID PLAN，不以“难测”判硬件不支持。
-5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；本轮仅文档，没有执行这些动作。
+5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；当前仅进入源码与软件验证阶段，尚未执行SPI硬件测试。
 
 ## 6.3 Board/Capability待落地事实
 

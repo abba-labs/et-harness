@@ -1,6 +1,6 @@
 # SPI Stable IP Contract
 
-更新时间：2026-09-04 10:34 CST
+更新时间：2026-09-04 13:00 CST
 
 本文件定义芯片中立的SPI测试意图。保留19个Feature ID；补入参考资料遗漏的测试目的，纠正不充分的判据。公共配置及数据格式在此定义，具体寄存器、SDK差异和接线仅见芯片文档。
 
@@ -30,7 +30,7 @@
 
 | 动作 | 请求→返回及副作用 |
 |---|---|
-| capabilities_get | 逻辑实例→角色、格式、帧宽、FIFO容量、IRQ源、DMA端点、时钟/延迟范围及适用条件；不发布测试是否实现。 |
+| Capability查询 / limits_get | PC从Capability查询角色、格式、IRQ、DMA端点、时钟及适用条件；Wire的limits_get只返回可编程范围，不代替完整Capability，也不发布测试是否实现。 |
 | configure / config_get | 实例+稳定配置→接受状态；独立config_get返回硬件读回，不回显缓存代替。配置发生在Disable时，重新配置可能清FIFO，必须先配置再装数据。 |
 | enable / disable / fifo_reset | 实例→状态；fifo_reset同时清TX/RX，不承诺独立复位。Disable清FIFO的目标映射写在芯片文档。 |
 | cs_select / cs_release / loopback_set | 实例+选择状态/布尔值→状态；可以保持Enable且未选CS，供FIFO静止填充。 |
@@ -42,7 +42,9 @@
 | dma_configure | 实例+TX/RX请求开关和水位→状态；SPI Service不配置DMA通道，PC组合DMA Driver。 |
 | test_fifo_write_once / test_fifo_read_once | 单次无FIFO满空拦截的数据访问，仅用于明确错误刺激；不能被正常读写API的检查吞掉。不是任意寄存器访问接口。 |
 
-Wire：以上为待实现的稳定请求/响应语义，不分配临时Command ID；开发时按现有IP命令注册和ET-Frame一次性定义双方对应布局，不创建新通信协议。配置错误返回明确状态，数据未就绪返回本次0帧，长操作由PC deadline累计推进。没有新增固件后台Case状态机。
+Wire：以上稳定动作的当前命令布局见0.6节，C Service与Python Codec保持同一契约，不创建新通信协议。配置错误返回明确状态，数据未就绪返回本次0帧，长操作由PC deadline累计推进。没有新增固件后台Case状态机。
+
+普通`snapshot_get`只返回无读清副作用的配置、FIFO和IRQ事实；若目标的BUSY等正常状态与读清错误共用寄存器，必须统一经显式`error_status_read`获取该次完整状态。禁止为了得到BUSY而在普通轮询中提前消费错误证据。读取返回的是该次原始状态，不缓存伪造后续硬件状态。
 
 ### 0.3 Observation与Oracle
 
@@ -78,6 +80,51 @@ Wire：以上为待实现的稳定请求/响应语义，不分配临时Command I
 | RXF | Loopback积累R帧仍不触发，再收1帧到R+1；R=0由空到1。 | 读回到R帧；不是对IRQ位写0或写1。 |
 
 每个Source独立复位。需要电平保持的阶段不让ISR自动读FIFO。ISR可以在锁存有效Source后屏蔽该源，避免电平IRQ风暴；PC核对锁存值，不能要求ISR屏蔽后的实时STATUS仍为1。
+
+### 0.6 SPI Wire实现契约
+
+Service ID为`0x010B`；沿用R400 ET-Frame v1，不改变公共帧或其他IP命令。每个请求Body固定为`instance_id:u8 + 参数u32LE数组`；公共头instance_id与Body必须一致。响应不带实例前缀，只包含下表u32LE字段。所有Boolean严格为0或1，所有字段数精确校验；错误响应Body为空。
+
+| Command ID | 命令 | 请求字段（不含实例） | 响应字段 |
+|---:|---|---|---|
+| 0 | LIMITS_GET | 无 | Limits |
+| 1 | CONFIGURE | Config | 无 |
+| 2 | CONFIG_GET | 无 | Config |
+| 3 | ENABLE_SET | enabled | 无 |
+| 4 | FIFO_RESET | 无 | 无 |
+| 5 | DIVIDER_SET | divider | 无 |
+| 6 | FRAME_COUNT_SET | frame_count | 无 |
+| 7 | CS_SET | selected | 无 |
+| 8 | LOOPBACK_SET | enabled | 无 |
+| 9 | FIFO_THRESHOLDS_SET | tx, rx, start | 无 |
+| 10 | SNAPSHOT_GET | 无 | Snapshot |
+| 11 | ERROR_STATUS_READ | 无 | raw, flags |
+| 12 | WRITE_FRAME | frame | accepted(0/1) |
+| 13 | READ_FRAME | 无 | received(0/1), frame |
+| 14 | TEST_FIFO_WRITE_ONCE | frame | 无 |
+| 15 | TEST_FIFO_READ_ONCE | 无 | frame |
+| 16 | DMA_CONFIGURE | tx_enabled, rx_enabled, tx_threshold, rx_threshold | 无 |
+| 17 | DMA_ENDPOINT_GET | 无 | address_low, address_high |
+| 18 | IRQ_MASK_SET | sources, enabled | 无 |
+| 19 | IRQ_CLEAR | sources | 无 |
+| 20 | IRQ_CAPTURE_START | sources | 无 |
+| 21 | IRQ_CAPTURE_STOP | 无 | 无 |
+| 22 | IRQ_EVENT_GET | 无 | IrqEvent |
+| 23 | IRQ_EVENT_RESET | 无 | 无 |
+
+字段顺序是协议定义，不依赖C结构体内存布局：
+
+- Config：`role, frame_format, clock_mode, transfer_mode, cs_policy, frame_bits, frame_count, divider, target_output_enabled, loopback, rx_sample_delay, control_bits, sequential, transmit, handshake, reserved`。reserved必须为0；role为TARGET=0/CONTROLLER=1；format为MOTOROLA=0/TI=1/MICROWIRE=2；clock_mode为MODE0～3的0～3；transfer_mode为TX_RX=0/TX_ONLY=1/RX_ONLY=2/EEPROM_READ=3；cs_policy为AUTO=0/HOLD=1/TOGGLE=2。
+- Limits：`frame_bits_min, frame_bits_max, fifo_depth, divider_min, divider_max, frame_count_max, rx_delay_max`。只发布可编程数值范围；完整角色、格式、DMA路由和适用组合仍来自Capability，不能用该命令替代YAML。
+- Snapshot：`enabled, selected, tx_level, rx_level, tx_threshold, rx_threshold, start_threshold, irq_raw, irq_status, irq_enabled, dma_tx_enabled, dma_rx_enabled, dma_tx_threshold, dma_rx_threshold`。前两项及DMA使能项为Boolean；IRQ使用公共Source位。
+- IrqEvent：`raw_status, masked_status, latched_events, event_count, unexpected_count, overflow_count, generation, fault_flags`。前三项是ISR读取/锁存的Source，其他项为软件计数；fault_flags bit0=访问/绑定清理失败、bit1=计数饱和、bit2=非预期来源。保留未知位不能静默接受。
+- Source：bit0 TX_EMPTY、bit1 TX_OVERFLOW、bit2 RX_UNDERFLOW、bit3 RX_OVERFLOW、bit4 RX_FULL、bit5 COLLISION。flags：bit0 BUSY、bit1 TX_NOT_FULL、bit2 TX_EMPTY、bit3 RX_NOT_EMPTY、bit4 RX_FULL、bit5 TARGET_TX_ERROR、bit6 COLLISION。raw仅为本次原始硬件值留证，不能在公共Case里按芯片位号解释。
+
+`WRITE_FRAME/READ_FRAME`每条命令最多访问一帧；没有数据时返回0，不等未来FIFO变化，空读返回frame=0但received=0。PC的`write_frames/read_frames`按帧组合这些原子动作，遇满/空即返回；`read_exact/irq_wait`在PC统一Deadline内等待，不在固件增加后台测试状态机。
+
+`IRQ_CAPTURE_START`在未绑定时只重置软件证据、增加generation并绑定现有IRQ Manager；sources声明预期来源，不隐式改变SPI源屏蔽、不清硬件锁存状态。PC先用IRQ_MASK_SET/IRQ_CLEAR建立基线，产生刺激并保存Raw/Status后再绑定，或先绑定再显式Unmask；已有效的源可以在绑定期间立即投递。ISR保存首次Raw/Status和累计Source，屏蔽活动源避免持续IRQ风暴；不排空FIFO、不自动确认Feature。PC显式消除电平条件并调用IRQ_CLEAR，若需继续投递再调用IRQ_MASK_SET。`IRQ_CAPTURE_STOP`先关源再解绑，保留证据；清理失败返回错误，不宣称已释放。绑定失败时屏蔽本IP源并清理实际持有的路由，不以新的绑定覆盖失败。
+
+仅LIMITS_GET、CONFIG_GET、SNAPSHOT_GET、DMA_ENDPOINT_GET、IRQ_EVENT_GET允许Target既有安全重试；所有写操作、FIFO读取和ERROR_STATUS_READ禁止自动重试。DMA端点作为查询结果供既有DMA端点映射核对，不授权Case直接操作物理地址。
 
 ## 1. Feature Catalog
 

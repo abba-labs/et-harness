@@ -49,6 +49,14 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "et6x.h"
 
+/* SVD BAUDR stores an even divisor in bits [15:1]. */
+#define SPI_CLOCK_DIVIDER_MIN       (1UL << SPI0_BAUDR_SCKDV_Pos)
+#define SPI_CLOCK_DIVIDER_MAX       SPI0_BAUDR_SCKDV_Msk
+/* Existing SDK hardware limits, shared by validation and runtime capabilities. */
+#define SPI_MAX_FIFO_DEPTH          16U
+#define SPI_MIN_FRAME_BITS          4U
+#define SPI_MAX_FRAME_BITS          (SPI0_CTRLR0_DFS_Msk + 1U)
+
 #define SPI_INTERRUPT_ALL \
         (SPI0_IMR_TXEIM_Msk | SPI0_IMR_TXOIM_Msk | SPI0_IMR_RXUIM_Msk | SPI0_IMR_RXOIM_Msk | \
          SPI0_IMR_RXFIM_Msk | SPI0_IMR_MSTIM_Msk)
@@ -188,6 +196,92 @@ void SPI_setDMATransmitDataLevel(SPI_Type *SPIx, uint8_t level);
 void SPI_setDMARecevieDataLevel(SPI_Type *SPIx, uint8_t level);
 void SPI_enableDMA(SPI_Type *SPIx);
 void SPI_disableDMA(SPI_Type *SPIx);
+
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/* SVD BAUDR is an even divider; CTRLR1 stores frame count minus one. */
+#define SPI_TEST_FRAME_COUNT_MAX   (SPI0_CTRLR1_NDF_Msk + 1UL)
+
+/* Driver FRF encodings, not Wire values. TI/Microwire protocol qualification is pending. */
+typedef enum
+{
+    SPI_TEST_FORMAT_MOTOROLA = 0U,
+    SPI_TEST_FORMAT_TI = 1U,
+    SPI_TEST_FORMAT_MICROWIRE = 2U
+} SPI_TestFormat;
+
+typedef enum
+{
+    SPI_TEST_CS_AUTO = 0U,
+    SPI_TEST_CS_HOLD = 1U,
+    SPI_TEST_CS_TOGGLE = 2U,
+    SPI_TEST_CS_UNKNOWN = UINT32_MAX
+} SPI_TestCSPolicy;
+
+/* Exact settings: count is a number of frames; outputEnabled is not SLV_OE. */
+typedef struct
+{
+    uint32_t role;
+    uint32_t format;
+    uint32_t clockMode;
+    uint32_t transferMode;
+    uint32_t frameBits;
+    uint32_t frameCount;
+    uint32_t divider;
+    uint32_t csPolicy;
+    uint32_t outputEnabled;
+    uint32_t loopback;
+    uint32_t rxDelay;
+    uint32_t controlBits;
+    uint32_t sequential;
+    uint32_t transmit;
+    uint32_t handshake;
+} SPI_TestConfig;
+
+DRV_Status SPI_testConfigureStopped(SPI_Type *SPIx, const SPI_TestConfig *config);
+DRV_Status SPI_testGetConfig(SPI_Type *SPIx, SPI_TestConfig *config);
+DRV_Status SPI_testSetLoopbackStopped(SPI_Type *SPIx, uint8_t enabled);
+DRV_Status SPI_testSetFIFOThresholds(SPI_Type *SPIx, uint8_t tx, uint8_t rx, uint8_t start);
+DRV_Status SPI_testGetDMAEndpoint(SPI_Type *SPIx, uintptr_t *address);
+
+/* Raw readback for the chip adapter. Reading this view never consumes SR/DR/ICR. */
+typedef struct
+{
+    uint32_t control;
+    uint32_t frame_count;
+    uint32_t enabled;
+    uint32_t selected;
+    uint32_t divider;
+    uint32_t rx_sample_delay;
+    uint32_t tx_level;
+    uint32_t rx_level;
+    uint32_t tx_thresholds;
+    uint32_t rx_threshold;
+    uint32_t irq_raw;
+    uint32_t irq_status;
+    uint32_t irq_enabled;
+    uint32_t dma_enabled;
+    uint32_t dma_tx_threshold;
+    uint32_t dma_rx_threshold;
+} SPI_TestSnapshot;
+
+/* Configuration-only actions reject an enabled module instead of clearing FIFO. */
+DRV_Status SPI_testSetDivider(SPI_Type *SPIx, uint32_t divider);
+DRV_Status SPI_testSetFrameCount(SPI_Type *SPIx, uint32_t frameCount);
+DRV_Status SPI_testSelectCS(SPI_Type *SPIx, uint8_t selected);
+DRV_Status SPI_testConfigureDMA(SPI_Type *SPIx, uint8_t txEnabled, uint8_t rxEnabled,
+                               uint8_t txLevel, uint8_t rxLevel);
+DRV_Status SPI_testGetSnapshot(SPI_Type *SPIx, SPI_TestSnapshot *snapshot);
+/* Explicit SR read: consumes TXE/DCOL read-clear flags. */
+DRV_Status SPI_testReadStatus(SPI_Type *SPIx, uint32_t *status);
+/* Normal FIFO actions return 0/1 transferred frame; no wait and no SR read. */
+DRV_Status SPI_testTryWriteFrame(SPI_Type *SPIx, uint32_t frame, uint8_t *written);
+DRV_Status SPI_testTryReadFrame(SPI_Type *SPIx, uint32_t *frame, uint8_t *received);
+/* No FIFO guard: intentionally produce overflow/underflow stimuli. */
+DRV_Status SPI_testWriteFIFOOnce(SPI_Type *SPIx, uint32_t frame);
+DRV_Status SPI_testReadFIFOOnce(SPI_Type *SPIx, uint32_t *frame);
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
 
 /**
  * @}
