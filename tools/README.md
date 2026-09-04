@@ -18,6 +18,9 @@ tools/
 
 ## 常用入口
 
+CAN盒子人工诊断：`tools/runner/can_box.py`；配置和设备能力边界见
+[CAN盒子说明](../pc/et_test_platform/instruments/can_boxes/README.md)。该入口复用正式仪器Adapter，不代替Formal Case。
+
 完整Operator Pipeline：
 
 ```powershell
