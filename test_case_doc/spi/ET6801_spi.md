@@ -1,284 +1,244 @@
 # ET6801 SPI Chip Analysis & Adaptation Contract
 
-> 本文件只记录 ET6801 SPI 的 Hardware Truth、寄存器、Driver、历史测试、Capability 和 Board/Bench 适配事实。
-> 公共 Feature、Case、Oracle、Observation 和稳定接口以同目录 `spi.md` 为唯一权威来源。
-> QSPI 是独立 IP，不纳入本文分析和 Case 统计。
+更新时间：2026-09-04 10:34 CST
+
+范围：ET6801 SPI0～SPI3，FPGA/Silicon；本轮只做资料分析。公共Feature、Case和动作以同目录[spi.md](spi.md)为准。QSPI独立，不混入本IP。未执行编译或硬件，历史结果不是本版本PASS。
 
 # 第一章 IP分析与Source Coverage
 
-## 1.1 分析目标与证据优先级
+## 1.1 工作原理与应用
 
-```text
-Target chip  = ET6801
-Target IP    = SPI0..SPI3
-Target lane  = FPGA / Silicon
-Hardware run = NOT EXECUTED，本轮仅完成分析与Case Plan
+四个SPI实例均可配置Controller/Target。Controller用APB输入时钟分频产生SCLK，CS选择外部Target；TX FIFO数据经移位输出，输入数据进入RX FIFO。CPU、IRQ、DMA只改变填充/读取方式，不替代串行传输。Target必须有外部SCLK/CS；片内SRL回环不证明PAD或接线。
 
-ET6801 direct SVD / generated header
-  > ET6801 current SDK Driver
-  > ET6801 historical Unit / Functional / FPGA / Smoke source
-  > ET6003 / ET3101 requirement and source reference
-```
+应用为传感器、NOR Flash、ADC/DAC、显示器及两实例互联。首轮必须保留单实例MOSI-MISO真实回接和双实例四线收发；波形、协议、高阻等独立观测按其真实资源规划，不把它们缩成内部回环。
 
-ET6003、ET3101只用于识别历史Feature和测试思想，不能覆盖ET6801 SVD事实。历史源码和日志只能证明曾采用某种测试方法，不能等同当前自动化平台PASS。
+## 1.2 可复现资料定位
 
-## 1.2 Source Map Coverage
-
-| Source | Locator | 状态 | 定向结论 |
+资料定位依据为`project-governance/ip-analysis-sources.yaml`的roots1。以下根均已定向搜索SPI，未全扫SDK或SVN：
+| 代号 | 根路径，相对SDK_GIT | 搜索状态 | 读取范围 |
 |---|---|---|---|
-| ET6801 requirement | `project-governance/ip-analysis-sources.yaml::et6801.requirements` | NO_MATCH | 未找到ET6801专属SPI需求JSON；不据此否定Hardware Feature。 |
-| ET6003 requirement | `<requirements>/test_case/6003/spi.json` | FOUND / FAMILY_REFERENCE | 包含模块、25MHz、Mode、角色、CS、位宽、Transfer Mode、FIFO、IRQ、DMA和历史Case。 |
-| ET3101 requirement | `<requirements>/test_case/3101/spi.json` | FOUND / FAMILY_REFERENCE | 与ET6003覆盖域基本一致，Case ID较完整；只作历史Source Item。 |
-| ET6801 SPI SVD | `<sdk.et6801>/Tools/RegGen/svd/SPI_DWC_ssi.svd` | FOUND / PRIMARY | Controller/Target、Motorola/TI/Microwire、Mode、位宽、FIFO、IRQ、DMA、CS、采样延迟和冲突状态的直接证据。 |
-| merged SVD | `test_case_doc/ET6801.svd` | FOUND | 确认SPI0..SPI3实例、Base和IRQ合并事实。 |
-| generated header | `firmware/chips/et6801/sdk/CMSIS/Device/Include/et6801.h` | FOUND | 确认4实例、IRQ、CRG Reset、DMA Mux和Pinmux枚举。 |
-| ET6801 Driver | `<sdk.et6801>/DFP/Drivers/ET6x_Driver/{Inc,Src}/et6x_spi.*` | FOUND | 当前公开API覆盖基础配置、回环、FIFO、IRQ和DMA；存在若干实现与语义缺口。 |
-| ET6801 UnitTest | `<sdk.et6801>/DFP/Test/UnitTest/test_spi.c` | FOUND / HISTORICAL | SPI0 Controller与SPI3 Target外部链路，覆盖FIFO、Mode、CS、位宽、IRQ和DMA。 |
-| ET6801 FunctionalTest | `<sdk.et6801>/DFP/Test/FunctionalTest/spi_ft.c` | FOUND / HISTORICAL | 覆盖同实例MOSI-MISO外部回接、SPI0-SPI3配对、DMA、IRQ和25MHz Mode1。 |
-| ET6801 FPGATest | `<sdk.et6801>/DFP/Test/FPGATest/spi_fpga_test.c` | FOUND / HISTORICAL | 给出SPI0/SPI3外部接插件路由及真实双实例传输方法。 |
-| ET6801 SmokeTest | `<sdk.et6801>/DFP/Test/SmokeTest/{spi_smoke_test.c,test_spi_device*.c}` | FOUND / HISTORICAL | 包含片内回环、SPI0到SPI3及设备通信测试思想。 |
-| ET6801 TestLog | `<sdk.et6801>/DFP/Test/TestLog/spi_ut.log` | FOUND / CONFLICTING | 部分Case输出与数据不一致，不能作为当前PASS；仅保留失败和仪器依赖线索。 |
-| ET6003/ET3101 source | `<sdk.et6003>`、`<sdk.et3101>`定向SPI目录 | FOUND / FAMILY_REFERENCE | 确认外部回接、双角色、FIFO、IRQ、DMA、速率和设备通信是历史公共覆盖域。 |
-| current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/spi.yaml` | FOUND / INCOMPLETE | 只识别实例、Enable、Base、Version和IRQ；主要SPI字段仍在audit中未分类。 |
-| current platform code | `firmware/{wrap,services}`、`pc/et_test_platform/{drivers,test_cases}` | NO_MATCH | 当前没有SPI公共Wrap、Service、PC Driver和Formal Case。 |
+| SDK_GIT | D:/lihuan/vibe_code/code/SDK/git | FOUND | 本机根；云盘roots0不作为不可访问核心资料重复统计。 |
+| V6801 | 6801/et6801-verification | FOUND | Tools/RegGen/SPI SVD、DFP/Drivers、Test/UnitTest、FunctionalTest、FPGATest、SmokeTest、StressTest、ChipSieveTest和TestLog。 |
+| V6003 | 6003/et6003-verification | FOUND | SPI拆分SVD、ET6x_Driver、UnitTest与SmokeTest；无对应Functional/FPGA SPI文件不补造。 |
+| S6003 | 6003/6003_sdk/et6003-sdk | FOUND | SPI SVD、ET6x_Driver、Unit/Functional/Smoke、StressTest和ChipSieveTest。 |
+| V3101 | 3101/et3101-verification | FOUND | SPI SVD、ET3x_Driver、Unit/Smoke；不误用同名ET6x路径。 |
+| S3101 | 3101/et3101-sdk | FOUND | SPI SVD、ET6x_Driver、Unit/Functional/Smoke、StressTest。 |
+| REQ6003 | test_case/6003/spi.json | FOUND | 10条Test Point和16条Case；编号重复，以数组序号加名称定位。 |
+| REQ3101 | test_case/3101/spi.json | FOUND | 10条Test Point和16条Case。 |
+| REQ6801 | test_case/6801下SPI定向查询 | NO_MATCH | 未找到专属SPI需求，不否定硬件功能或其他适用需求。 |
+| ATP | 当前仓库 | FOUND | firmware/chips/et6801/sdk/{CMSIS/Device/Include/et6801.h,ET6x_Driver/Inc/et6x_spi.h,ET6x_Driver/Src/et6x_spi.c}；SPI Capability及旧SPI文档。 |
 
-本轮只对SPI目标文件和登记路径定向检索，没有全量扫描整个SDK或文档库。
+当前平台尚无SPI公共Wrap/Service、PC Driver及Formal Case（NO_MATCH）。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
 
-## 1.3 工作原理与应用
+证据路径：
+- 主SVD：V6801/`Tools/RegGen/ET6801.svd`；单IP：`Tools/RegGen/svd/SPI_DWC_ssi.svd`。
+- Driver：V6801/`DFP/Drivers/ET6x_Driver/{Inc,Src}/et6x_spi.*`，与ATP内同名关键函数复核。
+- 公共历史文件以对应根下`DFP/Test/`为前缀：`UnitTest/test_spi.c`、`SmokeTest/test_spi_device.c`、`SmokeTest/test_spi_device_csgpio.c`；差异入口见第四章。
+- V6801/`TestLog/spi_ut.log`属于历史辅助证据；记录、源码调用和有效断言分开，本文不据其宣称当前PASS。
 
-ET6801 SPI基于DW SSI类控制器，包含4个独立实例。Controller根据输入时钟和偶数分频产生SCLK，使用CS选择Target，并通过MOSI/MISO完成串行全双工或单向传输；Target由外部SCLK和CS驱动。数据先进入TX/RX FIFO，CPU、IRQ或DMA负责填充和读取。
+| 证据 | SHA256 |
+|---|---|
+| V6801整片SVD | 49b2de29bd7a0a4a5fbdefc6e36d75cd6da53a46f5504f860dee53be9079cce4 |
+| V6801单SPI SVD | fcfed495daf582f999313f05f80bb5f71e06f1b7e65cc1da00a5b705186c9b65 |
+| V6801 SPI Driver C | ab6c9edd8cfc1b576063ed1a01882e54bd699e547174fd2cd19e553b0024778e |
+| REQ6003 | 88476ff4424c27e65fa80f4c2112f2b170bc99c093301cd03644c3aeb21ae6af |
+| REQ3101 | 24f7ca4cd2d8e3edb34bf887dd685363d23b23553a7adfbc936ae546c07e0802 |
 
-主要应用包括：
+## 1.3 关键Claim
 
-- MCU与Flash、传感器、ADC/DAC、显示器等外部器件通信；
-- 两个片上SPI实例通过板级连线形成Controller/Target自验证链路；
-- FPGA作为可编程Peer，产生或捕获Motorola SPI、TI SSP和Microwire波形；
-- 通过DMA完成跨FIFO深度的连续数据传输；
-- 通过逻辑分析仪、FPGA或示波器验证SCLK、CS、CPOL、CPHA和频率。
-
-片内`SRL`回环只连接控制器内部Shift Register，适合快速检查配置和数据通路。它不经过真实PAD，不能证明Pinmux、输出驱动、输入采样、板级连线或Target角色。因此公共计划必须保留外部MOSI-MISO回接和双实例Controller-Target两类真实链路Case。
+| Claim | 状态 | 可证明事实与边界 |
+|---|---|---|
+| 4个可配置双角色实例 | VERIFIED | 整片SVD的SPI0～SPI3及各CTRLR0.SSI_IS_MST；每实例独立IRQ、CRG Reset和TX/RX DMA请求。 |
+| Motorola四模式、4～16bit配置 | VERIFIED | CTRLR0.DFS/SCPH/SCPOL及Driver合法范围；不推广到TI/Microwire的全部模式组合。 |
+| FIFO容量16 | VERIFIED / SDK声明 | Driver SPI_MAX_FIFO_DEPTH=16；作为当前配置候选，硬件容量实测由P1_004确认。4-bit水位字段本身不能独立证明容量。 |
+| 多CS | NOT_APPLICABLE | ET6801 SER只有bit0有效；保留单CS选择/窗口测试，不照搬历史CS1/CS2。 |
+| 25MHz或50MHz一定可达 | UNKNOWN | 25MHz是参考需求/历史配置，50MHz是Driver校验上限；需当前APB3时钟和有效偶数分频。二者都不是当前FPGA已测上限。 |
+| RX延迟全部0～255有效 | UNKNOWN | RSD为8bit；SVD说明超过内部移位深度时实际延迟退回0，但未提供该深度。 |
+| TI/Microwire存在 | VERIFIED | FRF、CFS、MWCR提供硬件配置；完整引脚时序Oracle仍不足，不能直接宣布协议Case完成。 |
+| Collision触发 | VERIFIED / 集成路由UNKNOWN | SR.DCOL描述Controller传输时ss_in_n被有效选中；ET6801该输入是否对外可控仍缺映射证据。 |
 
 # 第二章 Driver分析
 
-## 2.1 当前Driver能力
+基本启停、四模式、帧宽、传输方向、回环、FIFO、IRQ、DMA均有API，但不能直接包一层就使用。下表是后续固件开发前必须处理的清单，本轮没有修改SDK。
 
-当前`et6x_spi.h/.c`公开的主要能力如下：
-
-| Driver能力 | 当前事实 | 公共映射 |
-|---|---|---|
-| Enable/Disable/Config | 已有 | `configure`、`enable`、`disable` |
-| Role | Controller/Target | `role` |
-| Motorola Clock Mode | 4种CPOL/CPHA组合 | `clock_mode` |
-| Frame Bits | Driver校验4..16 bit | `frame_bits` |
-| Transfer Mode | TX_RX、TX_ONLY、RX_ONLY、EEPROM_READ | `transfer_mode` |
-| Bitrate | Driver按PCLK和偶数Divider计算；代码限制不高于50MHz | `bitrate_hz`，实际可达上限仍需HIL验证 |
-| Frame Count | 配置接收帧数 | `frame_count`，公共输入必须大于0 |
-| CS | 软件拉低/拉高、Target Select Toggle | `cs_policy` |
-| Internal Loopback | 已有开关 | `loopback_set` |
-| CPU Transfer | Blocking/Nonblocking、FIFO/Polling和24/32-bit helper | 公共动作必须保持有界，不能直接暴露无界循环 |
-| FIFO | Reset、Threshold、Start Threshold和Level | `fifo_reset`、FIFO Snapshot |
-| IRQ | Enable/Disable、Status读取和Clear | 尚缺Raw/Mask/Delivery完整稳定Snapshot |
-| DMA | TX/RX Threshold和Enable/Disable | `dma_configure` |
-| RX Sample Delay | Config结构含字段 | `rx_sample_delay` |
-
-## 2.2 Driver Gap / Risk Matrix
-
-| ID | Severity | Current Fact | 影响 | 后续决策 |
-|---|---|---|---|---|
-| `SPI_DRV_001` | HIGH | Config只暴露Motorola CPOL/CPHA，未暴露SVD中的FRF和MWCR | TI SSP/Microwire不能通过正式API配置 | 按测试Driver扩展规则在Driver底部补充芯片中立协议配置接口。 |
-| `SPI_DRV_002` | HIGH | 当前只读取Mask后ISR，缺少Raw和Mask快照API | 无法准确验证IRQ Source、Mask和Delivery | 补充Raw/Mask/Snapshot测试接口，Wrap只调用Driver。 |
-| `SPI_DRV_003` | HIGH | `SPI_getTansferStartFIFOLevel`掩码/移位表达式存在优先级风险 | Start Threshold读回可能错误 | 在实现前增加Driver单元检查并按原风格修复。 |
-| `SPI_DRV_004` | MEDIUM | DMA Threshold函数参数校验调用形式不完整，实例校验不一致 | 非法输入可能未失败关闭 | 统一参数校验，不在Service补芯片判断。 |
-| `SPI_DRV_005` | HIGH | `SPI_configFrameNum(num=0)`执行减一编码会下溢 | 公共非法输入可能污染硬件配置 | Public Driver/Wrap要求`frame_count>=1`并失败关闭。 |
-| `SPI_DRV_006` | HIGH | 多个Blocking/Polling helper包含无界循环 | 可能阻塞ET-Frame控制通道 | Firmware仅提供一次原子读写/快照动作，deadline由PC控制。 |
-| `SPI_DRV_007` | HIGH | 历史测试源码使用`chipSel`，当前Config结构已无该成员 | 历史代码与当前Driver版本冲突 | 不复制旧代码；CS数量和选择能力从当前SVD/Capability重建。 |
-| `SPI_DRV_008` | MEDIUM | Driver使用`SPI_MAX_FIFO_DEPTH=16`，生成Capability未发布FIFO深度 | 公共Case无法芯片中立选择边界 | Capability补充`fifo_depth=16`及直接证据。 |
-| `SPI_DRV_009` | MEDIUM | `SPI_setConfig`内部以`0x3F`清全部IRQ，缺少含义明确的SDK宏 | 可读性和后续维护风险 | 在测试驱动整改时使用SDK位集合宏，禁止新增Magic Number。 |
-
-Driver Gap不能通过Wrap直接写寄存器绕过。需要测试但正式SDK未暴露的Feature，必须在SDK Driver文件底部测试扩展区域增加清晰命名接口，再由公共Wrap调用。
-
-# 第三章 寄存器与Hardware Truth
-
-## 3.1 实例与系统连接
-
-| Hardware Fact | ET6801事实 |
-|---|---|
-| SPI实例 | SPI0、SPI1、SPI2、SPI3，共4个 |
-| IRQ | 每实例一个独立IRQ |
-| Reset | CRG为四个实例提供独立Software Reset位 |
-| DMA Request | 每实例提供独立TX和RX DMA Mux Request |
-| CS数量 | 当前集成`SER.SER`只有一个有效选择位，按单CS能力发布 |
-| Pinmux | 每实例存在多组GPIO备份映射；具体测试接线由Board Profile选择 |
-
-公开Contract不得出现Base Address、IRQn、CRG Bit或GPIO编号；这些值只允许在ET6801 Profile、Board配置和Firmware芯片层中出现。
-
-## 3.2 核心寄存器语义
-
-| Register / Field | Hardware Truth | 公共语义 |
-|---|---|---|
-| `CTRLR0.DFS` | 帧位宽编码 | `frame_bits` |
-| `CTRLR0.FRF` | Motorola SPI、TI SSP、Microwire | `frame_format` |
-| `CTRLR0.SCPOL/SCPH` | 时钟极性和相位 | `clock_mode` |
-| `CTRLR0.TMOD` | TX_RX、TX_ONLY、RX_ONLY、EEPROM_READ | `transfer_mode` |
-| `CTRLR0.SLV_OE` | Target输出控制 | `target_output_enabled` |
-| `CTRLR0.SRL` | 片内Shift-register Loopback | `loopback_set` |
-| `CTRLR0.SSTE` | Target Select Toggle | `cs_policy=FRAME_TOGGLE` |
-| `CTRLR0.SPI_SOFT_MODE` | CS软件控制 | `cs_policy=SOFTWARE_HOLD` |
-| `CTRLR0.SSI_IS_MST` | Controller/Target角色 | `role` |
-| `CTRLR1.NDF` | 接收帧数减一编码 | `frame_count` |
-| `SSIENR.SSIC_EN` | 模块Enable | `CONFIG.ENABLE` |
-| `MWCR.*` | Microwire工作模式、方向和Handshake | Frame Format协议配置 |
-| `SER.SER` | 片选使能 | CS选择 |
-| `BAUDR.SCKDV` | 偶数分频2..65534；0停止SCLK | `bitrate_hz`底层映射 |
-| `TXFTLR.TFT/TXFTHR` | TX IRQ Threshold与Start Threshold | FIFO阈值 |
-| `RXFTLR.RFT` | RX Full IRQ Threshold | FIFO阈值 |
-| `TXFLR/RXFLR` | TX/RX FIFO当前Level | FIFO Snapshot |
-| `SR.*` | BUSY、FIFO状态、Target TX Error、Controller Collision | `STATUS.*` |
-| `IMR/ISR/RISR` | Mask、Mask后Status、Raw Status | `IRQ.MASK/STATUS/RAW` |
-| `TXEICR/RXOICR/RXUICR/MSTICR/ICR` | Source或全局中断清除 | IRQ Clear |
-| `DMACR/DMATDLR/DMARDLR` | TX/RX DMA Enable及Watermark | DMA配置 |
-| `RX_SAMPLE_DELAY.RSD` | RX采样延迟 | `rx_sample_delay` |
-| `IDR/SSIC_VERSION_ID` | 组件Identity | Capability Identity，不单独制造功能Case |
-
-## 3.3 FIFO与IRQ
-
-当前Driver与字段宽度共同表明ET6801 SPI FIFO深度为16帧。IRQ Source包括：
-
-1. TX Empty；
-2. TX Overflow；
-3. RX Underflow；
-4. RX Overflow；
-5. RX Full；
-6. Multi-Controller Contention。
-
-前5项由`SPI_P1_005`执行独立生命周期验证。Multi-Controller Contention需要安全可控的双Controller争用环境，单独放入`SPI_P2_004`，不能为了避免配测而删除，也不能直接短接推挽输出冒险触发。
-
-## 3.4 当前Capability语义缺口
-
-当前生成文件只表达：
-
-```yaml
-instances: [spi0, spi1, spi2, spi3]
-features: {ssic: [spi0, spi1, spi2, spi3]}
-interrupts: {irq: ...}
-identities: {base_address: ..., ssic_comp_version: ...}
-```
-
-Audit中尚未分类的关键字段包括`DFS`、`FRF`、`SCPH`、`SCPOL`、`TMOD`、`SRL`、`SSI_IS_MST`、`SSTE`、`NDF`、`SCKDV`、FIFO、IRQ、DMA和RX Sample Delay。因此Capability必须补充：
-
-- `roles`、`frame_formats`、`clock_modes`、`transfer_modes`；
-- `frame_bits.min/max`、`fifo_depth`、`cs_count`；
-- `bitrate`可配置语义及ET6801已验证上限；
-- `irq_sources`、`dma_tx/rx`和Watermark范围；
-- `rx_sample_delay.min/max`；
-- `internal_loopback`、`target_output_enable`、`controller_collision`。
-
-这些是确定的SVD语义映射缺口，不是Hardware Feature未知。最高稳定Bitrate和RX Sample Delay有效窗口仍需HIL表征，状态为`NEEDS_VERIFICATION`。
-
-# 第四章 历史测试代码分析
-
-## 4.1 历史覆盖与当前归属
-
-| 历史测试思想 | ET6801历史证据 | 当前Case归属 | 当前处理 |
+| ID | 源码锚点 | 问题与影响 | 后续处理 |
 |---|---|---|---|
-| 片内回环 | Smoke/Unit源码 | `SPI_P0_002` | 保留为基础Case，但不作为外部链路证据。 |
-| 同实例MOSI-MISO外部回接 | `spi_ft.c` | `SPI_P1_001` | 保留并增加SCLK/CS外部Observer，强化说服力。 |
-| SPI0 Controller到SPI3 Target | Unit/Functional/FPGA源码 | `SPI_P1_002` | 抽象为Capability选择的双实例，不写死SPI0/SPI3。 |
-| 四种Transfer Mode | UnitTest | `SPI_P1_003` | 保留并要求方向、帧数和数据三类Oracle。 |
-| FIFO Depth/Level/Threshold | UnitTest | `SPI_P1_004` | 保留；使用Capability发布深度。 |
-| TX/RX FIFO IRQ | Unit/Functional | `SPI_P1_005` | 保留并拆清Raw、Status、Mask、Delivery、Clear。 |
-| CS High/Low/Toggle | UnitTest | `SPI_P1_006` | 保留并使用外部数字波形作为Oracle。 |
-| DMA | Unit/Functional/Smoke | `SPI_P2_001` | 保留；必须证明DMA终态和目标数据。 |
-| 25MHz Mode1 | FunctionalTest | `SPI_P1_001`、`SPI_P2_003` | 25MHz作为ET6801候选节点，不写入公共Case固定值。 |
-| NOR Flash设备通信 | Smoke device源码 | 不形成首轮公共Case | 属于设备协议集成，不是SPI控制器最小Feature；未来可作为Companion Device Case。 |
-| TI SSP/Microwire | SVD有Hardware Truth，历史代码未有效覆盖 | `SPI_P2_002` | 新增通用FPGA Peer协议Case。 |
-| Multi-Controller IRQ | SVD有Hardware Truth，历史日志称难触发 | `SPI_P2_004` | 保留，先确认RTL触发语义和安全Bench。 |
+| SPI_DRV_001 | SPI_getTansferStartFIFOLevel | `REG & MASK >> POS`实际先移位MASK，读到低位TFT而非TXFTHR。 | 修为先掩码后移位；用TFT与TXFTHR不同值证明。 |
+| SPI_DRV_002 | SPI_configFrameNum / SPI_setConfig | 前者num-1且num=0下溢；后者rxDataNum直接写NDF，同名“数量”语义不一致；uint16不能表达65536帧。 | 明确原API编码，公共frame_count统一真实帧数；必要时补uint32测试接口，1/65536边界必须覆盖。 |
+| SPI_DRV_003 | IS_SPI_BAUDRATE / SPI_setBaudRate / SPI_setConfig | 校验未排除0；整数除法可能给出奇数分频，bit0不存储会向下取偶数造成超速；超范围时静默保留旧值。 | 零值拒绝；按要求选择合法偶数分频、返回实际频率，非法范围明确返回错误。 |
+| SPI_DRV_004 | IS_SPI_FIFO_THRESHOLD | 允许level=16，而TFT/RFT/TXFTHR/DMATDL/DMARDL为4bit。 | 各字段合法节点0～15，写16不能作为有效边界。 |
+| SPI_DRV_005 | SPI_setDMATransmitDataLevel / SPI_setDMARecevieDataLevel | 仅求值IS_SPI_FIFO_THRESHOLD，没有assert_param也未校验实例。 | 使用原SDK风格补齐校验；分开TX/RX DMA请求开关。 |
+| SPI_DRV_006 | SPI_Config.slaveOutputEn / SPI_setConfig | 值直接左移到SLV_OE，1实际上禁用输出；成员名易诱导ENABLE=允许输出。 | 芯片映射显式反向，公开target_output_enabled不沿用误导命名。 |
+| SPI_DRV_007 | SPI_setCSLow/High、setcharLength、setConfig | CS函数更改SOFT_MODE而非任意拉低/拉高；多函数Disable/Enable导致FIFO清空。 | 配置全在装数据前完成；补真正SER选中/释放的直接接口，不能写完FIFO再调用重配函数。 |
+| SPI_DRV_008 | SPI_writeDataNonBlocking | 函数名非阻塞，实际写后无限轮询SR的0x05/0x04；读取SR同时可能消耗TXE/DCOL读清状态。 | 必须修复或补无等待单次写接口；普通读写与错误刺激动作区分。 |
+| SPI_DRV_009 | BlockingFIFO / NonFIFO / pollingFIFOTransaction | 多处无限等FIFO或BUSY；停钟会卡住控制通信。 | 不从Service调用这些无界函数；PC期限内组合单次动作。 |
+| SPI_DRV_010 | SPI_getInterruptStatus / SPI_isBusy | 前者只有ISR无RISR/IMR；后者读整个SR，可能读清TXE/DCOL。 | 普通快照与显式错误读清分开；需要错误首次值时禁止提前读SR。 |
+| SPI_DRV_011 | SPI_clearInterruptStatus | 已正确区分TXE/RXF电平消除与TXO/RXO/RXU/MSTICR读清。 | 复用现有正确实现；不能改成统一W1C。 |
+| SPI_DRV_012 | SPI_setConfig / SPI_INTERRUPT_ALL | 0x3F是在IMR屏蔽所有源，不是清除所有IRQ；已有SPI_INTERRUPT_ALL可用。 | 使用已有SDK宏并解释作用，不新增重复Magic Number。 |
+| SPI_DRV_013 | SPI_Config / MWCR | 未暴露FRF、CFS、Microwire模式/方向/握手，SER控制及完整直接快照也不足。 | 先补分析依据，再按测试Driver扩展区域约束补接口；Wrap不写寄存器。 |
 
-## 4.2 历史代码不能直接复用的原因
+24/32-bit helper是多帧打包，不证明SPI硬件有24/32bit单帧。帧外高位忽略及4/16bit测试由公共frame_bits覆盖，不能把SDK helper当新硬件Feature。历史chipSel成员已不在当前Config内，按SER实际集成适配。
 
-- 历史源码有`chipSel`等已不属于当前Driver结构的字段；
-- 不同历史文件给出的Pinmux/接插件映射并不完全一致；
-- 多处固定延时和无界Driver调用不能满足当前统一deadline规则；
-- 部分日志显示“PASS”但打印的数据与期望不一致；
-- 历史IRQ只看软件标志，不能证明Raw、Mask后Status和真实向量Delivery；
-- 历史DMA Case若只看API返回，不能证明DMA目标Buffer和SPI数据链路。
+# 第三章 寄存器与Observation映射
 
-因此只提取Feature和激励思想，重新适配当前稳定Contract，不照抄Case流程。
+以下位置取自ET6801单IP SVD。没有把其他芯片手册当作被测硬件依据。
+
+| 公共语义 | ET6801寄存器/位 | 关键事实 |
+|---|---|---|
+| CONFIG.FRAME_BITS | CTRLR0.DFS[3:0] | 编码为位数减一，当前4～16；接收右对齐，高位补0。 |
+| CONFIG.FRAME_FORMAT | CTRLR0.FRF[7:6] | Motorola/TI/Microwire；QSPI扩展描述不能推导此IP支持Dual/Quad。 |
+| CONFIG.CLOCK_MODE | CTRLR0.SCPH[8]/SCPOL[9] | MODE0～3映射00/01/10/11，Motorola有效。 |
+| CONFIG.TRANSFER_MODE | CTRLR0.TMOD[11:10] | TX_RX=0，TX_ONLY=1，RX_ONLY=2，EEPROM_READ=3。 |
+| CONFIG.TARGET_OUTPUT_ENABLED | CTRLR0.SLV_OE[12] | 0允许Target输出、1高阻；Controller无效。 |
+| CONFIG.LOOPBACK | CTRLR0.SRL[13] | Target回环仍需外部SCLK/CS。 |
+| CONFIG.CS_POLICY | CTRLR0.SSTE[14]、spi_soft_mode[26] | SSTE只在Motorola SCPH=0有效；SOFT_MODE表示批间保持。 |
+| CONFIG.ROLE | CTRLR0.SSI_IS_MST[31] | 1 Controller、0 Target。 |
+| CONFIG.FRAME_COUNT | CTRLR1.NDF[15:0] | 数量=NDF+1，1～65536；仅Controller RX_ONLY/EEPROM_READ使用，Target不使用。 |
+| CONFIG.ENABLE | SSIENR.SSIC_EN[0] | Disable停止操作并清TX/RX FIFO；不要装数据后重配。 |
+| CS_SELECTED | SER[0] | 仅一个有效选择位；选择在启动传输时生效，不等价软件强制引脚电平。 |
+| CONFIG.DIVIDER | BAUDR.SCKDV[15:1] | 整个BAUDR值为偶数分频2～65534；0停止SCLK。 |
+| Microwire配置 | CTRLR0.CFS[19:16]、MWCR.MWMOD[0]/MDD[1]/MHS[2] | 顺序模式一个控制字对应整批，非顺序每个数据字前一个控制字；MDD=0接收/1发送；MHS只对Controller有效，末位后等ready才释放BUSY。 |
+| FIFO.TX_THRESHOLD/START_THRESHOLD | TXFTLR.TFT[3:0]/TXFTHR[19:16] | TXE条件Level≤TFT；Controller启动条件Level>TXFTHR，不能只读回判生效。 |
+| FIFO.RX_THRESHOLD | RXFTLR.RFT[3:0] | RXF条件Level≥RFT+1。 |
+| FIFO.TX_LEVEL/RX_LEVEL | TXFLR.TXTFL/RXFLR.RXTFL | 当前占用帧数；被动调试读DR会改变RX Level，不能开自动DR刷新。 |
+| STATUS.BUSY/TX_NOT_FULL/TX_EMPTY/RX_NOT_EMPTY/RX_FULL | SR[0]/[1]/[2]/[3]/[4] | 正常状态；一次SR读取也会影响下面的读清位。 |
+| STATUS.TARGET_TX_ERROR | SR.TXE[5] | Target在TX无有效数据时开始发送，可能重发上次数据；读SR清除此状态。不是TX Empty IRQ。 |
+| STATUS.CONTROLLER_COLLISION | SR.DCOL[6] | Controller传输时被其他Controller选中；读SR清状态，IRQ另读MSTICR清。 |
+| IRQ.MASK/STATUS/RAW | IMR/ISR/RISR[5:0] | 0TXE、1TXO、2RXU、3RXO、4RXF、5MST；IMR位1=Unmask，不把名字Mask理解成相反极性。 |
+| IRQ清除 | TXEICR、RXOICR、RXUICR、MSTICR | 读相应寄存器清锁存错误；TXEICR名称不能误认为清TX Empty电平。 |
+| DMA请求 | DMACR.RDMAE[0]/TDMAE[1]，DMATDLR/DMARDLR[3:0] | TX Level≤T；RX Level≥R+1。尾包小于RX阈值会残留，普通传输RX阈值取0，边界测试单独控制帧数。 |
+| CONFIG.RX_SAMPLE_DELAY | RX_SAMPLE_DELAY.RSD[7:0] | 单位输入时钟周期；超内部移位深度退回无延迟，深度UNKNOWN。 |
+| TRANSFER.RX_DATA | DR[0] | 读出FIFO一帧；空读是错误刺激，普通读不能这样做。 |
+| IRQ_EVENT | 固件ISR锁存结构 | 软件事实，记录首次ISR有效Source及计数，不伪装寄存器。 |
+| DMA目的数据 | DMA通道完成/错误位及资源内存 | 引用DMA稳定契约，SPI Service不读取DMA寄存器。 |
+
+Controller RX_ONLY必须写一帧启动字，不能仅配置NDF就等数据。EEPROM_READ必须先把命令段准备完整，再启动CS；Target对照端预装命令阶段占位帧及读阶段数据，避免把命令阶段消费的数据误当返回首帧。
+
+# 第四章 历史Source Item逐项处置
+
+## 4.1 两份需求的全量语义
+
+REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数组的1-based序号，不依赖重复旧ID。
+
+| Source Item | 测试目的、原刺激及判据 | ET6801适用与处置 | 公共Case |
+|---|---|---|---|
+| TP001 | 各模块可用，旧模块数量不可写死。 | MAPPED；4实例来自目标SVD；同Case可传各handle，默认一个代表不等于全实例已测。 | P0_001、P1_002 |
+| TP002；#14/#15 | 两方向速率，历史配置25MHz并比数据。 | SPLIT；目标可达分频的数据完整性与外部频率分别证明；25MHz不可达应给实际时钟依据。 | P1_001/P1_002、P1_006；极限P2_003待分析 |
+| TP003 | CPOL/CPHA四组合。 | MAPPED；CTRLR0的两位存在；内部、外部及独立波形证据不混为一个。 | P0_002、P1_001、P1_002、P1_006 |
+| TP004 | Controller/Target角色。 | MAPPED；SSI_IS_MST可配置，交换角色。 | P1_002 |
+| TP005；#7/#8 | 硬件/软件CS与选择窗口。 | SPLIT；单CS自动/保持/切换保留；NOR应用中的GPIO CS随应用范围一起排除；多个硬件CS分支NOT_APPLICABLE，SER只有1位。 | P1_006 |
+| TP006；#10 | 8/16及4bit边界，比较有效位。 | MERGED；全部4～16bit内部矩阵含8/16与4bit，外部矩阵保留边界。 | P0_002、P1_001、P1_002 |
+| TP007；#6 | TR/T/R/E2PROM收发方向。 | MAPPED；有效方向用数据相等，RX_ONLY无效TX方向不能用“数据不同”判硬件错误。 | P1_003 |
+| TP008；#5/#9 | FIFO深度、20字节超过16及阈值。 | SPLIT；容量/阈值读回、自然Overflow和有效阈值边界分开；丢弃旧“最后4字节必须不相等”的弱判据。 | P1_004、P1_005、P1_008 |
+| TP009；#11/#12 | TX Empty/Overflow；RX Overflow/Underflow/Full IRQ。 | MAPPED；保留5个Source，分别验证Raw、Mask、真实ISR和正确消除方式。 | P1_005 |
+| TP010；#13 | DMA M2P/P2M及双向对比。 | MAPPED；目标请求存在，要求通道真实完成和两端内存，而非固定延时。 | P2_001 |
+| #1 | 内部Loopback数据一致。 | MAPPED；SRL存在，不算PAD证据。 | P0_002 |
+| #2 | 关闭SRL，MOSI-MISO外接并比较。 | MAPPED；R2无强制仪器，SCLK波形另测。 | P1_001 |
+| #3/#4 | 阻塞/非阻塞传输，断SCLK观察卡住/不卡住。 | SPLIT；正常数据路径由双实例覆盖，无时钟/恢复独立覆盖；无限卡死是旧SDK行为，不是应继承的硬件通过条件。 | P1_002、P2_005 |
+| #16 | SFUD外部NOR擦、写、读与数据比较。 | 用户范围排除（2026-09-04）：NOR应用不纳入本轮SPI功能测试；不是硬件不适用，也不宣称该需求已覆盖。 | — |
+
+## 4.2 源码入口、有效性与保留范围
+
+| 来源锚点 | 实际内容与问题 | 处置/去向 |
+|---|---|---|
+| V6801/V6003/V3101 UnitTest/test_spi.c::SPI_UT_1～11 | 1阻塞、2非阻塞、3容量、4方向、5/6CS、7阈值、8位宽、9/10IRQ、11DMA；历史配置含旧chipSel，函数存在不代表当前可编译。 | MERGED到上表相同刺激/Oracle；UT1/2→P1_002/P2_005，UT3/7→P1_004/5/8，UT4→P1_003，UT5/6→P1_006，UT8→P0_002/P1_002，UT9/10→P1_005，UT11→P2_001。 |
+| S6003/S3101 UnitTest/test_spi.c::SPI_UT_0～11 | 额外UT0/1涉及内部/外部回环；部分Loopback设置与注释不一致。 | SPLIT；按实际SRL与线路重建P0_002/P1_001，不能仅看名称；其余按上行目的归并。 |
+| V6801 FunctionalTest/spi_ft.c::SPI_FT_1/2/3/4/5 | 1外接回环；2SPI0→SPI3；3DMA；4阈值8后写9及17帧溢出；5Mode1/25MHz外接回环。 | MAPPED到P1_001、P1_002、P2_001、P1_005、P1_001/P1_006。历史频率配置不是当前实测值。 |
+| V6801 FPGATest/spi_fpga_test.c::SPI_1～11及spi_pinmux | SPI0/SPI3板级四线，基础/FIFO/方向/CS/阈值/位宽/IRQ/DMA，显式workMode；SPI_6入口被注释。 | MERGED P1_002、P1_003、P1_004、P1_005、P1_006、P2_001；历史Pinmux与Smoke不同，当前板卡必须重核，不直接复制。 |
+| V6801 FPGATest/spi_fpga_test.c::SPI_12/13 | 12设TXFTHR=6，发12帧后再发3帧，以接收内容不同推断未启动；13交换SPI0/SPI3角色。 | MAPPED P1_008保留外部Target独立观测，改为阈值前RX_LEVEL=0、越界后完整数据；P1_002保留角色互换。 |
+| V6801 SmokeTest/spi_smoke_test.c::SPI_TestCase1/2 | 前者重复初始化且回环/对端读混杂；后者32字节DMA。 | MAPPED有效数据与DMA意图到P0_002/P1_002/P2_001，错误调用顺序不复用。 |
+| 五个根SmokeTest/test_spi_device*.c::SPI_TestDevice/SPI_WriteData | ID、状态、擦除、编程、读回；GPIO CS变体；按块覆盖多页，存在整片擦除与无限等WIP。 | 用户范围排除：仅保留NOR应用来源，不再映射当前SPI Case。 |
+| S6003/S3101 FunctionalTest/spi_ft.c及SmokeTest/spi_smoke_test.c::Norflash_test/sfud_demo | 外部NOR 1024字节递增Pattern擦写读；部分入口注释，函数有比较。 | 用户范围排除：原因是NOR应用不在本轮范围，不是入口注释或硬件不支持。 |
+| 五个根SmokeTest/test_spi_device_csgpio.c::SPI_pressure_test | 循环器件测试；部分版本ERROR局部变量未初始化，S3101循环注释。 | 用户范围排除：NOR连续读写擦不纳入本轮SPI功能测试；不宣称历史压力已PASS。 |
+| S6003 ChipSieveTest/chip_sieve.c::SPI_DMA_entry及StressTest/StressTest.c | 四通道双向32帧，主循环重复；某Target TX Mux仍写Controller请求，是参考代码缺陷。 | SPLIT P2_001功能矩阵与P3_002连续传输；端点依据ET6801，不沿用旧Mux。 |
+| S3101 StressTest/CommPer_StressTest.c::SPI_DMA_entry与StressTest_multichip.c | 配置36/32帧不一致但只比32帧；25MHz，Target TX高优先级，循环调用。 | SPLIT P2_001/P3_002，保留双向DMA/跨FIFO/反复运行；统一两端帧数并核对全部数据，避免尾4帧假覆盖。 |
+| S3101 StressTest/CommPer_StressTest.c::SPI_NOR_FLASH_SST26_test | 外部SST26擦写读及循环入口。 | 用户范围排除：SST26应用功能及压力不纳入本轮；不影响SPI DMA连续传输。 |
+| V6801 StressTest/Integrated_StressTest.c::SPI_QSPI_entry；ChipSieveTest_config.h | 找到调用和声明，目标Test目录未找到定义，无法证明具体SPI/QSPI刺激。 | UNKNOWN实现证据；不统计为独立已覆盖Feature。SPI DMA连续目的由P3_002保留，NOR连续应用按用户范围排除，QSPI另行分析，不能据函数名推导更多覆盖。 |
+| V6003/V3101 StressTest中SPI相关项 | 存在集成测试引用；没有据同名入口推定新波形/协议覆盖。 | 采用上述逐项已证明意图；未发现独立TI/Microwire、RX延迟边界或Collision有效Oracle。 |
+
+32/36帧、Mux不一致、非阻塞函数含等待、IRQ满写时仍在排空等都是历史实现问题；需要修构造而非取消目的。数据比较、错误触发、真实IRQ投递应各自留下证据。
 
 # 第五章 Chip -> Public Feature Mapping
 
 | Public Feature | Hardware | 参数/差异 | Platform | Public Case |
 |---|---|---|---|---|
-| SPI_F_001 | SUPPORTED | 4实例均有独立Enable，Driver提供FIFO Reset。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_004` |
-| SPI_F_002 | SUPPORTED | `SSI_IS_MST`选择Controller或Target。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_002` |
-| SPI_F_003 | SUPPORTED | Motorola SPI支持4种CPOL/CPHA组合。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002`, `SPI_P1_006` |
-| SPI_F_004 | SUPPORTED | Current Driver合法范围4..16 bit。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002` |
-| SPI_F_005 | SUPPORTED | TX_RX、TX_ONLY、RX_ONLY、EEPROM_READ。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
-| SPI_F_006 | SUPPORTED | 偶数Divider；Driver软件上限50MHz，ET6801稳定上限尚未HIL闭合。 | NEEDS_VERIFICATION | `SPI_P0_001`, `SPI_P1_001`, `SPI_P1_006`, `SPI_P2_003` |
-| SPI_F_007 | SUPPORTED | `SRL`提供片内移位链路回环。 | IMPLEMENTATION_GAP | `SPI_P0_002` |
-| SPI_F_008 | SUPPORTED | 四个实例均有多组Pinmux；当前Board Mapping未冻结。 | IMPLEMENTATION_GAP | `SPI_P1_001`, `SPI_P1_002` |
-| SPI_F_009 | SUPPORTED | 自动、软件保持和Target Select Toggle字段存在。 | IMPLEMENTATION_GAP | `SPI_P1_006` |
-| SPI_F_010 | SUPPORTED | `NDF`为帧数减一编码，公共输入必须大于0。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
-| SPI_F_011 | SUPPORTED | Current Driver声明FIFO深度16帧。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
-| SPI_F_012 | SUPPORTED | TX/RX Threshold和TX Start Threshold均存在；Start读回Driver需修复。 | IMPLEMENTATION_GAP | `SPI_P1_004`, `SPI_P1_005` |
-| SPI_F_013 | SUPPORTED | BUSY和TX/RX满空状态完整。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004` |
-| SPI_F_014 | SUPPORTED | 五类FIFO IRQ存在；Driver缺Raw/Mask稳定Snapshot。 | IMPLEMENTATION_GAP | `SPI_P1_005` |
-| SPI_F_015 | SUPPORTED | 四实例均有TX/RX DMA Request和Watermark。 | IMPLEMENTATION_GAP | `SPI_P2_001` |
-| SPI_F_016 | SUPPORTED | 8-bit RX Sample Delay字段存在，有效高速窗口尚未HIL表征。 | NEEDS_VERIFICATION | `SPI_P2_003` |
-| SPI_F_017 | SUPPORTED | SVD有Motorola、TI SSP、Microwire；Current Driver只暴露Motorola配置。 | IMPLEMENTATION_GAP | `SPI_P2_002` |
-| SPI_F_018 | SUPPORTED | Target Output Enable字段存在。 | IMPLEMENTATION_GAP | `SPI_P1_002` |
-| SPI_F_019 | SUPPORTED | Collision状态和Multi-Controller IRQ存在，确定性安全触发语义待闭合。 | NEEDS_VERIFICATION | `SPI_P2_004` |
-
-Feature表描述硬件全貌，不因当前Driver、平台代码或Bench未实现而删除Feature。
+| SPI_F_001 | SUPPORTED | SSIENR清零停止并清双FIFO；独立CRG复位。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_004` |
+| SPI_F_002 | SUPPORTED | 四实例CTRLR0.SSI_IS_MST。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_002` |
+| SPI_F_003 | SUPPORTED | SCPOL/SCPH仅Motorola有效。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002`, `SPI_P1_006` |
+| SPI_F_004 | SUPPORTED | DFS加Driver合法域4～16bit。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002` |
+| SPI_F_005 | SUPPORTED | TMOD四值；RX_ONLY写启动字，EEPROM命令段与读段分开。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
+| SPI_F_006 | SUPPORTED | APB3/偶数BAUDR；25MHz不是默认FPGA事实，P1_006测可达节点。 | IMPLEMENTATION_GAP | `SPI_P0_001`, `SPI_P1_001`, `SPI_P1_006`, `SPI_P2_003` |
+| SPI_F_007 | SUPPORTED | SRL存在；P0_002测Controller回环，P1_002的Target回环节点由另一个实例提供SCLK/CS。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002` |
+| SPI_F_008 | SUPPORTED | PAD可映射；实际接线尚未固定。 | IMPLEMENTATION_GAP | `SPI_P1_001`, `SPI_P1_002`, `SPI_P2_005`, `SPI_P3_002` |
+| SPI_F_009 | SUPPORTED | SSTE限SCPH=0；SOFT_MODE批间保持；SER单选择位。 | IMPLEMENTATION_GAP | `SPI_P1_006` |
+| SPI_F_010 | SUPPORTED | NDF+1，仅Controller RX_ONLY/E2PROM；1～65536。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
+| SPI_F_011 | SUPPORTED | SDK容量16待P1_004硬件确认；禁用清两FIFO。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
+| SPI_F_012 | SUPPORTED | TFT/RFT/TXFTHR独立4bit，0～15；需修启动阈值getter。 | IMPLEMENTATION_GAP | `SPI_P1_004`, `SPI_P1_005`, `SPI_P1_008` |
+| SPI_F_013 | SUPPORTED | SR[0:6]；TXE/DCOL读清，快照不能提前消耗。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004`, `SPI_P1_007`, `SPI_P2_005` |
+| SPI_F_014 | SUPPORTED | RISR/ISR/IMR五FIFO源；电平/读清不同。 | IMPLEMENTATION_GAP | `SPI_P1_005` |
+| SPI_F_015 | SUPPORTED | 每SPI TX/RX请求存在，水位4bit；Mux按目标芯片发布。 | IMPLEMENTATION_GAP | `SPI_P2_001`, `SPI_P3_002` |
+| SPI_F_016 | SUPPORTED | RSD8bit存在，内部有效深度与时序预算UNKNOWN。 | NEEDS_VERIFICATION | `SPI_P2_003` |
+| SPI_F_017 | SUPPORTED | FRF/MWCR存在；TI同步、Microwire完整时序Oracle仍需目标资料。 | NEEDS_VERIFICATION | `SPI_P2_002` |
+| SPI_F_018 | SUPPORTED | SLV_OE=1高阻；必须以弱上拉/下拉独立证据证明。 | IMPLEMENTATION_GAP | `SPI_P2_007` |
+| SPI_F_019 | SUPPORTED | DCOL/MSTIR存在；ss_in_n在Controller模式的集成路由UNKNOWN。 | NEEDS_VERIFICATION | `SPI_P2_004` |
 
 # 第六章 Chip -> Public Case Adaptation
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| SPI_P0_001 | IMPLEMENTATION_GAP | SPI Wrap、Service、PC Driver和Case尚未实现。 |
-| SPI_P0_002 | IMPLEMENTATION_GAP | 同上；片内回环Hardware和Current Driver均具备。 |
-| SPI_P1_001 | MAPPING_GAP | 公共代码未实现，且外部MOSI-MISO回接Board Mapping待冻结。 |
-| SPI_P1_002 | MAPPING_GAP | 公共代码未实现，且双实例四线Board Mapping待冻结。 |
-| SPI_P1_003 | MAPPING_GAP | 复用双实例链路；Transfer Mode Hardware和Driver已具备。 |
-| SPI_P1_004 | IMPLEMENTATION_GAP | Capability缺FIFO语义，Start Threshold读回Driver需修复。 |
-| SPI_P1_005 | IMPLEMENTATION_GAP | 缺Raw/Mask/Delivery测试Driver接口。 |
-| SPI_P1_006 | BENCH_GAP | 需要外部数字Observer验证CS和Clock Mode波形。 |
-| SPI_P2_001 | MAPPING_GAP | SPI/DMA代码与双实例物理映射尚未闭合。 |
-| SPI_P2_002 | BENCH_GAP | 需要Frame Format Driver扩展和通用协议Peer。 |
-| SPI_P2_003 | NEEDS_VERIFICATION | 需要高速Peer表征Bitrate和RX Sample Delay有效窗口。 |
-| SPI_P2_004 | NEEDS_VERIFICATION | 需要RTL触发定义和安全的FPGA隔离争用路由。 |
+| SPI_P0_001 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
+| SPI_P0_002 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
+| SPI_P1_001 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P1_002 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P1_003 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P1_004 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
+| SPI_P1_005 | IMPLEMENTATION_GAP | 方法已明确；补SPI直接动作、Capability和SDK问题后实现。 |
+| SPI_P1_006 | BENCH_GAP | 方法已明确；外部配测条件未就绪，本轮计划SKIP（未运行）；另有公共代码待实现，不把缺代码写成硬件原因。 |
+| SPI_P1_007 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P1_008 | MAPPING_GAP | 方法已明确；补代码并固定双SPI接线，保留历史独立Target观测，不改成片内回环替代。 |
+| SPI_P2_001 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P2_002 | NEEDS_VERIFICATION | Motorola已有完整Case；TI帧同步边沿、Microwire控制段装载顺序及ready电平/采样边沿尚缺目标适用时序依据。MHS约束的是末位之后BUSY释放，不是数据开始，旧计划判断方向错误。 |
+| SPI_P2_003 | NEEDS_VERIFICATION | RX延迟内部移位深度、输入建立/保持预算未定；不得用扫描中任意一个成功点证明整个Feature。 |
+| SPI_P2_004 | NEEDS_VERIFICATION | 已知触发为Controller传输时ss_in_n有效；目标芯片该输入到PAD/FPGA的集成连接仍未知，不能用短接两个Controller输出来替代。 |
+| SPI_P2_005 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
+| SPI_P2_007 | BENCH_GAP | 方法已明确；外部配测条件未就绪，本轮计划SKIP（未运行）；另有公共代码待实现，不把缺代码写成硬件原因。 |
+| SPI_P3_002 | MAPPING_GAP | 方法已明确；补公共代码并固定ET6801实例、端点和当前板级接线。 |
 
-## 6.1 统计
+## 6.1 统计与覆盖边界
 
-| 类别 | Case数 | Case |
-|---|---:|---|
-| R0/R1片内自主完成 | 4 | P0_001、P0_002、P1_004、P1_005 |
-| R2简单外部接线 | 4 | P1_001、P1_002、P1_003、P2_001 |
-| R3通用FPGA/逻辑分析仪 | 4 | P1_006、P2_002、P2_003、P2_004 |
-| 总计 | 12 | P0=2、P1=6、P2=4、P3=0 |
+- 19个Feature；17个测试目标，P0=2、P1=8、P2=6、P3=1。
+- 14个完整PLAN；P2_002、P2_003、P2_004保留ID、简明设计草案和待确认项；当前外部设备测试执行安排见6.4，不把草案算作完整PLAN。
+- R0/R1片内4项；R2板级简单连接8项；R3 FPGA4项（其中3项待分析）；R4电气测量1项；不再包含NOR应用。
+- 尚无SPI注册Formal Case：代码实现0、硬件执行0、PASS/FAIL/SKIP均无结果。PLANNED、缺代码、缺资料不能写成运行SKIP。
+- 当前不是“整体分析闭合”：所有已找到的需求条目均有处置，但3项设计及SPI_QSPI_entry定义缺口仍公开保留。不能以结构Checker通过代替语义闭合。
+- 每份报告必须区分已测逻辑Case、参数执行数与实例覆盖。代表实例PASS不能证明4实例全覆盖；可复用同一Case参数对可达实例逐一运行。
 
-首轮开发不能只实现内部回环。至少应同步完成：
+## 6.2 后续最小实施顺序
 
-1. `SPI_P1_001`：一根MOSI-MISO短接线，加SCLK/CS数字捕获；成本最低，能证明真实PAD路径。
-2. `SPI_P1_002`：两个SPI实例四线互连；不依赖外部SPI器件，能证明Controller、Target和双向数据链路。
+1. 修第二章已确认的Driver问题；补配置、SER选择、单次FIFO访问和不会偷读错误状态的接口。
+2. 依据本芯片SVD补SPI Capability，再按固定层次实现Wrap、Service、PC Driver。
+3. 实现14个方法明确的PLAN；先片内、外部回接/双实例和DMA；波形和电气测量保留设计，当前先不执行。未具备物理资源仍保留代码和明确环境条件，不为了免接线弱化Case。
+4. 补齐P2_002的目标协议时序、P2_003的实际延迟深度/时序预算、P2_004的ss_in_n连接。再完善原ID PLAN，不以“难测”判硬件不支持。
+5. 每完成一个IP开发批次后统一门禁，再按用户指定范围执行硬件测试；本轮仅文档，没有执行这些动作。
 
-这两项使用简单接线获得比纯内部回环更强的证据，是首轮最优外部验证组合。
+## 6.3 Board/Capability待落地事实
 
-## 6.2 ET6801 Execution Mapping待确认项
+当前历史SPI0/SPI3配对只是候选，最终GPIO、J连接器、电压域、SPI源时钟和FPGA引脚方向以本机板卡资料确认；不占用控制UART。外部NOR两项按用户要求移出当前范围，不建立NOR接线或擦写流程。
 
-| Mapping | 当前事实 | 解除条件 |
-|---|---|---|
-| 代表实例 | 4实例均存在 | Board Profile选择可达引脚且不占用控制UART的实例。 |
-| 单实例外部回接 | 历史FunctionalTest使用过 | 根据当前板卡原理图/接插件重新确认MOSI、MISO、SCLK、CS，不沿用冲突旧映射。 |
-| 双实例配对 | 历史主要使用SPI0 Controller + SPI3 Target | 由当前Board Profile冻结逻辑Controller/Target，不写入公共Case。 |
-| SCLK/CS Observer | 历史使用逻辑分析仪/FPGA人工观察 | 配置通用波形平台或逻辑分析仪Driver与实际通道。 |
-| FPGA协议Peer | 当前平台已有通用波形平台设计，但SPI协议Peer未确认部署 | 完成Motorola/TI/Microwire收发和结构化Observation。 |
-| DMA通道 | ET6801为4实例发布TX/RX Request | Capability与Resource Pool发布逻辑Request，不把Mux编号写入Case。 |
-| 高速频率上限 | Driver限制50MHz，历史有25MHz用例 | 用外部SCLK和零误码共同表征ET6801已验证上限。 |
-| Controller Collision | SVD有状态和IRQ，历史难触发 | 获取RTL触发定义并建立安全FPGA隔离合路后执行。 |
+Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用组合、NDF范围、时钟源/分频及DMA端点。RSD“字段可写范围”与“物理有效深度”分开，后者没有依据时保持Unknown，不以0～255默认补齐。IRQ首次读清与ISR锁存证据在ET6801芯片实现内处理，公共Case不含寄存器地址或芯片名。
 
-## 6.3 覆盖度结论
+## 6.4 外部设备Case的当前执行安排
 
-12个Case覆盖当前识别的19个SPI Feature，并包含ET6003/ET3101历史需求与ET6801历史源码曾覆盖的控制器核心功能。内部自主Case负责配置、回环、FIFO和IRQ；外部R2 Case负责真实PAD、Controller/Target、Transfer Mode和DMA；R3 Case负责CS波形、协议格式、高速采样和受控争用。
+更新时间：2026-09-04 10:34 CST。按用户要求，以下5项先保留简单Case设计，当前计划SKIP，不阻塞双SPI对测开发。此处是执行安排，不是已经运行得到的SKIP统计；实际运行前缺少指定外部设备时，应在任何硬件配置前跳过并记录设备缺口。缺代码、时序依据或映射仍单独记录，设备接入后须先解决这些问题，不能直接宣称可执行。
 
-当前结论是“分析和Case Plan闭合”，不是“代码已实现”或“硬件已PASS”。下一阶段应先补Capability语义和公共SPI Driver/Wrap/Service，再实现P0与两个必须的R2外部Case；不得为了减少接线把外部Case改回内部回环。
+| Case ID | 测试内容 | 当前安排 | 外部条件/暂不执行原因 | 恢复测试条件 |
+|---|---|---|---|---|
+| `SPI_P1_006` | CS窗口、CPOL/CPHA、SCLK频率 | 计划SKIP，未运行 | 配测FPGA尚未开发；也未建立本Case所需多信号同步示波器捕获连接和自动采集链路 | FPGA捕获可用，或确认示波器具备等效采样、通道与解码能力；按相同Oracle采集实际来源 |
+| `SPI_P2_002` | TI SSP/Microwire帧格式 | 计划SKIP，未运行；设计依据待确认 | 缺可生成对应协议与ready时序的配测FPGA；普通示波器仅观测不能代替协议激励 | 协议时序和引脚映射明确，FPGA协议对端及捕获可用 |
+| `SPI_P2_003` | 高速接收及RX采样延迟 | 计划SKIP，未运行；设计依据待确认 | 缺可控返回相位的FPGA对端与同步边沿测量条件 | 确认有效延迟深度和时序预算，部署相位可控对端及测量 |
+| `SPI_P2_004` | Controller冲突状态及IRQ | 计划SKIP，未运行；输入路径待确认 | 配测FPGA尚未开发；ss_in_n到外部的物理路径也未确认，两者不能混为一个原因 | 设计确认输入引出和安全驱动方式，FPGA能在传输中施加有效刺激 |
+| `SPI_P2_007` | Target MISO输出高阻 | 计划SKIP，未运行 | 尚无本Case的可切换弱上拉/下拉夹具及示波器/等效电压Observer连接 | 负载可受控切换，探头接入MISO，电压和负载预算确认 |
+
+固定接线目标：双SPI四线互联，FPGA或示波器以固定探头并接观察；FPGA主动驱动时先确认闲置SPI引脚高阻。高阻测试的上下拉通过夹具切换，不人工换线。冲突输入若需额外引脚，应在一次接线表中预留；该路径未确认前不发布最终接线表。此处未指定实际GPIO/连接器，也未证明任一接线可用。
+
+范围排除：SPI_P2_006、SPI_P3_001是用户明确排除的NOR应用Case，不是SKIP、不计当前17项；保留第四章来源以解释范围变化。实际SPI功能测试和原始来源记录不受删除应用PLAN影响。

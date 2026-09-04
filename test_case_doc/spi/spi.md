@@ -1,651 +1,749 @@
 # SPI Stable IP Contract
 
-> 本文件定义 SPI 的芯片中立 Feature、Case、Oracle、Observation、资源和稳定自动化动作。
-> 芯片实例、寄存器、引脚、SDK API、DMA Request 和目标适配差异只进入同目录 `<CHIP>_spi.md`。
-> 内部回环只能作为基础数据路径检查，不能替代真实 PAD、SCLK、CS、MOSI 和 MISO 的外部验证。
+更新时间：2026-09-04 10:34 CST
+
+本文件定义芯片中立的SPI测试意图。保留19个Feature ID；补入参考资料遗漏的测试目的，纠正不充分的判据。公共配置及数据格式在此定义，具体寄存器、SDK差异和接线仅见芯片文档。
 
 ## 0. Stable IP Contract
 
-### 0.1 稳定配置语义
+### 0.1 配置与数据
 
-| 稳定对象 | 公共语义 | 约束 |
+| 对象 | 公共语义与单位 |
+|---|---|
+| instance_id / role | 可传入的逻辑实例；CONTROLLER产生SCLK，TARGET由外部SCLK/CS驱动。默认代表实例，不把代表实例PASS称作所有实例PASS。 |
+| frame_format / clock_mode | MOTOROLA_SPI、TI_SSP、MICROWIRE；Motorola支持MODE0～MODE3，其他格式不能套用四模式。 |
+| frame_bits / frame_count | 单帧有效位数、Controller接收帧数，均为正整数；范围由Capability给出，不暴露减一编码。 |
+| transfer_mode | TX_RX、TX_ONLY、RX_ONLY、EEPROM_READ；无效方向的数据不设相等/不相等判据。 |
+| divider / bitrate_hz | 选择合法分频；实际频率=输入时钟/分频。请求频率与量化后实际频率分别保存，不把Target本地分频作为实际SCLK。 |
+| cs_policy / cs_selected | AUTO、SOFTWARE_HOLD、FRAME_TOGGLE；适用格式/相位由Capability限制。SOFTWARE_HOLD表示传输批次间保持，不等于任意GPIO强制电平。 |
+| rx_sample_delay | 输入时钟周期数；可写位宽与物理有效范围分别描述。 |
+| target_output_enabled | true允许输出，false禁止输出；公共接口不继承反向位编码。 |
+| FIFO阈值 | TX IRQ在Level≤T、RX IRQ在Level≥R+1；START_THRESHOLD在TX Level>T启动，全部以帧为单位。 |
+| DMA阈值 | TX请求Level≤T、RX请求Level≥R+1；发送/接收请求可独立开关，DMA端点访问宽度由Capability给出。 |
+| Microwire配置 | control_bits、SEQUENTIAL/NON_SEQUENTIAL、TX/RX、handshake_enabled；具体协议Case仍待第5节时序依据闭合。 |
+
+统一数据表示：一帧一个无符号整数，按frame_bits截取有效位；本契约Wire每帧使用uint32小端槽，frame_count使用uint32；有效位数不得超过32，当前合法范围仍取Capability。SPI在线上位序与Wire字节序分开，不由Python主机端序决定。Frame Count不等于Byte Count。DMA内存打包服从端点访问宽度，断言先还原帧值再比较。
+
+本计划的独立输入：PATTERN_A第i帧为((0x1357 XOR (i×0x31)) AND ((1<<frame_bits)-1))；PATTERN_B为A在有效位内取反。i从0开始。普通数据轮次各自保留Expected，不能从接收值反推Expected。常规频率节点由目标输入时钟和有效分频预先选定，性能极限另行评审。
+
+### 0.2 直接动作与职责
+
+| 动作 | 请求→返回及副作用 |
+|---|---|
+| capabilities_get | 逻辑实例→角色、格式、帧宽、FIFO容量、IRQ源、DMA端点、时钟/延迟范围及适用条件；不发布测试是否实现。 |
+| configure / config_get | 实例+稳定配置→接受状态；独立config_get返回硬件读回，不回显缓存代替。配置发生在Disable时，重新配置可能清FIFO，必须先配置再装数据。 |
+| enable / disable / fifo_reset | 实例→状态；fifo_reset同时清TX/RX，不承诺独立复位。Disable清FIFO的目标映射写在芯片文档。 |
+| cs_select / cs_release / loopback_set | 实例+选择状态/布尔值→状态；可以保持Enable且未选CS，供FIFO静止填充。 |
+| write_frames / read_frames | 实例+帧序列/最大读取数→本次实际接受/读出的帧；一次调用不等未来数据，不把入FIFO数当成线上完成数。 |
+| fifo_threshold_set / snapshot_get | 设置TX/RX/启动阈值；返回各独立Level/阈值/满空状态；不得隐含读取有读清副作用的错误位。 |
+| error_status_read | 显式一次读取可能读清的TARGET_TX_ERROR/CONTROLLER_COLLISION；返回首次原始值和各逻辑位，报告再次读取是另一次动作。 |
+| irq_configure / irq_snapshot_get / irq_clear | Source、Mask及投递配置；Raw/Status/Mask独立返回。irq_clear只清可锁存源，不声称消除仍有效的电平条件。 |
+| irq_event_reset / irq_event_get | 清零/获取固件ISR软件计数与锁存Source，不访问总线时序、不执行Case断言。 |
+| dma_configure | 实例+TX/RX请求开关和水位→状态；SPI Service不配置DMA通道，PC组合DMA Driver。 |
+| test_fifo_write_once / test_fifo_read_once | 单次无FIFO满空拦截的数据访问，仅用于明确错误刺激；不能被正常读写API的检查吞掉。不是任意寄存器访问接口。 |
+
+Wire：以上为待实现的稳定请求/响应语义，不分配临时Command ID；开发时按现有IP命令注册和ET-Frame一次性定义双方对应布局，不创建新通信协议。配置错误返回明确状态，数据未就绪返回本次0帧，长操作由PC deadline累计推进。没有新增固件后台Case状态机。
+
+### 0.3 Observation与Oracle
+
+| Endpoint | 来源及含义 |
+|---|---|
+| CONFIG.ENABLE/ROLE/DIVIDER/FRAME_BITS/TRANSFER_MODE/FRAME_COUNT/LOOPBACK/CS_POLICY/RX_SAMPLE_DELAY | dut：各项硬件配置读回。 |
+| STATUS.BUSY/TX_NOT_FULL/TX_EMPTY/RX_NOT_EMPTY/RX_FULL | dut：硬件状态；只读到终态不得声称观察过完整变化过程。 |
+| STATUS.TARGET_TX_ERROR/CONTROLLER_COLLISION | dut：显式错误状态读取；读清副作用不能被调试窗口或自动快照提前消耗。 |
+| FIFO.TX_LEVEL/RX_LEVEL/TX_THRESHOLD/RX_THRESHOLD/START_THRESHOLD | dut：占用帧数与配置值。 |
+| IRQ.RAW/STATUS/MASK | dut：原始/有效/使能状态；逻辑Source编码与实际寄存器位分离。 |
+| IRQ_EVENT.COUNT/SOURCE | measurement：ISR执行计数、首次有效Source软件锁存；不称硬件寄存器。 |
+| TRANSFER.RX_DATA | dut：实际数据端点；数量为实际读写操作累计的measurement。 |
+| DMA.CHANNEL_STATUS/DESTINATION_DATA | dut：同一DUT内DMA硬件终态及目标内存；不是外部Peer。 |
+| SPI_WAVEFORM.* | fpga：边沿时间戳、频率、片选窗口和解码数据。改用仪器时实际source=instrument，不伪装来源。 |
+| MISO.VOLTAGE | instrument：引脚在预定负载下的电压，Expected来自Bench电平预算。 |
+
+机器块中的failure_observations定义关键留证项，PASS同样采集。最终代码实现时再生成ET_CASE_REPORT模板；不能提前生成有虚假观测值的报告。
+
+### 0.4 执行边界
+
+基线复位仅针对Case使用的SPI以及配合IP，不能复位控制通信UART。多IP顺序由PC Case决定。所有配置在数据激励之前完成。双实例链路为Controller SCLK→Target SCLK、CS→CS、MOSI→Target RX、Target TX→Controller MISO及共地；角色交换时两端改向，不增加输出对打。
+
+收尾复用现有机制：停止外部驱动，屏蔽IRQ/关闭DMA请求并停止通道，释放CS，Disable和复位参与IP，最后释放资源。任何超时保存实际未完成状态，不能通过自动重试或复位后一次成功覆盖本次失败。实际接线由Board/Bench提供。
+
+### 0.5 FIFO IRQ最小刺激
+
+| Source | 刺激及边界 | 消除条件 |
 |---|---|---|
-| `instance_id` | SPI 逻辑实例 | Case 从 Capability 选择实例，不写死芯片实例名。 |
-| `role` | `CONTROLLER` / `TARGET` | 旧术语 Master/Slave 只允许出现在芯片资料引用中。 |
-| `frame_format` | `MOTOROLA_SPI` / `TI_SSP` / `MICROWIRE` | 支持集合由 Capability 发布。 |
-| `clock_mode` | `MODE0` / `MODE1` / `MODE2` / `MODE3` | 等价于 CPOL/CPHA 的四种组合。 |
-| `frame_bits` | 单帧有效位宽 | 合法最小值、最大值和离散集合由 Capability 发布。 |
-| `transfer_mode` | `TX_RX` / `TX_ONLY` / `RX_ONLY` / `EEPROM_READ` | 不支持的模式必须由 Capability 拒绝，不由 Case 猜测。 |
-| `bitrate_hz` | 目标串行时钟频率 | Driver 根据目标输入时钟换算分频；Case 使用 Capability 发布的可达频率点。 |
-| `frame_count` | 本次接收帧数 | 必须大于 0；Wire 和 Wrap 不暴露芯片寄存器的减一编码。 |
-| `cs_policy` | `AUTO` / `SOFTWARE_HOLD` / `FRAME_TOGGLE` | 目标支持集合和 CS 数量由 Capability 发布。 |
-| `rx_sample_delay` | RX 采样延迟逻辑值 | 合法范围由 Capability 发布；不直接暴露寄存器位宽。 |
-| `target_output_enabled` | Target 发送输出使能 | 只控制 Target 输出驱动，不隐式改变角色或传输模式。 |
+| TXE | Controller未选CS；填T帧时Raw应为1，再填1帧到T+1时Raw应为0。 | 填到T+1；T=D-1需填满。 |
+| TXO | Enable且未选CS，填满D帧；再执行一次test_fifo_write_once。 | 停止额外写入，显式读清错误源。 |
+| RXU | RX FIFO为空，执行一次test_fifo_read_once。 | 停止空读，显式读清错误源。 |
+| RXO | Loopback接收D帧不读RX，再发1帧；TX发送可分批，不可同时排空RX。 | 停止接收并显式读清错误源，再排空FIFO。 |
+| RXF | Loopback积累R帧仍不触发，再收1帧到R+1；R=0由空到1。 | 读回到R帧；不是对IRQ位写0或写1。 |
 
-### 0.2 稳定 Observation Endpoint
-
-| Endpoint | 来源 | 原子事实 |
-|---|---|---|
-| `CONFIG.*` | `dut` | Role、Frame Format、Clock Mode、Frame Bits、Transfer Mode、Bitrate、Frame Count、CS Policy、RX Sample Delay 的硬件读回。 |
-| `STATUS.BUSY` | `dut` | SPI 正在传输。 |
-| `STATUS.TX_NOT_FULL` / `TX_EMPTY` | `dut` | TX FIFO 可写及空状态。 |
-| `STATUS.RX_NOT_EMPTY` / `RX_FULL` | `dut` | RX FIFO 有数据及满状态。 |
-| `STATUS.TARGET_TX_ERROR` | `dut` | Target 发送请求时无有效数据。 |
-| `STATUS.CONTROLLER_COLLISION` | `dut` | 多 Controller 总线争用状态。 |
-| `FIFO.TX_LEVEL` / `RX_LEVEL` | `dut` | FIFO 当前有效帧数。 |
-| `FIFO.TX_THRESHOLD` / `RX_THRESHOLD` / `START_THRESHOLD` | `dut` | FIFO 中断和启动阈值配置读回。 |
-| `IRQ.RAW` / `IRQ.STATUS` / `IRQ.MASK` | `dut` | Mask 前、Mask 后和屏蔽配置三类独立中断事实。 |
-| `IRQ_EVENT.COUNT` / `IRQ_EVENT.SOURCE` | `dut` | 真实进入 SPI 中断向量的次数和固件锁存 Source。 |
-| `TRANSFER.TX_COUNT` / `RX_COUNT` | `measurement` | 实际完成的发送、接收帧数。 |
-| `TRANSFER.RX_DATA` | `dut` | DUT 实际收到的数据。 |
-| `DMA.CHANNEL_STATUS` / `DMA.DESTINATION_DATA` | `peer` | DMA 终态及目标缓冲区内容。 |
-| `SPI_WAVEFORM.SCLK_HZ` | `instrument` | 外部观测到的 SCLK 频率。 |
-| `SPI_WAVEFORM.CPOL` / `CPHA` | `instrument` | 外部观测到的空闲电平和采样边沿。 |
-| `SPI_WAVEFORM.CS_FRAME_COUNT` | `instrument` | CS 有效窗口和帧数量。 |
-| `SPI_WAVEFORM.MOSI_DATA` / `MISO_DATA` | `instrument` | 外部解码得到的双向数据。 |
-
-### 0.3 稳定自动化动作
-
-| 动作 | 请求语义 | 约束 |
-|---|---|---|
-| `capabilities_get` | 获取实例、角色、协议、位宽、模式、频率、FIFO、IRQ、DMA 和采样延迟能力 | 只返回目标硬件事实，不返回 Case 策略。 |
-| `configure` | 配置 Role、Format、Mode、Frame Bits、Transfer Mode、Bitrate、Frame Count、CS 和 RX Sample Delay | 接口及参数芯片中立；不暴露 SDK 类型。 |
-| `enable` / `disable` | 启停指定实例 | 不隐式执行 Case 流程。 |
-| `fifo_reset` | 同时或分别复位 TX/RX FIFO | 复位完成后必须可读取 FIFO Level。 |
-| `loopback_set` | 开关片内 Shift-register Loopback | 只用于基础检查，不能代替外部 PAD Case。 |
-| `write_frames` / `read_frames` | 执行一次有界帧读写动作 | Firmware 不进行无限轮询；长传输由 PC deadline 驱动多次原子动作。 |
-| `status_snapshot_get` | 读取状态和 FIFO Level | 返回原始稳定事实。 |
-| `irq_configure` / `irq_snapshot_get` / `irq_event_clear` | 配置、读取和清除 SPI 中断 | Raw、Status、Mask、Delivery 必须分开。 |
-| `dma_configure` | 配置 SPI DMA Request 和 Watermark | DMA Channel 的建立与结果由 DMA Driver/Case 协调，SPI Service 不调用 DMA Wrap。 |
-
-### 0.4 Oracle、隔离和接线规则
-
-- 每个 Case 在第一次配置前对所有参与的 SPI 实例执行 CRG Reset，并执行 Service State Reset 和 Resource Pool Reset。
-- 多 IP Case 只在 PC Case 中组合 SPI Driver、DMA Driver和仪器 Driver；Firmware SPI Service 只能调用 SPI Wrap。
-- Firmware 同步命令只执行一次原子动作；统一 deadline、重试和流程编排由 PC Driver/Case 持有。
-- API 返回成功不能替代硬件事实；数据 Case 必须比较实际帧数和实际数据，IRQ Case 必须记录 Raw/Status/Delivery。
-- 外部 Case 的接线由 Board/Bench Profile 提供，Case 只声明逻辑端点，不写死具体芯片的GPIO、接插件或仪器通道。
-- 同实例被动回接使用 `Controller MOSI -> 同实例 MISO`，同时由数字 Observer 观察 SCLK 和 CS；它验证真实 PAD 输入/输出路径，但不证明 Target 角色。
-- 双实例配对使用 `Controller SCLK -> Target SCLK`、`Controller CS -> Target CS`、`Controller MOSI -> Target RX`、`Target TX -> Controller MISO` 和共地；它独立验证 Controller、Target 及双向 PAD 数据链路。
-- Case 结束时 Disable 参与实例、关闭 IRQ/DMA、清除本 Case 状态并执行实例 Reset；下一 Case 仍重新建立完整基线。
+每个Source独立复位。需要电平保持的阶段不让ISR自动读FIFO。ISR可以在锁存有效Source后屏蔽该源，避免电平IRQ风暴；PC核对锁存值，不能要求ISR屏蔽后的实时STATUS仍为1。
 
 ## 1. Feature Catalog
 
 | Feature ID | 报告名称 | 稳定语义 | 关联 Case |
 |---|---|---|---|
-| SPI_F_001 | SPI模块Enable/Disable与FIFO复位 | 模块可独立启停，TX/RX FIFO 可恢复为空。 | `SPI_P0_001`, `SPI_P1_004` |
-| SPI_F_002 | SPI Controller/Target角色 | 支持能力声明的 Controller 和 Target 工作角色。 | `SPI_P0_001`, `SPI_P1_002` |
-| SPI_F_003 | SPI CPOL/CPHA四种模式 | Motorola SPI 支持 MODE0 至 MODE3。 | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002`, `SPI_P1_006` |
-| SPI_F_004 | SPI 4至16-bit帧宽 | 支持能力声明范围内的帧位宽。 | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002` |
-| SPI_F_005 | SPI TX_RX/TX_ONLY/RX_ONLY/EEPROM_READ模式 | 支持四类传输模式及对应收发方向。 | `SPI_P1_003` |
-| SPI_F_006 | SPI SCLK分频与Bitrate | Controller 可按 Capability 配置串行时钟频率。 | `SPI_P0_001`, `SPI_P1_001`, `SPI_P1_006`, `SPI_P2_003` |
-| SPI_F_007 | SPI片内移位链路Loopback | 片内回环可完成基础收发。 | `SPI_P0_002` |
-| SPI_F_008 | SPI外部PAD数据链路 | SCLK、CS、MOSI和MISO通过真实 PAD 完成传输。 | `SPI_P1_001`, `SPI_P1_002` |
-| SPI_F_009 | SPI CS自动、保持与逐帧切换 | CS 支持自动控制、软件保持和逐帧切换策略。 | `SPI_P1_006` |
-| SPI_F_010 | SPI接收帧数量控制 | RX_ONLY和EEPROM_READ按配置帧数产生接收时钟。 | `SPI_P1_003` |
-| SPI_F_011 | SPI TX/RX FIFO深度、Level与复位 | FIFO 容量、Level变化和复位行为准确。 | `SPI_P1_004` |
-| SPI_F_012 | SPI FIFO中断阈值与启动阈值 | TX/RX中断阈值及发送启动阈值可配置并生效。 | `SPI_P1_004`, `SPI_P1_005` |
-| SPI_F_013 | SPI BUSY与FIFO状态 | BUSY、TX/RX可用和满空状态随传输变化。 | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004` |
-| SPI_F_014 | SPI TXE/TXO/RXU/RXO/RXF中断 | FIFO中断支持Mask、Raw、Status、Delivery和Clear生命周期。 | `SPI_P1_005` |
-| SPI_F_015 | SPI DMA TX/RX请求与Watermark | SPI可按Watermark产生TX/RX DMA Request。 | `SPI_P2_001` |
-| SPI_F_016 | SPI RX采样延迟 | Controller 可配置RX采样延迟并在高速链路中保持接收。 | `SPI_P2_003` |
-| SPI_F_017 | SPI Motorola/TI SSP/Microwire帧格式 | 支持 Capability 声明的串行帧格式。 | `SPI_P2_002` |
-| SPI_F_018 | SPI Target输出使能 | Target输出可独立启停，关闭后不驱动返回数据。 | `SPI_P1_002` |
-| SPI_F_019 | SPI多Controller冲突状态与中断 | 总线争用可产生 Collision 状态和 Multi-Controller IRQ。 | `SPI_P2_004` |
+| SPI_F_001 | SPI模块Enable/Disable与FIFO复位 | 启停模块并清空TX/RX FIFO。 | `SPI_P0_001`, `SPI_P1_004` |
+| SPI_F_002 | SPI Controller/Target角色 | Controller产生时钟；Target接受外部时钟。 | `SPI_P0_001`, `SPI_P1_002` |
+| SPI_F_003 | SPI CPOL/CPHA四种模式 | Motorola MODE0至MODE3。 | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002`, `SPI_P1_006` |
+| SPI_F_004 | SPI帧位宽 | 按能力声明的合法位宽收发，忽略帧外高位。 | `SPI_P0_002`, `SPI_P1_001`, `SPI_P1_002` |
+| SPI_F_005 | SPI TX_RX/TX_ONLY/RX_ONLY/EEPROM_READ模式 | 双向、单向和命令后读数据。 | `SPI_P1_003` |
+| SPI_F_006 | SPI SCLK分频 | Controller配置分频产生串行时钟。 | `SPI_P0_001`, `SPI_P1_001`, `SPI_P1_006`, `SPI_P2_003` |
+| SPI_F_007 | SPI片内Loopback | 内部移位数据返回RX，不经过PAD。 | `SPI_P0_002`, `SPI_P1_002` |
+| SPI_F_008 | SPI外部PAD收发 | 经真实SCLK、CS、MOSI、MISO连接收发。 | `SPI_P1_001`, `SPI_P1_002`, `SPI_P2_005`, `SPI_P3_002` |
+| SPI_F_009 | SPI CS自动、保持与逐帧切换 | 仅测试能力声明的CS策略及适用模式。 | `SPI_P1_006` |
+| SPI_F_010 | SPI接收帧数控制 | Controller RX_ONLY/EEPROM_READ接收指定帧数。 | `SPI_P1_003` |
+| SPI_F_011 | SPI TX/RX FIFO容量与Level | FIFO满空、占用量变化及复位。 | `SPI_P1_004` |
+| SPI_F_012 | SPI FIFO中断阈值与启动阈值 | IRQ电平边界与Controller启动边界。 | `SPI_P1_004`, `SPI_P1_005`, `SPI_P1_008` |
+| SPI_F_013 | SPI传输与FIFO状态 | BUSY、FIFO满空及Target TX Error状态。 | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004`, `SPI_P1_007`, `SPI_P2_005` |
+| SPI_F_014 | SPI TXE/TXO/RXU/RXO/RXF IRQ | 电平中断解除条件，锁存错误读清除。 | `SPI_P1_005` |
+| SPI_F_015 | SPI DMA TX/RX请求与Watermark | 水位控制DMA请求，搬运双向数据。 | `SPI_P2_001`, `SPI_P3_002` |
+| SPI_F_016 | SPI RX采样延迟 | 改变输入采样时刻；有效范围由硬件依据限定。 | `SPI_P2_003` |
+| SPI_F_017 | SPI Motorola/TI SSP/Microwire帧格式 | 串行帧结构以及Microwire控制、方向和握手。 | `SPI_P2_002` |
+| SPI_F_018 | SPI Target输出使能 | 禁止输出时为高阻，接收通路不受影响。 | `SPI_P2_007` |
+| SPI_F_019 | SPI Controller冲突状态与IRQ | Controller传输中被外部选中时的冲突响应。 | `SPI_P2_004` |
 
 ## 2. Case Catalog
 
 | Case ID | P级 | Case名称 | 主要 Feature | 最小充分 Oracle | Resource | 状态 |
-|---|---:|---|---|---|---:|---|
-| SPI_P0_001 | P0 | SPI基础配置与硬件读回测试 | 模块、角色、Bitrate、基础配置 | 每项稳定配置读回等于输入 | R0 | PLANNED |
-| SPI_P0_002 | P0 | SPI片内回环模式与帧宽测试 | CPOL/CPHA、帧宽、片内回环、状态 | 各代表节点实际数据一致且终态正确 | R0 | PLANNED |
-| SPI_P1_001 | P1 | SPI单实例外部MOSI-MISO回接测试 | 真实PAD、Mode、帧宽、Bitrate | DUT接收数据一致且外部SCLK/CS有效 | R2 | PLANNED |
-| SPI_P1_002 | P1 | SPI双实例Controller-Target双向测试 | 双角色、真实PAD、双向数据、Target输出 | 两端接收数据均与对端发送数据一致 | R2 | PLANNED |
-| SPI_P1_003 | P1 | SPI四种Transfer Mode与Frame Count测试 | 四种传输模式、接收帧数 | 各模式方向和帧数与配置一致 | R2 | PLANNED |
-| SPI_P1_004 | P1 | SPI FIFO容量、阈值、Level与复位测试 | FIFO、阈值、状态 | Level逐步变化、容量边界和复位值正确 | R1 | PLANNED |
-| SPI_P1_005 | P1 | SPI FIFO中断生命周期测试 | 五类FIFO IRQ | 每个Source的Raw/Status/Delivery/Clear独立正确 | R1 | PLANNED |
-| SPI_P1_006 | P1 | SPI CS策略与时序观测测试 | CS自动/保持/切换、CPOL/CPHA | 外部解码的CS窗口、边沿和帧数符合配置 | R3 | PLANNED |
-| SPI_P2_001 | P2 | SPI DMA双向传输测试 | TX/RX DMA Request、Watermark | DMA完成且目标数据完整一致 | R2 | PLANNED |
-| SPI_P2_002 | P2 | SPI帧格式协议测试 | Motorola/TI SSP/Microwire | FPGA Peer解码协议、位数和数据均正确 | R3 | PLANNED |
-| SPI_P2_003 | P2 | SPI高速Bitrate与RX采样延迟测试 | Bitrate、采样延迟 | 外部频率正确且选定延迟点数据无误码 | R3 | PLANNED |
-| SPI_P2_004 | P2 | SPI多Controller总线冲突测试 | Collision、Multi-Controller IRQ | 受控争用产生状态和IRQ并可恢复 | R3 | PLANNED |
+|---|---|---|---|---|---|---|
+| SPI_P0_001 | P0 | SPI基础配置读回 | SPI_F_001, SPI_F_002, SPI_F_006 | 每个节点角色、分频和帧宽精确匹配；Target不把本地分频当作外部实际SCLK。 | R0 | PLANNED |
+| SPI_P0_002 | P0 | SPI片内回环模式与帧宽 | SPI_F_003, SPI_F_004, SPI_F_007, SPI_F_013 | 每组8帧完整相等，没有截断或多余帧。 | R1 | PLANNED |
+| SPI_P1_001 | P1 | SPI单实例外部回接 | SPI_F_008, SPI_F_003, SPI_F_004, SPI_F_006 | Loopback关闭且两组RX逐帧等于TX。 | R2 | PLANNED |
+| SPI_P1_002 | P1 | SPI双实例双向收发 | SPI_F_002, SPI_F_008, SPI_F_003, SPI_F_004, SPI_F_013, SPI_F_007 | 外接两端交叉匹配；Target回环节点自收数据匹配。 | R2 | PLANNED |
+| SPI_P1_003 | P1 | SPI Transfer Mode与接收帧数 | SPI_F_005, SPI_F_010 | 四种模式按定义的数据方向逐帧匹配。 | R2 | PLANNED |
+| SPI_P1_004 | P1 | SPI FIFO容量与复位 | SPI_F_001, SPI_F_011, SPI_F_012, SPI_F_013 | 填充和排空每一步Level均与实际操作数一致。 | R1 | PLANNED |
+| SPI_P1_005 | P1 | SPI FIFO IRQ触发与清除 | SPI_F_012, SPI_F_014 | Mask阶段无投递、Unmask阶段有目标Source投递。 | R1 | PLANNED |
+| SPI_P1_006 | P1 | SPI CS与SCLK波形 | SPI_F_009, SPI_F_003, SPI_F_006 | CPOL/CPHA一致且频率在预先计算的容差内。 | R3 | PLANNED |
+| SPI_P1_007 | P1 | SPI Target空TX状态 | SPI_F_013 | 首次1、再次0，且没有新的欠载刺激。 | R2 | PLANNED |
+| SPI_P1_008 | P1 | SPI TX启动阈值边界 | SPI_F_012 | 全部T在不足阈值时无RX、越过阈值后收到正确T+1帧。 | R2 | PLANNED |
+| SPI_P2_001 | P2 | SPI DMA双向与水位 | SPI_F_015 | TX在Level≤T、RX在Level≥R+1才触发已Arm的单笔DMA。 | R2 | PLANNED |
+| SPI_P2_002 | P2 | SPI串行帧格式 | SPI_F_017 | 待第5节补齐依据，不能编码Formal Case | R3 | NEEDS_VERIFICATION |
+| SPI_P2_003 | P2 | SPI高速与RX采样延迟 | SPI_F_006, SPI_F_016 | 待第5节补齐依据，不能编码Formal Case | R3 | NEEDS_VERIFICATION |
+| SPI_P2_004 | P2 | SPI Controller冲突状态与IRQ | SPI_F_019 | 待第5节补齐依据，不能编码Formal Case | R3 | NEEDS_VERIFICATION |
+| SPI_P2_005 | P2 | SPI无时钟等待与恢复 | SPI_F_008, SPI_F_013 | 无SCLK没有RX增长，固件命令返回有界的未完成结果。 | R2 | PLANNED |
+| SPI_P2_007 | P2 | SPI Target输出高阻 | SPI_F_018 | 两种相反弱负载均能拉到规定电平，且正常Enable对照不受弱负载破坏。 | R4 | PLANNED |
+| SPI_P3_002 | P3 | SPI DMA连续收发 | SPI_F_015, SPI_F_008 | 20轮×两方向×32帧全部匹配，不丢帧、重复或串轮。 | R2 | PLANNED |
+
+共17个测试目标：P0=2、P1=8、P2=6、P3=1。其中14项有完整PLAN，3项保留简明设计草案及待确认依据；尚无已实现Formal Case或实测结果。R0/R1=4项，R2=8项，R3=4项，R4=1项。外部设备类5项保留设计，当前环境按芯片文档的暂缓/SKIP执行安排处理，不计已执行覆盖。
 
 ## 3. Machine-readable Case Contract
+
+### SPI_P0_001 SPI基础配置读回
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P0_001
-case_name: SPI基础配置与硬件读回测试
+case_name: SPI基础配置读回
 report_feature: |-
   1. SPI模块Enable/Disable与FIFO复位
   2. SPI Controller/Target角色
-  3. SPI SCLK分频与Bitrate
+  3. SPI SCLK分频
 p_level: P0
 feature_refs: [SPI_F_001, SPI_F_002, SPI_F_006]
 method:
   inputs:
-    - 角色矩阵：Capability发布的Controller和Target角色。
-    - 基础配置：一个合法Clock Mode、8-bit帧宽、TX_RX模式、代表Bitrate和CS策略。
+    - "配置矩阵：全部支持角色，MODE0，合法最小/中间/最大偶数分频；帧宽取支持的8-bit，否则取最小合法值。"
   steps:
-    - 基线建立：复位目标SPI实例、Service状态和Resource Pool。
-    - Controller配置：Disable实例后写入Controller基础配置并Enable。
-    - Controller观测：读取CONFIG和Enable硬件状态。
-    - Target配置：重新复位实例，写入Target基础配置并Enable。
-    - Target观测：读取CONFIG和Enable硬件状态。
-    - 关闭观测：Disable实例并确认Enable状态为0。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "模块关闭：关闭SPI后配置当前角色、分频、帧宽和TX_RX模式。"
+    - "配置读取：读CONFIG各独立字段，与输入及输入时钟/分频得到的实际频率比较。"
+    - "模块启动：Enable后读取CONFIG.ENABLE，要求为1。"
+    - "模块关闭：Disable后读取CONFIG.ENABLE，要求为0。"
+    - "节点汇总：逐节点保存配置和启停值；只把本次选中的实例计入已测范围。"
   observations:
-    - 配置硬件读回：记录Role、Clock Mode、Frame Bits、Transfer Mode、Bitrate、CS Policy和Enable实际值。
+    - "配置读回：CONFIG.ROLE、DIVIDER、FRAME_BITS应等于写入值，证明配置进入硬件。"
+    - "启停读回：CONFIG.ENABLE应为0→1→0，证明模块启停控制。"
   pass_criteria:
-    - Controller配置正确：全部稳定字段与输入一致。
-    - Target配置正确：全部稳定字段与输入一致。
-    - 启停正确：Enable和Disable状态与动作一致。
-timeout: 5 s
-cleanup: [Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R0, full_coverage_level: R0, board: 无额外要求, bench: 无额外要求}
+    - "配置一致：每个节点角色、分频和帧宽精确匹配；Target不把本地分频当作外部实际SCLK。"
+    - "启停有效：全部节点ENABLE依次为0、1、0。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R0, full_coverage_level: R0, board: "无额外接线", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [SPI CONFIG硬件快照]
+evidence: ["SPI基础配置读回的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: expected_config, label: 期望SPI稳定配置, source: oracle, role: expected, format: text}
-  - {key: actual_config, label: SPI CONFIG硬件实际值, source: dut, role: actual, format: text}
+  - {"key":"role","label":"CONFIG.ROLE","source":"dut","role":"actual","format":"text"}
+  - {"key":"divider","label":"CONFIG.DIVIDER","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"enable_sequence","label":"CONFIG.ENABLE启停序列","source":"dut","role":"actual","format":"text"}
 gap: [case_implementation_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P0_002 SPI片内回环模式与帧宽
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P0_002
-case_name: SPI片内回环模式与帧宽测试
+case_name: SPI片内回环模式与帧宽
 report_feature: |-
   1. SPI CPOL/CPHA四种模式
-  2. SPI 4至16-bit帧宽
-  3. SPI片内移位链路Loopback
-  4. SPI BUSY与FIFO状态
+  2. SPI帧位宽
+  3. SPI片内Loopback
+  4. SPI传输与FIFO状态
 p_level: P0
 feature_refs: [SPI_F_003, SPI_F_004, SPI_F_007, SPI_F_013]
 method:
   inputs:
-    - Clock Mode矩阵：MODE0、MODE1、MODE2和MODE3。
-    - 帧宽矩阵：Capability最小值、8-bit和最大值；重复节点去重。
-    - 数据：每个组合使用短小且不对称的帧序列。
+    - "参数矩阵：MODE0～MODE3×全部合法整数帧宽；每组发送8帧PATTERN_A，频率取保守可达节点。"
   steps:
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 回环配置：配置Controller、当前Mode和Frame Bits，Enable片内Loopback。
-    - 数据激励：写入本轮帧序列并以有界轮询读取同等帧数。
-    - 数据观测：保存实际TX/RX帧数和RX数据。
-    - 状态观测：读取BUSY、TX_EMPTY和RX_NOT_EMPTY终态。
-    - 矩阵执行：每个组合重新复位并重复配置、激励和观测。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "片内配置：Controller、TX_RX、当前模式和帧宽，打开片内Loopback。"
+    - "发送准备：Enable且CS未选中时写入8帧；若FIFO不足则按实际容量分批。"
+    - "回环启动：选中CS，按PC deadline读出同等数量RX帧，不读取空FIFO。"
+    - "结果观测：保存实际RX帧、写入接受数及读出数，再读BUSY和TX_EMPTY。"
+    - "逐项判定：逐帧比对输入按帧宽掩码后的值，全部组合完成才汇总通过。"
   observations:
-    - 回环数据：记录每个Mode/Frame Bits组合的TX数据、RX数据和帧数。
-    - 传输终态：记录BUSY和FIFO状态原始值。
+    - "接收数据：TRANSFER.RX_DATA逐帧等于PATTERN_A低frame_bits位，证明内部数据通路。"
+    - "完成状态：读完后STATUS.BUSY=0、TX_EMPTY=1；不据此声称观察到运行中BUSY=1。"
   pass_criteria:
-    - 数据正确：所有组合的RX数据逐帧等于TX数据。
-    - 帧数正确：实际TX/RX帧数等于请求帧数。
-    - 终态正确：传输完成后BUSY=0且TX为空。
-timeout: 10 s统一矩阵deadline
-cleanup: [Disable Loopback, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R0, full_coverage_level: R0, board: 无额外要求, bench: 无额外要求}
+    - "数据与数量：每组8帧完整相等，没有截断或多余帧。"
+    - "矩阵完整：所有模式/位宽组合满足数据和完成状态判据。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "无额外接线", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [模式位宽矩阵数据与状态快照]
+evidence: ["SPI片内回环模式与帧宽的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: active_mode_and_bits, label: 当前Clock Mode与Frame Bits, source: dut_config, role: config, format: text}
-  - {key: expected_rx_frames, label: 期望回环帧数据, source: oracle, role: expected, format: bytes_hex}
-  - {key: actual_rx_frames, label: 实际回环帧数据, source: dut, role: actual, format: bytes_hex}
+  - {"key":"expected","label":"期望回环帧","source":"oracle","role":"expected","format":"bytes_hex"}
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"busy","label":"STATUS.BUSY","source":"dut","role":"actual","format":"bool"}
 gap: [case_implementation_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_001 SPI单实例外部回接
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_001
-case_name: SPI单实例外部MOSI-MISO回接测试
+case_name: SPI单实例外部回接
 report_feature: |-
-  1. SPI外部PAD数据链路
+  1. SPI外部PAD收发
   2. SPI CPOL/CPHA四种模式
-  3. SPI 4至16-bit帧宽
-  4. SPI SCLK分频与Bitrate
+  3. SPI帧位宽
+  4. SPI SCLK分频
 p_level: P1
 feature_refs: [SPI_F_008, SPI_F_003, SPI_F_004, SPI_F_006]
 method:
   inputs:
-    - 外部接线：Board Profile把代表SPI实例的MOSI短接到同实例MISO，并把SCLK和CS连接到数字Observer，共地。
-    - 配置矩阵：四种Clock Mode、8-bit与Capability边界帧宽、低中高三个可达Bitrate点。
-    - 数据：每个组合发送至少两组非对称Pattern。
+    - "接线与矩阵：同一实例MOSI→MISO并共地；关闭片内Loopback；四模式×最小/8-bit/最大合法帧宽×低/中/高可达频率，去重。"
+    - "发送数据：每组PATTERN_A、PATTERN_B各8帧；速率节点在执行前固定。"
   steps:
-    - 接线门禁：读取Bench Profile并确认MOSI-MISO回接及SCLK/CS Observer映射存在。
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 外部模式配置：关闭片内Loopback，配置Controller和当前矩阵节点。
-    - 真实PAD激励：从MOSI输出数据，经外部导线返回MISO并读取RX数据。
-    - 波形观测：Observer捕获SCLK和CS，测量SCLK频率及CS有效窗口。
-    - 矩阵执行：每个节点重新复位后重复数据和波形观测。
-    - 结果判定：比较RX数据、帧数、SCLK频率和CS活动事实。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "PAD准备：按Board映射启用MOSI/MISO/SCLK/CS，确认实际短接而不是内部Loopback。"
+    - "节点配置：设置当前模式、位宽、分频及Controller TX_RX。"
+    - "外部发送：经MOSI输出输入序列，以有界分批方式同步读取MISO返回帧。"
+    - "结果采集：记录RX数据、实际读写帧数以及CONFIG.LOOPBACK=0。"
+    - "结果判定：两组数据逐帧相等，全部节点执行；波形时序由P1_006单独证明。"
   observations:
-    - 外部回接数据：记录MOSI期望数据和MISO实际接收数据。
-    - 外部时钟与片选：记录SCLK_HZ和CS有效窗口；证明数据确实经过真实PAD传输。
+    - "PAD数据：TRANSFER.RX_DATA必须等于发送数据，且CONFIG.LOOPBACK=0，证明实际回接路径。"
+    - "传输终态：STATUS.BUSY=0和RX剩余帧数为0，证明本次数据已收齐。"
   pass_criteria:
-    - PAD数据正确：所有矩阵节点的RX数据逐帧等于TX数据。
-    - 外部信号有效：每轮均观测到SCLK和CS，SCLK频率处于目标容差内。
-    - 帧数正确：外部解码帧数和DUT接收帧数均等于请求帧数。
-timeout: 20 s统一矩阵deadline
-cleanup: [Stop Observer, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R2, full_coverage_level: R3, board: MOSI到MISO外部短接并共地, bench: 最低需SCLK和CS数字捕获；完整覆盖解码四线SPI}
+    - "外部路径：Loopback关闭且两组RX逐帧等于TX。"
+    - "节点完整：预定模式、位宽和频率组合均完成；本Case不宣称实测SCLK频率。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "单实例MOSI-MISO短接", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [DUT RX数据 + 外部SCLK频率和CS窗口]
+evidence: ["SPI单实例外部回接的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: bench_mapping, label: 外部回接与Observer映射, source: bench, role: config, format: text}
-  - {key: expected_pad_data, label: 期望MOSI帧数据, source: oracle, role: expected, format: bytes_hex}
-  - {key: actual_pad_data, label: MISO实际接收帧数据, source: dut, role: actual, format: bytes_hex}
-  - {key: measured_sclk_hz, label: 外部观测SCLK频率, source: instrument, role: actual, format: decimal}
+  - {"key":"loopback","label":"CONFIG.LOOPBACK","source":"dut","role":"actual","format":"bool"}
+  - {"key":"expected","label":"期望PAD帧","source":"oracle","role":"expected","format":"bytes_hex"}
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
 gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_002 SPI双实例双向收发
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_002
-case_name: SPI双实例Controller-Target双向测试
+case_name: SPI双实例双向收发
 report_feature: |-
   1. SPI Controller/Target角色
-  2. SPI外部PAD数据链路
+  2. SPI外部PAD收发
   3. SPI CPOL/CPHA四种模式
-  4. SPI 4至16-bit帧宽
-  5. SPI Target输出使能
+  4. SPI帧位宽
+  5. SPI传输与FIFO状态
+  6. SPI片内Loopback
 p_level: P1
-feature_refs: [SPI_F_002, SPI_F_008, SPI_F_003, SPI_F_004, SPI_F_018]
+feature_refs: [SPI_F_002, SPI_F_008, SPI_F_003, SPI_F_004, SPI_F_013, SPI_F_007]
 method:
   inputs:
-    - 逻辑实例：Capability选择一个Controller实例和一个Target实例，不写死实例编号。
-    - 外部接线：Controller SCLK到Target SCLK、Controller CS到Target CS、Controller MOSI到Target RX、Target TX到Controller MISO并共地。
-    - 数据：Controller和Target分别准备内容不同的短帧序列。
+    - "连接与参数：两个SPI实例四线连接；四模式×最小/8-bit/最大合法帧宽，交换Controller/Target角色再执行。"
+    - "数据输入：Controller发送PATTERN_A，Target发送PATTERN_B，每次8帧且不超过较小FIFO容量。"
+    - "Target回环：在相同外部SCLK/CS接线下增加Target内部Loopback节点；外接双向节点SRL关闭，两者结果分开记录。"
   steps:
-    - 接线门禁：确认Board Profile发布完整四线Controller-Target映射。
-    - 基线建立：复位两个SPI实例、Service状态和Resource Pool。
-    - Target准备：配置Target、Enable输出并预装Target发送数据。
-    - Controller准备：配置相同Mode和Frame Bits的Controller并准备发送数据。
-    - 双向激励：Controller发起统一时钟下的全双工传输。
-    - 双端观测：读取Controller RX和Target RX数据、帧数及双方终态。
-    - 输出关闭检查：重新复位后关闭Target输出，执行短传输并确认Target RX仍有效且Controller不再收到预装返回数据。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "Target准备：先配置并Enable Target，打开输出后装满本次发送帧。"
+    - "Controller准备：配置相同模式和帧宽，CS未选中时装入另一组帧。"
+    - "传输启动：选择Target发出SCLK，两个实例完成同一笔全双工传输。"
+    - "双端采集：读取两端RX数据、帧数和完成后的BUSY、FIFO状态。"
+    - "角色交换：重新复位后交换角色，以相同方法覆盖相反数据方向。"
+    - "Target回环：独立复位后仅打开Target Loopback，预装PATTERN_B，由Controller提供SCLK/CS；Target RX应等于自身TX而非Controller的PATTERN_A。"
+    - "双向判定：外接节点Controller RX等于Target TX、Target RX等于Controller TX；Target回环节点的RX等于自身TX，分别核对两个角色排列。"
   observations:
-    - Controller接收：记录Target预装数据和Controller实际RX数据。
-    - Target接收：记录Controller发送数据和Target实际RX数据。
-    - Target输出关闭：记录关闭前后Controller RX差异和Target RX完整性。
+    - "双端数据：外接节点两个TRANSFER.RX_DATA分别等于对端不同Pattern；Target回环节点明确检查Target RX等于自身Pattern，不能混报成PAD收发通过。"
+    - "终态检查：两端BUSY=0且读出数等于本次帧数；有单独实例标识。"
   pass_criteria:
-    - 双向数据正确：Controller和Target接收数据分别等于对端发送数据。
-    - 帧数正确：两端完成帧数均等于请求帧数。
-    - 输出控制正确：关闭Target输出后Target仍可接收，Controller不再得到原预装返回数据。
-timeout: 15 s
-cleanup: [Disable both SPI instances, Reset both SPI instances, Resource Pool Reset]
-resources: {minimum_level: R2, full_coverage_level: R2, board: 两个SPI实例四线交叉连接并共地, bench: 无额外仪器要求}
+    - "路径匹配：外接节点两端RX等于对端TX；Target回环节点Target RX等于自身TX；数量均相等。"
+    - "角色完整：两个角色排列及全部模式/位宽节点均通过。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互连并共地", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [Controller与Target双向数据和状态快照]
+evidence: ["SPI双实例双向收发的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: controller_instance, label: Controller逻辑实例, source: dut_config, role: config, format: text}
-  - {key: target_instance, label: Target逻辑实例, source: dut_config, role: config, format: text}
-  - {key: controller_rx_data, label: Controller实际RX数据, source: dut, role: actual, format: bytes_hex}
-  - {key: target_rx_data, label: Target实际RX数据, source: dut, role: actual, format: bytes_hex}
+  - {"key":"controller_rx","label":"Controller TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"target_rx","label":"Target TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"expected","label":"双方期望数据","source":"oracle","role":"expected","format":"bytes_hex"}
 gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_003 SPI Transfer Mode与接收帧数
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_003
-case_name: SPI四种Transfer Mode与Frame Count测试
+case_name: SPI Transfer Mode与接收帧数
 report_feature: |-
   1. SPI TX_RX/TX_ONLY/RX_ONLY/EEPROM_READ模式
-  2. SPI接收帧数量控制
+  2. SPI接收帧数控制
 p_level: P1
 feature_refs: [SPI_F_005, SPI_F_010]
 method:
   inputs:
-    - 连接：复用双实例Controller-Target四线连接。
-    - 模式矩阵：TX_RX、TX_ONLY、RX_ONLY和EEPROM_READ。
-    - 帧数矩阵：1帧、代表短帧数和Capability允许的有界边界节点。
+    - "连接与数据：双实例连接；Target保持TX_RX，Controller四种模式，8-bit或合法最小帧宽；N取1与min(4,较小FIFO容量-1)，一帧命令加N帧返回数据。"
   steps:
-    - 基线建立：复位两个SPI实例、Service状态和Resource Pool。
-    - TX_RX执行：两端准备数据，执行全双工传输并保存双向结果。
-    - TX_ONLY执行：重新复位配置，只验证Controller TX到Target RX路径。
-    - RX_ONLY执行：重新复位配置，Target预装数据，Controller按Frame Count产生接收时钟。
-    - EEPROM执行：重新复位配置，Controller先发命令帧，再按Frame Count接收Target返回帧。
-    - 帧数判定：逐模式比较请求、实际发送、实际接收和外部时钟帧数。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "双向模式：TX_RX双方预装不同N帧，启动后检查双向各N帧均匹配。"
+    - "只发模式：复位后Controller TX_ONLY发送N帧；Target收到N帧，Controller RX FIFO保持空。"
+    - "只收模式：复位后Target预装N帧，Controller RX_ONLY设置N并写一帧启动字；读回N帧并等待BUSY=0。"
+    - "命令后读：复位后Controller EEPROM_READ先发一帧命令再收N帧；Target预装一帧占位加N帧Pattern，保证命令阶段消耗占位帧。"
+    - "额外帧检查：读取Target RX数量与Controller RX数量；RX_ONLY为N，EEPROM_READ总时钟对应N+1，额外窗口内不再增长。"
+    - "模式判定：逐模式比较有效方向数据、FIFO数量和终态；无效方向不要求特定数据值。"
   observations:
-    - 方向事实：记录每种模式两端实际TX/RX帧数和数据。
-    - Frame Count事实：记录配置帧数和实际产生的接收时钟/接收帧数。
+    - "方向与数量：Controller RX在TX_ONLY为0，在RX_ONLY/EEPROM_READ为N；Target RX分别证明实际时钟帧数。"
+    - "有效数据：Controller的接收阶段数据等于Target的N帧Pattern；命令阶段Target首帧等于命令字。"
   pass_criteria:
-    - 模式方向正确：四种模式只产生定义内的发送和接收行为。
-    - 数据正确：定义为有效的接收方向数据逐帧匹配。
-    - Frame Count正确：RX_ONLY和EEPROM_READ实际接收帧数等于配置值。
-timeout: 20 s统一矩阵deadline
-cleanup: [Disable both SPI instances, Reset both SPI instances, Resource Pool Reset]
-resources: {minimum_level: R2, full_coverage_level: R2, board: 两个SPI实例四线交叉连接并共地, bench: 无额外仪器要求}
+    - "有效方向：四种模式按定义的数据方向逐帧匹配。"
+    - "帧数控制：RX_ONLY总帧N、EEPROM_READ总帧N+1，Controller接收N且BUSY最终为0。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互连并共地", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [四种模式方向、帧数和数据结果]
+evidence: ["SPI Transfer Mode与接收帧数的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: active_transfer_mode, label: 当前Transfer Mode, source: dut_config, role: config, format: text}
-  - {key: expected_frame_count, label: 期望接收帧数, source: oracle, role: expected, format: decimal}
-  - {key: actual_frame_count, label: 实际接收帧数, source: dut, role: actual, format: decimal}
-  - {key: actual_rx_data, label: 实际接收数据, source: dut, role: actual, format: bytes_hex}
+  - {"key":"mode","label":"CONFIG.TRANSFER_MODE","source":"dut","role":"actual","format":"text"}
+  - {"key":"rx_count","label":"实际RX帧数","source":"measurement","role":"actual","format":"decimal"}
+  - {"key":"rx","label":"TRANSFER.RX_DATA","source":"dut","role":"actual","format":"bytes_hex"}
 gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_004 SPI FIFO容量与复位
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_004
-case_name: SPI FIFO容量、阈值、Level与复位测试
+case_name: SPI FIFO容量与复位
 report_feature: |-
   1. SPI模块Enable/Disable与FIFO复位
-  2. SPI TX/RX FIFO深度、Level与复位
+  2. SPI TX/RX FIFO容量与Level
   3. SPI FIFO中断阈值与启动阈值
-  4. SPI BUSY与FIFO状态
+  4. SPI传输与FIFO状态
 p_level: P1
 feature_refs: [SPI_F_001, SPI_F_011, SPI_F_012, SPI_F_013]
 method:
   inputs:
-    - FIFO容量：从Capability读取，不在公共Case写死。
-    - 阈值矩阵：0、代表中间值和合法最大值。
+    - "边界矩阵：D为Capability FIFO容量；阈值取0、中间值、D-1，设置不同TX阈值与启动阈值，避免读错字段仍相等。"
   steps:
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 阈值配置：逐组写入TX、RX和Start Threshold并读取硬件值。
-    - TX Level刺激：在不启动外部时钟的受控配置下逐帧写TX FIFO并读取Level。
-    - 容量边界：写到Capability容量，确认Level和TX_NOT_FULL/TX_EMPTY状态。
-    - RX Level刺激：使用片内回环产生受控RX数据并逐帧读取Level。
-    - FIFO复位：执行TX/RX FIFO Reset并读取Level和满空状态。
-    - 结果判定：比较阈值、Level递增递减、容量边界和复位终态。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "静止TX准备：Controller Enable但不选中CS，逐次写到D帧，记录TX_LEVEL和满空标志。"
+    - "阈值读回：分别设置TX/RX IRQ阈值和启动阈值，读取三个独立字段。"
+    - "RX填充：复位后打开片内Loopback，发D帧但不读取RX，等待BUSY=0。"
+    - "容量观测：确认RX_LEVEL=D及RX_FULL=1，再逐帧读取并记录Level递减到0。"
+    - "双FIFO复位：重新在TX/RX形成非空状态后执行fifo_reset，保存复位前后Level。"
+    - "边界判定：全部阈值读回精确一致，FIFO计数及标志正确，复位后两个Level均为0。"
   observations:
-    - FIFO配置：记录三个Threshold硬件读回。
-    - FIFO动态状态：记录每次读写后的TX/RX Level和满空状态。
+    - "TX占用：CS未选中时TX_LEVEL从0递增到D，D时TX_NOT_FULL=0。"
+    - "RX占用：RX_LEVEL从D逐帧递减到0；FIFO复位后TX_LEVEL=RX_LEVEL=0。"
   pass_criteria:
-    - 阈值正确：全部合法节点读回等于输入。
-    - Level正确：TX/RX Level随实际帧写入和读取逐帧变化。
-    - 容量正确：到达Capability容量时状态符合定义且不越界。
-    - 复位正确：FIFO Reset后TX_LEVEL=0、RX_LEVEL=0且TX_EMPTY=1。
-timeout: 10 s
-cleanup: [FIFO Reset, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R1, full_coverage_level: R1, board: 无额外要求, bench: 片内回环用于受控RX填充}
+    - "容量精确：填充和排空每一步Level均与实际操作数一致。"
+    - "配置与复位：三个阈值分别匹配，双FIFO同时清空；启动阈值功能由P1_008另测。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "无额外接线", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [FIFO阈值、Level和状态序列]
+evidence: ["SPI FIFO容量与复位的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: fifo_capacity, label: Capability声明FIFO容量, source: capability, role: config, format: decimal}
-  - {key: expected_fifo_level, label: 期望FIFO Level, source: oracle, role: expected, format: decimal}
-  - {key: actual_fifo_level, label: 实际FIFO Level, source: dut, role: actual, format: decimal}
+  - {"key":"tx_level","label":"FIFO.TX_LEVEL序列","source":"dut","role":"actual","format":"text"}
+  - {"key":"rx_level","label":"FIFO.RX_LEVEL序列","source":"dut","role":"actual","format":"text"}
+  - {"key":"thresholds","label":"三个FIFO阈值读回","source":"dut","role":"actual","format":"text"}
 gap: [case_implementation_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_005 SPI FIFO IRQ触发与清除
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_005
-case_name: SPI FIFO中断生命周期测试
+case_name: SPI FIFO IRQ触发与清除
 report_feature: |-
   1. SPI FIFO中断阈值与启动阈值
-  2. SPI TXE/TXO/RXU/RXO/RXF中断
+  2. SPI TXE/TXO/RXU/RXO/RXF IRQ
 p_level: P1
 feature_refs: [SPI_F_012, SPI_F_014]
 method:
   inputs:
-    - 中断矩阵：TX Empty、TX Overflow、RX Underflow、RX Overflow和RX Full。
-    - 阈值：为TX Empty和RX Full选择可稳定达到的代表Threshold。
+    - "Source矩阵：TXE、TXO、RXU、RXO、RXF，分别按0.5的最小刺激独立运行；阈值覆盖0、中间值、D-1。"
   steps:
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool，清空事件计数。
-    - Source隔离：每轮只Enable并Unmask一个目标Source，其余Source保持Mask。
-    - 自然刺激：按Source分别执行空TX、满TX后额外写、空RX读、满RX后继续接收和达到RX Threshold。
-    - 状态观测：在Clear前读取IRQ.RAW、IRQ.STATUS、IRQ.MASK和IRQ_EVENT。
-    - Mask验证：保持Raw条件，Mask目标Source并确认Status/Delivery被屏蔽而Raw仍可追溯。
-    - Clear验证：清除目标Source，解除刺激并确认Raw/Status恢复。
-    - 矩阵执行：每个Source重新复位并重复独立生命周期。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "屏蔽准备：仅配置目标Source，先屏蔽它并清零ISR软件计数，不开启自动读RX或自动清错误。"
+    - "真实刺激：按0.5填充/读取FIFO，读取IRQ.RAW=1且IRQ.STATUS=0；事件增量应为0。"
+    - "解除屏蔽：保持条件并Unmask，先采集有效Status，再开放NVIC投递；回调只锁存Source及计数并屏蔽目标源。"
+    - "投递确认：读取回调锁存的有效Source及计数增量，证明进入真实中断；不把读回Status的竞态作为失败。"
+    - "状态消除：TXE写到阈值以上、RXF读到阈值以下；TXO/RXU/RXO停止错误访问后执行该Source读清除。"
+    - "恢复判定：原始Source从1变0；重新Unmask后没有新增中断，各参数节点独立汇总。"
   observations:
-    - 中断硬件事实：记录每个Source的RAW、STATUS和MASK位。
-    - 中断交付事实：记录IRQ_EVENT.COUNT增量和锁存SOURCE。
+    - "中断硬件：IRQ.RAW/STATUS在Mask前后分别符合目标位关系，错误清除前后Raw为1→0。"
+    - "中断交付：ISR锁存Source含目标位且计数增量至少1；它是固件软件记录，不是硬件寄存器。"
   pass_criteria:
-    - Source可触发：每个目标Source在对应自然刺激下Raw置位。
-    - Mask语义正确：Unmask时Status/Delivery有效，Mask时Status被屏蔽。
-    - Clear正确：解除刺激并Clear后Raw、Status和事件基线恢复。
-timeout: 15 s统一中断矩阵deadline
-cleanup: [Mask and Disable all SPI IRQ sources, Clear SPI IRQ, FIFO Reset, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R1, full_coverage_level: R1, board: 无额外要求, bench: 片内回环或受控无时钟状态产生FIFO刺激}
+    - "隔离成立：Mask阶段无投递、Unmask阶段有目标Source投递。"
+    - "清除正确：电平源通过移除条件消失，锁存源通过对应读清除消失；不能统一当W1C。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "无额外接线", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [IRQ Raw、Status、Mask、Delivery和Clear矩阵]
+evidence: ["SPI FIFO IRQ触发与清除的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: active_irq_source, label: 当前SPI IRQ Source, source: dut_config, role: config, format: text}
-  - {key: irq_raw, label: IRQ.RAW实际值, source: dut, role: actual, format: hex32}
-  - {key: irq_status, label: IRQ.STATUS实际值, source: dut, role: actual, format: hex32}
-  - {key: irq_event_count, label: IRQ_EVENT.COUNT实际增量, source: dut, role: actual, format: decimal}
+  - {"key":"raw","label":"IRQ.RAW前后值","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"status","label":"IRQ.STATUS","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"isr_source","label":"ISR首次锁存Source","source":"measurement","role":"actual","format":"hex32"}
+  - {"key":"events","label":"IRQ_EVENT.COUNT增量","source":"measurement","role":"actual","format":"decimal"}
 gap: [case_implementation_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_006 SPI CS与SCLK波形
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P1_006
-case_name: SPI CS策略与时序观测测试
+case_name: SPI CS与SCLK波形
 report_feature: |-
   1. SPI CS自动、保持与逐帧切换
   2. SPI CPOL/CPHA四种模式
-  3. SPI SCLK分频与Bitrate
+  3. SPI SCLK分频
 p_level: P1
 feature_refs: [SPI_F_009, SPI_F_003, SPI_F_006]
 method:
   inputs:
-    - CS策略矩阵：AUTO、SOFTWARE_HOLD和FRAME_TOGGLE中由Capability支持的策略。
-    - Mode矩阵：MODE0至MODE3；数据使用固定多帧Pattern。
-    - Observer：逻辑分析仪或FPGA捕获SCLK、CS和MOSI。
+    - "波形矩阵：FPGA捕获SCLK/CS/MOSI；四种Clock Mode×适用CS策略，低/中/高可达分频；仅生成Capability允许的组合。"
+    - "输入与预算：8帧PATTERN_A分成两批4帧，批间停100ms；采样率至少SCLK的10倍，频率误差预算为输入时钟公差加2个采样周期/测量窗口。"
   steps:
-    - 接线门禁：确认SPI信号到Observer的Profile映射和采样率满足目标Bitrate。
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 策略配置：配置当前CS策略、Clock Mode、Bitrate和多帧数据。
-    - 波形捕获：开始Observer捕获后执行一次有界多帧传输。
-    - 波形解码：得到SCLK频率、空闲电平、采样边沿、CS有效窗口和帧数量。
-    - 矩阵执行：每个策略和Mode节点重新复位并重复捕获。
-    - 结果判定：逐项比较外部波形事实与配置语义。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "捕获准备：设置FPGA采样率与触发，确认可覆盖批间停顿且返回原始边沿时间戳。"
+    - "模式配置：关闭Loopback，配置当前Mode、分频和CS策略，TX_ONLY发送两批数据。"
+    - "波形采集：先启动捕获再发送第一批，由TX空及捕获的SCLK停止确认批次结束后保持100ms，再发送第二批并显式释放CS。"
+    - "时钟解码：从边沿判定CPOL、采样边沿、位数及实际SCLK频率。"
+    - "片选解码：AUTO在每次完成后释放；HOLD跨批间空闲保持有效；TOGGLE在能力适用的帧边界翻转。"
+    - "判据比较：按配置的模式、策略、分频预算比较波形，全部节点有效才通过。"
   observations:
-    - CS波形：记录CS有效窗口数量、持续时间和帧边界位置。
-    - SCLK波形：记录SCLK_HZ、CPOL和CPHA解码结果。
+    - "时钟事实：SPI_WAVEFORM边沿测得CPOL/CPHA和SCLK_HZ，直接证明外部时序。"
+    - "片选事实：CS各有效窗口和帧边界满足策略，且最终释放；数据帧等于PATTERN_A。"
   pass_criteria:
-    - CS策略正确：AUTO、HOLD和TOGGLE的窗口行为分别符合定义。
-    - 时钟模式正确：四种Mode的CPOL/CPHA外部解码等于配置。
-    - 帧数量正确：Observer解码帧数等于请求帧数。
-timeout: 20 s统一波形矩阵deadline
-cleanup: [Stop Observer, Release software-held CS, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R3, full_coverage_level: R3, board: SCLK、CS和MOSI可连接数字Observer, bench: FPGA捕获或逻辑分析仪}
+    - "时钟准确：CPOL/CPHA一致且频率在预先计算的容差内。"
+    - "片选准确：全部适用策略的窗口关系与定义一致，不能在不适用模式要求TOGGLE。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R3, full_coverage_level: R3, board: "SPI连接Companion FPGA", bench: "独立FPGA波形捕获"}
 backend: [FPGA, Silicon]
-evidence: [外部SPI波形解码和DUT配置快照]
+evidence: ["SPI CS与SCLK波形的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: expected_cs_policy, label: 期望CS策略, source: oracle, role: expected, format: text}
-  - {key: actual_cs_windows, label: 外部观测CS窗口, source: instrument, role: actual, format: text}
-  - {key: actual_clock_mode, label: 外部解码CPOL/CPHA, source: instrument, role: actual, format: text}
-gap: [case_implementation_gap, bench_mapping_gap]
+  - {"key":"sclk","label":"FPGA SPI_WAVEFORM.SCLK_HZ","source":"fpga","role":"actual","format":"float"}
+  - {"key":"windows","label":"FPGA CS边沿与窗口","source":"fpga","role":"actual","format":"text"}
+  - {"key":"mode","label":"FPGA解码CPOL/CPHA","source":"fpga","role":"actual","format":"text"}
+gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_007 SPI Target空TX状态
+
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: SPI_P1_007
+case_name: SPI Target空TX状态
+report_feature: |-
+  1. SPI传输与FIFO状态
+p_level: P1
+feature_refs: [SPI_F_013]
+method:
+  inputs:
+    - "最小刺激：双实例连接，MODE0、8-bit或合法最小帧宽；先发一个有效返回字，再在Target TX为空时产生一帧时钟。"
+  steps:
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "正常传输：Target预装一帧PATTERN_B，Controller发一帧，确认正常返回且TX已空。"
+    - "读清基线：显式读取STATUS.TARGET_TX_ERROR清理既有状态，不开会读取该状态的IRQ回调。"
+    - "欠载刺激：不再给Target装数据，Controller再发一帧并等待完成。"
+    - "首次读取：立即读取并保存Target错误状态，要求为1；不得提前被通用快照读取。"
+    - "再次读取：停止SCLK后再次读取同一状态，要求为0。"
+    - "恢复验证：补入一帧新数据再传输，确认返回数据一致且错误不再置位。"
+  observations:
+    - "错误状态：STATUS.TARGET_TX_ERROR首次为1、第二次为0，证明欠载检测及读清除。"
+    - "恢复数据：Controller TRANSFER.RX_DATA等于新Target输入，证明可继续收发。"
+  pass_criteria:
+    - "触发与读清：首次1、再次0，且没有新的欠载刺激。"
+    - "恢复可用：补数据后匹配且错误状态为0；不把该状态混同TX Empty IRQ。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互连并共地", bench: "无额外仪器要求"}
+backend: [FPGA, Silicon]
+evidence: ["SPI Target空TX状态的配置、输入Expected、硬件Actual及关键前后状态"]
+failure_observations:
+  - {"key":"first","label":"首次STATUS.TARGET_TX_ERROR","source":"dut","role":"actual","format":"bool"}
+  - {"key":"second","label":"再次STATUS.TARGET_TX_ERROR","source":"dut","role":"actual","format":"bool"}
+  - {"key":"rx","label":"恢复RX数据","source":"dut","role":"actual","format":"bytes_hex"}
+gap: [case_implementation_gap, board_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
+### SPI_P1_008 SPI TX启动阈值边界
+
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: SPI_P1_008
+case_name: SPI TX启动阈值边界
+report_feature: |-
+  1. SPI FIFO中断阈值与启动阈值
+p_level: P1
+feature_refs: [SPI_F_012]
+method:
+  inputs:
+    - "启动边界：T取0、中间值、D-1；双SPI外部四线连接，关闭Loopback，先保持Controller CS未选中；D取两个FIFO容量的较小值。"
+  steps:
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "阈值配置：先Enable Target接收；Controller Enable前设置START_THRESHOLD=T及TX_ONLY，Enable后预装T帧。"
+    - "不足阈值：选择CS，等待10个理论帧时间后读取Controller TX_LEVEL=T、Target RX_LEVEL=0。"
+    - "越过阈值：再写一帧，使TX_LEVEL超过T；不改其他配置。"
+    - "启动观测：在deadline内从独立Target读取T+1帧并保存数据，要求与Controller预装序列一致。"
+    - "批后状态：读取BUSY=0和TX_LEVEL=0；确认不是读回阈值就判成功。"
+    - "节点汇总：每个T重新复位，未启动和启动两个阶段均满足才通过。"
+  observations:
+    - "启动前：Target RX_LEVEL=0且Controller TX_LEVEL=T，证明未到阈值不发数据。"
+    - "启动后：TRANSFER.RX_DATA为完整T+1帧，证明增加一帧真正启动移位。"
+  pass_criteria:
+    - "边界有效：全部T在不足阈值时无RX、越过阈值后收到正确T+1帧。"
+    - "最终空闲：全部节点BUSY=0且TX_LEVEL=0。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线连接并共地", bench: "无额外仪器要求"}
+backend: [FPGA, Silicon]
+evidence: ["SPI TX启动阈值边界的配置、输入Expected、硬件Actual及关键前后状态"]
+failure_observations:
+  - {"key":"before","label":"启动前TX/RX Level","source":"dut","role":"actual","format":"text"}
+  - {"key":"rx","label":"启动后RX数据","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"threshold","label":"FIFO.START_THRESHOLD","source":"dut","role":"actual","format":"decimal"}
+gap: [case_implementation_gap, board_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
+### SPI_P2_001 SPI DMA双向与水位
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
 case_id: SPI_P2_001
-case_name: SPI DMA双向传输测试
+case_name: SPI DMA双向与水位
 report_feature: |-
   1. SPI DMA TX/RX请求与Watermark
 p_level: P2
 feature_refs: [SPI_F_015]
 method:
   inputs:
-    - 连接：复用双实例Controller-Target四线连接。
-    - DMA方向：Memory到Controller TX FIFO和Target RX FIFO到Memory；反向路径按Capability再执行一轮。
-    - 数据：长度跨越FIFO容量的非对称Pattern。
+    - "DMA矩阵：双SPI外接，交换角色；8-bit及最大帧宽，TX/RX DMA分别单独验证再联合搬运，长度为2D及2D+1，D为较小FIFO容量。"
+    - "水位节点：TX静止Level取1及D-1，对应水位先取Level-1再取Level，另测空FIFO水位0；RX边界水位取1及D-1，持续传输RX水位取0避免尾帧滞留；DMA访问宽度来自端点能力。"
   steps:
-    - 基线建立：复位两个SPI实例、DMA实例、Service状态和Resource Pool。
-    - SPI配置：配置Controller/Target相同模式和DMA Watermark。
-    - DMA配置：由PC DMA Driver配置M2P和P2M通道，不由SPI Service调用DMA Wrap。
-    - 双向启动：先Arm接收DMA，再Arm发送DMA，最后Enable SPI传输。
-    - 完成等待：按统一deadline轮询DMA Channel和SPI BUSY终态。
-    - 数据观测：读取DMA目标Buffer和双方完成帧数。
-    - 恢复检查：Disable DMA Request后执行一次短CPU传输，确认SPI可继续工作。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "静止TX请求：Controller不选CS，FIFO预填L帧；水位L-1时已Arm的单笔TX DMA未完成，改水位为L后应完成且Level增加1；另在空FIFO、水位0时确认单笔请求。"
+    - "RX请求边界：独立复位后Target累积R帧且RX DMA不完成；再输入一帧达R+1，单次P2M应完成，记录真实搬运前后状态。"
+    - "双向配置：复位双方SPI和DMA；PC先准备接收通道，再准备发送通道，使用硬件握手和端点发布的数据宽度，最后释放CS启动。"
+    - "持续传输：若返回路径由CPU预装则限定不超过FIFO；跨FIFO双向使用四个DMA通道，先Arm两端RX再Arm两端TX，禁止软件喂数冒充DMA。"
+    - "终态等待：按统一deadline轮询通道完成/错误和SPI BUSY，最后读取两个DMA目的内存。"
+    - "数据比较：逐帧掩码后与对端Pattern比较，包含2D+1尾帧；交换角色重新执行。"
+    - "恢复验证：关闭DMA请求、停止通道，再用CPU发送一笔8帧数据并核对返回，记录所有节点。"
   observations:
-    - DMA终态：记录发送、接收Channel状态和传输计数。
-    - 目标数据：记录Expected Pattern和DMA Destination实际数据。
+    - "水位证据：DMA单笔未完成→完成及目的内容变化，与SPI水位/Level从不满足到满足请求条件对应。"
+    - "搬运证据：DMA硬件完成置位、错误为0，两个目的内存按frame_bits取有效位后精确等于对端输入。"
   pass_criteria:
-    - DMA完成：参与Channel均在deadline内进入成功终态。
-    - 数据正确：目标Buffer逐字节等于Expected Pattern。
-    - SPI恢复：关闭DMA后短CPU传输仍成功。
-timeout: 按Bitrate和数据长度计算有界deadline并增加统一调度裕量
-cleanup: [Disable SPI DMA requests, Stop DMA channels, Disable both SPI instances, Reset SPI and DMA instances, Resource Pool Reset]
-resources: {minimum_level: R2, full_coverage_level: R2, board: 两个SPI实例四线交叉连接并共地, bench: 无额外仪器要求}
+    - "请求边界：TX在Level≤T、RX在Level≥R+1才触发已Arm的单笔DMA。"
+    - "数据完整：每方向实际帧数和数据相等，无尾帧残留且BUSY=0；CPU恢复传输正确。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互连并共地", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [DMA Channel终态、SPI状态和目标Buffer]
+evidence: ["SPI DMA双向与水位的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: dma_tx_status, label: SPI TX DMA Channel状态, source: peer, role: actual, format: text}
-  - {key: dma_rx_status, label: SPI RX DMA Channel状态, source: peer, role: actual, format: text}
-  - {key: expected_dma_data, label: 期望DMA目标数据, source: oracle, role: expected, format: bytes_hex}
-  - {key: actual_dma_data, label: 实际DMA目标数据, source: peer, role: actual, format: bytes_hex}
+  - {"key":"dma","label":"DMA通道硬件终态","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"level","label":"SPI FIFO边界Level","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"data","label":"DMA目的内存","source":"dut","role":"actual","format":"bytes_hex"}
+  - {"key":"expected","label":"独立期望帧","source":"oracle","role":"expected","format":"bytes_hex"}
 gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
 
-<!-- ET_CASE_PLAN_BEGIN -->
-```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
-case_id: SPI_P2_002
-case_name: SPI帧格式协议测试
-report_feature: |-
-  1. SPI Motorola/TI SSP/Microwire帧格式
-p_level: P2
-feature_refs: [SPI_F_017]
-method:
-  inputs:
-    - 协议矩阵：Capability发布的Motorola SPI、TI SSP和Microwire格式。
-    - FPGA Peer：按当前协议产生和采集SCLK、CS、MOSI和MISO。
-    - 数据：每种协议使用相同逻辑Payload和代表帧宽。
-  steps:
-    - 能力门禁：读取目标支持的Frame Format并只执行发布项。
-    - Bench门禁：加载支持当前协议的FPGA Peer并确认端点映射。
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 协议配置：配置当前Frame Format、Frame Bits和协议专属控制字段。
-    - 双向激励：DUT与FPGA Peer交换固定Payload。
-    - 协议解码：FPGA记录帧结构、控制位、位数和双向数据。
-    - 矩阵判定：逐协议比较实际帧结构和Payload。
-  observations:
-    - 协议帧结构：记录FPGA解码的Format、控制位和Frame Bits。
-    - 双向数据：记录DUT与FPGA Peer实际接收Payload。
-  pass_criteria:
-    - 帧格式正确：外部解码格式和控制位符合目标协议定义。
-    - 位数正确：每帧有效位数等于配置。
-    - 数据正确：双向Payload逐帧一致。
-timeout: 20 s统一协议矩阵deadline
-cleanup: [Stop FPGA Peer, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R3, full_coverage_level: R3, board: SPI四线连接到FPGA Peer, bench: 支持Motorola、TI SSP和Microwire的通用波形Peer}
-backend: [FPGA, Silicon]
-evidence: [FPGA协议解码和双向数据]
-failure_observations:
-  - {key: expected_frame_format, label: 期望SPI帧格式, source: oracle, role: expected, format: text}
-  - {key: actual_frame_format, label: FPGA实际解码帧格式, source: instrument, role: actual, format: text}
-  - {key: actual_peer_data, label: FPGA Peer实际接收数据, source: instrument, role: actual, format: bytes_hex}
-gap: [case_implementation_gap, driver_api_gap, bench_mapping_gap]
-```
-<!-- ET_CASE_PLAN_END -->
+### SPI_P2_005 SPI无时钟等待与恢复
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
-case_id: SPI_P2_003
-case_name: SPI高速Bitrate与RX采样延迟测试
+case_id: SPI_P2_005
+case_name: SPI无时钟等待与恢复
 report_feature: |-
-  1. SPI SCLK分频与Bitrate
-  2. SPI RX采样延迟
+  1. SPI外部PAD收发
+  2. SPI传输与FIFO状态
 p_level: P2
-feature_refs: [SPI_F_006, SPI_F_016]
+feature_refs: [SPI_F_008, SPI_F_013]
 method:
   inputs:
-    - 频率矩阵：Capability发布的低、中和最高已验证Bitrate节点。
-    - 延迟矩阵：0、代表中间值和Capability最大值；先做短数据筛选，再做选定点长数据。
-    - Observer：FPGA Peer捕获SCLK并返回已知Pattern。
+    - "故障输入：双SPI连接，Target启用且TX预装4帧；Controller暂不启动，因此Target没有SCLK。"
+    - "观测窗口：无时钟100ms；恢复后发送4帧PATTERN_A并接收PATTERN_B，统一deadline在执行前确定。"
   steps:
-    - Bench门禁：确认FPGA Peer采样能力高于目标最高Bitrate并完成四线映射。
-    - 基线建立：复位代表SPI实例、Service状态和Resource Pool。
-    - 节点配置：设置当前Bitrate和RX Sample Delay。
-    - 短数据筛选：交换短Pattern，记录外部SCLK和数据结果。
-    - 长数据验证：对每个Bitrate选择至少一个有效延迟点执行跨FIFO长度传输。
-    - 误码统计：统计总帧数、错误帧数和首次错误位置。
-    - 结果判定：比较实测SCLK、配置容差和误码数。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "无时钟准备：先Enable Target并预装数据，Controller保持不发送。"
+    - "等待观测：PC多次请求一次性RX读取及FIFO快照，持续100ms，Target RX数保持0、TX帧保持。"
+    - "控制活性：每次查询都应及时返回未完成而非阻塞固件；记录请求返回时间和RX计数。"
+    - "恢复时钟：启动Controller发出4帧，Target同步收发预装数据。"
+    - "恢复读取：获取两端RX帧及BUSY终态，要求交叉匹配且没有重复或截断。"
+    - "独立再试：复位双方后再发不同4帧，确认故障等待未影响下一笔传输。"
   observations:
-    - 外部频率：记录每个节点的目标Bitrate和SPI_WAVEFORM.SCLK_HZ。
-    - 接收质量：记录RX Sample Delay、总帧数、错误帧数和首次错误位置。
+    - "无时钟硬件：Target FIFO.RX_LEVEL=0且TX_LEVEL保持，证明没有伪造完成。"
+    - "恢复硬件：两端TRANSFER.RX_DATA分别等于对端Pattern，最终BUSY=0。"
   pass_criteria:
-    - 频率正确：实测SCLK位于目标容差内。
-    - 数据正确：每个频率至少一个Capability声明有效的延迟点错误帧数为0。
-    - 边界明确：最高已验证Bitrate由真实波形和数据共同证明，不由Driver参数上限推断。
-timeout: 按频率矩阵和数据长度计算有界deadline
-cleanup: [Stop FPGA Peer, Disable SPI, Reset SPI instance, Resource Pool Reset]
-resources: {minimum_level: R3, full_coverage_level: R3, board: SPI四线连接到高速FPGA Peer, bench: 采样率满足最高目标Bitrate的数字捕获平台}
+    - "等待正确：无SCLK没有RX增长，固件命令返回有界的未完成结果。"
+    - "恢复完整：恢复时钟后和复位后各一笔数据均交叉匹配；不保留旧SDK无限阻塞作为通过条件。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "双SPI四线互连并共地", bench: "无额外仪器要求"}
 backend: [FPGA, Silicon]
-evidence: [外部SCLK频率、RX Sample Delay和误码统计]
+evidence: ["SPI无时钟等待与恢复的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: target_bitrate_hz, label: 目标SPI Bitrate, source: dut_config, role: config, format: decimal}
-  - {key: measured_sclk_hz, label: 外部实测SCLK频率, source: instrument, role: actual, format: decimal}
-  - {key: rx_sample_delay, label: RX采样延迟配置, source: dut_config, role: config, format: decimal}
-  - {key: frame_error_count, label: 接收错误帧数, source: measurement, role: actual, format: decimal}
-gap: [case_implementation_gap, capability_limit_gap, bench_mapping_gap]
+  - {"key":"rx_level","label":"无时钟Target RX_LEVEL","source":"dut","role":"actual","format":"decimal"}
+  - {"key":"response_ms","label":"请求返回耗时","source":"measurement","role":"actual","format":"float"}
+  - {"key":"rx","label":"恢复后双端RX","source":"dut","role":"actual","format":"bytes_hex"}
+gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
+
+### SPI_P2_007 SPI Target输出高阻
 
 <!-- ET_CASE_PLAN_BEGIN -->
 ```yaml
 schema: et.case-plan.v1
 implementation_status: PLANNED
-case_id: SPI_P2_004
-case_name: SPI多Controller总线冲突测试
+case_id: SPI_P2_007
+case_name: SPI Target输出高阻
 report_feature: |-
-  1. SPI多Controller冲突状态与中断
+  1. SPI Target输出使能
 p_level: P2
-feature_refs: [SPI_F_019]
+feature_refs: [SPI_F_018]
 method:
   inputs:
-    - 两个Controller：Capability选择两个独立SPI实例。
-    - 受控总线：FPGA隔离/合路两个Controller的SCLK和数据输出，避免未受控直接短接输出。
-    - 冲突Pattern：两个Controller在同一窗口发送相反数据。
+    - "环境条件：双SPI四线连接，MISO接可切换弱上拉/下拉及电压Observer；电阻、逻辑电平阈值和负载范围在Bench预先声明。"
+    - "对照输入：关闭内部Pad上下拉，Target预装交替0/1返回帧；分别测试输出Enable和Disable，其他配置不变。"
   steps:
-    - 安全门禁：确认FPGA合路具备输出隔离、限流和可恢复控制，禁止直接短接两个推挽输出。
-    - 基线建立：复位两个SPI实例、Service状态和Resource Pool，清除冲突IRQ。
-    - Controller配置：配置相同Mode和Bitrate，Enable冲突状态及中断。
-    - 受控争用：由FPGA在限定帧窗口内连接两个Controller并同步启动相反Pattern。
-    - 状态观测：读取CONTROLLER_COLLISION、IRQ.RAW、IRQ.STATUS和IRQ_EVENT。
-    - 恢复动作：FPGA断开争用路径，Clear中断并重新复位两个实例。
-    - 恢复验证：在无争用单Controller路径执行一笔短传输。
+    - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
+    - "正常驱动：Target输出Enable，两种弱负载下发送交替位，Controller均正确接收，证明负载不会压过正常驱动。"
+    - "关闭输出：停止传输后复位重配Target output_enabled=false，继续正常接收Controller数据。"
+    - "弱上拉观测：施加弱上拉，在CS有效且SCLK运行时测量MISO电平并记录Controller采样帧。"
+    - "弱下拉观测：独立复位再禁用输出，施加弱下拉，以相同刺激测量MISO。"
+    - "接收检查：两种负载下Target RX仍应等于Controller输入。"
+    - "高阻判定：禁用后MISO随弱负载进入各自逻辑电平，Enable时可主动输出交替位；最后恢复安全负载。"
   observations:
-    - 冲突事实：记录争用窗口、Collision状态和Multi-Controller IRQ生命周期。
-    - 恢复事实：记录断开争用并复位后的状态和短传输结果。
+    - "PAD电平：Observer测量MISO禁用输出时随弱上拉为高、弱下拉为低；有预先规定的电压阈值。"
+    - "接收通路：Target TRANSFER.RX_DATA不因禁止输出而改变，Enable对照传输仍正确。"
   pass_criteria:
-    - 冲突可见：受控争用时Collision Raw和IRQ Delivery有效。
-    - 清除正确：解除争用并Clear后Raw/Status恢复。
-    - 恢复正确：复位后单Controller短传输成功。
-timeout: 10 s
-cleanup: [Disconnect FPGA contention route, Mask and Clear SPI IRQ, Disable and Reset both SPI instances, Resource Pool Reset]
-resources: {minimum_level: R3, full_coverage_level: R3, board: 两个SPI实例连接FPGA安全隔离合路, bench: 支持受控争用与断开的FPGA路由}
+    - "高阻成立：两种相反弱负载均能拉到规定电平，且正常Enable对照不受弱负载破坏。"
+    - "接收不变：Target仍收到完整正确数据；只看到Controller数据不同不能证明高阻。"
+timeout: "每节点理论传输时间加5 s有界调度裕量；无时钟/仪器/器件等待另按本Case输入预算"
+cleanup: [Stop external stimulus, Mask IRQ and disable DMA requests, Stop DMA channels when used, Release CS, Reset participating IPs, Resource Pool Reset]
+resources: {minimum_level: R4, full_coverage_level: R4, board: "双SPI固定四线互联，MISO接可切换弱上拉/下拉和测量探头", bench: "可切换弱负载和示波器或等效电压Observer"}
 backend: [FPGA, Silicon]
-evidence: [FPGA争用窗口、Collision状态、IRQ生命周期和恢复传输]
+evidence: ["SPI Target输出高阻的配置、输入Expected、硬件Actual及关键前后状态"]
 failure_observations:
-  - {key: contention_window, label: FPGA受控争用窗口, source: instrument, role: config, format: text}
-  - {key: collision_status, label: STATUS.CONTROLLER_COLLISION实际值, source: dut, role: actual, format: bool}
-  - {key: collision_irq_raw, label: Multi-Controller IRQ Raw, source: dut, role: actual, format: hex32}
-  - {key: recovery_transfer_match, label: 复位后短传输匹配结果, source: measurement, role: actual, format: bool}
-gap: [case_implementation_gap, trigger_semantic_gap, bench_mapping_gap]
+  - {"key":"voltage","label":"MISO实测电平","source":"instrument","role":"actual","format":"float"}
+  - {"key":"load","label":"弱负载配置","source":"bench","role":"config","format":"text"}
+  - {"key":"target_rx","label":"Target RX数据","source":"dut","role":"actual","format":"bytes_hex"}
+gap: [case_implementation_gap, board_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
+### SPI_P3_002 SPI DMA连续收发
+
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: SPI_P3_002
+case_name: SPI DMA连续收发
+report_feature: |-
+  1. SPI DMA TX/RX请求与Watermark
+  2. SPI外部PAD收发
+p_level: P3
+feature_refs: [SPI_F_015, SPI_F_008]
+method:
+  inputs:
+    - "连续范围：双SPI四线连接、MODE1、8-bit；20轮，每轮32帧，双方Pattern按轮次改变，使用独立四DMA通道。"
+  steps:
+    - "独立基线：开始前复位两个SPI、DMA及其Service状态，整池复位资源。"
+    - "初始配置：配置双SPI和四个硬件握手DMA端点，水位取0，先准备两端接收，再准备Target发送，最后Controller发送。"
+    - "逐轮收发：先保证Target已有发送数据再启动Controller，轮内DMA完成全部32帧，不用CPU搬运代替。"
+    - "逐轮等待：按统一deadline轮询四通道硬件完成及错误，停止本轮通道但保留SPI配置。"
+    - "双向比较：读取两端目的内存，逐帧比较对端本轮Pattern，检查BUSY=0及无FIFO错误。"
+    - "下一轮准备：在正常完成后更换输入与目的区，重Arm通道继续；失败则记录轮号及硬件状态停止，不能复位重试掩盖。"
+    - "连续结论：20/20轮双向数据及终态全部正确；保存实际频率和累计帧数，不声称无限期压力已通过。"
+  observations:
+    - "DMA终态：每轮四通道完成置位且错误为0，两端目的内存等于对端独立Pattern。"
+    - "持续状态：各轮SPI BUSY最终为0，FIFO错误为0，数据不能来自上一轮。"
+  pass_criteria:
+    - "数据连续：20轮×两方向×32帧全部匹配，不丢帧、重复或串轮。"
+    - "终态完整：全部通道在deadline内完成且无SPI/DMA错误。"
+timeout: "20轮理论传输时间加每轮5 s有界调度裕量"
+cleanup: [Disable SPI DMA requests, Stop DMA channels, Release CS, Reset SPI and DMA, Resource Pool Reset]
+resources: {minimum_level: R2, full_coverage_level: R2, board: 双SPI四线互连并共地, bench: 无额外仪器}
+backend: [FPGA, Silicon]
+evidence: [20轮DMA双向输入输出及硬件终态]
+failure_observations:
+  - {"key":"round","label":"当前轮次","source":"measurement","role":"actual","format":"decimal"}
+  - {"key":"dma","label":"四DMA通道终态","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"data","label":"双端目的内存","source":"dut","role":"actual","format":"bytes_hex"}
+gap: [case_implementation_gap, board_mapping_gap]
 ```
 <!-- ET_CASE_PLAN_END -->
 
@@ -653,14 +751,68 @@ gap: [case_implementation_gap, trigger_semantic_gap, bench_mapping_gap]
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | IMPLEMENTATION_GAP=4; MAPPING_GAP=4; BENCH_GAP=2; NEEDS_VERIFICATION=2 | Hardware Truth和完整Case Plan已闭合；公共SPI代码、Capability语义和Board/Bench映射尚未实现 | `ET6801_spi.md` |
+| ET6801 | IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | IMPLEMENTATION_GAP=4; MAPPING_GAP=8; BENCH_GAP=2; NEEDS_VERIFICATION=3 | 19 Feature、17测试目标；14 PLAN、3项设计草案待确认；5项外部设备测试暂缓；未实现、未实测 | `ET6801_spi.md` |
 
 ## 5. Common Gap / Evolution
 
-- `case_implementation_gap`：当前自动化平台尚无 SPI Wrap、Service、PC Driver 和 Case。
-- `capability_limit_gap`：目标最高可达 Bitrate、FIFO容量、帧格式和RX Sample Delay等语义必须进入Runtime Capability，不能由公共Case硬编码。
-- `driver_api_gap`：当正式SDK未暴露硬件Feature时，只允许按测试Driver扩展规则在Driver底部增加清晰命名的测试接口；Wrap不得直接操作寄存器。
-- `board_mapping_gap`：外部回接和双实例四线链路必须由Board/Bench Profile声明逻辑端点到实际引脚的映射。
-- `bench_mapping_gap`：波形、协议和争用Case需要通用FPGA/逻辑分析仪Observer；未部署时是环境缺口，不删除Case。
-- `trigger_semantic_gap`：多Controller冲突必须先从目标RTL/设计资料确认安全、确定性的触发方法；禁止直接短接推挽输出进行试错。
-- QSPI是独立IP，不纳入本SPI公共Contract；未来按独立`qspi.md`分析和开发。
+下列ID保留以追溯旧计划；撤下旧机器块是纠正错误刺激/判据，不删除必测目的。补齐依据后在原ID落地完整PLAN。
+
+| Case | 已知测试目的 | 尚缺依据和解除条件 |
+|---|---|---|
+| SPI_P2_002 | SPI串行帧格式 | Motorola已有完整Case；TI帧同步边沿、Microwire控制段装载顺序及ready电平/采样边沿尚缺目标适用时序依据。MHS约束的是末位之后BUSY释放，不是数据开始，旧计划判断方向错误。 |
+| SPI_P2_003 | SPI高速与RX采样延迟 | RX延迟内部移位深度、输入建立/保持预算未定；不得用扫描中任意一个成功点证明整个Feature。 |
+| SPI_P2_004 | SPI Controller冲突状态与IRQ | 已知触发为Controller传输时ss_in_n有效；目标芯片该输入到PAD/FPGA的集成连接仍未知，不能用短接两个Controller输出来替代。 |
+
+- P2_002：先固定独立TI/Microwire时序表。Microwire顺序模式一个控制字对应多数据字，非顺序每数据字前一个控制字；握手等待应检查末位之后BUSY保持，ready后BUSY解除，不能照搬旧计划的“未ready不开始数据”。没有ready电平和采样时刻依据时，不编码伪Oracle。
+- P2_003：保留低/中/目标最高速率、采样延迟和边界输入时序测试。需要预先固定可达分频、物理延迟范围、输入时序预算和FPGA响应相位，再检查规定点；不得边测边挑成功点形成PASS。寄存器8-bit不代表256个有效延迟级。
+- P2_004：用FPGA只驱动已确认的冲突输入，在DUT进行慢速传输时使其有效；显式读取首次Collision及Raw/ISR锁存事实，停止刺激再读清并验证恢复。目标输入路由不明时不能开始刺激，禁止两个推挽SCLK/CS直接相连。
+- Capability与Driver缺接口属于实现缺口；Board/Bench缺映射不是硬件不支持。未实测项不写SKIP。
+- CS波形和高阻验证不得改成内部回环。新芯片优先复用测试意图，仅调整能力/板卡/设备事实。QSPI另行分析。
+
+### 5.1 本轮范围与外部设备Case
+
+2026-09-04 10:34 CST：按用户指定范围，外部NOR读写擦及连续读写擦属于应用测试，移出本轮SPI功能Case。原SPI_P2_006、SPI_P3_001停止纳入Catalog与PLAN，ID不复用；来源仍在芯片文档追溯。这是范围裁决，不是硬件不支持，也不代表已覆盖NOR应用。
+
+外部设备Case保留简单、直接的测试设计。P1_006和P2_007沿用第3节完整PLAN；下面三项先保留草案，不用未知时序或触发条件拼出虚假完整PLAN。当前设备缺失的执行安排见芯片文档；公共Case不永久硬编码SKIP，也不因缺设备改为片内回环。
+
+#### SPI_P2_002 串行帧格式——简明草案
+
+- 测试Feature：TI SSP/Microwire帧格式及Microwire控制段、方向和握手。
+- 输入：每个已确认格式传输4个8-bit数据字，交替0x55/0xAA；Microwire控制字长度、内容和ready时序须先确认，不能随意填值。
+- 测试方法：
+  1. 确认协议时序表及FPGA协议对端可用；复位参与IP和资源池，闲置SPI退出总线驱动。
+  2. 配置当前帧格式、位宽和低速分频；Microwire分别选择发送/接收及适用顺序/握手模式。
+  3. FPGA加载独立输入和对应协议时序，先启动捕获，再开始一笔控制段及4个数据字的传输。
+  4. 采集SCLK、帧同步/片选和数据；握手节点在协议规定时刻改变ready并观测BUSY。
+  5. 读取接收数据和BUSY终态，将捕获波形逐段对照已审核协议时序表。
+  6. 比较4个数据字与独立输入，保存首个不同点、实际边沿和BUSY变化。
+- 通过条件：数据逐字相等；帧同步、控制段和数据段符合协议；Microwire握手等待与BUSY释放符合已确认时序。
+- 尚缺依据：TI同步边沿、Microwire控制字装载顺序和ready电平/采样边沿。未确认前不发布可执行Formal Case。
+
+#### SPI_P2_003 高速与RX采样延迟——简明草案
+
+- 测试Feature：SCLK分频与RX采样延迟。
+- 输入：低/中/最高可达速率；每笔16个8-bit交替0x55/0xAA数据；采样延迟和FPGA返回相位必须取预先审核的物理有效点。
+- 测试方法：
+  1. 确认时序预算、延迟有效范围及FPGA相位控制能力；复位参与IP和资源池，闲置SPI退出驱动。
+  2. 配置当前分频和RX采样延迟，读回配置；记录预定SCLK与采样窗口。
+  3. FPGA按预定相位返回16个数据字，并捕获SCLK与MISO边沿。
+  4. 发起一次传输，在统一deadline内读取全部RX数据和BUSY终态。
+  5. 逐字比较输入和接收值，按独立边沿时间戳核对实际频率与输入相位。
+  6. 遍历预先规定节点并记录各点结果；不能根据结果临时选取成功节点或放宽预算。
+- 通过条件：规定的有效时序节点数据全部正确，频率在事先预算内；采样延迟边界按确认的硬件行为判定。
+- 尚缺依据：物理延迟深度、输入时序预算和边界Oracle；不从可写位宽推定全部延迟都有效。
+
+#### SPI_P2_004 Controller冲突——简明草案
+
+- 测试Feature：Controller冲突状态及IRQ。
+- 输入：一笔低速16帧传输，FPGA只控制已确认的独立冲突输入；不将两个推挽输出短接。
+- 测试方法：
+  1. 确认冲突输入的物理路径与有效电平；复位参与IP和资源池，FPGA先保持不触发。
+  2. 配置Controller、低速分频和目标IRQ，清历史状态并记录无冲突基线。
+  3. 启动16帧传输，FPGA观测到SCLK活动后使独立冲突输入有效。
+  4. 锁存首次Collision、IRQ Raw/Status和ISR计数；记录冲突输入与SCLK的时间关系。
+  5. 解除刺激，按已确认的读清语义清状态和IRQ，再次读取确认。
+  6. 重新配置后发送一笔正常数据，检查完整收发及无新增冲突。
+- 通过条件：传输中的有效冲突刺激产生对应状态和真实IRQ；解除并清除后状态恢复，正常传输数据一致。
+- 尚缺依据：目标芯片Controller模式下冲突输入的集成路径；无法确认时禁止驱动引脚，不推定硬件不支持。
