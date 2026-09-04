@@ -54,13 +54,22 @@ enum
     ET_SPI_DMA_TX_THRESHOLD = 2u,
     ET_SPI_DMA_RX_THRESHOLD = 3u
 };
+/** FIFO_LIMITS_GET positions; inclusive threshold maxima, independent of capacity. */
+enum
+{
+    ET_SPI_FIFO_LIMIT_TX_IRQ = 0u,
+    ET_SPI_FIFO_LIMIT_RX_IRQ = 1u,
+    ET_SPI_FIFO_LIMIT_TX_START = 2u,
+    ET_SPI_FIFO_LIMIT_DMA_TX = 3u,
+    ET_SPI_FIFO_LIMIT_DMA_RX = 4u
+};
 /** Fixed command envelopes, in enum order; values are u32 field counts. */
 #define ET_SPI_REQUEST_WORD_COUNTS                                                                 \
-    {0u, 16u, 0u, 1u, 0u, 1u, 1u, 1u, 1u, 3u, 0u, 0u,                                              \
-     1u, 0u,  1u, 0u, 4u, 0u, 2u, 1u, 1u, 0u, 0u, 0u}
+    {0u, 16u, 0u, 1u, 0u, 1u, 1u, 1u, 1u, 3u, 0u, 0u, 1u,                                          \
+     0u, 1u,  0u, 4u, 0u, 2u, 1u, 1u, 0u, 0u, 0u, 0u}
 #define ET_SPI_RESPONSE_WORD_COUNTS                                                                \
-    {7u, 0u, 16u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 14u, 2u,                                             \
-     1u, 2u, 0u,  1u, 0u, 2u, 0u, 0u, 0u, 0u, 8u,  0u}
+    {7u, 0u, 16u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 14u, 2u, 1u,                                         \
+     2u, 0u, 1u,  0u, 2u, 0u, 0u, 0u, 0u, 8u, 0u,  5u}
 /** Event fault bits describe software capture failures, never hardware verdicts. */
 #define ET_SPI_CAPTURE_FAULT_IO (1u << 0)
 #define ET_SPI_CAPTURE_FAULT_OVERFLOW (1u << 1)
@@ -93,6 +102,7 @@ typedef enum
     ET_SPI_COMMAND_IRQ_CAPTURE_STOP = 21u,
     ET_SPI_COMMAND_IRQ_EVENT_GET = 22u,
     ET_SPI_COMMAND_IRQ_EVENT_RESET = 23u,
+    ET_SPI_COMMAND_FIFO_LIMITS_GET = 24u,
     ET_SPI_COMMAND_COUNT
 } et_spi_command_t;
 

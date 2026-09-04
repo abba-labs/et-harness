@@ -15,6 +15,7 @@ from ...drivers.spi import (
     SpiConfig,
     SpiCsPolicy,
     SpiDriver,
+    SpiFifoLimits,
     SpiFormat,
     SpiLimits,
     SpiRole,
@@ -38,6 +39,7 @@ class SpiEndpoint:
     spi: SpiDriver
     limits: SpiLimits
     pins: tuple[tuple[int, GpioFunction], ...]
+    fifo_limits: SpiFifoLimits
 
 
 # 本Case选择的两端及支撑Driver；不在构造时配置设备。

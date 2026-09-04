@@ -529,6 +529,26 @@ static et_wrap_status_t execute_command(et_spi_service_t *service, uint16_t comm
             return encode_limits(id, output);
         }
 
+        case ET_SPI_COMMAND_FIFO_LIMITS_GET:
+        {
+            et_spi_fifo_limits_t limits;
+            et_wrap_status_t status = et_spi_wrap_get_fifo_limits(id, &limits);
+
+            if (status != ET_WRAP_STATUS_OK)
+            {
+                return status;
+            }
+
+            /* Wire order: TX IRQ, RX IRQ, TX start, TX DMA, RX DMA maxima. */
+            output[ET_SPI_FIFO_LIMIT_TX_IRQ] = limits.tx_irq_max;
+            output[ET_SPI_FIFO_LIMIT_RX_IRQ] = limits.rx_irq_max;
+            output[ET_SPI_FIFO_LIMIT_TX_START] = limits.tx_start_max;
+            output[ET_SPI_FIFO_LIMIT_DMA_TX] = limits.dma_tx_max;
+            output[ET_SPI_FIFO_LIMIT_DMA_RX] = limits.dma_rx_max;
+
+            return ET_WRAP_STATUS_OK;
+        }
+
         case ET_SPI_COMMAND_CONFIGURE:
         {
             return config_access(id, 1u, input, output);

@@ -138,14 +138,14 @@ class Target:
     def request(self, service_id, command_id, *, instance_id, body, timeout_s, retry_safe):
         assert (service_id, command_id, instance_id) == (0x010B, self.command, 2)
         assert body == b"\x02" + pack("<" + "I" * len(self.arguments), *self.arguments)
-        assert retry_safe is (self.command in (0, 2, 10, 17, 22))
+        assert retry_safe is (self.command in (0, 2, 10, 17, 22, 24))
         assert timeout_s is None or 0 < timeout_s <= 0.5
         self.calls += 1
         response = pack("<" + "I" * len(self.result), *self.result)
         return ServiceMessage(service_id, command_id, instance_id, body=response), object()
 
 
-# 测试 Feature：24条SPI原子命令与公共Wire契约完全一致。
+# 测试 Feature：25条SPI原子命令与公共Wire契约完全一致。
 # 测试方法：独立给定请求和响应向量，调用真实Driver，检查命令、实例、长度和重试资格。
 # 通过条件：每次只发一条目标命令；读回不能被请求缓存替代。
 @pytest.mark.parametrize(
@@ -175,6 +175,7 @@ class Target:
         (21, "irq_capture_stop", (), (), ()),
         (22, "irq_event_get", (), (), EVENT_WORDS),
         (23, "irq_event_reset", (), (), ()),
+        (24, "fifo_limits_get", (), (), (15, 7, 31, 15, 7)),
     ],
 )
 def test_spi_all_atomic_wire_commands(command, method, args, request_words, response):
@@ -193,11 +194,14 @@ def test_spi_all_atomic_wire_commands(command, method, args, request_words, resp
         assert value == 0x112345678
     elif command == 22:
         assert value.event_count == 1 and value.generation == 1
+    elif command == 24:
+        assert (value.tx_irq_max, value.rx_irq_max, value.tx_start_max) == (15, 7, 31)
+        assert (value.dma_tx_max, value.dma_rx_max) == (15, 7)
 
 
 # 测试 Feature：C/Python的命令编号、字段数及配置向量一致。
 # 测试方法：读取真实固件头，逐项核对已发布编号，另用独立固定字节验证配置。
-# 通过条件：24项无偏移，保留字填零，读取不会改变配置语义。
+# 通过条件：25项无偏移，保留字填零，读取不会改变配置语义。
 def test_spi_firmware_ids_and_config_vector():
     root = Path(__file__).resolve().parents[6]
     header = (root / "firmware/services/include/et_spi_service.h").read_text(encoding="utf-8")
@@ -266,6 +270,8 @@ def test_spi_irq_fault_and_deadline():
 # 测试方法：逐类损坏唯一字段，检查响应边界抛错。
 # 通过条件：无错误读回被转换成合法硬件事实。
 def test_spi_invalid_decoded_values():
+    with pytest.raises(ProtocolError):
+        codec.decode_fifo_limits((15, 15, 256, 15, 15))
     with pytest.raises(ProtocolError):
         codec.decode_config((*CONFIG_WORDS[:-1], 1))
     with pytest.raises(ProtocolError):

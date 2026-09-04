@@ -1,6 +1,6 @@
 # SPI Stable IP Contract
 
-更新时间：2026-09-04 17:05 CST
+更新时间：2026-09-04 18:22 CST
 
 本文件定义芯片中立的SPI测试意图。保留19个Feature ID；补入参考资料遗漏的测试目的，纠正不充分的判据。公共配置及数据格式在此定义，具体寄存器、SDK差异和接线仅见芯片文档。
 
@@ -75,7 +75,7 @@ Wire：以上稳定动作的当前命令布局见0.6节，C Service与Python Cod
 
 | Source | 刺激及边界 | 消除条件 |
 |---|---|---|
-| TXE | Controller未选CS；填T帧时Raw应为1，再填1帧到T+1时Raw应为0。 | 填到T+1；T=D-1需填满。 |
+| TXE | Controller未选CS；填T帧时Raw应为1，再填1帧到T+1时Raw应为0。 | 填到T+1；T不得超过独立阈值上限及D-1。 |
 | TXO | Enable且未选CS，填满D帧；再执行一次test_fifo_write_once。 | 停止额外写入，显式读清错误源。 |
 | RXU | RX FIFO为空，执行一次test_fifo_read_once。 | 停止空读，显式读清错误源。 |
 | RXO | Loopback接收D帧不读RX，再发1帧；TX发送可分批，不可同时排空RX。 | 停止接收并显式读清错误源，再排空FIFO。 |
@@ -113,11 +113,13 @@ Service ID为`0x010B`；沿用R400 ET-Frame v1，不改变公共帧或其他IP�
 | 21 | IRQ_CAPTURE_STOP | 无 | 无 |
 | 22 | IRQ_EVENT_GET | 无 | IrqEvent |
 | 23 | IRQ_EVENT_RESET | 无 | 无 |
+| 24 | FIFO_LIMITS_GET | 无 | FifoLimits |
 
 字段顺序是协议定义，不依赖C结构体内存布局：
 
 - Config：`role, frame_format, clock_mode, transfer_mode, cs_policy, frame_bits, frame_count, divider, target_output_enabled, loopback, rx_sample_delay, control_bits, sequential, transmit, handshake, reserved`。reserved必须为0；role为TARGET=0/CONTROLLER=1；format为MOTOROLA=0/TI=1/MICROWIRE=2；clock_mode为MODE0～3的0～3；transfer_mode为TX_RX=0/TX_ONLY=1/RX_ONLY=2/EEPROM_READ=3；cs_policy为AUTO=0/HOLD=1/TOGGLE=2。
 - Limits：`frame_bits_min, frame_bits_max, fifo_depth, divider_min, divider_max, frame_count_max, rx_delay_max`。只发布可编程数值范围；完整角色、格式、DMA路由和适用组合仍来自Capability，不能用该命令替代YAML。
+- FifoLimits：`tx_irq_max, rx_irq_max, tx_start_max, dma_tx_max, dma_rx_max`。5个u32表示各阈值包含端点的最大值，设置命令仍使用0～255；与FIFO容量独立，禁止从容量推导位宽。新增查询不改变0～23号命令布局。
 - Snapshot：`enabled, selected, tx_level, rx_level, tx_threshold, rx_threshold, start_threshold, irq_raw, irq_status, irq_enabled, dma_tx_enabled, dma_rx_enabled, dma_tx_threshold, dma_rx_threshold`。前两项及DMA使能项为Boolean；IRQ使用公共Source位。
 - IrqEvent：`raw_status, masked_status, latched_events, event_count, unexpected_count, overflow_count, generation, fault_flags`。前三项是ISR读取/锁存的Source，其他项为软件计数；fault_flags bit0=访问/绑定清理失败、bit1=计数饱和、bit2=非预期来源。保留未知位不能静默接受。
 - Source：bit0 TX_EMPTY、bit1 TX_OVERFLOW、bit2 RX_UNDERFLOW、bit3 RX_OVERFLOW、bit4 RX_FULL、bit5 COLLISION。flags：bit0 BUSY、bit1 TX_NOT_FULL、bit2 TX_EMPTY、bit3 RX_NOT_EMPTY、bit4 RX_FULL、bit5 TARGET_TX_ERROR、bit6 COLLISION。raw仅为本次原始硬件值留证，不能在公共Case里按芯片位号解释。
@@ -126,7 +128,7 @@ Service ID为`0x010B`；沿用R400 ET-Frame v1，不改变公共帧或其他IP�
 
 `IRQ_CAPTURE_START`在未绑定时只重置软件证据、增加generation并绑定现有IRQ Manager；sources声明预期来源，不隐式改变SPI源屏蔽、不清硬件锁存状态。PC先用IRQ_MASK_SET/IRQ_CLEAR建立基线，产生刺激并保存Raw/Status后再绑定，或先绑定再显式Unmask；已有效的源可以在绑定期间立即投递。ISR保存首次Raw/Status和累计Source，屏蔽活动源避免持续IRQ风暴；不排空FIFO、不自动确认Feature。PC显式消除电平条件并调用IRQ_CLEAR，若需继续投递再调用IRQ_MASK_SET。`IRQ_CAPTURE_STOP`先关源再解绑，保留证据；清理失败返回错误，不宣称已释放。绑定失败时屏蔽本IP源并清理实际持有的路由，不以新的绑定覆盖失败。
 
-仅LIMITS_GET、CONFIG_GET、SNAPSHOT_GET、DMA_ENDPOINT_GET、IRQ_EVENT_GET允许Target既有安全重试；所有写操作、FIFO读取和ERROR_STATUS_READ禁止自动重试。DMA端点作为查询结果供既有DMA端点映射核对，不授权Case直接操作物理地址。
+仅LIMITS_GET、FIFO_LIMITS_GET、CONFIG_GET、SNAPSHOT_GET、DMA_ENDPOINT_GET、IRQ_EVENT_GET允许Target既有安全重试；所有写操作、FIFO读取和ERROR_STATUS_READ禁止自动重试。DMA端点作为查询结果供既有DMA端点映射核对，不授权Case直接操作物理地址。
 
 ## 1. Feature Catalog
 
@@ -414,7 +416,7 @@ p_level: P1
 feature_refs: [SPI_F_001, SPI_F_011, SPI_F_012, SPI_F_013]
 method:
   inputs:
-    - "边界矩阵：D为Capability FIFO容量；阈值取0、中间值、D-1，设置不同TX阈值与启动阈值，避免读错字段仍相等。"
+    - "边界矩阵：D为FIFO容量；Tmax取TX/RX/启动阈值独立上限与D-1的最小值。TX取0、Tmax整除2、Tmax；RX及启动值分别为(T+1)/(T+2)模(Tmax+1)，避免字段混读。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "静止TX准备：Controller Enable但不选中CS，逐次写到D帧，记录TX_LEVEL和满空标志。"
@@ -458,7 +460,7 @@ p_level: P1
 feature_refs: [SPI_F_012, SPI_F_014]
 method:
   inputs:
-    - "Source矩阵：TXE、TXO、RXU、RXO、RXF，分别按0.5的最小刺激独立运行；阈值覆盖0、中间值、D-1。"
+    - "Source矩阵：TXE、TXO、RXU、RXO、RXF，分别按0.5的最小刺激独立运行；Tmax取TX/RX IRQ阈值上限与D-1的最小值，覆盖0、Tmax整除2、Tmax。Overflow按真实容量D+1帧构造，不按阈值构造。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "屏蔽准备：仅配置目标Source，先屏蔽它并清零ISR软件计数，不开启自动读RX或自动清错误。"
@@ -586,7 +588,7 @@ p_level: P1
 feature_refs: [SPI_F_012]
 method:
   inputs:
-    - "启动边界：T遍历0至D-1；双SPI外部四线连接，关闭Loopback，先保持Controller CS未选中；D取两个FIFO容量的较小值。"
+    - "启动边界：T遍历0至min(tx_start_max,D-1)；双SPI外部四线连接，关闭Loopback，先保持Controller CS未选中；D取两个FIFO容量的较小值。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "阈值配置：先Enable Target接收；Controller Enable前设置START_THRESHOLD=T及TX_ONLY，Enable后预装T帧。"
@@ -628,7 +630,7 @@ feature_refs: [SPI_F_015]
 method:
   inputs:
     - "DMA矩阵：双SPI外接，交换角色；8-bit及最大帧宽，TX/RX DMA分别单独验证再联合搬运，长度为2D及2D+1，D为较小FIFO容量。"
-    - "水位节点：TX静止Level取1及D-1，对应水位先取Level-1再取Level，另测空FIFO水位0；RX边界水位取1及D-1，持续传输RX水位取0避免尾帧滞留；DMA访问宽度来自端点能力。"
+    - "水位节点：TX静止Level取1及min(dma_tx_max,D-1)，对应水位先取Level-1再取Level，另测空FIFO水位0；RX取1及min(dma_rx_max,D-1)；上限不足1时低节点取0。持续传输TX用各端合法上限、RX用0避免尾帧滞留；访问宽度来自端点能力。"
   steps:
     - "独立基线：复位所有参与IP及其Service状态，整池复位资源；每个参数节点重新建立基线。"
     - "静止TX请求：Controller不选CS，FIFO预填L帧；水位L-1时已Arm的单笔TX DMA未完成，改水位为L后应完成且Level增加1；另在空FIFO、水位0时确认单笔请求。"

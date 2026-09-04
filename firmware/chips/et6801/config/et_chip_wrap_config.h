@@ -64,6 +64,12 @@
     { \
         SPI_MIN_FRAME_BITS, SPI_MAX_FRAME_BITS, SPI_MAX_FIFO_DEPTH, SPI_CLOCK_DIVIDER_MIN, SPI_CLOCK_DIVIDER_MAX, SPI_TEST_FRAME_COUNT_MAX, SPI0_RX_SAMPLE_DELAY_RSD_Msk \
     }
+/* Independent inclusive threshold limits in frames: TX IRQ, RX IRQ, TX start,
+ * TX DMA, RX DMA. Source: generated SPI register masks, not FIFO capacity. */
+#define ET_CHIP_SPI_FIFO_LIMIT_MAP_TABLE \
+    {SPI0_TXFTLR_TFT_Msk, SPI0_RXFTLR_RFT_Msk, \
+     SPI0_TXFTLR_TXFTHR_Msk >> SPI0_TXFTLR_TXFTHR_Pos, \
+     SPI0_DMATDLR_DMATDL_Msk, SPI0_DMARDLR_DMARDL_Msk}
 /* Source pairs: public event then generated IMR mask. ISR/RISR share positions. */
 #define ET_CHIP_SPI_IRQ_MAP_TABLE \
     { \

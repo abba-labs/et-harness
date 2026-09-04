@@ -42,8 +42,8 @@
 #define IS_SPI_CHAR_LENGTH(length)       ((length) <= SPI_MAX_FRAME_BITS && (length) >= SPI_MIN_FRAME_BITS)
 #define IS_SPI_INTERRUPT_FLGAS(flags)    ((flags &SPI_INTERRUPT_ALL) != 0)
 
-/*! Check if the SPI FIFO depth is valid */
-#define IS_SPI_FIFO_THRESHOLD(threshold)    ((threshold) < SPI_MAX_FIFO_DEPTH)
+/*! All five ET6801 threshold fields are four bits; capacity is independent. */
+#define IS_SPI_FIFO_THRESHOLD(threshold)    ((threshold) <= SPI0_TXFTLR_TFT_Msk)
 
 #define IS_SPI_TRANSMIT_MODE(MODE) \
         (((MODE) == SPI_TRANSMIT) || \
@@ -259,10 +259,10 @@ void SPI_resetFIFO(SPI_Type *SPIx)
  * @brief Set FIFO interrupt thresholds for transmit and receive
  *
  * @param SPIx Pointer to SPI peripheral
- * @param txLevel Transmit FIFO interrupt threshold (0 through SPI_MAX_FIFO_DEPTH - 1)
- * @param rxLevel Receive FIFO interrupt threshold (0 through SPI_MAX_FIFO_DEPTH - 1)
+ * @param txLevel Transmit FIFO interrupt threshold (0 through TXFTLR.TFT maximum)
+ * @param rxLevel Receive FIFO interrupt threshold (0 through RXFTLR.RFT maximum)
  *
- * @note Threshold values are checked by IS_SPI_FIFO_THRESHOLD macro to ensure they are less than SPI_MAX_FIFO_DEPTH
+ * @note Threshold field width is independent of FIFO capacity.
  */
 void SPI_setFIFOInterruptLevel(SPI_Type *SPIx, uint8_t txLevel, uint8_t rxLevel)
 {
@@ -293,9 +293,9 @@ void SPI_getFIFOInterruptLevel(SPI_Type *SPIx, uint8_t *txLevel, uint8_t *rxLeve
  * @brief Set Transfer start FIFO level
  *
  * @param SPIx Pointer to SPI peripheral
- * @param startLevel Transfer start FIFO threshold (valid range: 0 to SPI_MAX_FIFO_DEPTH)
+ * @param startLevel Transfer start FIFO threshold (0 through TXFTLR.TXFTHR maximum)
  *
- * @note Threshold values are checked by IS_SPI_FIFO_THRESHOLD macro to ensure they are less than SPI_MAX_FIFO_DEPTH
+ * @note Threshold field width is independent of FIFO capacity.
  */
 void SPI_setTansferStartFIFOLevel(SPI_Type *SPIx, uint8_t startLevel)
 {

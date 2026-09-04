@@ -173,13 +173,15 @@ static void verify_service(void)
         assert(d->handle(&service, command, request, correct - 1, response, sizeof(response), &length) == ET_STATUS_INVALID_PARAM);
         assert(length == 0 && memcmp(&saved, &registers[0], sizeof(saved)) == 0);
     }
-    assert(d->handle(&service, 24, request, 1, response, sizeof(response), &length) == ET_STATUS_INVALID_COMMAND);
+    assert(d->handle(&service, ET_SPI_COMMAND_COUNT, request, 1, response, sizeof(response), &length) == ET_STATUS_INVALID_COMMAND);
     request[0] = 1;
     assert(d->handle(&service, 0, request, 1, response, sizeof(response), &length) == ET_STATUS_INVALID_PARAM);
     request[0] = 0;
     assert(d->handle(&service, 0, request, 1, response, 27, &length) == ET_STATUS_INVALID_PARAM);
     assert(d->handle(&service, 0, request, 1, response, sizeof(response), &length) == ET_STATUS_OK && length == 28);
-    assert(response[0] == 4 && response[4] == 16 && response[8] == 16);
+    assert(response[0] == 4 && response[4] == 16 && response[8] == 32);
+    assert(d->handle(&service, ET_SPI_COMMAND_FIFO_LIMITS_GET, request, 1, response, sizeof(response), &length) == ET_STATUS_OK);
+    assert(length == 20 && response[0] == 15 && response[4] == 15 && response[8] == 15 && response[12] == 15 && response[16] == 15);
     request[1] = 0; request[2] = 1; /* u32 256 must not truncate to false. */
     assert(d->handle(&service, 3, request, 5, response, sizeof(response), &length) == ET_STATUS_INVALID_PARAM);
     request[2] = 0;
@@ -333,7 +335,7 @@ int main(void)
         assert(SPI_testSelectCS(spi, 1) == DRV_OK && spi->SER == 1);
         assert(SPI_testSelectCS(spi, 2) == DRV_PARAM_ERR && spi->SER == 1);
         spi->SR = SPI0_SR_BUSY_Msk | SPI0_SR_TXE_Msk | SPI0_SR_DCOL_Msk;
-        spi->TXFLR = 16;
+        spi->TXFLR = 32;
         spi->RXFLR = 0;
         sr_reads = dr_reads = 0;
         assert(SPI_testGetSnapshot(spi, &snapshot) == DRV_OK);
@@ -351,7 +353,7 @@ int main(void)
         assert(SPI_testReadStatus(spi, &value) == DRV_OK && sr_reads == 1);
         assert((value & SPI0_SR_TXE_Msk) != 0 && (value & SPI0_SR_DCOL_Msk) != 0);
         assert(SPI_testReadStatus(spi, &value) == DRV_OK && value == SPI0_SR_BUSY_Msk);
-        spi->TXFLR = 16;
+        spi->TXFLR = 32;
         spi->RXFLR = 0;
         assert(SPI_testWriteFIFOOnce(spi, 0xabcd) == DRV_OK && spi->DR[0] == 0xabcd);
         assert(SPI_testReadFIFOOnce(spi, &value) == DRV_OK && value == 0xabcd);
@@ -458,7 +460,11 @@ int main(void)
         assert(et_spi_wrap_get_irq_route(i, &route) == ET_WRAP_STATUS_OK);
         assert(route.route_events == ET_SPI_IRQ_ALL);
         assert(et_spi_wrap_get_limits(i, &limits) == ET_WRAP_STATUS_OK);
-        assert(limits.fifo_depth == 16 && limits.frame_count_max == 65536);
+        assert(limits.fifo_depth == 32 && limits.frame_count_max == 65536);
+        et_spi_fifo_limits_t fifo_limits;
+        assert(et_spi_wrap_get_fifo_limits(i, &fifo_limits) == ET_WRAP_STATUS_OK);
+        assert(fifo_limits.tx_irq_max == 15 && fifo_limits.rx_irq_max == 15 && fifo_limits.tx_start_max == 15);
+        assert(fifo_limits.dma_tx_max == 15 && fifo_limits.dma_rx_max == 15);
     }
     assert(et_spi_wrap_set_enabled(UINT16_MAX, 1) == ET_WRAP_STATUS_NOT_SUPPORTED);
     assert(et_spi_wrap_try_read_frame(UINT16_MAX, &value, &count) == ET_WRAP_STATUS_NOT_SUPPORTED);

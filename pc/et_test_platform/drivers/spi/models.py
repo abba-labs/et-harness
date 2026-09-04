@@ -97,6 +97,16 @@ class SpiLimits:
     rx_delay_max: int
 
 
+# 独立阈值上限，不能用FIFO容量推导寄存器可编程范围。
+@dataclass(frozen=True, slots=True)
+class SpiFifoLimits:
+    tx_irq_max: int
+    rx_irq_max: int
+    tx_start_max: int
+    dma_tx_max: int
+    dma_rx_max: int
+
+
 # 普通快照不包含BUSY/读清错误；IRQ值采用稳定Source编码。
 @dataclass(frozen=True, slots=True)
 class SpiSnapshot:

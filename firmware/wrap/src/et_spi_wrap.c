@@ -32,6 +32,7 @@ static const et_spi_bit_mapping_t irq_map[] = ET_CHIP_SPI_IRQ_MAP_TABLE;
 static const et_spi_bit_mapping_t status_map[] = ET_CHIP_SPI_STATUS_MAP_TABLE;
 static const et_spi_snapshot_mapping_t snapshot_map = ET_CHIP_SPI_SNAPSHOT_MAP_TABLE;
 static const et_spi_limits_t chip_limits = ET_CHIP_SPI_LIMIT_MAP_TABLE;
+static const et_spi_fifo_limits_t fifo_limits = ET_CHIP_SPI_FIFO_LIMIT_MAP_TABLE;
 
 /** Compile-time array length, not a hardware instance assumption. */
 #define ET_SPI_ARRAY_COUNT(value) (sizeof(value) / sizeof((value)[0]))
@@ -373,6 +374,30 @@ et_wrap_status_t et_spi_wrap_get_limits(et_spi_id_t id, et_spi_limits_t *limits)
     }
 
     *limits = chip_limits;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Query independently programmable FIFO threshold ranges.
+ * @param[in] id Logical SPI instance.
+ * @param[out] limits Inclusive IRQ, start and DMA threshold maxima.
+ * @return Success, invalid pointer or unsupported instance.
+ * @note Only immutable chip facts are returned; no register is written or read-clear consumed.
+ */
+et_wrap_status_t et_spi_wrap_get_fifo_limits(et_spi_id_t id, et_spi_fifo_limits_t *limits)
+{
+    if (limits == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (find_instance(id) == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *limits = fifo_limits;
 
     return ET_WRAP_STATUS_OK;
 }

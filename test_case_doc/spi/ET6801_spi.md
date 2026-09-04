@@ -50,7 +50,7 @@
 |---|---|---|
 | 4个可配置双角色实例 | VERIFIED | 整片SVD的SPI0～SPI3及各CTRLR0.SSI_IS_MST；每实例独立IRQ、CRG Reset和TX/RX DMA请求。 |
 | Motorola四模式、4～16bit配置 | VERIFIED | CTRLR0.DFS/SCPH/SCPOL及Driver合法范围；不推广到TI/Microwire的全部模式组合。 |
-| FIFO容量16 | VERIFIED / SDK声明 | Driver SPI_MAX_FIFO_DEPTH=16；作为当前配置候选，硬件容量实测由P1_004确认。4-bit水位字段本身不能独立证明容量。 |
+| FIFO容量32 | VERIFIED / FPGA实测 | 2026-09-04三组P1_004逐帧写入，TXFLR=32时SR.TFNF清零；SDK旧声明16已修正。证据：`artifacts/runs/20260904_175810_265300_local_et6801_fpga_atp_testing/`。硅后尚未实测；4-bit阈值不能推导FIFO容量。 |
 | 多CS | NOT_APPLICABLE | ET6801 SER只有bit0有效；保留单CS选择/窗口测试，不照搬历史CS1/CS2。 |
 | 25MHz或50MHz一定可达 | UNKNOWN | 25MHz是参考需求/历史配置，50MHz是Driver校验上限；需当前APB3时钟和有效偶数分频。二者都不是当前FPGA已测上限。 |
 | RX延迟全部0～255有效 | UNKNOWN | RSD为8bit；SVD说明超过内部移位深度时实际延迟退回0，但未提供该深度。 |
@@ -66,7 +66,7 @@
 | SPI_DRV_001 | SPI_getTansferStartFIFOLevel | `REG & MASK >> POS`实际先移位MASK，读到低位TFT而非TXFTHR。 | 修为先掩码后移位；用TFT与TXFTHR不同值证明。 |
 | SPI_DRV_002 | SPI_configFrameNum / SPI_setConfig | 前者num-1且num=0下溢；后者rxDataNum直接写NDF，同名“数量”语义不一致；uint16不能表达65536帧。 | 明确原API编码，公共frame_count统一真实帧数；必要时补uint32测试接口，1/65536边界必须覆盖。 |
 | SPI_DRV_003 | IS_SPI_BAUDRATE / SPI_setBaudRate / SPI_setConfig | 校验未排除0；整数除法可能给出奇数分频，bit0不存储会向下取偶数造成超速；超范围时静默保留旧值。 | 零值拒绝；按要求选择合法偶数分频、返回实际频率，非法范围明确返回错误。 |
-| SPI_DRV_004 | IS_SPI_FIFO_THRESHOLD | 允许level=16，而TFT/RFT/TXFTHR/DMATDL/DMARDL为4bit。 | 各字段合法节点0～15，写16不能作为有效边界。 |
+| SPI_DRV_004 | IS_SPI_FIFO_THRESHOLD | 旧校验依赖FIFO容量，而TFT/RFT/TXFTHR/DMATDL/DMARDL为4bit。 | 已独立按SDK字段掩码限制0～15，容量32不放宽阈值；新增FIFO_LIMITS_GET向PC发布五类阈值范围。 |
 | SPI_DRV_005 | SPI_setDMATransmitDataLevel / SPI_setDMARecevieDataLevel | 仅求值IS_SPI_FIFO_THRESHOLD，没有assert_param也未校验实例。 | 使用原SDK风格补齐校验；分开TX/RX DMA请求开关。 |
 | SPI_DRV_006 | SPI_Config.slaveOutputEn / SPI_setConfig | 值直接左移到SLV_OE，1实际上禁用输出；成员名易诱导ENABLE=允许输出。 | 芯片映射显式反向，公开target_output_enabled不沿用误导命名。 |
 | SPI_DRV_007 | SPI_setCSLow/High、setcharLength、setConfig | CS函数更改SOFT_MODE而非任意拉低/拉高；多函数Disable/Enable导致FIFO清空。 | 配置全在装数据前完成；补真正SER选中/释放的直接接口，不能写完FIFO再调用重配函数。 |
@@ -215,7 +215,7 @@ REQ6003/REQ3101共有10类TP、各16条Case。下面“#n”是各JSON Case数�
 | SPI_F_008 | SUPPORTED | PAD可映射；实际接线尚未固定。 | IMPLEMENTATION_GAP | `SPI_P1_001`, `SPI_P1_002`, `SPI_P2_005`, `SPI_P3_002` |
 | SPI_F_009 | SUPPORTED | SSTE限SCPH=0；SOFT_MODE批间保持；SER单选择位。 | IMPLEMENTATION_GAP | `SPI_P1_006` |
 | SPI_F_010 | SUPPORTED | NDF+1，仅Controller RX_ONLY/E2PROM；1～65536。 | IMPLEMENTATION_GAP | `SPI_P1_003` |
-| SPI_F_011 | SUPPORTED | SDK容量16待P1_004硬件确认；禁用清两FIFO。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
+| SPI_F_011 | SUPPORTED | FPGA实测TX容量32；禁用清两FIFO，完整RX容量及阈值待本轮复测。 | IMPLEMENTATION_GAP | `SPI_P1_004` |
 | SPI_F_012 | SUPPORTED | TFT/RFT/TXFTHR独立4bit，0～15；需修启动阈值getter。 | IMPLEMENTATION_GAP | `SPI_P1_004`, `SPI_P1_005`, `SPI_P1_008` |
 | SPI_F_013 | SUPPORTED | SR[0:6]；TXE/DCOL读清，快照不能提前消耗。 | IMPLEMENTATION_GAP | `SPI_P0_002`, `SPI_P1_002`, `SPI_P1_004`, `SPI_P1_007`, `SPI_P2_005` |
 | SPI_F_014 | SUPPORTED | RISR/ISR/IMR五FIFO源；电平/读清不同。 | IMPLEMENTATION_GAP | `SPI_P1_005` |

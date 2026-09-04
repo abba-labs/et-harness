@@ -10,6 +10,7 @@ from .models import (
     SpiConfig,
     SpiCsPolicy,
     SpiErrorStatus,
+    SpiFifoLimits,
     SpiFormat,
     SpiIrq,
     SpiIrqEvent,
@@ -121,6 +122,13 @@ def decode_limits(words: tuple[int, ...]) -> SpiLimits:
     if not 1 <= result.divider_min <= result.divider_max or result.frame_count_max == 0:
         raise ProtocolError("SPI invalid divider/frame count limits")
     return result
+
+
+# 阈值协议使用u8设置值；零上限表示只有阈值0合法，不等于不支持。
+def decode_fifo_limits(words: tuple[int, ...]) -> SpiFifoLimits:
+    if any(not 0 <= word <= 0xFF for word in words):
+        raise ProtocolError("SPI threshold maximum exceeds command range")
+    return SpiFifoLimits(*words)
 
 
 # 快照包含硬件事实；位集合和Boolean非法时不能继续参与断言。

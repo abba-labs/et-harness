@@ -10,7 +10,15 @@ from ...core.deadline import OperationDeadline
 from ...core.errors import EtPlatformError, ProtocolError, RequestTimeout
 from . import codec, contract
 from .contract import SpiCommand
-from .models import SpiConfig, SpiErrorStatus, SpiIrq, SpiIrqEvent, SpiLimits, SpiSnapshot
+from .models import (
+    SpiConfig,
+    SpiErrorStatus,
+    SpiFifoLimits,
+    SpiIrq,
+    SpiIrqEvent,
+    SpiLimits,
+    SpiSnapshot,
+)
 
 
 # 捕获错误保留完整事件，Case仍可记录第一次硬件现场。
@@ -32,6 +40,13 @@ class SpiDriver:
     # 查询可编程边界，不以范围读回代替完整Capability语义；仅等待本次响应。
     def limits_get(self, *, timeout_s: float | None = None) -> SpiLimits:
         return codec.decode_limits(self._request(SpiCommand.LIMITS_GET, timeout_s=timeout_s))
+
+    # 独立读取IRQ、启动及DMA阈值上限，不从FIFO容量猜测。
+    # 仅等待本次响应；超时和非法返回直接上抛，不轮询硬件水位。
+    def fifo_limits_get(self, *, timeout_s: float | None = None) -> SpiFifoLimits:
+        return codec.decode_fifo_limits(
+            self._request(SpiCommand.FIFO_LIMITS_GET, timeout_s=timeout_s)
+        )
 
     # 仅在关闭状态写入完整配置；不隐式关模块、清FIFO或选中CS。
     # 等待单次接受响应；已启用、参数非法或传输失败均直接上抛。
@@ -308,6 +323,7 @@ class SpiDriver:
             retry_safe=command
             in (
                 SpiCommand.LIMITS_GET,
+                SpiCommand.FIFO_LIMITS_GET,
                 SpiCommand.CONFIG_GET,
                 SpiCommand.SNAPSHOT_GET,
                 SpiCommand.DMA_ENDPOINT_GET,

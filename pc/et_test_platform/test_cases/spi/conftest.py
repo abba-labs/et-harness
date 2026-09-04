@@ -48,7 +48,11 @@ def spi_support(framework_communication, target_capabilities):
         pins = tuple((endpoint.gpio[name], function) for name, function in SIGNALS.items())
         for number, function in pins:
             gpio.validate_signal(number, function, instance)
-        endpoints.append(SpiEndpoint(endpoint.handle, driver, driver.limits_get(), pins))
+        endpoints.append(
+            SpiEndpoint(
+                endpoint.handle, driver, driver.limits_get(), pins, driver.fifo_limits_get()
+            )
+        )
 
     if endpoints[0].spi.instance_id == endpoints[1].spi.instance_id:
         raise ConfigurationError("paired SPI requires distinct instances")
@@ -108,7 +112,9 @@ def spi_external_support(framework_communication, target_capabilities):
     # 只读核对GPIO映射，不在Fixture中开启Pinmux或SPI。
     for number, function in pins:
         gpio_driver.validate_signal(number, function, instance)
-    selected = SpiEndpoint(endpoint.handle, driver, driver.limits_get(), pins)
+    selected = SpiEndpoint(
+        endpoint.handle, driver, driver.limits_get(), pins, driver.fifo_limits_get()
+    )
     return SpiSupport(
         selected, selected, gpio_driver, CrgDriver(framework_communication.target_client)
     )

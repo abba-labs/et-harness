@@ -53,7 +53,9 @@ extern "C" {
 #define SPI_CLOCK_DIVIDER_MIN       (1UL << SPI0_BAUDR_SCKDV_Pos)
 #define SPI_CLOCK_DIVIDER_MAX       SPI0_BAUDR_SCKDV_Msk
 /* Existing SDK hardware limits, shared by validation and runtime capabilities. */
-#define SPI_MAX_FIFO_DEPTH          16U
+/* ET6801 FPGA: 32 entries confirmed by TXFLR/SR at full on 2026-09-04.
+ * FIFO capacity is independent of the SVD's four-bit threshold fields. */
+#define SPI_MAX_FIFO_DEPTH          32U
 #define SPI_MIN_FRAME_BITS          4U
 #define SPI_MAX_FRAME_BITS          (SPI0_CTRLR0_DFS_Msk + 1U)
 

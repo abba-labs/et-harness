@@ -81,6 +81,12 @@ typedef struct
     uint32_t divider_min, divider_max, frame_count_max, rx_delay_max;
 } et_spi_limits_t;
 
+/** Inclusive programmable thresholds, independent of physical FIFO capacity. */
+typedef struct
+{
+    uint32_t tx_irq_max, rx_irq_max, tx_start_max, dma_tx_max, dma_rx_max;
+} et_spi_fifo_limits_t;
+
 /** No read-clear status appears in this non-destructive view. */
 typedef struct
 {
@@ -91,6 +97,7 @@ typedef struct
 } et_spi_snapshot_t;
 
 et_wrap_status_t et_spi_wrap_get_limits(et_spi_id_t id, et_spi_limits_t *limits);
+et_wrap_status_t et_spi_wrap_get_fifo_limits(et_spi_id_t id, et_spi_fifo_limits_t *limits);
 et_wrap_status_t et_spi_wrap_configure(et_spi_id_t id, const et_spi_config_t *config);
 et_wrap_status_t et_spi_wrap_get_config(et_spi_id_t id, et_spi_config_t *config);
 et_wrap_status_t et_spi_wrap_set_loopback(et_spi_id_t id, uint8_t enabled);

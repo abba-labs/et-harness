@@ -335,16 +335,17 @@ def test_spi_p1_007_target_tx_error(spi_support, resource_driver, record_propert
 # 1. 全部T在不足阈值时无RX，达到T+1后双方收到正确帧数和数据。
 def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_property):
 
-    # 准备：阈值上限取两端FIFO较小容量，全部整数节点逐个执行。
+    # 准备：启动阈值使用独立可编程范围，并保证T+1不超过两端FIFO容量。
     support = spi_support
     master, slave = support.dut.spi, support.ref.spi
     depth = min(support.dut.limits.fifo_depth, support.ref.limits.fifo_depth)
+    threshold_max = min(depth - 1, support.dut.fifo_limits.tx_start_max)
     config = replace(basic_config(support.dut), transfer_mode=SpiTransferMode.TX_ONLY)
     nodes = []
 
     with case_cleanup_scope(lambda: _cleanup_actions(support, resource_driver)):
-        # 水位矩阵：同一Case覆盖0至D-1；每轮单独复位，不继承上一轮FIFO。
-        for threshold in range(depth):
+        # 水位矩阵：同一Case覆盖全部合法启动阈值；每轮单独复位FIFO。
+        for threshold in range(threshold_max + 1):
             # 隔离：所有配置之前复位两端SPI和整池资源。
             support.crg.reset(CrgPeripheral.SPI, instance=master.instance_id)
             support.crg.reset(CrgPeripheral.SPI, instance=slave.instance_id)
@@ -441,8 +442,11 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
     # 准备：容量取运行时范围，三个阈值取不同值，防止读错字段却碰巧相等。
     support, spi = spi_support, spi_support.dut.spi
     depth = support.dut.limits.fifo_depth
-    threshold = {"zero": 0, "middle": depth // 2, "maximum": depth - 1}[threshold_node]
-    rx_threshold, start_threshold = (threshold + 1) % depth, (threshold + 2) % depth
+    limits = support.dut.fifo_limits
+    threshold_max = min(depth - 1, limits.tx_irq_max, limits.rx_irq_max, limits.tx_start_max)
+    threshold = {"zero": 0, "middle": threshold_max // 2, "maximum": threshold_max}[threshold_node]
+    rx_threshold = (threshold + 1) % (threshold_max + 1)
+    start_threshold = (threshold + 2) % (threshold_max + 1)
     config = basic_config(support.dut, loopback=True)
     frames = pattern(depth, config.frame_bits)
 
@@ -597,10 +601,12 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
 @pytest.mark.parametrize("threshold_node", ("zero", "middle", "maximum"))
 def test_spi_p1_005_fifo_irq(spi_support, resource_driver, record_property, source, threshold_node):
 
-    # 准备：阈值域覆盖0、中间值、容量减一；每个参数execution重新建立基线。
+    # 准备：阈值域覆盖0、中间值及合法上限，不能用FIFO容量推导寄存器位宽。
     support, spi = spi_support, spi_support.dut.spi
     depth = support.dut.limits.fifo_depth
-    threshold = {"zero": 0, "middle": depth // 2, "maximum": depth - 1}[threshold_node]
+    limits = support.dut.fifo_limits
+    threshold_max = min(depth - 1, limits.tx_irq_max, limits.rx_irq_max)
+    threshold = {"zero": 0, "middle": threshold_max // 2, "maximum": threshold_max}[threshold_node]
     config = basic_config(support.dut, loopback=True)
 
     # 隔离：停止本IP旧采集后复位硬件，再复位整池资源，不依赖上一Case的Mask。

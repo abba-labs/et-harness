@@ -39,11 +39,12 @@ class SpiCommand(IntEnum):
     IRQ_CAPTURE_STOP = 21
     IRQ_EVENT_GET = 22
     IRQ_EVENT_RESET = 23
+    FIFO_LIMITS_GET = 24
 
 
 # 与公共文档同序，单位是u32字段数；响应不带实例前缀。
-REQUEST_WORDS = (0, 16, 0, 1, 0, 1, 1, 1, 1, 3, 0, 0, 1, 0, 1, 0, 4, 0, 2, 1, 1, 0, 0, 0)
-RESPONSE_WORDS = (7, 0, 16, 0, 0, 0, 0, 0, 0, 0, 14, 2, 1, 2, 0, 1, 0, 2, 0, 0, 0, 0, 8, 0)
+REQUEST_WORDS = (0, 16, 0, 1, 0, 1, 1, 1, 1, 3, 0, 0, 1, 0, 1, 0, 4, 0, 2, 1, 1, 0, 0, 0, 0)
+RESPONSE_WORDS = (7, 0, 16, 0, 0, 0, 0, 0, 0, 0, 14, 2, 1, 2, 0, 1, 0, 2, 0, 0, 0, 0, 8, 0, 5)
 CONFIG_FIELDS = (
     "role",
     "frame_format",

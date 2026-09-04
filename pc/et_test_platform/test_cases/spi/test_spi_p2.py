@@ -146,7 +146,8 @@ def test_spi_p2_001_dma_watermarks(
 
         # TX水位：没有CS时FIFO不消耗，已Arm通道的变化只能来自阈值变化。
         if scenario.startswith("tx_"):
-            level = {"tx_empty": 0, "tx_low": 1, "tx_high": depth - 1}[scenario]
+            tx_max = min(depth - 1, controller.fifo_limits.dma_tx_max)
+            level = {"tx_empty": 0, "tx_low": min(1, tx_max), "tx_high": tx_max}[scenario]
             master.write_frames(sent[:level])
             master.dma_configure(True, False, max(0, level - 1), 0)
             dma.configure(
@@ -213,7 +214,8 @@ def test_spi_p2_001_dma_watermarks(
 
         # RX水位：Target收R帧后保持DMA等待，增加第R+1帧才允许单笔搬运。
         if scenario.startswith("rx_"):
-            threshold = 1 if scenario == "rx_low" else depth - 1
+            rx_max = min(depth - 1, target.fifo_limits.dma_rx_max)
+            threshold = min(1, rx_max) if scenario == "rx_low" else rx_max
             slave.write_frames(reply[: threshold + 1])
             slave.dma_configure(False, True, 0, threshold)
             dma.configure(
@@ -283,8 +285,8 @@ def test_spi_p2_001_dma_watermarks(
                 access_bits=access_bits,
             ),
         )
-        master.dma_configure(True, True, depth - 1, 0)
-        slave.dma_configure(True, True, depth - 1, 0)
+        master.dma_configure(True, True, min(depth - 1, controller.fifo_limits.dma_tx_max), 0)
+        slave.dma_configure(True, True, min(depth - 1, target.fifo_limits.dma_tx_max), 0)
 
         # 配置四个独立通道，启动顺序按RX/RX/Target TX/Controller TX固定。
         for configuration in configurations:
