@@ -664,8 +664,8 @@ typedef struct
      */
     uint32_t             tsPrescalar;
 
-    /**< Timestamp Counter Prescaler.
-     *   Range:[0x0-0xF]
+    /**< Timestamp Counter Prescaler, expressed as the actual divisor.
+     *   Range:[1-16]; TSCC.TCP stores this value minus one.
      */
     uint32_t             tsSelect;
 
@@ -1453,6 +1453,15 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem);
 /**
  * @}
  */
+
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/** Read the controller revision without altering configuration or status. */
+uint32_t CAN_testGetRevision(CAN_Type *CANx);
+/** Read the actual core initialization controls, including watchdog and TDC. */
+void CAN_testGetInitConfig(CAN_Type *CANx, CAN_InitParams *initParams);
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
 
 #ifdef __cplusplus
 }

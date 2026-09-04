@@ -400,6 +400,7 @@ def test_service_registration_uses_declarative_groups_and_fails_closed() -> None
         "syscnt",
         "spi",
         "gpio",
+        "can",
     )
 
     for ip in registered_ips:
@@ -481,10 +482,10 @@ def test_generated_keil_project_has_all_target_specific_builds() -> None:
             for group in target.findall("Groups/Group")
         }
         assert len(group_files["Wrap"]) == len(set(group_files["Wrap"]))
-        assert len(group_files["Wrap"]) == 20
-        assert len(group_files["Services"]) == 19
-        # SPI与GPIO分别注册自己的Service/Wrap/Driver，不能把引脚配置揉进SPI。
-        for ip in ("spi", "gpio"):
+        assert len(group_files["Wrap"]) == 21
+        assert len(group_files["Services"]) == 20
+        # CAN、SPI与GPIO分别注册自身层，不能把引脚配置揉进总线IP。
+        for ip in ("spi", "gpio", "can"):
             assert any(path and path.endswith(f"et_{ip}_wrap.c") for path in group_files["Wrap"])
             assert any(
                 path and path.endswith(f"et_{ip}_service.c") for path in group_files["Services"]

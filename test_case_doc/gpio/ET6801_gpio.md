@@ -1,6 +1,6 @@
 # ET6801 GPIO Support Adaptation
 
-更新时间：2026-09-04 15:20 CST。
+更新时间：2026-09-04 22:54 CST。
 
 ## 第一章 范围与依据
 
@@ -24,6 +24,8 @@
 | SPI1 CS | 66 | GPIO66_MODE_SPI1_CS_n | 15 |
 | SPI1 MOSI | 63 | GPIO63_MODE_SPI1_MOSI | 15 |
 | SPI1 MISO | 64 | GPIO64_MODE_SPI1_MISO | 15 |
+| CAN0 RX | 58 | GPIO58_MODE_CANFD0_RX | 11 |
+| CAN0 TX | 59 | GPIO59_MODE_CANFD0_TX | 11 |
 
 Chip Config必须使用表中的SDK宏，不能抄编码作为魔鬼数字。用户选择的GPIO与SPI实例/信号组合必须完整匹配，不能只按GPIO号匹配后忽略实例。
 
@@ -46,6 +48,8 @@ Chip Config必须使用表中的SDK宏，不能抄编码作为魔鬼数字。用
 无独立GPIO Case；SPI对应Case状态由SPI芯片文档记录。
 
 ## 本轮实现状态
+
+2026-09-04 22:54 CST：追加CAN RX/TX稳定信号及上述两项SDK映射，配置由独立GPIO Service/Wrap执行，CAN Service不参与。用户声明的CANFD0 PAD对应公共can0；CAN盒子CAN1是外部设备通道，不是芯片CAN1。当前CAN PC信号枚举与Case尚未接入，尚未通过CAN HIL；不扩大为CAN所有PAD候选已支持。
 
 2026-09-04 15:35 CST：GPIO Service提供VALIDATE_SIGNAL/CONFIGURE_SIGNAL，独立于SPI Service。GPIO Wrap新接口按GPIO、信号、外设实例三元组查表；信号表列入SDK的全部SPI CLK/CS/MOSI/MISO候选，不把本次接线固化为唯一可用组合。旧UART配置入口保持不变。Application只增加静态注册项，无硬件初始化动作。待软件验证和SPI实测，当前不声明硬件PASS。
 

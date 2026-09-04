@@ -30,7 +30,10 @@ typedef enum
     ET_GPIO_FUNCTION_SPI_CLK = 3u,
     ET_GPIO_FUNCTION_SPI_CS = 4u,
     ET_GPIO_FUNCTION_SPI_MOSI = 5u,
-    ET_GPIO_FUNCTION_SPI_MISO = 6u
+    ET_GPIO_FUNCTION_SPI_MISO = 6u,
+    /** CAN controller receive/transmit signals, independent of Classic or FD frames. */
+    ET_GPIO_FUNCTION_CAN_RX = 7u,
+    ET_GPIO_FUNCTION_CAN_TX = 8u
 } et_gpio_function_t;
 
 typedef enum

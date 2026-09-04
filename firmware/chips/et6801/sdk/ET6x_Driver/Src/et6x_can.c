@@ -2248,3 +2248,43 @@ void CAN_copyBufferToMsg(uint32_t *buffer, CAN_RxBufElement *elem)
         elem->data[(loopCnt + 2U)] = (uint16_t)((regVal & 0x00FF0000U) >> 16U);
     }
 }
+
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/**
+ * @brief Read the CAN core release identity.
+ * @param CANx Pointer to the CAN peripheral.
+ * @return Actual CREL register value.
+ * @note Read-only operation; does not consume protocol error or FIFO state.
+ */
+uint32_t CAN_testGetRevision(CAN_Type *CANx)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    return READ_REG(CANx->CREL);
+}
+/**
+ * @brief Read core configuration without consuming protocol error state.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param initParams Caller storage for the actual initialization parameters.
+ * @note No cached request is used and no configuration register is written.
+ */
+void CAN_testGetInitConfig(CAN_Type *CANx, CAN_InitParams *initParams)
+{
+    uint32_t control;
+
+    assert_param(IS_CAN_PERIPH(CANx));
+    assert_param(initParams != NULL);
+    control = READ_REG(CANx->CCCR);
+    initParams->fdMode = CAN_RD_FIELD32(control, CAN0_CCCR_FDOE);
+    initParams->brsEnable = CAN_RD_FIELD32(control, CAN0_CCCR_BRSE);
+    initParams->txpEnable = CAN_RD_FIELD32(control, CAN0_CCCR_TXP);
+    initParams->efbi = CAN_RD_FIELD32(control, CAN0_CCCR_EFBI);
+    initParams->pxhddisable = CAN_RD_FIELD32(control, CAN0_CCCR_PXHD);
+    initParams->darEnable = CAN_RD_FIELD32(control, CAN0_CCCR_DAR);
+    initParams->wdcPreload = CAN_RD_FIELD32(CANx->RWD, CAN0_RWD_WDC);
+    initParams->tdcConfig.tdcf = CAN_RD_FIELD32(CANx->TDCR, CAN0_TDCR_TDCF);
+    initParams->tdcConfig.tdco = CAN_RD_FIELD32(CANx->TDCR, CAN0_TDCR_TDCO);
+    initParams->tdcEnable = CAN_RD_FIELD32(CANx->DBTP, CAN0_DBTP_TDC);
+}
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif

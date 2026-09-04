@@ -1,8 +1,8 @@
 # GPIO Stable Support Contract
 
-更新时间：2026-09-04 15:43 CST。
+更新时间：2026-09-04 22:54 CST。
 
-本轮只定义SPI Case依赖的引脚复用动作，不表示GPIO独立Feature全集已经分析或测试。
+本文件定义IP Case依赖的引脚复用动作，不表示GPIO独立Feature全集已经分析或测试。
 
 ## 0. Stable IP Contract
 
@@ -13,6 +13,7 @@ GPIO Driver接收逻辑GPIO号、信号功能和外设逻辑实例，不接收�
 - `gpio_id`：无符号16位逻辑引脚号，不是端口位掩码。
 - `function`：保留已有GPIO=0、UART_TX=1、UART_RX=2；追加SPI_CLK=3、SPI_CS=4、SPI_MOSI=5、SPI_MISO=6。信号表示硬件信号身份，不随Controller/Target角色交换而改名。
 - `instance_id`：无符号16位外设逻辑实例，由Capability解析handle获得。
+- 新增`CAN_RX=7`、`CAN_TX=8`；只标识CAN信号，与Classic/FD无关，旧信号编号和6字节Wire保持不变。GPIO只配置MCU引脚，不控制外部CAN盒子。
 - `validate_signal(gpio_id, function, instance_id)`：只查表，不操作硬件；组合未适配返回NOT_SUPPORTED。
 - `configure_signal(gpio_id, function, instance_id)`：先验证完整组合，再调用GPIO Driver配置默认双向输入使能Pad和复用。禁止借此配置SPI、CRG或其他IP。
 - 新接口不改变既有`configure(config)`的行为和结构体布局。旧GPIO/UART配置继续使用旧表；新接口仅接受显式信号映射，不猜测实例。

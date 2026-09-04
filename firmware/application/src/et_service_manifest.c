@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "et_aes_service.h"
+#include "et_can_service.h"
 #include "et_board_config_contract.h"
 #include "et_cordic_service.h"
 #include "et_cpu_service.h"
@@ -52,6 +53,7 @@ static const uint16_t test_ipcm_instances[] = {ET_TEST_IPCM_INSTANCE_IDS};
 static const uint16_t test_syscnt_instances[] = {ET_TEST_SYSCNT_INSTANCE_IDS};
 static const uint16_t test_spi_instances[] = {ET_TEST_SPI_INSTANCE_IDS};
 static const uint16_t test_gpio_instances[] = {ET_TEST_GPIO_INSTANCE_IDS};
+static const uint16_t test_can_instances[] = {ET_TEST_CAN_INSTANCE_IDS};
 
 /* Static storage keeps startup deterministic and avoids allocator ownership. */
 static et_uart_service_t test_uart_services[ET_ARRAY_COUNT(test_uart_instances)];
@@ -68,6 +70,7 @@ static et_ipcm_service_t test_ipcm_services[ET_ARRAY_COUNT(test_ipcm_instances)]
 static et_syscnt_service_t test_syscnt_services[ET_ARRAY_COUNT(test_syscnt_instances)];
 static et_spi_service_t test_spi_services[ET_ARRAY_COUNT(test_spi_instances)];
 static et_gpio_service_t test_gpio_services[ET_ARRAY_COUNT(test_gpio_instances)];
+static et_can_service_t test_can_services[ET_ARRAY_COUNT(test_can_instances)];
 
 /* One row is the complete Application-level registration declaration for one IP. */
 static const et_service_group_t service_groups[] = {
@@ -99,6 +102,8 @@ static const et_service_group_t service_groups[] = {
                      et_spi_service_create),
     ET_SERVICE_GROUP(test_gpio_instances, test_gpio_services, ET_SERVICE_IRQ_PRIORITY_UNUSED,
                      et_gpio_service_create),
+    ET_SERVICE_GROUP(test_can_instances, test_can_services, ET_SERVICE_IRQ_PRIORITY_UNUSED,
+                     et_can_service_create),
 };
 
 /**

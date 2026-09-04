@@ -26,6 +26,35 @@
  */
 
 /* -------------------------------------------------------------------------- */
+/* CAN                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Generated ET6801 CAN0/1/2 instances. Fields: public logical ID, SDK instance.
+ * Consumed by et_can_mapping_t; no GPIO or external CAN-box channel belongs here.
+ */
+#define ET_CHIP_CAN_MAP_TABLE {{0u, CAN0}, {1u, CAN1}, {2u, CAN2}}
+/* et_can_option_limits_t fields: TDCO, TDCF and RWD.WDC, all in core cycles. */
+#define ET_CHIP_CAN_OPTION_LIMIT_MAP_TABLE \
+    {(CAN0_TDCR_TDCO_Msk >> CAN0_TDCR_TDCO_Pos), \
+     (CAN0_TDCR_TDCF_Msk >> CAN0_TDCR_TDCF_Pos), \
+     (CAN0_RWD_WDC_Msk >> CAN0_RWD_WDC_Pos)}
+/*
+ * NBTP/DBTP masks define inclusive encoded maxima. Public Wrap uses physical
+ * counts, hence +1. Each phase field order: prescaler, TSEG1, TSEG2, SJW.
+ * This table does not claim an actual input clock or an achievable bus bitrate.
+ */
+#define ET_CHIP_CAN_TIMING_LIMIT_MAP_TABLE \
+    {{(CAN0_NBTP_NBRP_Msk >> CAN0_NBTP_NBRP_Pos) + 1u, \
+      (CAN0_NBTP_NTSEG1_Msk >> CAN0_NBTP_NTSEG1_Pos) + 1u, \
+      (CAN0_NBTP_NTSEG2_Msk >> CAN0_NBTP_NTSEG2_Pos) + 1u, \
+      (CAN0_NBTP_NSJW_Msk >> CAN0_NBTP_NSJW_Pos) + 1u}, \
+     {(CAN0_DBTP_DBRP_Msk >> CAN0_DBTP_DBRP_Pos) + 1u, \
+      (CAN0_DBTP_DTSEG1_Msk >> CAN0_DBTP_DTSEG1_Pos) + 1u, \
+      (CAN0_DBTP_DTSEG2_Msk >> CAN0_DBTP_DTSEG2_Pos) + 1u, \
+      (CAN0_DBTP_DSJW_Msk >> CAN0_DBTP_DSJW_Pos) + 1u}}
+
+/* -------------------------------------------------------------------------- */
 /* SPI                                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -190,8 +219,8 @@ enum
       ET_GPIO_FUNCTION_UART_RX, GPIO45_MODE_UART1_RX}}
 
 /*
- * All SDK-declared SPI pad routes, not board-selected wiring.
- * Fields: logical GPIO, stable signal, logical SPI instance, SDK pin, SDK mux.
+ * SDK-declared signal routes; the board connection file selects among them.
+ * Fields: logical GPIO, stable signal, logical peripheral instance, SDK pin, SDK mux.
  * Source: et6x_pinmap.h. Consumer: et_gpio_signal_mapping_t in GPIO Wrap.
  */
 enum
@@ -201,8 +230,12 @@ enum
     ET6801_GPIO_SPI_INSTANCE_2 = 2u,
     ET6801_GPIO_SPI_INSTANCE_3 = 3u
 };
+/* CAN0 logical identity for the independently validated CANFD0 PAD routes below. */
+enum { ET6801_GPIO_CAN_INSTANCE_0 = 0u };
 #define ET_CHIP_GPIO_SIGNAL_MAP_TABLE \
     { \
+        {GPIO58, ET_GPIO_FUNCTION_CAN_RX, ET6801_GPIO_CAN_INSTANCE_0, GPIO58, GPIO58_MODE_CANFD0_RX}, \
+        {GPIO59, ET_GPIO_FUNCTION_CAN_TX, ET6801_GPIO_CAN_INSTANCE_0, GPIO59, GPIO59_MODE_CANFD0_TX}, \
         {GPIO16, ET_GPIO_FUNCTION_SPI_MOSI, ET6801_GPIO_SPI_INSTANCE_0, GPIO16, GPIO16_MODE_SPI0_MOSI}, \
         {GPIO17, ET_GPIO_FUNCTION_SPI_MISO, ET6801_GPIO_SPI_INSTANCE_0, GPIO17, GPIO17_MODE_SPI0_MISO}, \
         {GPIO18, ET_GPIO_FUNCTION_SPI_CLK, ET6801_GPIO_SPI_INSTANCE_0, GPIO18, GPIO18_MODE_SPI0_CLK}, \

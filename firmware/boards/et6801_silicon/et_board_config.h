@@ -71,5 +71,7 @@
 #define ET_TEST_SPI_IRQ_PRIORITY 3u
 /* One GPIO routing service; physical pad and peripheral instance are request fields. */
 #define ET_TEST_GPIO_INSTANCE_IDS 0u
+/* Logical CAN controller list; pin routing belongs to the active connection configuration. */
+#define ET_TEST_CAN_INSTANCE_IDS 0u, 1u, 2u
 #define ET_TEST_STIMER_IRQ_PRIORITY 3u
 #endif

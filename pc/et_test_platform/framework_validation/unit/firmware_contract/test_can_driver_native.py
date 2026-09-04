@@ -21,6 +21,13 @@ def write_can_driver_harness(directory: Path) -> Path:
     source = SOURCE.read_text(encoding="utf-8")
     cmsis = (SDK / "CMSIS/Device/Include/et6801.h").read_text(encoding="utf-8")
     shutil.copyfile(SDK / "ET6x_Driver/Inc/et6x_can.h", directory / "et6x_can.h")
+    for name in ("et_can_wrap.h", "et_wrap_status.h"):
+        shutil.copyfile(ROOT / "firmware/wrap/include" / name, directory / name)
+    chip_config = (SDK.parent / "config/et_chip_wrap_config.h").read_text(encoding="utf-8")
+    can_macros = re.findall(
+        r"^#define ET_CHIP_CAN_.*", chip_config.replace("\\\n", " "), re.MULTILINE
+    )
+    (directory / "et_chip_wrap_config.h").write_text("\n".join(can_macros) + "\n", encoding="utf-8")
     definitions = "\n".join(
         line
         for line in cmsis.splitlines()
@@ -70,9 +77,18 @@ def test_can_driver_register_contract(tmp_path: Path) -> None:
         [
             compiler,
             "-std=c11",
+            "-DET_ENABLE_TEST_DRIVER_EXTENSIONS",
             "-I",
             str(tmp_path),
+            "-I",
+            str(ROOT / "firmware/services/include"),
+            "-I",
+            str(ROOT / "firmware/framework/include"),
+            "-I",
+            str(ROOT / "firmware/wrap/include"),
             str(SOURCE),
+            str(ROOT / "firmware/wrap/src/et_can_wrap.c"),
+            str(ROOT / "firmware/services/src/et_can_service.c"),
             str(harness),
             "-o",
             str(executable),
@@ -86,6 +102,8 @@ def test_can_driver_register_contract(tmp_path: Path) -> None:
 # 这是可执行C夹具，不是Python注释；输入和期望独立构造，不调用待测代码生成期望。
 HARNESS = r"""
 #include "et6x_can.h"
+#include "et_can_wrap.h"
+#include "et_can_service.h"
 #include <string.h>
 CAN_Type controllers[3];
 CAN_MISC_Type misc_blocks[3];
@@ -99,6 +117,18 @@ int main(void)
     const uint32_t divisors[] = {1, 16};
     CAN_TxBufElement tx = {0};
     CAN_RxBufElement rx = {0};
+    et_can_identity_t identity;
+    et_can_timing_limits_t limits;
+    et_can_timing_t timing = {{2, 31, 8, 8}, {1, 15, 4, 4}};
+    et_can_timing_t readback;
+    et_can_options_t options = {1, 1, 1, 1, 1, 1, 1, 20, 10, 100};
+    et_can_options_t options_read;
+    uint8_t initializing;
+    et_can_service_t service;
+    et_irq_manager_t manager = {0};
+    uint8_t request[33] = {0};
+    uint8_t response[40];
+    uint16_t response_length;
     uint32_t words[20];
     for (unsigned byte = 0; byte < CAN_MAX_PAYLOAD_BYTES; ++byte)
     {
@@ -131,6 +161,42 @@ int main(void)
     {
         memset(controllers, 0, sizeof(controllers));
         memset(misc_blocks, 0, sizeof(misc_blocks));
+        instances[index]->CREL = 0x12345678;
+        instances[index]->ENDN = 0x87654321;
+        assert(et_can_wrap_get_identity(index, &identity) == ET_WRAP_STATUS_OK);
+        assert(identity.revision == 0x12345678 && identity.endian == 0x87654321);
+        assert(et_can_wrap_set_timing(index, &timing) == ET_WRAP_STATUS_STATE_ERROR);
+        assert(et_can_wrap_set_initializing(index, 1) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_initializing(index, &initializing) == ET_WRAP_STATUS_OK);
+        assert(initializing == 1);
+        assert(et_can_wrap_get_timing_limits(index, &limits) == ET_WRAP_STATUS_OK);
+        assert(limits.nominal_max.prescaler == 512 && limits.data_max.prescaler == 32);
+        assert(et_can_wrap_set_timing(index, &timing) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_timing(index, &readback) == ET_WRAP_STATUS_OK);
+        assert(memcmp(&timing, &readback, sizeof(timing)) == 0);
+        assert(et_can_wrap_set_options(index, &options) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_options(index, &options_read) == ET_WRAP_STATUS_OK);
+        assert(memcmp(&options, &options_read, sizeof(options)) == 0);
+        assert(et_can_wrap_get_timing(index, &readback) == ET_WRAP_STATUS_OK);
+        assert(memcmp(&timing, &readback, sizeof(timing)) == 0);
+        CAN_Type option_before = *instances[index];
+        options_read.tdc_offset_cycles = 128;
+        assert(et_can_wrap_set_options(index, &options_read) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(memcmp(&option_before, instances[index], sizeof(option_before)) == 0);
+        instances[index]->CCCR |= CAN0_CCCR_DAR_Msk;
+        assert(et_can_wrap_get_options(index, &options_read) == ET_WRAP_STATUS_OK);
+        assert(options_read.automatic_retry == 0);
+        CAN_Type timing_before = *instances[index];
+        readback.nominal.prescaler = 0;
+        assert(et_can_wrap_set_timing(index, &readback) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        readback = timing;
+        readback.data.prescaler = limits.data_max.prescaler + 1;
+        assert(et_can_wrap_set_timing(index, &readback) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(memcmp(&timing_before, instances[index], sizeof(timing_before)) == 0);
+        assert(et_can_wrap_set_initializing(index, 2) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_set_initializing(index, 0) == ET_WRAP_STATUS_OK);
+        assert(et_can_wrap_get_initializing(index, &initializing) == ET_WRAP_STATUS_OK);
+        assert(initializing == 0);
         instances[index]->CCCR = CAN0_CCCR_FDOE_Msk;
         assert(CAN_isFDOpEnable(instances[index]) == 1);
         instances[index]->CCCR = CAN0_CCCR_CCE_Msk;
@@ -165,6 +231,45 @@ int main(void)
                    (other == index ? CAN_MISC0_MISC_CTRL_TTCAN_DIS_MORD_Msk : 0));
         }
     }
+    assert(et_can_wrap_get_identity(3, &identity) == ET_WRAP_STATUS_NOT_SUPPORTED);
+    assert(et_can_wrap_get_identity(0, NULL) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+    assert(et_can_wrap_set_timing(0, NULL) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+    assert(et_can_service_init(&service, 0, &manager, 0) == 0);
+    const et_service_descriptor_t *descriptor = et_can_service_descriptor(&service);
+    controllers[0].CREL = 0x12345678;
+    controllers[0].ENDN = 0x87654321;
+    assert(descriptor->service_id == 0x010C);
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IDENTITY_GET, request, 1,
+                              response, sizeof(response), &response_length) == ET_STATUS_OK);
+    assert(response_length == 8 && response[0] == 0x78 && response[4] == 0x21);
+    CAN_Type unchanged = controllers[0];
+    request[1] = 1;
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 4,
+                              NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(response_length == 0 && memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+    request[0] = 1;
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    request[0] = 0;
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_OK);
+    assert(CAN_getOpMode(CAN0) == CAN_OPERATION_MODE_SW_INIT && response_length == 0);
+    request[2] = 1;
+    unchanged = controllers[0];
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IDENTITY_GET, request, 1,
+                              response, 7, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_COUNT, request, 1,
+                              response, sizeof(response), &response_length) == ET_STATUS_INVALID_COMMAND);
+    assert(response_length == 0);
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_OPTIONS_GET, request, 1,
+                              response, sizeof(response), &response_length) == ET_STATUS_OK);
+    assert(response_length == 40);
+    assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_OPTIONS_GET, request, 1,
+                              response, 39, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(response_length == 0);
     return 0;
 }
 """

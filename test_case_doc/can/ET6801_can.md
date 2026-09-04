@@ -446,9 +446,21 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 5. 用户审核设计后再开发Driver修复、CAN Wrap/Service/PC Driver/Case；先修错误硬件映射，不能让Case绕开问题。开发任务另编译Task Context，任何跨IP改动先按R002取得范围授权。
 6. 文档批量补齐后运行现有专项门禁；编码完成后再做统一软件门禁，最后按用户指定范围HIL。软件PASS不能替代CAN实际总线PASS。
 
+基础Wrap补充（2026-09-04 23:01 CST）：新增独立CAN Wrap，逻辑实例0/1/2映射SDK CAN0/1/2。NBTP/DBTP各字段Mask推导实际计数上限，公开参数为正整数而非寄存器编码。`CREL`通过底部测试扩展`CAN_testGetRevision`读取，`ENDN`使用已有Driver。Native Harness编译完整真实CAN Driver和新Wrap，覆盖三实例身份/INIT、时序编码与读回、非法参数无副作用。寄存器桩不验证总线、真实INIT应答或CRG复位；目前没有CAN HIL结果。
+
+GPIO依赖同步：公共GPIO功能新增CAN_RX/CAN_TX，ET6801映射为GPIO58_MODE_CANFD0_RX与GPIO59_MODE_CANFD0_TX（SDK均为mux11）。CAN Wrap不配置GPIO，后续PC通过独立GPIO Driver按连接文件下发；未改变GPIO命令长度。
+
+基础命令接入（2026-09-04 23:09 CST）：CAN Service使用`0x010C`与公共0.7的6条命令。Board显式发布CAN0/1/2，Application仅新增一组静态存储及注册表项，main与公共注册算法不变。Chip工程清单加入CAN Driver、Wrap及Service。Native Harness同时编译真实Service，验证身份小端编码、实例隔离、精确请求长度、输出容量和非法Boolean不改变硬件；Formal PC Driver/Case及数据通路尚未完成。
+
+核心选项补充（2026-09-04 23:18 CST）：在既有6条命令后追加OPTIONS_SET/GET、OPTION_LIMITS_GET，未复用旧ID。Wrap使用CAN_init设置FD/BRS/DAR/TXP/EFBI/PXHD/TDC/RWD，测试扩展`CAN_testGetInitConfig`独立读取真实配置。TDCO/TDCF上限由CMSIS Mask得127，WDC得255；非法值在任何Driver写入前拒绝。Native Harness覆盖选项读回、负语义DAR转换、真实寄存器变化可见、位时序保持以及非法值无副作用。
+
+构建记录：配置流水线`artifacts/runs/20260904_can_development/stages/build_config.yaml`仅选择build.firmware。基础6命令版本于23:13完成ET6801_SILICON_FLASH（含FPGA_VERSION）Keil构建，0 Error、0 Warning；证据`artifacts/runs/20260904_231314_787462_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。后续3命令选项扩展另行构建，不能直接沿用该构建结论。没有烧录或HIL。
+
+本批验证补充（2026-09-04 23:27 CST）：9条基础/选项命令版本的ET6801_SILICON_FLASH配置流水线编译通过，0 Error、0 Warning，证据`artifacts/runs/20260904_232007_643938_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。总软件门禁`can_service_gate_corrected.log`为1120 PASS、0 FAIL、0 SKIP（包括Native C）；新增CAN注册导致的两个静态数量检查已同步为明确的CAN表项与21 Wrap/20 Service，不修改公共注册器或降低断言。没有CAN HIL，也没有正式Case结果。
+
 ### 6.4 当前测试状态
 
-状态更新时间：2026-09-04 19:45 CST。当前源码HEAD=`0b1657462b2a3de990fc0734167d20f8862beee2`；本轮新增分析文档，未改变实现。
+状态更新时间：2026-09-04 23:01 CST。实现基线HEAD=`8dd93e97`，其后基础CAN Wrap与GPIO映射正在开发；尚未注册CAN正式Case，未执行CAN硬件测试。下表只统计正式Case，不把SDK/Wrap软件回归数量混入。
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | 说明 |
 |---|---:|---:|---:|---:|---:|---|

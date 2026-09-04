@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-04 21:43 CST
+更新时间：2026-09-04 23:18 CST
 
 分析稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；39项形成ET_CASE_PLAN，3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。本轮逐项复核现有Case，修正过滤、DLC、IRQ、停钟和观察前提，并将原DMU时间戳目标拆为RX与TX Event。没有SPEC、注册Case或硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -91,6 +91,39 @@ CAN盒子优先用于帧收发，但不是设备上限。需要仪器的Case必�
 TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应答延迟；普通示波器不能制造这两种片内刺激。前者需目标提供真实外部时间基入口，后者需目标FPGA/测试接口提供受控延迟，不能用PC慢访问代替。
 
 仪器型号暂不写死；执行前按当前配置校验所需触发、输出电平、解码和时间精度。设备不足时保留完整方法及缺少的动作；只有真实物理资源不满足时才能给出对应运行SKIP，本轮没有执行，不能预填SKIP结果。
+
+### 0.6 已实现的基础Wrap接口
+
+当前实现范围为控制器身份、INIT状态、位时序和核心选项；已接入Service及静态实例注册，尚无Formal Case，不等于本章全部动作已实现。
+
+| 接口 | 参数与输出 | 执行边界 |
+|---|---|---|
+| `et_can_wrap_get_identity` | 逻辑实例→revision、endian原始身份 | 只读本IP Driver，不清状态 |
+| `et_can_wrap_set_initializing` / `get_initializing` | Boolean请求 / 实际硬件状态 | 请求与查询分开；PC负责等待；不隐式调用CRG |
+| `et_can_wrap_get_timing_limits` | 两阶段BRP、TSEG1、TSEG2、SJW实际计数上限 | 只描述编码范围，不保证实际输入时钟或总线速率 |
+| `et_can_wrap_set_timing` / `get_timing` | 两阶段实际正整数计数 / 独立硬件读回 | 仅INIT中配置；非法计数无写入；硬件减一编码由内部Driver适配 |
+| `et_can_wrap_set_options` / `get_options` | FD、BRS、自动重传、TX Pause、Edge Filter、Protocol Exception、TDC及RAM Watchdog | 各Boolean必须0/1；TDC Offset/Filter和Watchdog为实际控制器周期数；仅INIT中配置；不修改位时序、RAM布局、过滤规则 |
+| `et_can_wrap_get_option_limits` | TDC Offset、Filter、RAM Watchdog上限 | 只描述芯片字段上限，不填测试默认值 |
+
+公共Header只用固定宽度类型和统一Wrap状态；实现不访问寄存器，不调用GPIO、CRG、DMA或IRQ Wrap。芯片实例和计数上限来自Chip Config。SDK没有revision读取接口，因此仅在CAN Driver底部隔离区增加`CAN_testGetRevision`，未增加任意寄存器访问接口。
+
+### 0.7 基础命令Wire
+
+CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`；后续字段及响应均为小端u32，不直接传C结构体。实例必须与路由选择的Service实例一致，保留命令返回INVALID_COMMAND，长度不足或多余均返回INVALID_PARAM。写命令响应为空；错误时响应长度为0。
+
+| Command | ID | 请求（前缀之后） | 响应 |
+|---|---:|---|---|
+| IDENTITY_GET | 0 | 无 | revision、endian |
+| INITIALIZING_SET | 1 | initializing（严格0/1） | 无；仅发送请求，随后独立查询应答 |
+| INITIALIZING_GET | 2 | 无 | initializing（实际状态0/1） |
+| TIMING_LIMITS_GET | 3 | 无 | nominal/data各BRP、TSEG1、TSEG2、SJW实际计数上限，共8项 |
+| TIMING_SET | 4 | nominal/data各BRP、TSEG1、TSEG2、SJW实际正整数，共8项 | 无；未处于INIT返回BUSY |
+| TIMING_GET | 5 | 无 | nominal/data硬件时序读回，共8项 |
+| OPTIONS_SET | 6 | FD、BRS、automatic_retry、TX Pause、Edge Filter、Protocol Exception、TDC Enable、TDC Offset、TDC Filter、RAM Watchdog，共10项 | 无；INIT前提及参数校验与TIMING_SET相同 |
+| OPTIONS_GET | 7 | 无 | 上述10项独立硬件读回 |
+| OPTION_LIMITS_GET | 8 | 无 | TDC Offset、TDC Filter、RAM Watchdog三项上限 |
+
+Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
 
 ## 1. Feature Catalog
 
