@@ -184,3 +184,7 @@ def test_spi_p0_002_internal_loopback(spi_support, resource_driver, record_prope
             assert not status.flags & SpiStatusFlag.BUSY
             assert status.flags & SpiStatusFlag.TX_EMPTY
             assert remaining == 0
+
+        # 报告摘要只发布一次最后节点，全部帧宽的原始观测仍完整保留。
+        record_property("final_expected", frame_text(expected))
+        record_property("final_rx", frame_text(received))

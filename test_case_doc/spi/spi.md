@@ -825,7 +825,7 @@ cases:
   SPI_P3_002:
     summary: 连续20轮双向DMA，逐轮检查通道事件和目的数据。
     fields:
-      - {source: measurement, path: round, label: 最后完成轮次, format: decimal, aggregate: same}
+      - {source: measurement, path: completed_rounds, label: 已完成轮次, format: decimal, aggregate: same}
       - {source: observation, path: dma, label: 四通道事件, format: text, aggregate: all}
       - {source: measurement, path: last_controller_rx, label: 最后一轮Controller实际目的数据, format: text, aggregate: all}
       - {source: measurement, path: last_target_rx, label: 最后一轮Target实际目的数据, format: text, aggregate: all}
@@ -865,8 +865,8 @@ cases:
   SPI_P0_002:
     summary: 每种帧宽均逐帧比较；以下显示最后帧宽节点，全部节点保留在原始结果。
     fields:
-      - {source: measurement, path: expected, label: 期望帧, format: text, aggregate: all}
-      - {source: measurement, path: received_frames, label: 最后节点实际RX帧, format: text, aggregate: all}
+      - {source: measurement, path: final_expected, label: 最后节点期望帧, format: text, aggregate: distinct}
+      - {source: measurement, path: final_rx, label: 最后节点实际RX帧, format: text, aggregate: distinct}
       - {source: observation, path: busy, label: 完成后BUSY, format: bool, aggregate: same}
 ```
 <!-- ET_CASE_REPORT_END -->

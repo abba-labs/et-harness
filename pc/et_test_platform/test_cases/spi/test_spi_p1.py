@@ -378,8 +378,6 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
             below = slave.snapshot_get().rx_level
             snapshot = master.snapshot_get()
             configured = snapshot.start_threshold
-            record_property("last_threshold", configured)
-            record_property("last_before", [snapshot.tx_level, below])
             record_observation(
                 record_property,
                 key="before",
@@ -411,7 +409,6 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
                 }
             )
             record_property("nodes", nodes)
-            record_property("last_rx", frame_text(target_rx))
             record_observation(
                 record_property,
                 key="rx",
@@ -421,6 +418,11 @@ def test_spi_p1_008_start_threshold(spi_support, resource_driver, record_propert
             )
             assert target_rx == sent and final.tx_level == 0
             assert not status.flags & SpiStatusFlag.BUSY
+
+        # 报告仅发布最后节点一次；每个阈值的完整硬件观测留在原始结果。
+        record_property("last_threshold", configured)
+        record_property("last_before", [snapshot.tx_level, below])
+        record_property("last_rx", frame_text(target_rx))
 
 
 # ==================== FIFO容量与独立阈值 ====================
@@ -464,7 +466,6 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
         for frame in frames:
             accepted = spi.try_write_frame(frame)
             tx_levels.append(spi.snapshot_get().tx_level)
-            record_property("tx_levels", tx_levels)
             record_observation(
                 record_property,
                 key="tx_level",
@@ -473,6 +474,9 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
                 endpoint="FIFO.TX_LEVEL",
             )
             assert accepted and tx_levels[-1] == len(tx_levels) - 1
+
+        # 完整Level序列只登记一次，避免把每个前缀再次拼入报告。
+        record_property("tx_levels", tx_levels)
 
         # 满状态：在任何FIFO复位前读取TX满标志，避免终态代替容量证据。
         full_tx = spi.error_status_read()
@@ -543,7 +547,6 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
         for index, expected in enumerate(frames):
             actual = spi.try_read_frame()
             rx_levels.append(spi.snapshot_get().rx_level)
-            record_property("rx_levels", rx_levels)
             record_observation(
                 record_property,
                 key="rx_level",
@@ -552,6 +555,9 @@ def test_spi_p1_004_fifo_capacity(spi_support, resource_driver, record_property,
                 endpoint="FIFO.RX_LEVEL",
             )
             assert actual == expected and rx_levels[-1] == depth - index - 1
+
+        # 原始逐帧观测不变，摘要仅保留完整排空序列。
+        record_property("rx_levels", rx_levels)
 
         # 复位刺激：RX中保留一帧，再取消CS并在TX装一帧，验证两个FIFO同时清空。
         spi.fifo_thresholds_set(0, 0, 0)

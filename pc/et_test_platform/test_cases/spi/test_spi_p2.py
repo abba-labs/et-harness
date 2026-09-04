@@ -13,7 +13,15 @@ from ...drivers.spi import SpiRole, SpiStatusFlag
 from ...drivers.sysctrl import DmaRequestRoute
 from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
-from ._support import TIMEOUT_S, basic_config, dma_config, pack_frames, pattern, unpack_frames
+from ._support import (
+    TIMEOUT_S,
+    basic_config,
+    dma_config,
+    frame_text,
+    pack_frames,
+    pattern,
+    unpack_frames,
+)
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("spi")]
 
@@ -425,7 +433,6 @@ def test_spi_p2_005_no_clock_recovery(spi_support, resource_driver, record_prope
                 {"phase": phase, "controller_rx": list(controller_rx), "target_rx": list(target_rx)}
             )
             record_property("phases", phases)
-            record_property("last_controller_rx", list(controller_rx))
             record_observation(
                 record_property,
                 key="rx",
@@ -442,3 +449,6 @@ def test_spi_p2_005_no_clock_recovery(spi_support, resource_driver, record_prope
             )
             assert controller_rx == reply and target_rx == sent
             assert not (controller_status.flags | target_status.flags) & SpiStatusFlag.BUSY
+
+        # 两轮原始结果都保留，报告只显示第二次恢复后的完整帧值。
+        record_property("last_controller_rx", frame_text(controller_rx))

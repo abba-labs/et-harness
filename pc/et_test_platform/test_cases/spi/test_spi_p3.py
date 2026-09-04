@@ -11,7 +11,15 @@ from ...drivers.spi import SpiClockMode, SpiRole, SpiStatusFlag
 from ...drivers.sysctrl import DmaRequestRoute
 from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
-from ._support import TIMEOUT_S, basic_config, dma_config, pack_frames, pattern, unpack_frames
+from ._support import (
+    TIMEOUT_S,
+    basic_config,
+    dma_config,
+    frame_text,
+    pack_frames,
+    pattern,
+    unpack_frames,
+)
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("spi")]
 
@@ -173,8 +181,6 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
                 }
             )
             record_property("rounds", history)
-            record_property("last_controller_rx", list(actual_a))
-            record_property("last_target_rx", list(actual_b))
             record_observation(
                 record_property, key="dma", value=flags, source="dut", endpoint="DMA.CHANNEL.EVENTS"
             )
@@ -200,3 +206,8 @@ def test_spi_p3_002_continuous_dma(spi_support, spi_dma_support, resource_driver
                 SpiStatusFlag.BUSY | SpiStatusFlag.TARGET_TX_ERROR | SpiStatusFlag.COLLISION
             )
             assert fifo_a.rx_level == fifo_a.tx_level == fifo_b.rx_level == fifo_b.tx_level == 0
+
+        # 连续轮次全部逐轮断言；摘要只登记最后完成轮次与两端最终数据一次。
+        record_property("completed_rounds", round_index + 1)
+        record_property("last_controller_rx", frame_text(actual_a))
+        record_property("last_target_rx", frame_text(actual_b))
