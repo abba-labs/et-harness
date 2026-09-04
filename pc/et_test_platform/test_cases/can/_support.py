@@ -116,3 +116,116 @@ def loopback_ram(support: CanSupport, *, payload_bytes: int = 8) -> CanRamLayout
         rx0_payload_bytes=payload,
         rx1_payload_bytes=payload,
     )
+
+
+# 纯布局计算：一个标准Filter、一个TX槽和当前FIFO四项；另一FIFO关闭。
+# 水位和覆盖模式由Case显式传入，不在Support选择测试Expected。
+def fifo_loopback_ram(
+    support: CanSupport, *, fifo: int, watermark: int, overwrite: bool
+) -> CanRamLayout:
+
+    if fifo not in (0, 1):
+        raise ConfigurationError(f"CAN FIFO index must be 0 or 1: {fifo}")
+    if watermark not in range(5):
+        raise ConfigurationError(f"CAN FIFO watermark must be within depth four: {watermark}")
+
+    mapping = support.mapping
+    limits = support.ram_limits
+    fifo_count = 4
+    payload = 8
+    if limits.std_count < 1 or limits.tx_count < 1 or limits.rx_fifo_count < fifo_count:
+        raise ConfigurationError("CAN FIFO Case requires one filter/TX slot and four RX entries")
+
+    stride = mapping.CAN_RAM_HEADER_BYTES + payload
+    tx_offset = mapping.CAN_STD_FILTER_BYTES
+    fifo_offset = tx_offset + stride
+    buffer_offset = fifo_offset + fifo_count * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN FIFO layout exceeds the message RAM aperture")
+
+    return CanRamLayout(
+        std_offset=0,
+        std_count=1,
+        ext_offset=tx_offset,
+        ext_count=0,
+        tx_offset=tx_offset,
+        tx_buffer_count=1,
+        tx_fifo_count=0,
+        tx_queue=False,
+        tx_payload_bytes=payload,
+        event_offset=fifo_offset,
+        event_count=0,
+        event_watermark=0,
+        rx0_offset=fifo_offset,
+        rx0_count=fifo_count if fifo == 0 else 0,
+        rx0_watermark=watermark if fifo == 0 else 0,
+        rx0_overwrite=overwrite if fifo == 0 else False,
+        rx1_offset=fifo_offset,
+        rx1_count=fifo_count if fifo == 1 else 0,
+        rx1_watermark=watermark if fifo == 1 else 0,
+        rx1_overwrite=overwrite if fifo == 1 else False,
+        rx_buffer_offset=buffer_offset,
+        rx_buffer_payload_bytes=payload,
+        rx0_payload_bytes=payload,
+        rx1_payload_bytes=payload,
+    )
+
+
+# 纯布局计算：四项标准Filter、一个TX槽、四项RX0观察区和完整Dedicated RX区。
+# Dedicated RX数量没有配置寄存器，按目标发布的真实上限保留全部空间。
+def dedicated_loopback_ram(support: CanSupport, *, filter_count: int) -> CanRamLayout:
+
+    mapping = support.mapping
+    limits = support.ram_limits
+    payload = 8
+    fifo_count = 4
+    if not 0 < filter_count <= limits.std_count:
+        raise ConfigurationError("CAN dedicated Buffer Case exceeds the standard filter capacity")
+    if limits.tx_count < 1 or limits.rx_fifo_count < fifo_count:
+        raise ConfigurationError("CAN dedicated Buffer Case requires one TX and four RX0 entries")
+
+    stride = mapping.CAN_RAM_HEADER_BYTES + payload
+    filter_bytes = filter_count * mapping.CAN_STD_FILTER_BYTES
+    tx_offset = filter_bytes
+    rx_offset = tx_offset + stride
+    buffer_offset = rx_offset + fifo_count * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN dedicated Buffer layout exceeds the message RAM aperture")
+
+    return CanRamLayout(
+        std_offset=0,
+        std_count=filter_count,
+        ext_offset=tx_offset,
+        ext_count=0,
+        tx_offset=tx_offset,
+        tx_buffer_count=1,
+        tx_fifo_count=0,
+        tx_queue=False,
+        tx_payload_bytes=payload,
+        event_offset=rx_offset,
+        event_count=0,
+        event_watermark=0,
+        rx0_offset=rx_offset,
+        rx0_count=fifo_count,
+        rx0_watermark=0,
+        rx0_overwrite=False,
+        rx1_offset=buffer_offset,
+        rx1_count=0,
+        rx1_watermark=0,
+        rx1_overwrite=False,
+        rx_buffer_offset=buffer_offset,
+        rx_buffer_payload_bytes=payload,
+        rx0_payload_bytes=payload,
+        rx1_payload_bytes=payload,
+    )
+
+
+# 选择Dedicated RX首尾和32-bit位图分组边界；较小实现仅保留实际存在的节点。
+# 返回值只依赖目标公开容量，Case仍逐项验证真实数据和位图。
+def rx_buffer_boundary_indices(limits: CanRamLimits) -> tuple[int, ...]:
+
+    if limits.rx_buffer_count <= 0:
+        raise ConfigurationError("CAN target exposes no dedicated RX Buffer")
+
+    candidates = (0, 31, 32, 63, limits.rx_buffer_count - 1)
+    return tuple(dict.fromkeys(index for index in candidates if index < limits.rx_buffer_count))

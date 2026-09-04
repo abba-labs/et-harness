@@ -10,9 +10,14 @@ import pytest
 from et_test_platform.core.errors import ConfigurationError
 from et_test_platform.drivers.can import (
     CanDriver,
+    CanFilterAction,
     CanFrameFlags,
+    CanIrqSource,
     CanPhaseTiming,
     CanRamLimits,
+    CanRxBufferStatus,
+    CanRxFifoStatus,
+    CanRxFrame,
     CanTiming,
 )
 from et_test_platform.framework_validation.unit.drivers.can.test_can_driver import TargetStub
@@ -22,6 +27,15 @@ from et_test_platform.test_cases.can.test_can_p0 import (
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_001_frame_formats as run_format_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_005_rx_fifo_watermark_full_and_wrap as run_fifo_boundary_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_006_rx_fifo_blocking_and_overwrite as run_fifo_mode_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_007_dedicated_rx_buffer_boundaries as run_rx_buffer_case,
 )
 
 
@@ -234,3 +248,214 @@ def test_format_case_checks_last_payload_byte():
         )
     assert target.responses == []
     assert calls == [("can", 0), ("resource",)] * 17
+
+
+# FIFO和Dedicated Buffer软件流程替身只模拟公开CAN语义，不读取Case Expected。
+class CanStorageStub:
+    def __init__(self):
+        self.instance_id = 0
+        self.layout = None
+        self.filters = {}
+        self.pending_frame = None
+        self.fifo_entries = {0: [], 1: []}
+        self.fifo_put = {0: 0, 1: 0}
+        self.fifo_lost = {0: False, 1: False}
+        self.irq_raw = 0
+        self.buffers = {}
+        self.new_data_low = 0
+        self.new_data_high = 0
+
+    # 配置方法仅保存Case下发的公开参数；不制造额外硬件状态。
+    def initializing_set(self, _enabled):
+        return None
+
+    def wait_initializing(self, _enabled, *, timeout_s):
+        return None
+
+    def timing_set(self, _timing):
+        return None
+
+    def options_set(self, _options):
+        return None
+
+    def ram_layout_set(self, layout):
+        self.layout = layout
+
+    def filter_set(self, index, item, *, extended):
+        self.filters[index] = item
+
+    def loopback_set(self, _mode):
+        return None
+
+    def bus_config_set(self, _config):
+        return None
+
+    def irq_mask_set(self, _sources, _masked):
+        return None
+
+    def irq_clear(self, sources):
+        self.irq_raw &= ~int(sources)
+        lost_sources = CanIrqSource.RX_FIFO0_LOST | CanIrqSource.RX_FIFO1_LOST
+        if sources & lost_sources:
+            for fifo in (0, 1):
+                self.fifo_lost[fifo] = False
+
+    # TX请求把预装帧送入由Filter指定的FIFO或Dedicated Buffer。
+    def tx_write(self, _index, frame):
+        self.pending_frame = frame
+
+    def tx_request(self, _mask):
+        frame = self.pending_frame
+        matched = next(item for item in self.filters.values() if item.id1 == frame.identifier)
+        if matched.action == CanFilterAction.BUFFER:
+            self.buffers[matched.buffer_index] = frame
+            if matched.buffer_index < 32:
+                self.new_data_low |= 1 << matched.buffer_index
+            else:
+                self.new_data_high |= 1 << (matched.buffer_index - 32)
+            return
+
+        fifo = 0 if matched.action == CanFilterAction.FIFO0 else 1
+        entries = self.fifo_entries[fifo]
+        depth = self.layout.rx0_count if fifo == 0 else self.layout.rx1_count
+        overwrite = self.layout.rx0_overwrite if fifo == 0 else self.layout.rx1_overwrite
+        if len(entries) == depth:
+            if overwrite:
+                entries.pop(0)
+            else:
+                self.fifo_lost[fifo] = True
+                lost_irq = CanIrqSource.RX_FIFO0_LOST if fifo == 0 else CanIrqSource.RX_FIFO1_LOST
+                self.irq_raw |= int(lost_irq)
+                return
+        index = self.fifo_put[fifo]
+        entries.append((index, frame))
+        self.fifo_put[fifo] = (index + 1) % depth
+        new_irq = CanIrqSource.RX_FIFO0_NEW if fifo == 0 else CanIrqSource.RX_FIFO1_NEW
+        watermark_irq = (
+            CanIrqSource.RX_FIFO0_WATERMARK if fifo == 0 else CanIrqSource.RX_FIFO1_WATERMARK
+        )
+        full_irq = CanIrqSource.RX_FIFO0_FULL if fifo == 0 else CanIrqSource.RX_FIFO1_FULL
+        self.irq_raw |= int(new_irq)
+        watermark = self.layout.rx0_watermark if fifo == 0 else self.layout.rx1_watermark
+        if watermark and len(entries) >= watermark:
+            self.irq_raw |= int(watermark_irq)
+        if len(entries) == depth:
+            self.irq_raw |= int(full_irq)
+
+    def wait_tx_complete(self, _mask, *, timeout_s):
+        return None
+
+    # FIFO状态、读取和Ack保持真实环形索引，不按Case期望序列生成。
+    def rx_fifo_status_get(self, fifo):
+        entries = self.fifo_entries[fifo]
+        depth = self.layout.rx0_count if fifo == 0 else self.layout.rx1_count
+        get_index = entries[0][0] if entries else self.fifo_put[fifo]
+        return CanRxFifoStatus(
+            len(entries),
+            get_index,
+            self.fifo_put[fifo],
+            len(entries) == depth,
+            self.fifo_lost[fifo],
+        )
+
+    def wait_rx_available(self, fifo, *, minimum=1, timeout_s):
+        status = self.rx_fifo_status_get(fifo)
+        if status.fill < minimum:
+            raise AssertionError("software FIFO did not reach requested fill")
+        return status
+
+    def rx_read(self, source, index=0):
+        if int(source) == 0:
+            frame = self.buffers[index]
+            return CanRxFrame(
+                frame.identifier, frame.flags, frame.dlc, 0, 0, False, index, frame.data
+            )
+        fifo = int(source) - 1
+        slot, frame = self.fifo_entries[fifo][0]
+        return CanRxFrame(frame.identifier, frame.flags, frame.dlc, 0, 0, False, slot, frame.data)
+
+    def rx_fifo_ack(self, fifo, index):
+        assert self.fifo_entries[fifo][0][0] == index
+        self.fifo_entries[fifo].pop(0)
+
+    def irq_snapshot_get(self):
+        return SimpleNamespace(raw_status=self.irq_raw)
+
+    # Dedicated Buffer状态和Ack分别维护低/高32-bit New Data位图。
+    def rx_buffer_status_get(self):
+        return CanRxBufferStatus(self.new_data_low, self.new_data_high)
+
+    def rx_buffer_ack(self, low, high):
+        self.new_data_low &= ~low
+        self.new_data_high &= ~high
+
+
+# 构造纯软件存储路径依赖；Case仍执行真实配置、证据和断言代码。
+def storage_dependencies():
+    can = CanStorageStub()
+    calls = []
+    crg = SimpleNamespace(
+        reset=lambda peripheral, **kwargs: calls.append(("can", kwargs["instance"]))
+    )
+    resource = SimpleNamespace(reset=lambda: calls.append(("resource",)))
+    mapping = SimpleNamespace(CAN_RAM_HEADER_BYTES=8, CAN_STD_FILTER_BYTES=4)
+    support = CanSupport(
+        "can0",
+        can,
+        crg,
+        None,
+        (),
+        CanRamLimits(16384, 128, 64, 32, 64, 32, 64),
+        CanTiming(CanPhaseTiming(512, 256, 128, 128), CanPhaseTiming(32, 32, 16, 16)),
+        mapping,
+        40_000_000,
+    )
+    return support, resource, calls
+
+
+# FIFO水位、满、索引环回Case必须在两个FIFO上完成并生成原子证据。
+@pytest.mark.parametrize("fifo", (0, 1))
+def test_fifo_boundary_case_complete_software_flow(fifo):
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_fifo_boundary_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+        fifo,
+    )
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    observation_keys = {value["key"] for key, value in properties if key == "et_observation"}
+    assert {"first_status", "watermark_status", "full_status", "received_frame"} <= observation_keys
+
+
+# Blocking和Overwrite必须分别保留不同序列，并在满后恢复接收。
+@pytest.mark.parametrize("fifo", (0, 1))
+@pytest.mark.parametrize("overwrite", (False, True))
+def test_fifo_mode_case_complete_software_flow(fifo, overwrite):
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_fifo_mode_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+        fifo,
+        overwrite,
+    )
+    expected = [1, 2, 3, 4] if overwrite else [0, 1, 2, 3]
+    assert ("retained_sequence", expected) in properties
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+
+# Dedicated Buffer边界Case必须跨越两组New Data位图并读回每个真实槽。
+def test_rx_buffer_boundary_case_complete_software_flow():
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_rx_buffer_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+    )
+    payloads = next(value for key, value in properties if key == "buffer_payloads")
+    assert set(payloads) == {"0", "31", "32", "63"}
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]

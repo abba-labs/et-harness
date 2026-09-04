@@ -247,7 +247,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前2个SPEC、37个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
+当前5个SPEC、34个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
@@ -258,9 +258,9 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | PLANNED，见第3节 |
@@ -597,10 +597,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P1_005 CAN RX FIFO水位、满与环回
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_005
 case_name: CAN RX FIFO水位、满与环回
 report_feature: |-
@@ -629,19 +628,19 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN RX FIFO水位、满与环回：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"fifo","label":"RXn.FILL/FULL及GET_INDEX/PUT_INDEX","source":"dut","role":"actual","format":"text"}
-  - {"key":"irq","label":"RXn水位/满IRQ.RAW及LOST","source":"dut","role":"actual","format":"text"}
+  - {"key":"full_status","label":"RX FIFO达到深度时的状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"full_irq","label":"RX FIFO满时的IRQ Raw","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"received_frame","label":"RX FIFO实际帧序号与读取索引","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN RX FIFO水位、满与环回的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_006 CAN RX FIFO满后阻塞与覆盖
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_006
 case_name: CAN RX FIFO满后阻塞与覆盖
 report_feature: |-
@@ -670,19 +669,19 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN RX FIFO满后阻塞与覆盖：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"sequence","label":"RX.FRAME保留的四帧序号","source":"dut","role":"actual","format":"text"}
-  - {"key":"overflow","label":"RXn.FILL/FULL/LOST首次值及恢复后值","source":"dut","role":"actual","format":"text"}
+  - {"key":"retained_frame","label":"RX FIFO满后实际保留帧","source":"dut","role":"actual","format":"text"}
+  - {"key":"overflow_status","label":"RX FIFO满后状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"recovery_frame","label":"满后恢复帧","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN RX FIFO满后阻塞与覆盖的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap", "overwrite_lost_flag_semantics_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_007 CAN专用RX Buffer及New Data边界
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_007
 case_name: CAN专用RX Buffer及New Data边界
 report_feature: |-
@@ -712,12 +711,13 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN专用RX Buffer及New Data边界：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"bitmap","label":"NEW_DATA置位/清单项/重接收位图","source":"dut","role":"actual","format":"text"}
-  - {"key":"buffers","label":"RX_BUFFER[index].FRAME实际ID和payload","source":"dut","role":"actual","format":"text"}
+  - {"key":"bitmap_low_all","label":"低32个RX Buffer全部接收后的New Data位图","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"bitmap_high_all","label":"高32个RX Buffer全部接收后的New Data位图","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"rx_buffer_frame","label":"各目标RX Buffer实际帧","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN专用RX Buffer及New Data边界的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_008 CAN TX FIFO与Queue优先级
 
@@ -1982,6 +1982,27 @@ cases:
       - {source: measurement, path: format_text, label: 实际帧头, format: text, aggregate: all}
       - {source: measurement, path: payload_text, label: 实际payload, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: all}
+  CAN_P1_005:
+    summary: 核对FIFO0/1水位、满状态、硬件IRQ Raw、六帧顺序和Get Index环回。
+    fields:
+      - {source: measurement, path: status_summary, label: FIFO水位与满状态, format: text, aggregate: all}
+      - {source: observation, path: full_irq, label: Full硬件IRQ Raw, format: hex32, aggregate: all}
+      - {source: measurement, path: sequence_and_indices, label: 实际序号与读取索引, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: all}
+  CAN_P1_006:
+    summary: 核对FIFO0/1在Blocking和Overwrite下的实际保留序列、满后状态及恢复帧。
+    fields:
+      - {source: measurement, path: retained_sequence, label: 满后实际保留序列, format: text, aggregate: all}
+      - {source: observation, path: overflow_status, label: 满后硬件状态, format: text, aggregate: all}
+      - {source: observation, path: recovery_frame, label: 恢复帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 当前模式独立Expected, format: text, aggregate: all}
+  CAN_P1_007:
+    summary: 核对Dedicated RX Buffer边界数据、两组New Data位图及独立清除和再次置位。
+    fields:
+      - {source: observation, path: bitmap_low_all, label: 低32位New Data位图, format: hex32, aggregate: all}
+      - {source: observation, path: bitmap_high_all, label: 高32位New Data位图, format: hex32, aggregate: all}
+      - {source: observation, path: rx_buffer_frame, label: 各目标Buffer实际帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: Buffer索引与位图Expected, format: text, aggregate: all}
 ```
 <!-- ET_CASE_REPORT_END -->
 
@@ -1989,7 +2010,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=37 | ADAPTED=2; IMPLEMENTATION_GAP=37; NEEDS_VERIFICATION=3 | 2 SPEC、37 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=3; IMPLEMENTATION_GAP=34 | ADAPTED=5; IMPLEMENTATION_GAP=34; NEEDS_VERIFICATION=3 | 5 SPEC、34 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
