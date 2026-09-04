@@ -26,7 +26,11 @@ typedef enum
 {
     ET_GPIO_FUNCTION_GPIO = 0u,
     ET_GPIO_FUNCTION_UART_TX = 1u,
-    ET_GPIO_FUNCTION_UART_RX = 2u
+    ET_GPIO_FUNCTION_UART_RX = 2u,
+    ET_GPIO_FUNCTION_SPI_CLK = 3u,
+    ET_GPIO_FUNCTION_SPI_CS = 4u,
+    ET_GPIO_FUNCTION_SPI_MOSI = 5u,
+    ET_GPIO_FUNCTION_SPI_MISO = 6u
 } et_gpio_function_t;
 
 typedef enum
@@ -57,6 +61,14 @@ typedef struct
 
 /** Validate and apply one board pin/function mapping. */
 et_wrap_status_t et_gpio_wrap_configure(const et_gpio_wrap_config_t *config);
+/** Check a complete logical signal route without changing hardware. */
+et_wrap_status_t et_gpio_wrap_validate_signal(et_gpio_id_t gpio_id,
+                                              et_gpio_function_id_t function_id,
+                                              uint16_t instance_id);
+/** Configure a validated signal through the GPIO Driver, without touching its peripheral. */
+et_wrap_status_t et_gpio_wrap_configure_signal(et_gpio_id_t gpio_id,
+                                               et_gpio_function_id_t function_id,
+                                               uint16_t instance_id);
 /** Select GPIO input or output direction for one logical pin. */
 et_wrap_status_t et_gpio_wrap_set_direction(et_gpio_id_t gpio_id,
                                             et_gpio_wrap_direction_t direction);

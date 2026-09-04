@@ -28,7 +28,7 @@
 | REQ6801 | test_case/6801下SPI定向查询 | NO_MATCH | 未找到专属SPI需求，不否定硬件功能或其他适用需求。 |
 | ATP | 当前仓库 | FOUND | firmware/chips/et6801/sdk/{CMSIS/Device/Include/et6801.h,ET6x_Driver/Inc/et6x_spi.h,ET6x_Driver/Src/et6x_spi.c}；SPI Capability及旧SPI文档。 |
 
-当前平台已新增SPI配置/IRQ Wrap、24条原子命令Service和PC Driver；应用注册、完整Capability、Formal Case和板级映射仍待完成。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
+当前平台已新增SPI配置/IRQ Wrap、24条原子命令Service和PC Driver；SPI/GPIO应用注册及GPIO独立信号映射已完成，连接选择保存在硬件连接YAML。完整Capability、Formal Case及PC引脚调用仍待完成。已有SDK文件和生成的基础spi.yaml不等于SPI已经开发完成。当前SPI Capability只发布少量基础字段，不能据缺字段跳过测试。
 
 证据路径：
 - 主SVD：V6801/`Tools/RegGen/ET6801.svd`；单IP：`Tools/RegGen/svd/SPI_DWC_ssi.svd`。
@@ -80,6 +80,8 @@
 24/32-bit helper是多帧打包，不证明SPI硬件有24/32bit单帧。帧外高位忽略及4/16bit测试由公共frame_bits覆盖，不能把SDK helper当新硬件Feature。历史chipSel成员已不在当前Config内，按SER实际集成适配。
 
 ## 2.1 本轮实现进度
+
+2026-09-04 15:35 CST：加入SPI四实例的Application静态注册与工程源码清单，GPIO使用独立Service/Wrap提供逻辑复用配置。用户已确认SPI0/SPI1四线相连；PC通过连接YAML选择handle/GPIO，不在SPI Service中配置GPIO。尚未执行本次硬件测试。
 
 2026-09-04 11:54 CST：以下为源码变化，不表示芯片实测通过。
 

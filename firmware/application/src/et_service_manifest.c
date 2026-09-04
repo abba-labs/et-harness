@@ -18,7 +18,9 @@
 #include "et_crg_wrap.h"
 #include "et_dma_service.h"
 #include "et_fmac_service.h"
+#include "et_gpio_service.h"
 #include "et_ipcm_service.h"
+#include "et_spi_service.h"
 #include "et_spinlock_service.h"
 #include "et_stimer_service.h"
 #include "et_syscnt_service.h"
@@ -48,6 +50,8 @@ static const uint16_t test_stimer_instances[] = {ET_TEST_STIMER_INSTANCE_IDS};
 static const uint16_t test_spinlock_instances[] = {ET_TEST_SPINLOCK_INSTANCE_IDS};
 static const uint16_t test_ipcm_instances[] = {ET_TEST_IPCM_INSTANCE_IDS};
 static const uint16_t test_syscnt_instances[] = {ET_TEST_SYSCNT_INSTANCE_IDS};
+static const uint16_t test_spi_instances[] = {ET_TEST_SPI_INSTANCE_IDS};
+static const uint16_t test_gpio_instances[] = {ET_TEST_GPIO_INSTANCE_IDS};
 
 /* Static storage keeps startup deterministic and avoids allocator ownership. */
 static et_uart_service_t test_uart_services[ET_ARRAY_COUNT(test_uart_instances)];
@@ -62,6 +66,8 @@ static et_stimer_service_t test_stimer_services[ET_ARRAY_COUNT(test_stimer_insta
 static et_spinlock_service_t test_spinlock_services[ET_ARRAY_COUNT(test_spinlock_instances)];
 static et_ipcm_service_t test_ipcm_services[ET_ARRAY_COUNT(test_ipcm_instances)];
 static et_syscnt_service_t test_syscnt_services[ET_ARRAY_COUNT(test_syscnt_instances)];
+static et_spi_service_t test_spi_services[ET_ARRAY_COUNT(test_spi_instances)];
+static et_gpio_service_t test_gpio_services[ET_ARRAY_COUNT(test_gpio_instances)];
 
 /* One row is the complete Application-level registration declaration for one IP. */
 static const et_service_group_t service_groups[] = {
@@ -89,6 +95,10 @@ static const et_service_group_t service_groups[] = {
                      et_ipcm_service_create),
     ET_SERVICE_GROUP(test_syscnt_instances, test_syscnt_services, ET_SERVICE_IRQ_PRIORITY_UNUSED,
                      et_syscnt_service_create),
+    ET_SERVICE_GROUP(test_spi_instances, test_spi_services, ET_TEST_SPI_IRQ_PRIORITY,
+                     et_spi_service_create),
+    ET_SERVICE_GROUP(test_gpio_instances, test_gpio_services, ET_SERVICE_IRQ_PRIORITY_UNUSED,
+                     et_gpio_service_create),
 };
 
 /**

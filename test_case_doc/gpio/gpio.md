@@ -45,7 +45,7 @@ Service ID `0x0014`，Service实例0表示引脚配置服务，不是被配置�
 
 | Chip | Feature适配状态 | Case适配状态 | 主要Gap | 详细分析 |
 |---|---|---|---|---|
-| ET6801 |  |  | 支持动作待实现；不声明GPIO全集或硬件PASS | `ET6801_gpio.md` |
+| ET6801 |  |  | Firmware支持动作已实现；不声明GPIO全集或硬件PASS | `ET6801_gpio.md` |
 
 ## 5. Common Gap / Evolution
 

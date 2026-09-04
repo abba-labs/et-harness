@@ -21,6 +21,45 @@ typedef struct
 
 static const et_gpio_wrap_mapping_t gpio_mappings[] = ET_CHIP_GPIO_MAP_TABLE;
 
+/** Full signal identity prevents a valid pin from selecting the wrong peripheral instance. */
+typedef struct
+{
+    et_gpio_id_t gpio_id;
+    et_gpio_function_id_t function_id;
+    uint16_t instance_id;
+    GPIO_PinNumber physical_pin;
+    uint8_t physical_function;
+} et_gpio_signal_mapping_t;
+
+static const et_gpio_signal_mapping_t signal_mappings[] = ET_CHIP_GPIO_SIGNAL_MAP_TABLE;
+
+/**
+ * @brief Find the exact logical signal route in the chip mapping.
+ * @param[in] gpio_id Logical pad identity.
+ * @param[in] function_id Stable signal kind, independent of mux encoding.
+ * @param[in] instance_id Logical peripheral instance owning the signal.
+ * @return Immutable mapping row, or NULL when the combination is unsupported.
+ * @note Performs no hardware access; legacy UART mapping remains unchanged.
+ */
+static const et_gpio_signal_mapping_t *
+find_signal(et_gpio_id_t gpio_id, et_gpio_function_id_t function_id, uint16_t instance_id)
+{
+    size_t index;
+
+    for (index = 0u; index < sizeof(signal_mappings) / sizeof(signal_mappings[0]); ++index)
+    {
+        const et_gpio_signal_mapping_t *mapping = &signal_mappings[index];
+
+        if ((mapping->gpio_id == gpio_id) && (mapping->function_id == function_id) &&
+            (mapping->instance_id == instance_id))
+        {
+            return mapping;
+        }
+    }
+
+    return NULL;
+}
+
 /* Chip pin and alternate-function facts are confined to the generated map. */
 
 /**
@@ -198,6 +237,54 @@ et_wrap_status_t et_gpio_wrap_configure(const et_gpio_wrap_config_t *config)
     }
 
     return map_driver_status(GPIO_setPinConfig(physical_pin, physical_function));
+}
+
+/**
+ * @brief Validate a logical signal selection before any Case mutates hardware.
+ * @param[in] gpio_id Logical pad selected by the PC connection configuration.
+ * @param[in] function_id Stable peripheral signal kind.
+ * @param[in] instance_id Logical peripheral instance.
+ * @return OK for an exact match, otherwise NOT_SUPPORTED.
+ * @note This query only reads constant chip mapping data; it does not configure the pad.
+ */
+et_wrap_status_t et_gpio_wrap_validate_signal(et_gpio_id_t gpio_id,
+                                              et_gpio_function_id_t function_id,
+                                              uint16_t instance_id)
+{
+    return find_signal(gpio_id, function_id, instance_id) == NULL ? ET_WRAP_STATUS_NOT_SUPPORTED
+                                                                  : ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Configure one peripheral signal without configuring the peripheral itself.
+ * @param[in] gpio_id Logical pad selected by the PC connection configuration.
+ * @param[in] function_id Stable peripheral signal kind.
+ * @param[in] instance_id Logical peripheral instance.
+ * @return Stable Driver error or NOT_SUPPORTED for an unmapped combination.
+ * @note Changes pad and mux through GPIO Driver only. Default pad enables input for role exchange.
+ */
+et_wrap_status_t et_gpio_wrap_configure_signal(et_gpio_id_t gpio_id,
+                                               et_gpio_function_id_t function_id,
+                                               uint16_t instance_id)
+{
+    const et_gpio_signal_mapping_t *mapping = find_signal(gpio_id, function_id, instance_id);
+    IOC_Init_TypeDef pad;
+    et_wrap_status_t status;
+
+    if (mapping == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    GPIO_initPadConfigStruct(&pad);
+    status = map_driver_status(GPIO_setPadConfig(mapping->physical_pin, &pad));
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    return map_driver_status(GPIO_setPinConfig(mapping->physical_pin, mapping->physical_function));
 }
 
 /**

@@ -44,3 +44,7 @@ Chip Config必须使用表中的SDK宏，不能抄编码作为魔鬼数字。用
 |---|---|---|
 
 无独立GPIO Case；SPI对应Case状态由SPI芯片文档记录。
+
+## 本轮实现状态
+
+2026-09-04 15:35 CST：GPIO Service提供VALIDATE_SIGNAL/CONFIGURE_SIGNAL，独立于SPI Service。GPIO Wrap新接口按GPIO、信号、外设实例三元组查表；信号表列入SDK的全部SPI CLK/CS/MOSI/MISO候选，不把本次接线固化为唯一可用组合。旧UART配置入口保持不变。Application只增加静态注册项，无硬件初始化动作。待软件验证和SPI实测，当前不声明硬件PASS。

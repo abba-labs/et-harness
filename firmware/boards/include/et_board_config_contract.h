@@ -101,6 +101,16 @@
 #error "Board config must define ET_TEST_IPCM_INSTANCE_IDS"
 #endif
 
+#ifndef ET_TEST_SPI_INSTANCE_IDS
+#error "Board config must define ET_TEST_SPI_INSTANCE_IDS"
+#endif
+#ifndef ET_TEST_SPI_IRQ_PRIORITY
+#error "Board config must define ET_TEST_SPI_IRQ_PRIORITY"
+#endif
+#ifndef ET_TEST_GPIO_INSTANCE_IDS
+#error "Board config must define ET_TEST_GPIO_INSTANCE_IDS"
+#endif
+
 #ifndef ET_TEST_SYSCNT_INSTANCE_IDS
 #error "Board config must define ET_TEST_SYSCNT_INSTANCE_IDS"
 #endif

@@ -65,6 +65,8 @@ Wire：以上稳定动作的当前命令布局见0.6节，C Service与Python Cod
 
 ### 0.4 执行边界
 
+连接选择：Case本地Support读取当前active环境的硬件连接YAML，取得两端handle和各信号GPIO；不在Case写死实例或管脚。配置前由独立GPIO Driver验证全部信号组合，Case显式复位SPI和资源池后逐引脚调用GPIO Driver，再分别配置SPI。SPI Service/Wrap不调用GPIO，GPIO Service/Wrap也不配置SPI。
+
 基线复位仅针对Case使用的SPI以及配合IP，不能复位控制通信UART。多IP顺序由PC Case决定。所有配置在数据激励之前完成。双实例链路为Controller SCLK→Target SCLK、CS→CS、MOSI→Target RX、Target TX→Controller MISO及共地；角色交换时两端改向，不增加输出对打。
 
 收尾复用现有机制：停止外部驱动，屏蔽IRQ/关闭DMA请求并停止通道，释放CS，Disable和复位参与IP，最后释放资源。任何超时保存实际未完成状态，不能通过自动重试或复位后一次成功覆盖本次失败。实际接线由Board/Bench提供。

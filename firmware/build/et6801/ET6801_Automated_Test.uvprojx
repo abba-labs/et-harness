@@ -526,6 +526,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_spi_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_gpio_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_gpio_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -626,6 +636,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_spi_wrap.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -725,6 +740,11 @@
               <FileName>et6x_gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>et6x_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_spi.c</FilePath>
             </File>
             <File>
               <FileName>et6x_interrupt.c</FileName>
@@ -2066,6 +2086,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_spi_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_gpio_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_gpio_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -2166,6 +2196,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_spi_wrap.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -2265,6 +2300,11 @@
               <FileName>et6x_gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>et6x_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_spi.c</FilePath>
             </File>
             <File>
               <FileName>et6x_interrupt.c</FileName>
@@ -3606,6 +3646,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_spi_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_gpio_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_gpio_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -3706,6 +3756,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_spi_wrap.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -3805,6 +3860,11 @@
               <FileName>et6x_gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>et6x_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_spi.c</FilePath>
             </File>
             <File>
               <FileName>et6x_interrupt.c</FileName>
@@ -4535,6 +4595,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_spi_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_gpio_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_gpio_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -4635,6 +4705,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_spi_wrap.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -4734,6 +4809,11 @@
               <FileName>et6x_gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>et6x_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_spi.c</FilePath>
             </File>
             <File>
               <FileName>et6x_interrupt.c</FileName>
@@ -5820,6 +5900,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\services\src\et_syscnt_service.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_spi_service.c</FilePath>
+            </File>
+            <File>
+              <FileName>et_gpio_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\services\src\et_gpio_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -5920,6 +6010,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\wrap\src\et_syscnt_wrap.c</FilePath>
             </File>
+            <File>
+              <FileName>et_spi_wrap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\wrap\src\et_spi_wrap.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -6019,6 +6114,11 @@
               <FileName>et6x_gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>et6x_spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\chips\et6801\sdk\ET6x_Driver\Src\et6x_spi.c</FilePath>
             </File>
             <File>
               <FileName>et6x_interrupt.c</FileName>

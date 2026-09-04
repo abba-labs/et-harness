@@ -65,5 +65,11 @@
 #define ET_TEST_IPCM_IRQ_PRIORITY 3u
 /* One logical system counter; both register views refer to this instance. */
 #define ET_TEST_SYSCNT_INSTANCE_IDS 0u
+
+/* Publish selectable SPI instances; PC connection YAML chooses the actual pair. */
+#define ET_TEST_SPI_INSTANCE_IDS 0u, 1u, 2u, 3u
+#define ET_TEST_SPI_IRQ_PRIORITY 3u
+/* One GPIO routing service; physical pad and peripheral instance are request fields. */
+#define ET_TEST_GPIO_INSTANCE_IDS 0u
 #define ET_TEST_STIMER_IRQ_PRIORITY 3u
 #endif
