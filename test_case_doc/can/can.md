@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 00:25 CST
+更新时间：2026-09-05 01:06 CST
 
-分析稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；39项形成ET_CASE_PLAN，3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。本轮逐项复核现有Case，修正过滤、DLC、IRQ、停钟和观察前提，并将原DMU时间戳目标拆为RX与TX Event。没有SPEC、注册Case或硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；2项SPEC（P0_002、P1_001）、37项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -94,7 +94,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前实现范围为控制器身份、INIT状态、位时序和核心选项；已接入Service及静态实例注册，尚无Formal Case，不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器，共29条命令，详见0.7。P0_002已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -220,14 +220,14 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-39个PLAN是设计数量，不是通过数；3个DESIGN_GAP（P2_006、P2_013、P3_003）已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
+当前2个SPEC、37个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
 | CAN_P0_001 | CAN复位与受保护配置 | P0 | R0 | PLANNED，见第3节 |
-| CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | PLANNED，见第3节 |
+| CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | IMPLEMENTED，尚未HIL，见第3节 |
 | CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | PLANNED，见第3节 |
-| CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | PLANNED，见第3节 |
@@ -312,10 +312,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P0_002 CAN内部回环基础收发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P0_002
 case_name: CAN内部回环基础收发
 report_feature: |-
@@ -327,7 +326,7 @@ method:
   inputs:
     - "帧输入：Classic、标准ID 0x123，8-byte PATTERN_A及PATTERN_B各一帧；仲裁500 kbit/s，接收路由FIFO0。"
   steps:
-    - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
+    - "独立基线：CRG复位选中的CAN，再复位整池资源；当前CAN Service无动态会话，无需额外软件状态命令，不复位控制UART。"
     - "模式配置：在INIT窗口配置内部回环、位时序及小型互不重叠Message RAM布局，接收该ID到FIFO0。"
     - "总线启动：退出INIT，确认模式读回为内部回环，启用轮询而非DMA/ISR搬运。"
     - "逐帧发送：装入一帧并发出请求，等待TX.COMPLETED及RX0.FILL至少1，再处理下一帧。"
@@ -339,18 +338,20 @@ method:
   pass_criteria:
     - "逐帧一致：两帧均有发送完成且元数据和有效字节一致。"
     - "队列正常：读取并Ack后FIFO为空，未产生丢帧；不能据此声称已验证外部引脚。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每次INIT、TX完成或RX可读等待使用5 s独立Deadline；命令内部不重发帧"
+cleanup: ["CRG复位本Case的CAN实例", "Resource Pool Reset；失败也尝试所有清理动作"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；CRG负责IP复位，不使用DMA、SYSCTRL、GPIO配置或IRQ", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN内部回环基础收发：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"frame","label":"RX.FRAME实际ID、DLC及payload","source":"dut","role":"actual","format":"text"}
-  - {"key":"fifo","label":"RX0.FILL/LOST与TX.COMPLETED","source":"dut","role":"actual","format":"text"}
+  - {"key":"rx_fill","label":"RX0.FILL发送前/可读/Ack后","source":"dut","role":"actual","format":"text"}
+  - {"key":"rx_lost","label":"RX0.LOST三个阶段","source":"dut","role":"actual","format":"text"}
+  - {"key":"tx_completed","label":"TX.COMPLETED","source":"dut","role":"actual","format":"hex32"}
   - {"key":"expected","label":"CAN内部回环基础收发的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P0_003 CAN双节点正常总线收发
 
@@ -398,10 +399,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P1_001 CAN帧格式与DLC边界
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_001
 case_name: CAN帧格式与DLC边界
 report_feature: |-
@@ -412,9 +412,9 @@ feature_refs: [CAN_F_004, CAN_F_005]
 method:
   inputs:
     - "参数矩阵：标准/扩展ID；Classic DLC=0～15，其中9～15均为8-byte且RX原始DLC须保留；FD DLC=0～15映射0～8、12、16、20、24、32、48、64-byte；FD覆盖BRS关/开，Classic不使用BRS。"
-    - "数据与速率：两种PATTERN依次发送；标准ID取0和0x7FF，扩展ID取0和0x1FFFFFFF；仲裁500 kbit/s、FD数据2 Mbit/s或预先确认的可达值。"
+    - "数据与速率：两种PATTERN依次发送；标准ID取0和0x7FF，扩展ID取0和0x1FFFFFFF；仲裁500 kbit/s、FD数据2 Mbit/s。六种格式乘两个ID边界为12个参数执行，每个执行包含16种DLC乘两个Pattern，共32帧。"
   steps:
-    - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
+    - "独立基线：每种DLC先CRG复位当前CAN，再复位整池资源；当前CAN Service无动态会话，不使用其他IP，也不复位控制通信UART。"
     - "节点配置：按当前格式与BRS配置内部回环、位时序和64-byte接收元素，明确DLC与有效字节长度映射。"
     - "帧组装：按当前ID、DLC构造两帧不同数据，零长度帧不读取数据字节。"
     - "传输等待：逐帧请求发送，等待TX完成和接收就绪，不以入队成功作为完成。"
@@ -426,18 +426,18 @@ method:
   pass_criteria:
     - "节点完整：全部声明组合完成，缺少数据速率映射是实施缺口而不是删除矩阵。"
     - "帧准确：格式、有效长度和数据均正确；该R1结果不替代外部BRS速率测量。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每次INIT、TX完成或RX可读等待使用5 s独立Deadline；命令内部不重发帧"
+cleanup: ["CRG复位本Case的CAN实例", "Resource Pool Reset；失败也尝试所有清理动作"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例与CRG复位；不使用GPIO配置、DMA、SYSCTRL或IRQ", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN帧格式与DLC边界：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"format","label":"RX.FRAME的ID、XTD、FD、BRS、DLC和有效长度","source":"dut","role":"actual","format":"text"}
   - {"key":"payload","label":"RX.FRAME有效payload与首个不匹配","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN帧格式与DLC边界的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_002 CAN标准ID过滤与路由
 
@@ -1935,11 +1935,34 @@ gap: ["case_implementation_gap"]
 ```
 <!-- ET_CASE_PLAN_END -->
 
+### 3.1 已实现Case报告模板
+
+<!-- ET_CASE_REPORT_BEGIN -->
+```yaml
+schema: et.case-report-note.v1
+cases:
+  CAN_P0_002:
+    summary: 核对内部回环两帧的完整数据、TX完成与RX FIFO读取及Ack。
+    fields:
+      - {source: measurement, path: frame_text, label: 实际回环帧, format: text, aggregate: all}
+      - {source: observation, path: tx_completed, label: TX完成位图, format: hex32, aggregate: all}
+      - {source: observation, path: rx_fill, label: RX0填充数（发送前/可读/Ack后）, format: text, aggregate: all}
+      - {source: observation, path: rx_lost, label: RX0丢帧标志（三阶段）, format: text, aggregate: all}
+  CAN_P1_001:
+    summary: 逐帧核对ID、格式、DLC和全部数据；摘要展示最后观测节点，完整矩阵保存在原始记录。
+    fields:
+      - {source: measurement, path: current_node, label: 格式与DLC节点, format: text, aggregate: all}
+      - {source: measurement, path: format_text, label: 实际帧头, format: text, aggregate: all}
+      - {source: measurement, path: payload_text, label: 实际payload, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: all}
+```
+<!-- ET_CASE_REPORT_END -->
+
 ## 4. Chip Adaptation Summary
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=37 | IMPLEMENTATION_GAP=39; NEEDS_VERIFICATION=3 | 37准入Feature、2待定能力；39 PLAN、3项确认流程；无实现/实测结论 | `ET6801_can.md` |
+| ET6801 | IMPLEMENTATION_GAP=37 | ADAPTED=2; IMPLEMENTATION_GAP=37; NEEDS_VERIFICATION=3 | 2 SPEC、37 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

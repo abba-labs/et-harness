@@ -13,7 +13,9 @@ from ..scheduling.test_registry import IpRegistration
 # from .fmac.case_registry import FMAC_CASE_REGISTRY
 # from .framework_communication.case_registry import FRAMEWORK_COMMUNICATION_CASE_REGISTRY
 # from .ipcm.case_registry import IPCM_CASE_REGISTRY
-from .spi.case_registry import SPI_CASE_REGISTRY
+from .can.case_registry import CAN_CASE_REGISTRY
+
+# from .spi.case_registry import SPI_CASE_REGISTRY
 
 # from .spinlock.case_registry import SPINLOCK_CASE_REGISTRY
 # from .stimer.case_registry import STIMER_CASE_REGISTRY
@@ -21,5 +23,5 @@ from .spi.case_registry import SPI_CASE_REGISTRY
 # from .uart.case_registry import UART_CASE_REGISTRY
 # from .wdg.case_registry import WDG_CASE_REGISTRY
 
-# 本轮按用户指定仅执行SPI；其他IP注册定义保留，测试后恢复原选择。
-IP_REGISTRY = (IpRegistration(ip_id="spi", case_ids=SPI_CASE_REGISTRY),)
+# 本轮按用户指定开发并验证CAN；其他IP注册定义保留，不运行无关IP硬件。
+IP_REGISTRY = (IpRegistration(ip_id="can", case_ids=CAN_CASE_REGISTRY),)

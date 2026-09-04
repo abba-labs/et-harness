@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 00:25 CST
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置和Capability身份同步，正在修正Chip Driver；尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；39项PLAN、3项DESIGN_GAP。本轮逐项复核38个已有PLAN及3个缺口；DMU RX补成PLAN，独立TX Event缺口迁为P2_013，保留原测试意图；仪器按刺激/观测职责明确列出。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS。这里的数量不是实测统计，未把未知硬件、未实现代码或未准备环境计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及29条基础/收发/过滤命令；已注册P0_002、P1_001，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；2项SPEC、37项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -361,21 +361,22 @@ Hardware=SUPPORTED仅表示寄存器/描述支持所述能力，不代表实际F
 |---|---:|---|
 | 能力/行为目标 | 39 | 37项准入公共Feature；2项候选行为不提前发布ID |
 | 测试目标 | 42 | P0=3、P1=21、P2=13、P3=5；P2_008拆出独立TX Event目标P2_013 |
-| 完整格式PLAN | 39 | 输入、6～8步流程、Observation、判据、资源已列；前置Mapping仍须先适配 |
+| 完整格式PLAN | 37 | P0_002、P1_001已转SPEC；其余输入、6～8步流程、Observation、判据、资源已列 |
+| 已实现SPEC | 2 | P0_002内部回环、P1_001帧格式/DLC矩阵，尚未HIL |
 | DESIGN_GAP目标 | 3 | P2_006、P2_013、P3_003已有具体确认流程，关键语义未定；不是SKIP |
-| PLAN核心可片内构造 | 24 | 增加DMU RX时间戳；TSU外部节点和IRQ外部节点另需相应连接，不能当全部无接线 |
+| 已设计核心可片内构造 | 24 | 含2项SPEC及22项PLAN；TSU外部节点和IRQ外部节点另需相应连接 |
 | PLAN内固定CAN总线 | 7 | 原5项加取消/重发、ISO格式；仍需盒子相应静默/原始捕获/Non-ISO能力 |
 | PLAN内总线加AUX输入 | 1 | P2_012；CAN盒子负责帧收发，另需合法时钟输入 |
 | PLAN内专用刺激或计量 | 7 | Monitor原始位流、协议注入、RAM延迟、TTCAN定时响应、TDC延迟、Pause测量、TEST pins |
-| 当前注册/执行 | 0 / 0 | 无PASS、FAIL或运行SKIP结论 |
+| 当前注册/执行 | 2 / 0 | 无PASS、FAIL或运行SKIP结论；参数展开13个节点不计作13条Case |
 
-2026-09-04用户已确认：**当前FPGA CAN连接CAN盒子**。本轮外部Peer按这条固定连接分析，不要求先接第二个MCU CAN实例。尚未确认盒子型号、控制API、所接CAN实例/GPIO、终端匹配、CAN FD/BRS速率范围、静默或错误注入能力；不能把“已接盒子”写成这些能力全部具备。AUX输入和其他仪器连接均未确认。
+2026-09-04用户已确认：**当前FPGA CANFD0连接CAN盒子的CAN1通道**。连接文件选择can0、RX GPIO58、TX GPIO59；ET6801 SDK对应复用均为11。盒子适配器复用参考工程的ZLG接口，尚未实际打开设备确认型号/序列号、终端匹配和支持速率；不能把“已接盒子”写成这些能力全部具备。AUX输入和其他仪器连接均未确认。
 
 CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺激/时序的Case直接按公共0.5规划示波器、脉冲发生器或协议发生器；盒子若已具备等效能力可以复用，不为避免仪器而弱化判据。下表是能力清单，不是新增采购清单。
 
 | Case范围 | 最小外部动作 | 当前结论 |
 |---|---|---|
-| P0_003 | 普通Classic发送与实际帧捕获 | 固定连接已确认，盒子API及实例配置待确认；不需要示波器 |
+| P0_003 | 普通Classic发送与实际帧捕获 | 固定连接和ZLG适配代码已准备，盒子型号/终端及实际收发待验证；不需要示波器 |
 | P1_012、P1_021、P3_001 | 对应速率的Classic/FD/BRS收发，连续捕获与真实发送结果 | 先查询盒子能力，不假定所有盒子都支持FD或5Mbps；不要求TDC延迟器用于基础通信 |
 | P2_005 | 静默捕获，正对照确认捕获有效 | 先确认盒子是否支持listen-only；不直接要求新增分析仪 |
 | P1_017、P1_019、P1_020 | 分别需无ACK尝试捕获、无ACK仍保持合法EOF的位流Peer、ISO/Non-ISO发送 | PLAN已写；普通盒子未必支持原始位流，尤其Monitor不能只看ACK错误后损坏帧的RX |
@@ -389,9 +390,9 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
 | CAN_P0_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R0，按公共PLAN实施 |
-| CAN_P0_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
+| CAN_P0_002 | ADAPTED | 已按SPEC实现：500 kbit/s、两帧8-byte内部回环；未HIL，不冒充PASS |
 | CAN_P0_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R2，按公共PLAN实施 |
-| CAN_P1_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
+| CAN_P1_001 | ADAPTED | 已实现6种格式×2个ID边界；每组DLC0～15及双Pattern，尚未HIL |
 | CAN_P1_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
 | CAN_P1_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
 | CAN_P1_004 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
@@ -462,6 +463,10 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 
 ### 6.4 当前测试状态
 
+正式Case基础批验证（2026-09-05 01:28 CST）：两条SPEC共收集13个参数节点；软件调用链回归16项通过，覆盖独立RX响应、384帧格式矩阵及末Byte损坏必须失败。总软件门禁1192 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_case_foundation_gate_verified.log`。本批仅PC/文档变化，未重新构建或烧录固件；没有CAN HIL结论。
+
+正式Case接入（2026-09-05 01:06 CST）：P0_002已注册并与SPEC及报告绑定。CAN专属Fixture只读选择连接文件的can0（GPIO58 RX、GPIO59 TX），核对Capability实例/IRQ和Firmware Service；内部回环不执行GPIO配置。独立can_routes.py仅保存FPGA输入时钟40MHz（现有CRG Driver/硅前测试依据）及RAM头8-byte、标准Filter4-byte、扩展Filter8-byte、Event8-byte几何。Silicon的时钟D04尚未解决，映射缺失按集成错误处理，不标SKIP。Case直接建立CRG/资源池复位基线，发送文档PATTERN_A/B并比较全部元数据和字节；三项软件流程测试覆盖独立RX Golden、第二帧单Byte错误必须失败及失败后两项清理。这些不是HIL证据。
+
 过滤器开发（2026-09-05 00:47 CST）：新增标准/扩展单槽设置与独立RAM读回、XIDAM设置/读回。SDK问题D10：CAN_addStdMsgIDFilter和CAN_addExtMsgIDFilter原检查允许index==列表长度，现改为严格小于，Release构建也在越界或空指针时直接返回。D11：SDK标准SFID1/SFID2读回掩码只含10位，现按11-bit标准ID改为0x07FF0000/0x000007FF；原写函数不使用这两个掩码，原总线过滤写入不因此被误判为已损坏。公共BUFFER目的地用独立buffer_index，时间戳/debug编码不冒充普通Buffer。新增Native Golden必须包括ID bit10、双字扩展过滤器、最大Buffer63、真实RAM变化与Wire长度；当前处于软件验证，未执行总线过滤HIL。
 
 收发原语接入（2026-09-05 00:25 CST）：新增显式TX装载/原子请求/状态、RX读取/FIFO Ack/Buffer位图接口。标准ID移位仅在Chip Driver/Mapping内部处理，PC不传物理地址。新增问题D09：SDK旧CAN_readMsg按帧DLC读取，即使RX槽较小也会继续读邻槽；现以实际槽容量限制读取，公共RX同时保留原DLC与实际data_length。Native使用独立构造的真实宿主RAM头/数据，验证64-byte FD编码、原子TXBAR、不覆盖Pending、短槽邻接哨兵、Dedicated Buffer63及Service字节序；这是软件RAM模型，不模拟总线、ACK或IRQ。
@@ -472,12 +477,12 @@ RAM配置接入（2026-09-04 23:52 CST）：新增RAM布局SET/GET和上限查�
 
 SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致旧Filter/FIFO配置残留；TX数量校验晚于其他配置写入，且拒绝合法RX-only配置。本轮改为TX数量先校验、全部区域显式更新、允许TX数量为0。Native测试验证关闭后数量清零、非法TX数量无任何寄存器变化；新增`CAN_testGetMsgRAMConfig`在测试驱动隔离区读取真实配置，Wrap不访问寄存器。该软件回归不代表总线HIL通过。
 
-状态更新时间：2026-09-05 00:53 CST。基础命令、RAM布局、总线配置、回环、单次收发和具体ID过滤已贯通PC、Service、Wrap和Driver，共29条命令；中断与正式Case仍在开发。当前批次总门禁1176 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_filter_gate.log`；配置流水线Keil构建0 Error、0 Warning，证据`artifacts/runs/20260905_004908_611574_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。尚未注册CAN正式Case，未执行CAN硬件测试。下表只统计正式Case，不把软件回归数量混入。
+状态更新时间：2026-09-05 01:22 CST。基础命令、RAM布局、总线配置、回环、单次收发和具体ID过滤已贯通PC、Service、Wrap和Driver，共29条命令。此前过滤器批次总门禁1176 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_filter_gate.log`；配置流水线Keil构建0 Error、0 Warning，证据`artifacts/runs/20260905_004908_611574_can_firmware_build_only/stages/build_firmware_silicon/keil_silicon.log`。本批新增两条正式Case及对应SPEC/报告模板，尚未执行CAN硬件测试；此前门禁不替代本批验证。下表只统计正式Case，不把软件回归数量混入。
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | 说明 |
 |---|---:|---:|---:|---:|---:|---|
-| FPGA | 0 | 0 | 0 | 0 | 0 | NOT_EXECUTED；42个设计目标不作为注册Case统计 |
-| Silicon | 0 | 0 | 0 | 0 | 0 | NOT_EXECUTED |
+| FPGA | 2 | 0 | 0 | 0 | 0 | NOT_EXECUTED；42个设计目标不作为注册Case统计 |
+| Silicon | 2 | 0 | 0 | 0 | 0 | NOT_EXECUTED；时钟D04映射尚未闭合 |
 
 ### 6.5 覆盖结论
 
