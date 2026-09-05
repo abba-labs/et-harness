@@ -94,7 +94,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、协议状态消费、计时控制和中断管理，共43条命令，详见0.7。P0_002、P1_001已注册，其余Formal Case仍在开发；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、协议状态消费、计时控制和中断管理，共44条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -159,6 +159,7 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | IRQ_CAPTURE_STOP | 40 | 无 | 无；按源、控制器Line、IRQ Manager路由顺序停止，不清已保存Evidence |
 | IRQ_EVENT_GET | 41 | 无 | raw、masked、latched、count、unexpected、overflow、generation、fault共8项 |
 | IRQ_EVENT_RESET | 42 | 无 | 无；只清Service固定Evidence，不改变CAN或NVIC配置 |
+| HIGH_PRIORITY_STATUS_GET | 43 | 无 | buffer_index、storage、filter_index、extended_filter，共4项；不读取帧、不Ack FIFO或清IRQ |
 
 中断sources使用公共语义位图，覆盖RX FIFO0/1、Dedicated RX、TX完成/取消、TX Event、Timestamp、Timeout、错误状态和协议错误等30类事件。PC只传事件和控制器本地Line，不传芯片物理中断符号。Chip Config将事件映射到本芯片Driver枚举，并将本地Line映射为物理IRQ；CAN Service是唯一的Service→IRQ Manager绑定位置。
 
@@ -247,7 +248,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前5个SPEC、34个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
+当前8个SPEC、31个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
@@ -255,9 +256,9 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | IMPLEMENTED，尚未HIL，见第3节 |
 | CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | PLANNED，见第3节 |
 | CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | 已实现SPEC，未HIL |
@@ -468,10 +469,9 @@ gap: []
 
 ### CAN_P1_002 CAN标准ID过滤与路由
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_002
 case_name: CAN标准ID过滤与路由
 report_feature: |-
@@ -502,19 +502,19 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN标准ID过滤与路由：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"route","label":"RX0/RX1.FILL与RX.FILTER_INDEX","source":"dut","role":"actual","format":"text"}
-  - {"key":"priority","label":"HIGH_PRIORITY.FILTER_INDEX及IRQ.RAW","source":"dut","role":"actual","format":"text"}
+  - {"key":"fifo0_status","label":"RX FIFO0实际状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"fifo1_status","label":"RX FIFO1实际状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"high_priority_status","label":"High Priority实际Filter与存储状态","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN标准ID过滤与路由的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_003 CAN扩展ID过滤与掩码
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_003
 case_name: CAN扩展ID过滤与掩码
 report_feature: |-
@@ -547,19 +547,19 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN扩展ID过滤与掩码：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"route","label":"RX0/RX1.FILL与RX.FILTER_INDEX","source":"dut","role":"actual","format":"text"}
-  - {"key":"priority","label":"HIGH_PRIORITY.FILTER_INDEX及IRQ.RAW","source":"dut","role":"actual","format":"text"}
+  - {"key":"fifo0_status","label":"RX FIFO0实际状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"fifo1_status","label":"RX FIFO1实际状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"high_priority_status","label":"High Priority实际Filter与存储状态","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN扩展ID过滤与掩码的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_004 CAN Remote帧允许与拒绝
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_004
 case_name: CAN Remote帧允许与拒绝
 report_feature: |-
@@ -588,12 +588,13 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN Remote帧允许与拒绝：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"frame","label":"RX.FRAME.RTR/DLC/ID和数据帧正对照","source":"dut","role":"actual","format":"text"}
-  - {"key":"fill","label":"拒绝窗口RX0.FILL","source":"dut","role":"actual","format":"text"}
+  - {"key":"remote_frame","label":"允许阶段Remote实际帧","source":"dut","role":"actual","format":"text"}
+  - {"key":"reject_fifo0_status","label":"拒绝窗口RX FIFO0实际状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"recovery_frame","label":"Remote拒绝后的同ID数据恢复帧","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN Remote帧允许与拒绝的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_005 CAN RX FIFO水位、满与环回
 
@@ -1982,6 +1983,27 @@ cases:
       - {source: measurement, path: format_text, label: 实际帧头, format: text, aggregate: all}
       - {source: measurement, path: payload_text, label: 实际payload, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: all}
+  CAN_P1_002:
+    summary: 核对标准ID Range、Dual、Mask、首匹配、未匹配路由及High Priority状态。
+    fields:
+      - {source: observation, path: fifo0_status, label: RX FIFO0实际状态, format: text, aggregate: all}
+      - {source: observation, path: fifo1_status, label: RX FIFO1实际状态, format: text, aggregate: all}
+      - {source: measurement, path: actual_route, label: 实际接收路由, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 当前Filter节点独立Expected, format: text, aggregate: all}
+  CAN_P1_003:
+    summary: 核对扩展ID Range、Dual、Mask、XIDAM、29-bit比较、首匹配及High Priority状态。
+    fields:
+      - {source: observation, path: fifo0_status, label: RX FIFO0实际状态, format: text, aggregate: all}
+      - {source: observation, path: fifo1_status, label: RX FIFO1实际状态, format: text, aggregate: all}
+      - {source: measurement, path: actual_route, label: 实际接收路由, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 当前Filter与XIDAM独立Expected, format: text, aggregate: all}
+  CAN_P1_004:
+    summary: 核对标准/扩展Remote允许、拒绝及同ID数据帧恢复。
+    fields:
+      - {source: observation, path: remote_frame, label: 允许阶段Remote实际帧, format: text, aggregate: all}
+      - {source: observation, path: reject_fifo0_status, label: 拒绝窗口RX FIFO0状态, format: text, aggregate: all}
+      - {source: observation, path: recovery_frame, label: 同ID数据恢复帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: Remote策略独立Expected, format: text, aggregate: all}
   CAN_P1_005:
     summary: 核对FIFO0/1水位、满状态、硬件IRQ Raw、六帧顺序和Get Index环回。
     fields:
@@ -2010,7 +2032,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=3; IMPLEMENTATION_GAP=34 | ADAPTED=5; IMPLEMENTATION_GAP=34; NEEDS_VERIFICATION=3 | 5 SPEC、34 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=6; IMPLEMENTATION_GAP=31 | ADAPTED=8; IMPLEMENTATION_GAP=31; NEEDS_VERIFICATION=3 | 8 SPEC、31 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

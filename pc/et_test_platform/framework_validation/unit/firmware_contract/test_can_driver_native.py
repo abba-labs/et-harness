@@ -624,6 +624,7 @@ int main(void)
     {
         et_can_filter_t filter = {ET_CAN_FILTER_DUAL, ET_CAN_FILTER_ACTION_FIFO0, 0x401, 0x7FF, 0};
         et_can_filter_t actual;
+        et_can_high_priority_status_t high_priority;
         uint32_t mask;
         uint32_t *std_words = (uint32_t *)test_memory.ram;
         uint32_t *ext_words = (uint32_t *)(test_memory.ram + 8);
@@ -697,6 +698,19 @@ int main(void)
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_FILTER_SET,
                                   request, 28, NULL, 0, &response_length)==ET_STATUS_INVALID_PARAM);
         assert(response_length==0);
+
+        CAN0->HPMS = 17U | (2U << 6) | (5U << 8) | (1U << 15);
+        assert(et_can_wrap_get_high_priority_status(0, &high_priority)==ET_WRAP_STATUS_OK);
+        assert(high_priority.buffer_index==17 && high_priority.storage==ET_CAN_HIGH_PRIORITY_FIFO0);
+        assert(high_priority.filter_index==5 && high_priority.extended_filter==1);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET,
+                                  request, 1, response, 16, &response_length)==ET_STATUS_OK);
+        assert(response_length==16 && response[0]==17 && response[4]==2);
+        assert(response[8]==5 && response[12]==1);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET,
+                                  request, 1, response, 15, &response_length)==ET_STATUS_INVALID_PARAM);
+        assert(response_length==0);
+
         CAN0->SIDFC=(2U<<CAN0_SIDFC_LSS_Pos) | 0x3FFCU;
         assert(et_can_wrap_get_filter(0, 0, 0, &actual)==ET_WRAP_STATUS_INVALID_ARGUMENT);
     }

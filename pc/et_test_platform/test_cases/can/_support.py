@@ -118,6 +118,62 @@ def loopback_ram(support: CanSupport, *, payload_bytes: int = 8) -> CanRamLayout
     )
 
 
+# 纯布局计算：显式标准/扩展Filter列表、一个TX槽和两个四项RX FIFO。
+# 两类Filter数量由Case给出；Support只计算对齐且互不重叠的Message RAM偏移。
+def filter_loopback_ram(
+    support: CanSupport, *, standard_count: int, extended_count: int
+) -> CanRamLayout:
+
+    mapping = support.mapping
+    limits = support.ram_limits
+    fifo_count = 4
+    payload = 8
+    if not 0 <= standard_count <= limits.std_count:
+        raise ConfigurationError("CAN standard filter count exceeds target capacity")
+    if not 0 <= extended_count <= limits.ext_count:
+        raise ConfigurationError("CAN extended filter count exceeds target capacity")
+    if standard_count + extended_count == 0:
+        raise ConfigurationError("CAN filter Case requires at least one filter slot")
+    if limits.tx_count < 1 or limits.rx_fifo_count < fifo_count:
+        raise ConfigurationError("CAN filter Case requires one TX and four entries per RX FIFO")
+
+    stride = mapping.CAN_RAM_HEADER_BYTES + payload
+    ext_offset = standard_count * mapping.CAN_STD_FILTER_BYTES
+    tx_offset = ext_offset + extended_count * mapping.CAN_EXT_FILTER_BYTES
+    rx0_offset = tx_offset + stride
+    rx1_offset = rx0_offset + fifo_count * stride
+    buffer_offset = rx1_offset + fifo_count * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN filter layout exceeds the message RAM aperture")
+
+    return CanRamLayout(
+        std_offset=0,
+        std_count=standard_count,
+        ext_offset=ext_offset,
+        ext_count=extended_count,
+        tx_offset=tx_offset,
+        tx_buffer_count=1,
+        tx_fifo_count=0,
+        tx_queue=False,
+        tx_payload_bytes=payload,
+        event_offset=rx0_offset,
+        event_count=0,
+        event_watermark=0,
+        rx0_offset=rx0_offset,
+        rx0_count=fifo_count,
+        rx0_watermark=0,
+        rx0_overwrite=False,
+        rx1_offset=rx1_offset,
+        rx1_count=fifo_count,
+        rx1_watermark=0,
+        rx1_overwrite=False,
+        rx_buffer_offset=buffer_offset,
+        rx_buffer_payload_bytes=payload,
+        rx0_payload_bytes=payload,
+        rx1_payload_bytes=payload,
+    )
+
+
 # 纯布局计算：一个标准Filter、一个TX槽和当前FIFO四项；另一FIFO关闭。
 # 水位和覆盖模式由Case显式传入，不在Support选择测试Expected。
 def fifo_loopback_ram(

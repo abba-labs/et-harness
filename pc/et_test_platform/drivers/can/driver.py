@@ -12,6 +12,7 @@ from .models import (
     CanBusConfig,
     CanBusLimits,
     CanFilter,
+    CanHighPriorityStatus,
     CanIdentity,
     CanIrqEvent,
     CanIrqSnapshot,
@@ -389,6 +390,13 @@ class CanDriver:
         if mask > contract.EXTENDED_ID_MAX:
             raise ProtocolError(f"CAN extended mask is invalid: {mask:#x}")
         return mask
+
+    # 读取最后一个High Priority Message状态；不读取帧、不Ack FIFO或清除IRQ。
+    # 返回Filter列表、索引和实际存储位置，失败直接上抛。
+    def high_priority_status_get(self, *, timeout_s: float | None = None) -> CanHighPriorityStatus:
+        return codec.decode_high_priority_status(
+            self._request(CanCommand.HIGH_PRIORITY_STATUS_GET, timeout_s=timeout_s)
+        )
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

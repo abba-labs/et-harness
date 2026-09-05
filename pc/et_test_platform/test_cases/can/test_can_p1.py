@@ -3,6 +3,8 @@
 # 边界：不把内部回环当作外部位速率测量，不在Case绑定芯片地址或实例。
 # 依赖：CAN/CRG/Resource公共Driver及只读Support。
 
+from time import sleep
+
 import pytest
 
 from ...drivers.can import (
@@ -11,6 +13,7 @@ from ...drivers.can import (
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
+    CanHighPriorityStorage,
     CanIrqSource,
     CanLoopback,
     CanOptions,
@@ -29,6 +32,7 @@ from ._support import (
     TIMEOUT_S,
     dedicated_loopback_ram,
     fifo_loopback_ram,
+    filter_loopback_ram,
     loopback_ram,
     pattern,
     phase_timing,
@@ -45,6 +49,505 @@ FORMAT_NODES = (
     ("fd_ext", CanFrameFlags.FD | CanFrameFlags.EXTENDED),
     ("fd_brs_std", CanFrameFlags.FD | CanFrameFlags.BRS),
     ("fd_brs_ext", CanFrameFlags.FD | CanFrameFlags.BRS | CanFrameFlags.EXTENDED),
+)
+
+# Filter刺激完成后留给内部回环和硬件Message RAM更新的固定观察窗口。
+FILTER_OBSERVATION_S = 0.1
+
+# 标准Filter节点依次声明：名称、Filter列表、未匹配策略、输入ID、目标FIFO、Filter索引、High Priority。
+STANDARD_FILTER_NODES = (
+    (
+        "range_below",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        CanUnmatchedPolicy.REJECT,
+        0x11F,
+        None,
+        None,
+        False,
+    ),
+    (
+        "range_lower",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        CanUnmatchedPolicy.REJECT,
+        0x120,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_middle",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        CanUnmatchedPolicy.REJECT,
+        0x150,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_upper",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        CanUnmatchedPolicy.REJECT,
+        0x180,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_above",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        CanUnmatchedPolicy.REJECT,
+        0x181,
+        None,
+        None,
+        False,
+    ),
+    (
+        "dual_first",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        CanUnmatchedPolicy.REJECT,
+        0x101,
+        0,
+        0,
+        False,
+    ),
+    (
+        "dual_second",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        CanUnmatchedPolicy.REJECT,
+        0x110,
+        0,
+        0,
+        False,
+    ),
+    (
+        "dual_miss",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        CanUnmatchedPolicy.REJECT,
+        0x111,
+        None,
+        None,
+        False,
+    ),
+    (
+        "mask_first",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        CanUnmatchedPolicy.REJECT,
+        0x400,
+        0,
+        0,
+        False,
+    ),
+    (
+        "mask_last",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        CanUnmatchedPolicy.REJECT,
+        0x4FF,
+        0,
+        0,
+        False,
+    ),
+    (
+        "mask_miss",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        CanUnmatchedPolicy.REJECT,
+        0x500,
+        None,
+        None,
+        False,
+    ),
+    (
+        "matched_fifo1",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x220, 0x220),),
+        CanUnmatchedPolicy.REJECT,
+        0x220,
+        1,
+        0,
+        False,
+    ),
+    (
+        "matched_reject",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.REJECT, 0x221, 0x221),),
+        CanUnmatchedPolicy.RX0,
+        0x221,
+        None,
+        None,
+        False,
+    ),
+    (
+        "unmatched_fifo0",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x100, 0x100),),
+        CanUnmatchedPolicy.RX0,
+        0x200,
+        0,
+        None,
+        False,
+    ),
+    (
+        "unmatched_fifo1",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100, 0x100),),
+        CanUnmatchedPolicy.RX1,
+        0x200,
+        1,
+        None,
+        False,
+    ),
+    (
+        "unmatched_reject",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100, 0x100),),
+        CanUnmatchedPolicy.REJECT,
+        0x200,
+        None,
+        None,
+        False,
+    ),
+    (
+        "overlap_fifo0_first",
+        (
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+        ),
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        0,
+        0,
+        False,
+    ),
+    (
+        "overlap_fifo1_first",
+        (
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123),
+        ),
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        1,
+        0,
+        False,
+    ),
+    (
+        "overlap_first_disabled",
+        (
+            CanFilter(CanFilterType.DISABLED, CanFilterAction.DISABLED, 0, 0),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+        ),
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        1,
+        1,
+        False,
+    ),
+    (
+        "high_priority_fifo0",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.PRIORITY_FIFO0, 0x321, 0x321),),
+        CanUnmatchedPolicy.REJECT,
+        0x321,
+        0,
+        0,
+        True,
+    ),
+)
+
+# 扩展Filter节点依次声明：名称、Filter列表、XIDAM、未匹配策略、输入ID、目标FIFO、Filter索引、High Priority。
+EXTENDED_FILTER_NODES = (
+    (
+        "range_below",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x11F,
+        None,
+        None,
+        False,
+    ),
+    (
+        "range_lower",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x120,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_middle",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x150,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_upper",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x180,
+        0,
+        0,
+        False,
+    ),
+    (
+        "range_above",
+        (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x180),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x181,
+        None,
+        None,
+        False,
+    ),
+    (
+        "dual_first",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x101,
+        0,
+        0,
+        False,
+    ),
+    (
+        "dual_second",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x110,
+        0,
+        0,
+        False,
+    ),
+    (
+        "dual_miss",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x101, 0x110),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x111,
+        None,
+        None,
+        False,
+    ),
+    (
+        "mask_first",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x400,
+        0,
+        0,
+        False,
+    ),
+    (
+        "mask_last",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x4FF,
+        0,
+        0,
+        False,
+    ),
+    (
+        "mask_miss",
+        (CanFilter(CanFilterType.MASK, CanFilterAction.FIFO0, 0x400, 0x700),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x500,
+        None,
+        None,
+        False,
+    ),
+    *(
+        (
+            f"xidam_full_{identifier:03x}",
+            (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x120),),
+            0x1FFFFFFF,
+            CanUnmatchedPolicy.REJECT,
+            identifier,
+            0 if identifier == 0x120 else None,
+            0 if identifier == 0x120 else None,
+            False,
+        )
+        for identifier in (0x120, 0x121, 0x12F, 0x130)
+    ),
+    *(
+        (
+            f"xidam_low_nibble_{identifier:03x}",
+            (CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x120, 0x120),),
+            0x1FFFFFF0,
+            CanUnmatchedPolicy.REJECT,
+            identifier,
+            0 if identifier < 0x130 else None,
+            0 if identifier < 0x130 else None,
+            False,
+        )
+        for identifier in (0x120, 0x121, 0x12F, 0x130)
+    ),
+    *(
+        (
+            f"range_no_mask_{identifier:03x}",
+            (CanFilter(CanFilterType.RANGE_NO_MASK, CanFilterAction.FIFO0, 0x120, 0x120),),
+            0x1FFFFFF0,
+            CanUnmatchedPolicy.REJECT,
+            identifier,
+            0 if identifier == 0x120 else None,
+            0 if identifier == 0x120 else None,
+            False,
+        )
+        for identifier in (0x120, 0x121, 0x12F, 0x130)
+    ),
+    (
+        "high_id_first",
+        (
+            CanFilter(
+                CanFilterType.DUAL,
+                CanFilterAction.FIFO0,
+                0x10000123,
+                0x1FFFFFED,
+            ),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x10000123,
+        0,
+        0,
+        False,
+    ),
+    (
+        "high_id_second",
+        (
+            CanFilter(
+                CanFilterType.DUAL,
+                CanFilterAction.FIFO0,
+                0x10000123,
+                0x1FFFFFED,
+            ),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x1FFFFFED,
+        0,
+        0,
+        False,
+    ),
+    (
+        "high_id_low_alias_miss",
+        (
+            CanFilter(
+                CanFilterType.DUAL,
+                CanFilterAction.FIFO0,
+                0x10000123,
+                0x1FFFFFED,
+            ),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        None,
+        None,
+        False,
+    ),
+    (
+        "matched_fifo1",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x220, 0x220),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x220,
+        1,
+        0,
+        False,
+    ),
+    (
+        "matched_reject",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.REJECT, 0x221, 0x221),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.RX0,
+        0x221,
+        None,
+        None,
+        False,
+    ),
+    (
+        "unmatched_fifo0",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x100, 0x100),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.RX0,
+        0x200,
+        0,
+        None,
+        False,
+    ),
+    (
+        "unmatched_fifo1",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100, 0x100),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.RX1,
+        0x200,
+        1,
+        None,
+        False,
+    ),
+    (
+        "unmatched_reject",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100, 0x100),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x200,
+        None,
+        None,
+        False,
+    ),
+    (
+        "overlap_fifo0_first",
+        (
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        0,
+        0,
+        False,
+    ),
+    (
+        "overlap_fifo1_first",
+        (
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        1,
+        0,
+        False,
+    ),
+    (
+        "overlap_first_disabled",
+        (
+            CanFilter(CanFilterType.RANGE, CanFilterAction.DISABLED, 0, 0),
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO1, 0x123, 0x123),
+        ),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x123,
+        1,
+        1,
+        False,
+    ),
+    (
+        "high_priority_fifo0",
+        (CanFilter(CanFilterType.DUAL, CanFilterAction.PRIORITY_FIFO0, 0x321, 0x321),),
+        0x1FFFFFFF,
+        CanUnmatchedPolicy.REJECT,
+        0x321,
+        0,
+        0,
+        True,
+    ),
 )
 
 
@@ -203,6 +706,695 @@ def test_can_p1_001_frame_formats(
     # 完整性：执行数是过程补充证据，不代替每帧前面的元数据和数据断言。
     record_property("completed_nodes", len(completed_nodes))
     assert len(completed_nodes) == 32
+
+
+# =============================================================================
+# ID过滤与Remote策略
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN标准ID Range、Dual、Mask、首匹配、路由、未匹配策略及High Priority状态。
+#
+# 测试方法：
+# 1. 每个参数节点复位CAN和资源池，配置两个深度4的RX FIFO及内部回环。
+# 2. 下发明确Filter列表和未匹配策略，发送一个带唯一序号的Classic标准帧。
+# 3. 读取两个FIFO、实际RX帧；High Priority节点另读取状态和IRQ Raw。
+#
+# 通过条件：
+# 1. 只在预期FIFO收到一帧，拒绝节点两个FIFO均为空，ID、数据及Filter索引正确。
+# 2. 重叠规则只命中首个启用项；High Priority状态和IRQ指向同一Filter。
+@pytest.mark.parametrize(
+    "node_name,filters,unmatched_policy,identifier,expected_fifo,expected_filter,high_priority",
+    STANDARD_FILTER_NODES,
+    ids=[node[0] for node in STANDARD_FILTER_NODES],
+)
+def test_can_p1_002_standard_id_filter_and_routing(
+    can_support,
+    resource_driver,
+    record_property,
+    node_name,
+    filters,
+    unmatched_policy,
+    identifier,
+    expected_fifo,
+    expected_filter,
+    high_priority,
+) -> None:
+
+    # 准备：每个节点的Filter、输入和Expected均来自上方独立常量表。
+    support = can_support
+    can = support.can
+    payload_bytes = 8
+    sequence = identifier & 0xFF
+    payload = bytes((sequence,)) + pattern(payload_bytes - 1)
+    layout = filter_loopback_ram(
+        support,
+        standard_count=len(filters),
+        extended_count=0,
+    )
+    timing = CanTiming(
+        phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+        phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+    )
+    expected = {
+        "node": node_name,
+        "identifier": identifier,
+        "fifo": expected_fifo,
+        "filter_index": expected_filter,
+        "nonmatching": expected_filter is None and expected_fifo is not None,
+        "high_priority": high_priority,
+    }
+    actual_frame = None
+    high_priority_status = None
+    high_priority_irq = None
+
+    # Expected：在任何设备操作前登记，不能从FIFO状态或RX帧反推。
+    record_property("expected", expected)
+
+    # 清理：任何节点失败都整体复位当前CAN和资源池，不逐项恢复Filter RAM。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 基线：清除上一个参数节点留下的FIFO、IRQ和Message RAM状态。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 配置：显式建立时序、Filter RAM、内部回环和标准未匹配策略。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+
+        # Filter索引顺序就是硬件首匹配顺序，禁止排序或合并相同ID项。
+        for filter_index, filter_config in enumerate(filters):
+            can.filter_set(
+                filter_index,
+                filter_config,
+                extended=False,
+            )
+
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=unmatched_policy,
+            )
+        )
+
+        # High Priority只解除对应Raw事件屏蔽；本Case不启用NVIC回调路径。
+        if high_priority:
+            can.irq_mask_set(CanIrqSource.HIGH_PRIORITY, False)
+            can.irq_clear(CanIrqSource.HIGH_PRIORITY)
+
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 激励：一个帧只允许形成一个接收副本，TX完成后进入固定观察窗口。
+        can.tx_write(
+            0,
+            CanTxFrame(identifier, CanFrameFlags.NONE, payload_bytes, sequence, payload),
+        )
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        sleep(FILTER_OBSERVATION_S)
+
+        # 观测：两个FIFO状态都读取，防止同一帧被错误复制到非目标FIFO。
+        fifo0 = can.rx_fifo_status_get(0)
+        fifo1 = can.rx_fifo_status_get(1)
+        record_observation(
+            record_property,
+            key="fifo0_status",
+            value={"fill": fifo0.fill, "full": fifo0.full, "lost": fifo0.lost},
+            source="dut",
+            endpoint="RX_FIFO[0].STATUS",
+        )
+        record_observation(
+            record_property,
+            key="fifo1_status",
+            value={"fill": fifo1.fill, "full": fifo1.full, "lost": fifo1.lost},
+            source="dut",
+            endpoint="RX_FIFO[1].STATUS",
+        )
+
+        # 接收节点按硬件实际有数据的FIFO读取，不能按Expected选择后隐藏错误路由。
+        actual_fifo = None
+        if bool(fifo0.fill) != bool(fifo1.fill):
+            actual_fifo = 0 if fifo0.fill else 1
+            source = CanRxSource.FIFO0 if actual_fifo == 0 else CanRxSource.FIFO1
+            actual_frame = can.rx_read(source)
+            can.rx_fifo_ack(actual_fifo, actual_frame.index)
+            record_observation(
+                record_property,
+                key="rx_frame",
+                value={
+                    "identifier": actual_frame.identifier,
+                    "filter_index": actual_frame.filter_index,
+                    "nonmatching": actual_frame.nonmatching,
+                    "data": actual_frame.data.hex(" ").upper(),
+                },
+                source="dut",
+                endpoint=f"RX_FIFO[{actual_fifo}].FRAME",
+            )
+
+        # High Priority节点独立读取状态和IRQ Raw，不用普通RX帧字段替代。
+        if high_priority:
+            high_priority_status = can.high_priority_status_get()
+            high_priority_irq = can.irq_snapshot_get().raw_status
+            record_observation(
+                record_property,
+                key="high_priority_status",
+                value={
+                    "storage": int(high_priority_status.storage),
+                    "filter_index": high_priority_status.filter_index,
+                    "extended_filter": high_priority_status.filter_extended,
+                },
+                source="dut",
+                endpoint="HIGH_PRIORITY.STATUS",
+            )
+            record_observation(
+                record_property,
+                key="high_priority_irq",
+                value=int(high_priority_irq & CanIrqSource.HIGH_PRIORITY),
+                source="dut",
+                endpoint="IRQ.RAW",
+            )
+
+        # 判定：Expected路由、实际帧和High Priority三组事实分别强断言。
+        if fifo0.fill and fifo1.fill:
+            actual_route = "fifo0+fifo1"
+        elif actual_fifo is None:
+            actual_route = "rejected"
+        else:
+            actual_route = f"fifo{actual_fifo}"
+        record_property("node", node_name)
+        record_property("actual_route", actual_route)
+        if expected_fifo is None:
+            assert fifo0.fill == 0 and fifo1.fill == 0
+        else:
+            assert fifo0.fill == (1 if expected_fifo == 0 else 0)
+            assert fifo1.fill == (1 if expected_fifo == 1 else 0)
+            assert actual_fifo == expected_fifo and actual_frame is not None
+            assert actual_frame.identifier == identifier and actual_frame.data == payload
+            assert actual_frame.nonmatching == expected["nonmatching"]
+            if expected_filter is not None:
+                assert actual_frame.filter_index == expected_filter
+
+        if high_priority:
+            assert high_priority_status.storage == CanHighPriorityStorage.FIFO0
+            assert high_priority_status.filter_index == expected_filter
+            assert not high_priority_status.filter_extended
+            assert high_priority_irq & CanIrqSource.HIGH_PRIORITY
+
+
+# 测试 Feature：
+# CAN扩展ID Range、Dual、Mask、XIDAM、29-bit比较、首匹配、路由及High Priority状态。
+#
+# 测试方法：
+# 1. 每个参数节点复位CAN和资源池，配置扩展Filter、XIDAM及两个RX FIFO。
+# 2. 用内部回环发送一个带唯一序号的Classic扩展帧，等待TX完成后观察两个FIFO。
+# 3. 按硬件实际路由读取帧；High Priority节点另读取状态和IRQ Raw。
+#
+# 通过条件：
+# 1. Range/Dual/Mask、XIDAM及RANGE_NO_MASK结果与独立Expected一致，29-bit高位不混淆。
+# 2. 只在预期FIFO收到一帧；首匹配索引、High Priority列表/索引及IRQ均正确。
+@pytest.mark.parametrize(
+    "node_name,filters,extended_mask,unmatched_policy,identifier,expected_fifo,expected_filter,high_priority",
+    EXTENDED_FILTER_NODES,
+    ids=[node[0] for node in EXTENDED_FILTER_NODES],
+)
+def test_can_p1_003_extended_id_filter_and_mask(
+    can_support,
+    resource_driver,
+    record_property,
+    node_name,
+    filters,
+    extended_mask,
+    unmatched_policy,
+    identifier,
+    expected_fifo,
+    expected_filter,
+    high_priority,
+) -> None:
+
+    # 准备：每个节点显式给出Filter、XIDAM、输入ID和独立Expected。
+    support = can_support
+    can = support.can
+    payload_bytes = 8
+    sequence = identifier & 0xFF
+    payload = bytes((sequence,)) + pattern(payload_bytes - 1)
+    layout = filter_loopback_ram(
+        support,
+        standard_count=0,
+        extended_count=len(filters),
+    )
+    timing = CanTiming(
+        phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+        phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+    )
+    expected = {
+        "node": node_name,
+        "identifier": identifier,
+        "extended_mask": extended_mask,
+        "fifo": expected_fifo,
+        "filter_index": expected_filter,
+        "nonmatching": expected_filter is None and expected_fifo is not None,
+        "high_priority": high_priority,
+    }
+    actual_frame = None
+    high_priority_status = None
+    high_priority_irq = None
+
+    # Expected：在任何设备操作前登记，不能根据RX结果修正Mask判据。
+    record_property("expected", expected)
+
+    # 清理：任何节点失败都整体复位当前CAN和资源池，不逐项恢复Message RAM。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 基线：清除上一个参数节点留下的Filter、XIDAM、FIFO和IRQ状态。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 配置：进入INIT后建立时序、扩展Filter RAM和当前XIDAM。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+
+        # Filter索引顺序就是硬件首匹配顺序，RANGE_NO_MASK节点仍写入同一扩展列表。
+        for filter_index, filter_config in enumerate(filters):
+            can.filter_set(
+                filter_index,
+                filter_config,
+                extended=True,
+            )
+
+        can.extended_mask_set(extended_mask)
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=unmatched_policy,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+
+        # High Priority只解除对应Raw事件屏蔽；本Case不启用NVIC回调路径。
+        if high_priority:
+            can.irq_mask_set(CanIrqSource.HIGH_PRIORITY, False)
+            can.irq_clear(CanIrqSource.HIGH_PRIORITY)
+
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 激励：发送完整29-bit ID，TX完成后进入固定观察窗口。
+        can.tx_write(
+            0,
+            CanTxFrame(
+                identifier,
+                CanFrameFlags.EXTENDED,
+                payload_bytes,
+                sequence,
+                payload,
+            ),
+        )
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        sleep(FILTER_OBSERVATION_S)
+
+        # 观测：两个FIFO状态都读取，防止错误路由或同一帧产生两个副本。
+        fifo0 = can.rx_fifo_status_get(0)
+        fifo1 = can.rx_fifo_status_get(1)
+        record_observation(
+            record_property,
+            key="fifo0_status",
+            value={"fill": fifo0.fill, "full": fifo0.full, "lost": fifo0.lost},
+            source="dut",
+            endpoint="RX_FIFO[0].STATUS",
+        )
+        record_observation(
+            record_property,
+            key="fifo1_status",
+            value={"fill": fifo1.fill, "full": fifo1.full, "lost": fifo1.lost},
+            source="dut",
+            endpoint="RX_FIFO[1].STATUS",
+        )
+
+        # 按硬件实际有数据的FIFO读取，不能按Expected选择后隐藏错误路由。
+        actual_fifo = None
+        if bool(fifo0.fill) != bool(fifo1.fill):
+            actual_fifo = 0 if fifo0.fill else 1
+            source = CanRxSource.FIFO0 if actual_fifo == 0 else CanRxSource.FIFO1
+            actual_frame = can.rx_read(source)
+            can.rx_fifo_ack(actual_fifo, actual_frame.index)
+            record_observation(
+                record_property,
+                key="rx_frame",
+                value={
+                    "identifier": actual_frame.identifier,
+                    "filter_index": actual_frame.filter_index,
+                    "nonmatching": actual_frame.nonmatching,
+                    "data": actual_frame.data.hex(" ").upper(),
+                },
+                source="dut",
+                endpoint=f"RX_FIFO[{actual_fifo}].FRAME",
+            )
+
+        # High Priority节点读取扩展Filter列表标志、索引、存储位置及IRQ Raw。
+        if high_priority:
+            high_priority_status = can.high_priority_status_get()
+            high_priority_irq = can.irq_snapshot_get().raw_status
+            record_observation(
+                record_property,
+                key="high_priority_status",
+                value={
+                    "storage": int(high_priority_status.storage),
+                    "filter_index": high_priority_status.filter_index,
+                    "extended_filter": high_priority_status.filter_extended,
+                },
+                source="dut",
+                endpoint="HIGH_PRIORITY.STATUS",
+            )
+            record_observation(
+                record_property,
+                key="high_priority_irq",
+                value=int(high_priority_irq & CanIrqSource.HIGH_PRIORITY),
+                source="dut",
+                endpoint="IRQ.RAW",
+            )
+
+        # 判定：路由、原始29-bit ID、Filter索引和High Priority分别强断言。
+        if fifo0.fill and fifo1.fill:
+            actual_route = "fifo0+fifo1"
+        elif actual_fifo is None:
+            actual_route = "rejected"
+        else:
+            actual_route = f"fifo{actual_fifo}"
+        record_property("node", node_name)
+        record_property("actual_route", actual_route)
+        if expected_fifo is None:
+            assert fifo0.fill == 0 and fifo1.fill == 0
+        else:
+            assert fifo0.fill == (1 if expected_fifo == 0 else 0)
+            assert fifo1.fill == (1 if expected_fifo == 1 else 0)
+            assert actual_fifo == expected_fifo and actual_frame is not None
+            assert actual_frame.identifier == identifier and actual_frame.data == payload
+            assert actual_frame.flags == CanFrameFlags.EXTENDED
+            assert actual_frame.nonmatching == expected["nonmatching"]
+            if expected_filter is not None:
+                assert actual_frame.filter_index == expected_filter
+
+        if high_priority:
+            assert high_priority_status.storage == CanHighPriorityStorage.FIFO0
+            assert high_priority_status.filter_index == expected_filter
+            assert high_priority_status.filter_extended
+            assert high_priority_irq & CanIrqSource.HIGH_PRIORITY
+
+
+# 测试 Feature：
+# Classic标准/扩展Remote帧的允许、拒绝及同ID数据帧恢复。
+#
+# 测试方法：
+# 1. 分别用标准/扩展ID和DLC0/8构造Remote帧，先允许Remote并核对接收元数据。
+# 2. 重新复位后拒绝同类型Remote，等待TX完成及固定观察窗口并读取FIFO状态。
+# 3. 保持拒绝Remote策略，发送同ID 8-byte数据帧作为过滤和数据路径正对照。
+#
+# 通过条件：
+# 1. 允许阶段收到RTR=1、原始DLC正确且payload为空的Remote帧。
+# 2. 拒绝阶段FIFO无新增，而随后同ID数据帧完整接收，证明只拒绝Remote。
+@pytest.mark.parametrize("extended", (False, True), ids=("standard", "extended"))
+@pytest.mark.parametrize("dlc", (0, 8), ids=("dlc0", "dlc8"))
+def test_can_p1_004_remote_frame_policy(
+    can_support,
+    resource_driver,
+    record_property,
+    extended,
+    dlc,
+) -> None:
+
+    # 准备：Remote没有payload；恢复对照使用同ID且固定8-byte数据。
+    support = can_support
+    can = support.can
+    identifier = 0x123
+    frame_flags = CanFrameFlags.REMOTE
+    if extended:
+        frame_flags |= CanFrameFlags.EXTENDED
+    recovery_flags = CanFrameFlags.EXTENDED if extended else CanFrameFlags.NONE
+    recovery_payload = pattern(8)
+    filter_config = CanFilter(
+        CanFilterType.DUAL,
+        CanFilterAction.FIFO0,
+        identifier,
+        identifier,
+    )
+    layout = filter_loopback_ram(
+        support,
+        standard_count=0 if extended else 1,
+        extended_count=1 if extended else 0,
+    )
+    timing = CanTiming(
+        phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+        phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+    )
+    expected = {
+        "extended": extended,
+        "identifier": identifier,
+        "remote_dlc": dlc,
+        "remote_payload_length": 0,
+        "recovery_payload": recovery_payload.hex(" ").upper(),
+    }
+
+    # Expected：在任何设备操作前登记，不从Remote接收结果生成。
+    record_property("expected", expected)
+
+    # 清理：任何阶段失败都整体复位当前CAN和资源池。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 允许阶段基线：清除历史FIFO和Remote策略，重新建立完整配置。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+        can.filter_set(0, filter_config, extended=extended)
+        if extended:
+            can.extended_mask_set(0x1FFFFFFF)
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=False,
+                reject_remote_std=False,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 允许刺激：Remote保留原始DLC，但Wire和Message RAM均不装载payload。
+        can.tx_write(0, CanTxFrame(identifier, frame_flags, dlc, 1, b""))
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+        remote_frame = can.rx_read(CanRxSource.FIFO0)
+        can.rx_fifo_ack(0, remote_frame.index)
+        record_observation(
+            record_property,
+            key="remote_frame",
+            value={
+                "identifier": remote_frame.identifier,
+                "flags": int(remote_frame.flags),
+                "dlc": remote_frame.dlc,
+                "payload_length": len(remote_frame.data),
+            },
+            source="dut",
+            endpoint="RX_FIFO[0].REMOTE_FRAME",
+        )
+
+        # 允许判定：先保存真实帧，再核对RTR、ID、DLC和零payload。
+        assert remote_frame.identifier == identifier
+        assert remote_frame.flags == frame_flags
+        assert remote_frame.dlc == dlc and remote_frame.data == b""
+
+        # 拒绝阶段基线：硬件和资源重新复位，避免沿用允许阶段的FIFO状态。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+        can.filter_set(0, filter_config, extended=extended)
+        if extended:
+            can.extended_mask_set(0x1FFFFFFF)
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=extended,
+                reject_remote_std=not extended,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 拒绝刺激：先确认Remote TX完成，再观察100 ms内RX0没有新增。
+        can.tx_write(0, CanTxFrame(identifier, frame_flags, dlc, 2, b""))
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        sleep(FILTER_OBSERVATION_S)
+        rejected_status = can.rx_fifo_status_get(0)
+        record_observation(
+            record_property,
+            key="reject_fifo0_status",
+            value={
+                "fill": rejected_status.fill,
+                "full": rejected_status.full,
+                "lost": rejected_status.lost,
+            },
+            source="dut",
+            endpoint="RX_FIFO[0].STATUS_AFTER_REMOTE_REJECT",
+        )
+
+        # 正对照：保持Remote拒绝配置，发送同ID数据帧并读取真实payload。
+        can.tx_write(
+            0,
+            CanTxFrame(identifier, recovery_flags, 8, 3, recovery_payload),
+        )
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+        recovery_frame = can.rx_read(CanRxSource.FIFO0)
+        can.rx_fifo_ack(0, recovery_frame.index)
+        record_observation(
+            record_property,
+            key="recovery_frame",
+            value={
+                "identifier": recovery_frame.identifier,
+                "flags": int(recovery_frame.flags),
+                "dlc": recovery_frame.dlc,
+                "data": recovery_frame.data.hex(" ").upper(),
+            },
+            source="dut",
+            endpoint="RX_FIFO[0].DATA_FRAME_AFTER_REMOTE_REJECT",
+        )
+
+        # 最终判定：拒绝只作用于Remote，不得把整个Filter或RX路径关闭。
+        assert rejected_status.fill == 0 and not rejected_status.lost
+        assert recovery_frame.identifier == identifier
+        assert recovery_frame.flags == recovery_flags and recovery_frame.dlc == 8
+        assert recovery_frame.data == recovery_payload
+
+        # 报告摘要：全部参数分支都生成相同字段，便于Excel稳定展示。
+        record_property("remote_summary", expected)
+        record_property(
+            "reject_and_recovery",
+            {
+                "rejected_fill": rejected_status.fill,
+                "recovery_data": recovery_frame.data.hex(" ").upper(),
+            },
+        )
 
 
 # =============================================================================

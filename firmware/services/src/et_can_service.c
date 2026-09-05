@@ -1037,9 +1037,29 @@ static et_wrap_status_t execute_filter_command(et_can_id_t id, uint16_t command,
                                                const uint8_t *body, uint8_t *response)
 {
     et_can_filter_t filter;
+    et_can_high_priority_status_t high_priority;
     et_wrap_status_t status;
     uint32_t mask;
     const uint8_t *config;
+
+    if (command == ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET)
+    {
+        status = et_can_wrap_get_high_priority_status(id, &high_priority);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(&response[ET_CAN_HIGH_PRIORITY_BUFFER_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                       high_priority.buffer_index);
+            write_word(&response[ET_CAN_HIGH_PRIORITY_STORAGE * ET_CAN_WIRE_WORD_BYTES],
+                       high_priority.storage);
+            write_word(&response[ET_CAN_HIGH_PRIORITY_FILTER_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                       high_priority.filter_index);
+            write_word(&response[ET_CAN_HIGH_PRIORITY_EXTENDED_FILTER * ET_CAN_WIRE_WORD_BYTES],
+                       high_priority.extended_filter);
+        }
+
+        return status;
+    }
 
     if (command == ET_CAN_COMMAND_EXTENDED_MASK_SET)
     {
@@ -1233,7 +1253,8 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
         return execute_status_command(id, command, body, response);
     }
 
-    if ((command >= ET_CAN_COMMAND_FILTER_SET) && (command <= ET_CAN_COMMAND_EXTENDED_MASK_GET))
+    if (((command >= ET_CAN_COMMAND_FILTER_SET) && (command <= ET_CAN_COMMAND_EXTENDED_MASK_GET)) ||
+        (command == ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET))
     {
         return execute_filter_command(id, command, body, response);
     }
@@ -1447,7 +1468,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TIMEOUT_COUNTER_GET] = 1u,
         [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u,
         [ET_CAN_COMMAND_IRQ_SNAPSHOT_GET] = ET_CAN_IRQ_SNAPSHOT_WORDS,
-        [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS};
+        [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
+        [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

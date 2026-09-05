@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 07:35 CST
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及43条基础/收发/过滤/状态/中断命令；已注册5条Formal Case，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；5项SPEC、34项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及44条基础/收发/过滤/High Priority状态/中断命令；已注册8条Formal Case，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；8项SPEC、31项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -321,9 +321,9 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_004 | SUPPORTED | Message RAM元素ID/XTD/RTR/DLC；SDK data为uint16_t[64]，每项低8-bit有效 | IMPLEMENTATION_GAP | CAN_P0_002、CAN_P0_003、CAN_P1_001 |
 | CAN_F_005 | SUPPORTED | CCCR.FDOE[8]/BRSE[9]、DBTP；FD长度最大64-byte，BRS须读实际接收元数据 | IMPLEMENTATION_GAP | CAN_P1_001、CAN_P3_001 |
 | CAN_F_006 | SUPPORTED | NBTP/DBTP；CRG.PLLCLK_CFG3[26:20]，FPGA实际时钟不能仅信SDK硬编码40MHz | IMPLEMENTATION_GAP | CAN_P1_012、CAN_P2_012 |
-| CAN_F_007 | SUPPORTED | GFC/SIDFC、标准Filter元素；HPM/HPMS；Filter列表项数与区域预算分别验证 | IMPLEMENTATION_GAP | CAN_P1_002 |
-| CAN_F_008 | SUPPORTED | XIDFC/XIDAM/扩展Filter；P1_003已补XIDAM全1/屏蔽低4位、EFT=3绕过及29-bit高位对照 | IMPLEMENTATION_GAP | CAN_P1_003 |
-| CAN_F_009 | SUPPORTED | GFC.RRFS[1]/RRFE[0]；Classic RTR与FD必须分开 | IMPLEMENTATION_GAP | CAN_P1_004 |
+| CAN_F_007 | SUPPORTED | GFC/SIDFC、标准Filter元素；HPM/HPMS；Filter列表项数与区域预算分别验证 | ADAPTED | CAN_P1_002 |
+| CAN_F_008 | SUPPORTED | XIDFC/XIDAM/扩展Filter；P1_003已补XIDAM全1/屏蔽低4位、EFT=3绕过及29-bit高位对照 | ADAPTED | CAN_P1_003 |
+| CAN_F_009 | SUPPORTED | GFC.RRFS[1]/RRFE[0]；Classic RTR与FD必须分开 | ADAPTED | CAN_P1_004 |
 | CAN_F_010 | SUPPORTED | RXF0C/RXF1C、RXF0S/RXF1S、RXF0A/RXF1A；深度字段7-bit，不代表128项 | ADAPTED | CAN_P1_005 |
 | CAN_F_011 | SUPPORTED | RXFnC.FnOM[31]，RXFnS.RFnL[25]/FnF[24]；Blocking要求Lost，Overwrite以保留序列为主要判据 | ADAPTED | CAN_P1_006 |
 | CAN_F_012 | SUPPORTED | RXBC、NDAT1/NDAT2、专用Buffer索引；64项上限受RAM布局约束 | ADAPTED | CAN_P1_007 |
@@ -395,9 +395,9 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P0_002 | ADAPTED | 已按SPEC实现：500 kbit/s、两帧8-byte内部回环；未HIL，不冒充PASS |
 | CAN_P0_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R2，按公共PLAN实施 |
 | CAN_P1_001 | ADAPTED | 已实现6种格式×2个ID边界；每组DLC0～15及双Pattern，尚未HIL |
-| CAN_P1_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
-| CAN_P1_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
-| CAN_P1_004 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
+| CAN_P1_002 | ADAPTED | 已按SPEC实现标准Range/Dual/Mask、首匹配、路由、未匹配和High Priority状态；未HIL |
+| CAN_P1_003 | ADAPTED | 已按SPEC实现扩展Range/Dual/Mask、XIDAM、29-bit高位、首匹配和High Priority状态；未HIL |
+| CAN_P1_004 | ADAPTED | 已按SPEC实现标准/扩展Remote允许、拒绝及同ID数据恢复；未HIL |
 | CAN_P1_005 | ADAPTED | 已实现FIFO0/1深度4、水位2、Full/New/Watermark Raw及六帧索引环回；未HIL |
 | CAN_P1_006 | ADAPTED | 已实现FIFO0/1 Blocking/Overwrite满后序列和恢复；Overwrite Lost不作无依据断言；未HIL |
 | CAN_P1_007 | ADAPTED | 已实现Buffer 0/31/32/63边界数据、NDAT分组清除和再次置位；未HIL |
@@ -483,12 +483,12 @@ RAM配置接入（2026-09-04 23:52 CST）：新增RAM布局SET/GET和上限查�
 
 SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致旧Filter/FIFO配置残留；TX数量校验晚于其他配置写入，且拒绝合法RX-only配置。本轮改为TX数量先校验、全部区域显式更新、允许TX数量为0。Native测试验证关闭后数量清零、非法TX数量无任何寄存器变化；新增`CAN_testGetMsgRAMConfig`在测试驱动隔离区读取真实配置，Wrap不访问寄存器。该软件回归不代表总线HIL通过。
 
-状态更新时间：2026-09-05 07:51 CST。CAN已贯通PC、Service、Wrap和Driver的43条命令。本批新增FIFO水位/满/环回、Blocking/Overwrite和Dedicated RX边界三条正式Case；23项CAN流程专项回归通过，总软件门禁1205 PASS、17 SKIP，证据`artifacts/runs/20260905_can_development/stages/can_fifo_case_gate.log`。这些结果只证明代码、合同、报告模板和软件流程通过，尚未执行CAN硬件测试。下表只统计稳定Formal Case，不把参数执行节点或软件回归数量混入。
+状态更新时间：2026-09-05 08:55 CST。CAN已贯通PC、Service、Wrap和Driver的44条命令。本批新增FIFO水位/满/环回、Blocking/Overwrite、Dedicated RX边界、标准/扩展ID过滤及Remote策略共六条正式Case；标准/扩展Filter与Remote软件语义专项已覆盖全部参数节点。总软件门禁1268 PASS、17 SKIP、0 FAIL，CAN正式收集8个Case、79个参数节点，证据`artifacts/runs/20260905_can_development/stages/can_filter_formal_case_gate.log`。这些结果只证明代码、合同、报告模板和软件流程，尚未执行CAN硬件测试。下表只统计稳定Formal Case，不把参数执行节点或软件回归数量混入。
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions | 说明 |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| FPGA | 5 | 0 | 0 | 0 | 0 | 5 | 0 | 20个参数节点仅完成软件收集，未形成HIL结果 |
-| Silicon | 5 | 0 | 0 | 0 | 0 | 5 | 0 | 尚未执行；时钟D04映射仍需闭合 |
+| FPGA | 8 | 0 | 0 | 0 | 0 | 8 | 0 | 79个参数节点仅完成软件收集，未形成HIL结果 |
+| Silicon | 8 | 0 | 0 | 0 | 0 | 8 | 0 | 尚未执行；时钟D04映射仍需闭合 |
 
 ### 6.5 覆盖结论
 

@@ -320,6 +320,27 @@ et_wrap_status_t et_can_wrap_get_filter(et_can_id_t id, uint32_t extended, uint3
 et_wrap_status_t et_can_wrap_set_extended_mask(et_can_id_t id, uint32_t mask);
 et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask);
 
+/** Stable High Priority storage result decoded by the CAN Driver. */
+typedef enum
+{
+    ET_CAN_HIGH_PRIORITY_NO_FIFO = 0u,
+    ET_CAN_HIGH_PRIORITY_FIFO_MESSAGE_LOST = 1u,
+    ET_CAN_HIGH_PRIORITY_FIFO0 = 2u,
+    ET_CAN_HIGH_PRIORITY_FIFO1 = 3u
+} et_can_high_priority_storage_t;
+
+/** One non-destructive High Priority Message status observation. */
+typedef struct
+{
+    uint32_t buffer_index;
+    et_can_high_priority_storage_t storage;
+    uint32_t filter_index;
+    uint32_t extended_filter;
+} et_can_high_priority_status_t;
+
+et_wrap_status_t et_can_wrap_get_high_priority_status(et_can_id_t id,
+                                                      et_can_high_priority_status_t *status);
+
 /** Protocol status consumed once, then counters consumed once. Not a simultaneous snapshot.
  * Reading acknowledges hardware read-clear fields; callers must preserve returned evidence.
  * Error codes and activity use public enums mapped internally to the Chip Driver.

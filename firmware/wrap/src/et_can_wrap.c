@@ -1681,6 +1681,45 @@ et_wrap_status_t et_can_wrap_get_extended_mask(et_can_id_t id, uint32_t *mask)
     return ET_WRAP_STATUS_OK;
 }
 
+/**
+ * @brief Read the CAN Driver High Priority Message status once.
+ * @param[in] id Logical CAN controller.
+ * @param[out] status Public storage, filter-list and index facts.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED or IO_ERROR.
+ * @note Does not read Message RAM, acknowledge FIFO data or clear High Priority IRQ.
+ */
+et_wrap_status_t et_can_wrap_get_high_priority_status(et_can_id_t id,
+                                                      et_can_high_priority_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_HighPriorityMsgInfo actual;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_getHighPriorityMsgStatus(instance, &actual);
+
+    /* Reject reserved Driver values instead of exporting corrupt status as a valid event. */
+    if ((actual.msi > ET_CAN_HIGH_PRIORITY_FIFO1) || (actual.filterList > 1u))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    status->buffer_index = actual.bufIdx;
+    status->storage = actual.msi;
+    status->filter_index = actual.filterIdx;
+    status->extended_filter = actual.filterList;
+
+    return ET_WRAP_STATUS_OK;
+}
+
 static const uint32_t protocol_errors[] = ET_CHIP_CAN_ERROR_MAP_TABLE;
 static const uint32_t protocol_activities[] = ET_CHIP_CAN_ACTIVITY_MAP_TABLE;
 

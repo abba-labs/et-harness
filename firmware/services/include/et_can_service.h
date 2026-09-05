@@ -215,6 +215,7 @@ typedef enum
     ET_CAN_COMMAND_IRQ_CAPTURE_STOP = 40u,
     ET_CAN_COMMAND_IRQ_EVENT_GET = 41u,
     ET_CAN_COMMAND_IRQ_EVENT_RESET = 42u,
+    ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET = 43u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
@@ -275,6 +276,8 @@ typedef enum
 #define ET_CAN_FILTER_SELECT_WORDS 2u
 #define ET_CAN_FILTER_CONFIG_WORDS 5u
 #define ET_CAN_FILTER_SET_WORDS (ET_CAN_FILTER_SELECT_WORDS + ET_CAN_FILTER_CONFIG_WORDS)
+/** High Priority Message status returns four public semantic words. */
+#define ET_CAN_HIGH_PRIORITY_STATUS_WORDS 4u
 /** Word positions within the configuration, following the separate selector. */
 typedef enum
 {
@@ -284,6 +287,15 @@ typedef enum
     ET_CAN_FILTER_FIELD_ID2 = 3u,
     ET_CAN_FILTER_FIELD_BUFFER = 4u
 } et_can_filter_field_t;
+
+/** High Priority Message status response order; not the HPMS register layout. */
+typedef enum
+{
+    ET_CAN_HIGH_PRIORITY_BUFFER_INDEX = 0u,
+    ET_CAN_HIGH_PRIORITY_STORAGE = 1u,
+    ET_CAN_HIGH_PRIORITY_FILTER_INDEX = 2u,
+    ET_CAN_HIGH_PRIORITY_EXTENDED_FILTER = 3u
+} et_can_high_priority_word_t;
 
 /** No cached configuration or test state; all reads return current hardware facts. */
 typedef struct

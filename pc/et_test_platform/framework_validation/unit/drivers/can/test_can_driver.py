@@ -18,6 +18,7 @@ from et_test_platform.drivers.can import (
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
+    CanHighPriorityStorage,
     CanIrqSource,
     CanLoopback,
     CanOptions,
@@ -395,6 +396,25 @@ def test_buffer_filter_and_extended_mask_contract() -> None:
     with pytest.raises(ValueError):
         driver.extended_mask_set(0x20000000)
     assert len(target.requests) == 3
+
+
+# High Priority状态必须保留Filter列表、索引和存储结果，且查询可安全重试。
+def test_high_priority_status_contract() -> None:
+    target = TargetStub([pack("<4I", 17, 2, 5, 1)])
+    actual = CanDriver(target, 0).high_priority_status_get(timeout_s=0.25)
+    assert actual.buffer_index == 17
+    assert actual.storage == CanHighPriorityStorage.FIFO0
+    assert actual.filter_index == 5 and actual.filter_extended
+    assert target.requests[0]["command"] == 43
+    assert target.requests[0]["body"] == b"\0"
+    assert target.requests[0]["retry_safe"] and target.requests[0]["timeout_s"] == 0.25
+
+
+# 保留值、未知存储类型和非法Filter列表必须失败关闭。
+@pytest.mark.parametrize("words", ((0, 4, 0, 0), (0, 0, 0, 2)))
+def test_high_priority_status_rejects_invalid_response(words) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<4I", *words)]), 0).high_priority_status_get()
 
 
 # 未知过滤动作或掩码非法高位不能返回成功，避免报告把损坏数据当有效配置。

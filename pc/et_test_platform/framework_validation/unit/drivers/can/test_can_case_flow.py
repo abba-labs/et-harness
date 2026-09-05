@@ -11,7 +11,10 @@ from et_test_platform.core.errors import ConfigurationError
 from et_test_platform.drivers.can import (
     CanDriver,
     CanFilterAction,
+    CanFilterType,
     CanFrameFlags,
+    CanHighPriorityStatus,
+    CanHighPriorityStorage,
     CanIrqSource,
     CanPhaseTiming,
     CanRamLimits,
@@ -26,7 +29,20 @@ from et_test_platform.test_cases.can.test_can_p0 import (
     test_can_p0_002_internal_loopback as run_case,
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
+    EXTENDED_FILTER_NODES,
+    STANDARD_FILTER_NODES,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_001_frame_formats as run_format_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_002_standard_id_filter_and_routing as run_standard_filter_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_003_extended_id_filter_and_mask as run_extended_filter_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_004_remote_frame_policy as run_remote_policy_case,
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_005_rx_fifo_watermark_full_and_wrap as run_fifo_boundary_case,
@@ -255,7 +271,9 @@ class CanStorageStub:
     def __init__(self):
         self.instance_id = 0
         self.layout = None
-        self.filters = {}
+        self.filters = {False: {}, True: {}}
+        self.extended_mask = 0x1FFFFFFF
+        self.bus_config = None
         self.pending_frame = None
         self.fifo_entries = {0: [], 1: []}
         self.fifo_put = {0: 0, 1: 0}
@@ -264,6 +282,11 @@ class CanStorageStub:
         self.buffers = {}
         self.new_data_low = 0
         self.new_data_high = 0
+        self.high_priority = CanHighPriorityStatus(0, CanHighPriorityStorage.NO_FIFO, 0, False)
+
+    # CRG软件替身恢复整个CAN硬件状态，模拟Formal Case要求的Case级隔离。
+    def reset(self):
+        self.__init__()
 
     # 配置方法仅保存Case下发的公开参数；不制造额外硬件状态。
     def initializing_set(self, _enabled):
@@ -282,13 +305,16 @@ class CanStorageStub:
         self.layout = layout
 
     def filter_set(self, index, item, *, extended):
-        self.filters[index] = item
+        self.filters[bool(extended)][index] = item
+
+    def extended_mask_set(self, mask):
+        self.extended_mask = mask
 
     def loopback_set(self, _mode):
         return None
 
-    def bus_config_set(self, _config):
-        return None
+    def bus_config_set(self, config):
+        self.bus_config = config
 
     def irq_mask_set(self, _sources, _masked):
         return None
@@ -300,14 +326,74 @@ class CanStorageStub:
             for fifo in (0, 1):
                 self.fifo_lost[fifo] = False
 
-    # TX请求把预装帧送入由Filter指定的FIFO或Dedicated Buffer。
+    # 独立执行公开Filter语义；全局XIDAM只作用于普通扩展Range。
+    def _match_filter(self, frame):
+        extended = bool(frame.flags & CanFrameFlags.EXTENDED)
+        received_id = frame.identifier
+        for index, item in self.filters[extended].items():
+            if item.action is CanFilterAction.DISABLED:
+                continue
+            if item.action is CanFilterAction.BUFFER:
+                matched = received_id == item.id1
+            elif item.type is CanFilterType.RANGE:
+                compared_id = received_id & self.extended_mask if extended else received_id
+                matched = item.id1 <= compared_id <= item.id2
+            elif item.type is CanFilterType.RANGE_NO_MASK:
+                matched = item.id1 <= received_id <= item.id2
+            elif item.type is CanFilterType.DUAL:
+                matched = received_id in (item.id1, item.id2)
+            elif item.type is CanFilterType.MASK:
+                matched = (received_id & item.id2) == (item.id1 & item.id2)
+            else:
+                matched = False
+            if matched:
+                return index, item
+        return None, None
+
+    # TX请求把预装帧按Remote策略和Filter首匹配结果送入目标存储。
     def tx_write(self, _index, frame):
         self.pending_frame = frame
 
     def tx_request(self, _mask):
         frame = self.pending_frame
-        matched = next(item for item in self.filters.values() if item.id1 == frame.identifier)
-        if matched.action == CanFilterAction.BUFFER:
+        extended = bool(frame.flags & CanFrameFlags.EXTENDED)
+        if frame.flags & CanFrameFlags.REMOTE:
+            rejected = (
+                self.bus_config.reject_remote_ext if extended else self.bus_config.reject_remote_std
+            )
+            if rejected:
+                return
+
+        filter_index, matched = self._match_filter(frame)
+        nonmatching = matched is None
+        if matched is None:
+            policy = self.bus_config.unmatched_ext if extended else self.bus_config.unmatched_std
+            if int(policy) == 2:
+                return
+            action = CanFilterAction.FIFO0 if int(policy) == 0 else CanFilterAction.FIFO1
+        else:
+            action = matched.action
+        if action in (CanFilterAction.REJECT, CanFilterAction.PRIORITY):
+            if action is CanFilterAction.PRIORITY:
+                self.high_priority = CanHighPriorityStatus(
+                    0,
+                    CanHighPriorityStorage.NO_FIFO,
+                    filter_index,
+                    extended,
+                )
+                self.irq_raw |= int(CanIrqSource.HIGH_PRIORITY)
+            return
+
+        if action in (CanFilterAction.PRIORITY_FIFO0, CanFilterAction.PRIORITY_FIFO1):
+            storage = (
+                CanHighPriorityStorage.FIFO0
+                if action is CanFilterAction.PRIORITY_FIFO0
+                else CanHighPriorityStorage.FIFO1
+            )
+            self.high_priority = CanHighPriorityStatus(0, storage, filter_index, extended)
+            self.irq_raw |= int(CanIrqSource.HIGH_PRIORITY)
+
+        if action is CanFilterAction.BUFFER:
             self.buffers[matched.buffer_index] = frame
             if matched.buffer_index < 32:
                 self.new_data_low |= 1 << matched.buffer_index
@@ -315,7 +401,7 @@ class CanStorageStub:
                 self.new_data_high |= 1 << (matched.buffer_index - 32)
             return
 
-        fifo = 0 if matched.action == CanFilterAction.FIFO0 else 1
+        fifo = 0 if action in (CanFilterAction.FIFO0, CanFilterAction.PRIORITY_FIFO0) else 1
         entries = self.fifo_entries[fifo]
         depth = self.layout.rx0_count if fifo == 0 else self.layout.rx1_count
         overwrite = self.layout.rx0_overwrite if fifo == 0 else self.layout.rx1_overwrite
@@ -328,7 +414,7 @@ class CanStorageStub:
                 self.irq_raw |= int(lost_irq)
                 return
         index = self.fifo_put[fifo]
-        entries.append((index, frame))
+        entries.append((index, frame, filter_index or 0, nonmatching))
         self.fifo_put[fifo] = (index + 1) % depth
         new_irq = CanIrqSource.RX_FIFO0_NEW if fifo == 0 else CanIrqSource.RX_FIFO1_NEW
         watermark_irq = (
@@ -371,8 +457,17 @@ class CanStorageStub:
                 frame.identifier, frame.flags, frame.dlc, 0, 0, False, index, frame.data
             )
         fifo = int(source) - 1
-        slot, frame = self.fifo_entries[fifo][0]
-        return CanRxFrame(frame.identifier, frame.flags, frame.dlc, 0, 0, False, slot, frame.data)
+        slot, frame, filter_index, nonmatching = self.fifo_entries[fifo][0]
+        return CanRxFrame(
+            frame.identifier,
+            frame.flags,
+            frame.dlc,
+            0,
+            filter_index,
+            nonmatching,
+            slot,
+            frame.data,
+        )
 
     def rx_fifo_ack(self, fifo, index):
         assert self.fifo_entries[fifo][0][0] == index
@@ -380,6 +475,9 @@ class CanStorageStub:
 
     def irq_snapshot_get(self):
         return SimpleNamespace(raw_status=self.irq_raw)
+
+    def high_priority_status_get(self):
+        return self.high_priority
 
     # Dedicated Buffer状态和Ack分别维护低/高32-bit New Data位图。
     def rx_buffer_status_get(self):
@@ -394,11 +492,19 @@ class CanStorageStub:
 def storage_dependencies():
     can = CanStorageStub()
     calls = []
-    crg = SimpleNamespace(
-        reset=lambda peripheral, **kwargs: calls.append(("can", kwargs["instance"]))
-    )
+
+    # 记录复位责任链，同时让后续阶段看见真实复位后的空硬件状态。
+    def reset_can(_peripheral, **kwargs):
+        calls.append(("can", kwargs["instance"]))
+        can.reset()
+
+    crg = SimpleNamespace(reset=reset_can)
     resource = SimpleNamespace(reset=lambda: calls.append(("resource",)))
-    mapping = SimpleNamespace(CAN_RAM_HEADER_BYTES=8, CAN_STD_FILTER_BYTES=4)
+    mapping = SimpleNamespace(
+        CAN_RAM_HEADER_BYTES=8,
+        CAN_STD_FILTER_BYTES=4,
+        CAN_EXT_FILTER_BYTES=8,
+    )
     support = CanSupport(
         "can0",
         can,
@@ -459,3 +565,103 @@ def test_rx_buffer_boundary_case_complete_software_flow():
     payloads = next(value for key, value in properties if key == "buffer_payloads")
     assert set(payloads) == {"0", "31", "32", "63"}
     assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+
+# 标准Filter全部参数节点必须执行真实匹配、路由和High Priority软件语义。
+@pytest.mark.parametrize(
+    "node_name,filters,unmatched_policy,identifier,expected_fifo,expected_filter,high_priority",
+    STANDARD_FILTER_NODES,
+    ids=[node[0] for node in STANDARD_FILTER_NODES],
+)
+def test_standard_filter_case_complete_software_flow(
+    monkeypatch,
+    node_name,
+    filters,
+    unmatched_policy,
+    identifier,
+    expected_fifo,
+    expected_filter,
+    high_priority,
+):
+    monkeypatch.setattr("et_test_platform.test_cases.can.test_can_p1.sleep", lambda _seconds: None)
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_standard_filter_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+        node_name,
+        filters,
+        unmatched_policy,
+        identifier,
+        expected_fifo,
+        expected_filter,
+        high_priority,
+    )
+    observation_keys = {value["key"] for key, value in properties if key == "et_observation"}
+    assert {"fifo0_status", "fifo1_status"} <= observation_keys
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+
+# 扩展Filter全部参数节点必须执行XIDAM、29-bit比较、路由和High Priority语义。
+@pytest.mark.parametrize(
+    "node_name,filters,extended_mask,unmatched_policy,identifier,expected_fifo,expected_filter,high_priority",
+    EXTENDED_FILTER_NODES,
+    ids=[node[0] for node in EXTENDED_FILTER_NODES],
+)
+def test_extended_filter_case_complete_software_flow(
+    monkeypatch,
+    node_name,
+    filters,
+    extended_mask,
+    unmatched_policy,
+    identifier,
+    expected_fifo,
+    expected_filter,
+    high_priority,
+):
+    monkeypatch.setattr("et_test_platform.test_cases.can.test_can_p1.sleep", lambda _seconds: None)
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_extended_filter_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+        node_name,
+        filters,
+        extended_mask,
+        unmatched_policy,
+        identifier,
+        expected_fifo,
+        expected_filter,
+        high_priority,
+    )
+    observation_keys = {value["key"] for key, value in properties if key == "et_observation"}
+    assert {"fifo0_status", "fifo1_status"} <= observation_keys
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+
+# Remote策略四个参数节点必须先允许接收，再拒绝Remote并通过数据帧证明路径恢复。
+@pytest.mark.parametrize("extended", (False, True), ids=("standard", "extended"))
+@pytest.mark.parametrize("dlc", (0, 8), ids=("dlc0", "dlc8"))
+def test_remote_policy_case_complete_software_flow(monkeypatch, extended, dlc):
+    monkeypatch.setattr("et_test_platform.test_cases.can.test_can_p1.sleep", lambda _seconds: None)
+    support, resource, calls = storage_dependencies()
+    properties = []
+    run_remote_policy_case(
+        support,
+        resource,
+        lambda key, value: properties.append((key, value)),
+        extended,
+        dlc,
+    )
+    observation_keys = {value["key"] for key, value in properties if key == "et_observation"}
+    assert {"remote_frame", "reject_fifo0_status", "recovery_frame"} <= observation_keys
+    assert calls == [
+        ("can", 0),
+        ("resource",),
+        ("can", 0),
+        ("resource",),
+        ("can", 0),
+        ("resource",),
+    ]

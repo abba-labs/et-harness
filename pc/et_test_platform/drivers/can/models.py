@@ -348,6 +348,23 @@ class CanFilterAction(IntEnum):
     BUFFER = 7
 
 
+# High Priority Message的存储结果是公共语义，不暴露芯片HPMS位编码。
+class CanHighPriorityStorage(IntEnum):
+    NO_FIFO = 0
+    FIFO_MESSAGE_LOST = 1
+    FIFO0 = 2
+    FIFO1 = 3
+
+
+# 一次非破坏High Priority状态读取；filter_extended区分标准/扩展Filter列表。
+@dataclass(frozen=True, slots=True)
+class CanHighPriorityStatus:
+    buffer_index: int
+    storage: CanHighPriorityStorage
+    filter_index: int
+    filter_extended: bool
+
+
 # 一个过滤器的显式配置或实际读回，格式和列表索引由Driver方法参数指定。
 # 普通过滤buffer_index必须为0；BUFFER使用RANGE、id2=0，不隐式选择时间戳捕获。
 @dataclass(frozen=True, slots=True)

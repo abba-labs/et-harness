@@ -13,6 +13,8 @@ from .models import (
     CanFilterAction,
     CanFilterType,
     CanFrameFlags,
+    CanHighPriorityStatus,
+    CanHighPriorityStorage,
     CanIrqEvent,
     CanIrqSnapshot,
     CanIrqSource,
@@ -109,6 +111,17 @@ def decode_filter(words: tuple[int, ...]) -> CanFilter:
         return CanFilter(CanFilterType(words[0]), CanFilterAction(words[1]), *words[2:])
     except ValueError as error:
         raise ProtocolError(f"CAN filter selectors are invalid: {words}") from error
+
+
+# 解码一次High Priority Message状态；保留Filter列表与索引，不解释为接收成功。
+def decode_high_priority_status(words: tuple[int, ...]) -> CanHighPriorityStatus:
+    if len(words) != 4 or words[3] not in (0, 1):
+        raise ProtocolError(f"CAN High Priority status is invalid: {words}")
+    try:
+        storage = CanHighPriorityStorage(words[1])
+    except ValueError as error:
+        raise ProtocolError(f"CAN High Priority storage is invalid: {words[1]}") from error
+    return CanHighPriorityStatus(words[0], storage, words[2], bool(words[3]))
 
 
 # 严格解码已消费的单次状态；使用命名字段，不让Driver包含Wire索引。
