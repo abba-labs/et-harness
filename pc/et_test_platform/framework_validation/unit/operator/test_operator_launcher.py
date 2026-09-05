@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
 import os
@@ -13,11 +14,15 @@ import sys
 import zipfile
 from dataclasses import replace
 from datetime import datetime
+from itertools import count
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
+
+from et_test_platform.instruments.can_boxes.zlg import ZlgCanBox
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 QUALITY_WORKFLOW = REPOSITORY_ROOT / ".github/workflows/pc-quality.yml"
@@ -1914,3 +1919,62 @@ def test_case_report_comments_have_a_nonempty_author(tmp_path: Path) -> None:
     assert "测试Case ID" in shared_strings
     assert "crc_p0_001" in shared_strings
     assert "DUT / ET6801 / crc0 / CRC.RES" in shared_strings
+
+
+# 使用真实接口限制Mock方法，时间每次前进一秒，避免测试等待真实两秒。
+@pytest.fixture
+def diagnostic(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, MagicMock, MagicMock]:
+    root = Path(__file__).resolve().parents[5]
+    monkeypatch.syspath_prepend(str(root / "tools/runner"))
+    tool = importlib.import_module("can_link_diagnostic")
+    can = MagicMock(spec=tool.CanDriver)
+    box = MagicMock(spec=ZlgCanBox)
+    can.protocol_status_consume.return_value = SimpleNamespace(
+        last_error=SimpleNamespace(name="ACK"), activity=SimpleNamespace(name="TRANSMITTER")
+    )
+    can.rx_fifo_status_get.return_value = SimpleNamespace(fill=0)
+    ticks = count()
+    monkeypatch.setattr(tool.time, "monotonic", lambda: float(next(ticks)))
+    monkeypatch.setattr(tool.time, "sleep", lambda seconds: None)
+    return tool, can, box
+
+
+# 两种向外发送场景均必须实际读取盒子，不先等待DUT发送完成。
+@pytest.mark.parametrize("direction", ["forward", "listen_only"])
+def test_empty_window_keeps_ack_status(diagnostic, direction: str) -> None:
+    tool, can, box = diagnostic
+    box.receive.side_effect = TimeoutError("no complete frame")
+    result = tool._observe(can, box, direction)
+
+    assert result["receive_count"] == 0
+    assert result["last_error_name"] == "ACK"
+    assert result["stimulus_error"] is None
+    can.tx_request.assert_called_once_with(1)
+    box.receive.assert_called_once_with(timeout_s=0.02)
+
+
+# SDK拒绝发送不能伪装成正常激励，但不能妨碍读取错误现场。
+def test_rejected_transmit_preserves_error_and_status(diagnostic) -> None:
+    tool, can, box = diagnostic
+    box.send.side_effect = OSError("transmit accepted 0, expected 1")
+    box.error_get.return_value = 4
+    result = tool._observe(can, box, "reverse")
+
+    assert result["receive_count"] == 0
+    assert result["stimulus_error"] == "transmit accepted 0, expected 1"
+    assert result["box_error"] == 4
+    can.protocol_status_consume.assert_called_once_with()
+
+
+# 成功接收保留原帧；真正SDK接收错误必须抛出，不能按无帧处理。
+def test_received_frame_and_sdk_failure_are_distinct(diagnostic) -> None:
+    tool, can, box = diagnostic
+    frame = tool.CanFrame(0x123, tool.PAYLOAD)
+    box.receive.return_value = frame
+    result = tool._observe(can, box, "forward")
+    assert result["frames"] == [frame]
+    assert result["receive_count"] == 1
+
+    box.receive.side_effect = OSError("device disconnected")
+    with pytest.raises(OSError, match="device disconnected"):
+        tool._observe(can, box, "forward")
