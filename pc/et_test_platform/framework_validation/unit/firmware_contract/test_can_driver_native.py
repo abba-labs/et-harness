@@ -604,6 +604,13 @@ int main(void)
         assert(*(uint32_t *)(test_memory.ram+24)==(0x123U<<18));
         assert(*(uint32_t *)(test_memory.ram+28)==0x5A3F0000U);
         assert(memcmp(test_memory.ram+32, request+21, 64)==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_READ,
+                                  request, 5, response, 84, &response_length) == ET_STATUS_OK);
+        assert(response_length==84 && memcmp(response, request+1, 84)==0);
+        CAN0->TXBRP=1;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_READ,
+                                  request, 5, response, 84, &response_length) == ET_STATUS_BUSY);
+        CAN0->TXBRP=0;
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_WRITE,
                                   request, 84, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
         memset(request, 0, sizeof(request)); request[5]=63;

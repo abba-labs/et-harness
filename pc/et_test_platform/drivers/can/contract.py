@@ -69,6 +69,7 @@ class CanCommand(IntEnum):
     TX_EVENT_STATUS_GET = 44
     TX_EVENT_READ = 45
     TX_EVENT_ACK = 46
+    TX_READ = 47
 
 
 REQUEST_WORDS = (
@@ -119,6 +120,7 @@ REQUEST_WORDS = (
     0,
     0,
     1,
+    1,  # TX_READ: selected slot.
 )
 RESPONSE_WORDS = (
     2,
@@ -168,6 +170,7 @@ RESPONSE_WORDS = (
     5,
     7,
     0,
+    21,  # TX_READ: index + header + padded payload.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -280,5 +283,6 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.HIGH_PRIORITY_STATUS_GET,
         CanCommand.TX_EVENT_STATUS_GET,
         CanCommand.TX_EVENT_READ,
+        CanCommand.TX_READ,
     }
 )

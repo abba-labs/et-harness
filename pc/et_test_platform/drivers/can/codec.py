@@ -356,6 +356,23 @@ def tx_frame_words(index: int, frame: CanTxFrame) -> tuple[int, ...]:
     )
 
 
+# 校验完整TX读回头、槽索引及零填充；非法硬件响应不能变成合法预期帧。
+def decode_tx_frame(index: int, words: tuple[int, ...]) -> CanTxFrame:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.TX_READ] or words[0] != index:
+        raise ProtocolError("CAN TX readback has an invalid envelope or slot")
+    _, identifier, raw_flags, dlc, marker = words[: contract.TX_HEADER_WORDS]
+    try:
+        flags = CanFrameFlags(raw_flags)
+        length = frame_payload_length(dlc, flags)
+        padded = b"".join(contract.WORD.pack(word) for word in words[contract.TX_HEADER_WORDS :])
+        frame = CanTxFrame(identifier, flags, dlc, marker, padded[:length])
+        if tx_frame_words(index, frame) != words:
+            raise ValueError("CAN TX unused payload bytes are not zero")
+    except ValueError as error:
+        raise ProtocolError(f"CAN TX readback is malformed: {error}") from error
+    return frame
+
+
 # 只返回固件实际存储的payload；短槽保留原DLC，不能把缺失字节补成完整帧。
 def decode_rx_frame(words: tuple[int, ...]) -> CanRxFrame:
     expected = contract.RESPONSE_WORDS[contract.CanCommand.RX_READ]

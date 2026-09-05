@@ -54,6 +54,9 @@ from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_007_dedicated_rx_buffer_boundaries as run_rx_buffer_case,
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_008_tx_fifo_queue_order as run_tx_order_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_009_tx_event_fifo_watermark_full_and_recovery as run_tx_event_case,
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
@@ -996,3 +999,104 @@ def test_remote_policy_case_complete_software_flow(monkeypatch, extended, dlc):
         ("can", 0),
         ("resource",),
     ]
+
+
+# 三种TX组织的原子请求回归和故障证据。
+
+
+# 三种组织使用独立Golden接收次序；倒序或残留帧必须被真实Case判为失败。
+@pytest.mark.parametrize("mode", ("buffer", "fifo", "queue"))
+@pytest.mark.parametrize("fault", (None, "order", "residual"))
+def test_tx_order_case_atomic_request_and_evidence(mode, fault, tmp_path) -> None:
+    support, resource, target, calls = dependencies()
+    target.responses = responses()[:10]
+    ids = (0x300, 0x100, 0x200)
+    payloads = tuple(bytes([i, 0, 0, 0]) + bytes.fromhex("75 86 97 A8") for i in range(3))
+    for i, identifier in enumerate(ids):
+        target.responses.extend(
+            [b"", pack("<5I", i, identifier, 0, 8, i) + payloads[i] + bytes(56)]
+        )
+    free = 0 if mode == "buffer" else 3
+    target.responses.extend(
+        [
+            pack("<7I", 0, 0, 0, free, 0, 0, 0),
+            b"",
+            pack("<7I", 0, 7, 0, free, 0, 0, 0),
+        ]
+    )
+    indices = (0, 1, 2) if mode == "fifo" else (1, 2, 0)
+    if fault == "order":
+        indices = tuple(reversed(indices))
+    for received, source in enumerate(indices):
+        target.responses.extend(
+            [
+                pack("<5I", 3 - received, received, 3, 0, 0),
+                pack("<8I", ids[source], 0, 8, 0, 0, 0, 8, received) + payloads[source] + bytes(56),
+                b"",
+            ]
+        )
+    target.responses.extend(
+        [
+            pack("<7I", 0, 7, 0, free, 0, 0, 0),
+            pack("<5I", int(fault == "residual"), 3, 3, 0, 0),
+        ]
+    )
+    properties = []
+
+    # 保留Case真实记录，不根据Golden补写硬件Evidence。
+    def record(name, value):
+        properties.append((name, value))
+
+    if fault:
+        with pytest.raises(AssertionError):
+            run_tx_order_case(support, resource, record, mode)
+    else:
+        run_tx_order_case(support, resource, record, mode)
+        assert not target.responses
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    tx_requests = [request for request in target.requests if request["command"] == 18]
+    assert len(tx_requests) == 1 and tx_requests[0]["retry_safe"] is False
+    assert dict(properties)["preload_text"] and dict(properties)["order_text"]
+
+    # 用实际Case记录验证JSON往返和报告，避免只用理想标量掩盖嵌套Byte数据问题。
+    from pathlib import Path
+
+    from et_test_platform.results.case_report import build_case_report_model
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import _case_observations, _case_recorded_outputs
+
+    item = SimpleNamespace(user_properties=properties)
+    measurements, _ = _case_recorded_outputs(item)
+    status = "FAIL" if fault else "PASS"
+    write_json_result(
+        tmp_path / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-tx-order",
+            "chip_id": "et6801",
+            "finished_at": "2026-09-05T03:35:00Z",
+            "exitstatus": int(bool(fault)),
+        },
+    )
+    write_json_result(
+        tmp_path / "cases/node/result.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-tx-order",
+            "case_run_id": "node",
+            "case_id": "CAN_P1_008",
+            "status": status,
+            "duration_s": 0.01,
+            "measurements": measurements,
+            "observations": _case_observations(item),
+            "evidence_complete": True,
+            "evidence_sources": ["dut"],
+            "missing_evidence_sources": [],
+            "error": "software-injected mismatch" if fault else None,
+        },
+    )
+    model = build_case_report_model(
+        Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md", tmp_path
+    )
+    row = next(row for row in model["cases"] if row["case_id"] == "CAN_P1_008")
+    assert row["status"] == status

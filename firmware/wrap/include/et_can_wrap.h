@@ -295,6 +295,7 @@ typedef struct
 et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
                                       const et_can_tx_frame_t *frame);
 et_wrap_status_t et_can_wrap_request_tx(et_can_id_t id, uint32_t mask);
+et_wrap_status_t et_can_wrap_read_tx(et_can_id_t id, uint32_t index, et_can_tx_frame_t *frame);
 et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *status);
 et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status);
 et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event);

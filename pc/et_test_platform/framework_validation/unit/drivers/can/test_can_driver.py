@@ -43,6 +43,28 @@ TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
 
 
+# 真实Driver解码独立TX读回向量，错误槽号和非零尾部必须拒绝；只读命令允许安全重试。
+@pytest.mark.parametrize("fault", (None, "index", "padding", "flags"))
+def test_tx_readback_golden(fault) -> None:
+    words = [2, 0x321, 0, 8, 0x5A] + [0x44332211, 0x88776655] + [0] * 14
+    if fault == "index":
+        words[0] = 1
+    if fault == "padding":
+        words[-1] = 1
+    if fault == "flags":
+        words[2] = 0x80000000
+    target = TargetStub([pack("<21I", *words)])
+    if fault:
+        with pytest.raises(ProtocolError):
+            CanDriver(target, 0).tx_read(2)
+    else:
+        assert CanDriver(target, 0).tx_read(2) == CanTxFrame(
+            0x321, CanFrameFlags.NONE, 8, 0x5A, bytes.fromhex("11 22 33 44 55 66 77 88")
+        )
+    assert target.requests[0]["command"] == 47
+    assert target.requests[0]["retry_safe"] is True
+
+
 # 测试Feature：ACK查询在同一个Deadline内重试，不重复发送Clock Stop请求。
 # 测试方法：先返回反向ACK再返回目标值，用确定性剩余时间检查每次请求。
 # 通过条件：只发查询命令，剩余时间递减，超时保留最后实际ACK。

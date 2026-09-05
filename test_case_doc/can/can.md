@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 10:50 CST
+更新时间：2026-09-05 12:50 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；10项SPEC、29项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；11项SPEC、28项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -36,6 +36,7 @@ CAN控制器通过Message RAM保存过滤项、收发帧和发送事件；Classi
 | filter_configure / layout_configure | 仅配置当前CAN规则与存储；公共API不接收任意裸地址。 |
 | tx_write / tx_request / tx_request_mask | 预装帧与发请求分开；批量请求是一次原子硬件动作，用于证明多个同时Pending的顺序。 |
 | tx_status / rx_peek / rx_read / rx_ack | 返回实际Pending、Completed、索引和帧；读取帧与Ack分开，不能由通用快照隐式消费。 |
+| tx_read | 指定已分配且非Pending的TX槽，返回实际RAM帧；读回不是保存请求的回显，不启动发送。 |
 | irq_configure / irq_clear / irq_event_get | 配置中断、清指定锁存源、读ISR留证；ISR不比较Expected，不自动排空Case需要观察的FIFO。 |
 | protocol_status_read | 显式消费可能读清的错误状态并返回该次完整值；普通轮询不能提前消费LEC或错误日志。 |
 | timestamp / timeout / tx_event | 各自明确启动、重装、读取和Ack；TSU按本轮明确捕获/读清语义规划，不提前分配Wire。 |
@@ -97,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共47条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共48条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -166,6 +167,7 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | TX_EVENT_STATUS_GET | 44 | 无 | fill、get_index、put_index、full、lost，共5项；不读取或Ack事件 |
 | TX_EVENT_READ | 45 | 无 | identifier、flags、dlc、timestamp、event_type、marker、index，共7项；只读当前头 |
 | TX_EVENT_ACK | 46 | 当前TX Event Get Index | 无；只Ack非空FIFO当前头，拒绝空FIFO或过期索引 |
+| TX_READ | 47 | TX槽index | index、identifier、flags、dlc、marker共5个u32及64-byte payload；有效长度由DLC/Flags决定，尾部补零；读实际RAM，不消费或发送 |
 
 中断sources使用公共语义位图，覆盖RX FIFO0/1、Dedicated RX、TX完成/取消、TX Event、Timestamp、Timeout、错误状态和协议错误等30类事件。PC只传事件和控制器本地Line，不传芯片物理中断符号。Chip Config将事件映射到本芯片Driver枚举，并将本地Line映射为物理IRQ；CAN Service是唯一的Service→IRQ Manager绑定位置。
 
@@ -181,7 +183,7 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 
 RX source：0为Dedicated Buffer，1为FIFO0，2为FIFO1。FIFO读取index参数固定为0表示当前头；响应顺序是`identifier, flags, dlc, timestamp, filter_index, nonmatching, data_length, index`，后接64-byte数据区。`index`为实际读取位置；`data_length`为真实槽内存储长度，可能短于DLC表达的总线长度，不能用零补成“完整帧”。Case应在刺激停止或明确受控窗口内读取，硬件状态快照不宣称跨寄存器原子采样。
 
-TX_WRITE检查实际RAM容量和Pending，不允许覆盖硬件占用的槽；FIFO/Queue写入必须使用当前Put Index。TX_REQUEST只接受已分配Buffer范围内的mask，不自动装帧；先前准备的数据、发送请求、完成状态和RX观测必须在Case中分别执行并验证。TX/RX等待由PC Driver单一Deadline实现；超时保留最后事实，不自动重发、复位或延长预算。
+TX_WRITE检查实际RAM容量和Pending，不允许覆盖硬件占用的槽；FIFO/Queue允许预装已分配的非Pending空闲槽；不能覆盖Pending槽或满FIFO。TX_REQUEST只接受已分配Buffer范围内的mask，不自动装帧；先前准备的数据、发送请求、完成状态和RX观测必须在Case中分别执行并验证。TX/RX等待由PC Driver单一Deadline实现；超时保留最后事实，不自动重发、复位或延长预算。
 
 总线配置顺序：`monitor, restricted, timestamp_divisor, timestamp_source, timeout_source, timeout_period, timeout_enabled, reject_remote_ext, reject_remote_std, unmatched_ext, unmatched_std`。Boolean严格0/1；timestamp_divisor为实际正分频数，timeout_period为计数重装值。Timestamp来源0关闭/1内部/2外部；Timeout来源0连续/1TX Event/2RX0/3RX1；未命中策略0RX0/1RX1/2拒绝。
 
@@ -270,7 +272,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | PLANNED，见第3节 |
@@ -730,10 +732,9 @@ gap: []
 
 ### CAN_P1_008 CAN TX FIFO与Queue优先级
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_008
 case_name: CAN TX FIFO与Queue优先级
 report_feature: |-
@@ -756,18 +757,18 @@ method:
   pass_criteria:
     - "预装可靠：请求前全部数据已就绪、同一次硬件批量请求，不把调度竞态当优先级。"
     - "次序准确：三种模式分别满足其完整顺序且无丢失；不据此宣称验证跨节点仲裁。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每次硬件等待共用5 s Deadline；三帧读取及Ack后立即检查FIFO为空"
+cleanup: ["复位当前CAN", "Resource Pool Reset"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例及CRG复位", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN TX FIFO与Queue优先级：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"order","label":"RX.FRAME接收ID顺序","source":"dut","role":"actual","format":"text"}
-  - {"key":"status","label":"TX.PENDING/COMPLETED及TX FIFO空闲状态","source":"dut","role":"actual","format":"text"}
+  - {"key":"pending","label":"最终TX.PENDING","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN TX FIFO与Queue优先级的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","atomic_tx_request_driver_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_009 CAN TX Event FIFO水位与丢失
 
@@ -1977,6 +1978,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_008:
+    summary: 核对三帧同时挂起后的发送次序；不代表跨节点总线仲裁测试。
+    fields:
+      - {source: measurement, path: mode, label: TX组织, format: text, aggregate: all}
+      - {source: measurement, path: preload_text, label: TX RAM预装读回, format: text, aggregate: all}
+      - {source: measurement, path: order_text, label: RX实际接收次序, format: text, aggregate: all}
+      - {source: observation, path: completed, label: TX完成位图, format: hex32, aggregate: all}
   CAN_P1_015:
     summary: 核对Clock Stop握手及解除后新帧收发；未关闭CRG时钟，不代表功耗验证。
     fields:
@@ -2054,7 +2062,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=8; IMPLEMENTATION_GAP=29 | ADAPTED=10; IMPLEMENTATION_GAP=29; NEEDS_VERIFICATION=3 | 10 SPEC、29 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=9; IMPLEMENTATION_GAP=28 | ADAPTED=11; IMPLEMENTATION_GAP=28; NEEDS_VERIFICATION=3 | 11 SPEC、28 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

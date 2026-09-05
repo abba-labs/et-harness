@@ -1489,6 +1489,10 @@ typedef enum
 uint32_t CAN_testGetPayloadSize(uint32_t dlc, uint32_t fd, uint32_t remote);
 /** Write one atomic TXBAR request mask; caller validates allocated-buffer membership. */
 void CAN_testRequestTxMask(CAN_Type *CANx, uint32_t mask);
+/** TX RAM has two header words followed by the configured payload capacity. */
+#define CAN_TEST_TX_HEADER_WORDS (2U)
+/** Read one allocated TX RAM element without starting, cancelling or acknowledging it. */
+int32_t CAN_testReadTxBuffer(CAN_Type *CANx, uint32_t index, CAN_TxBufElement *element);
 /** Controller architectural maxima; field widths alone also encode reserved values. */
 #define CAN_TEST_STD_FILTER_MAX (128U)
 #define CAN_TEST_EXT_FILTER_MAX (64U)

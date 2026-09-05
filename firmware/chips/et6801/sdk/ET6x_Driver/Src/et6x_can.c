@@ -2506,5 +2506,60 @@ void CAN_testGetInterruptConfig(CAN_Type *CANx, uint32_t *enabled, uint32_t *lin
     *lineSelection = READ_REG(CANx->ILS);
     *lineEnabled = READ_REG(CANx->ILE);
 }
+/**
+ * @brief Read the actual basic TX element from its configured Message RAM slot.
+ * @param CANx Pointer to the CAN peripheral.
+ * @param index Allocated TX slot, including the FIFO/Queue area.
+ * @param element Decoded header and valid payload, unused bytes set to zero.
+ * @return DRV_OK or DRV_ERROR for an invalid slot, region or oversized payload.
+ * @note Read-only; caller keeps the slot software-owned while inspecting it.
+ */
+int32_t CAN_testReadTxBuffer(CAN_Type *CANx, uint32_t index, CAN_TxBufElement *element)
+{
+    uint32_t count, size, offset, first, second, length, byte, word = 0U;
+    assert_param(IS_CAN_PERIPH(CANx));
+
+    count = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_NDTB) +
+            CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_TFQS);
+    if ((element == NULL) || (count > CAN_TX_BUFFER_MAX) || (index >= count))
+    {
+        return DRV_ERROR;
+    }
+    size = CAN_getMsgObjSize(CAN_RD_FIELD32(CANx->TXESC, CAN0_TXESC_TBDS)) * sizeof(uint32_t);
+    offset = CAN_RD_FIELD32(CANx->TXBC, CAN0_TXBC_TBSA) * sizeof(uint32_t) + index * size;
+    if (offset > CAN_TEST_MSG_RAM_BYTES - size)
+    {
+        return DRV_ERROR;
+    }
+    offset += (uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES;
+    first = READ_REG(REG32(offset));
+    second = READ_REG(REG32(offset + sizeof(uint32_t)));
+    element->id = (first & CAN_TX_BUFFER_ELEM_ID_MASK) >> CAN_TX_BUFFER_ELEM_ID_SHIFT;
+    element->rtr = (first & CAN_TX_BUFFER_ELEM_RTR_MASK) >> CAN_TX_BUFFER_ELEM_RTR_SHIFT;
+    element->xtd = (first & CAN_TX_BUFFER_ELEM_XTD_MASK) >> CAN_TX_BUFFER_ELEM_XTD_SHIFT;
+    element->esi = (first & CAN_TX_BUFFER_ELEM_ESI_MASK) >> CAN_TX_BUFFER_ELEM_ESI_SHIFT;
+    element->dlc = (second & CAN_TX_BUFFER_ELEM_DLC_MASK) >> CAN_TX_BUFFER_ELEM_DLC_SHIFT;
+    element->brs = (second & CAN_TX_BUFFER_ELEM_BRS_MASK) >> CAN_TX_BUFFER_ELEM_BRS_SHIFT;
+    element->fdf = (second & CAN_TX_BUFFER_ELEM_FDF_MASK) >> CAN_TX_BUFFER_ELEM_FDF_SHIFT;
+    element->tx_tsce = (second & CAN_TX_BUFFER_ELEM_TSCE_MASK) >> CAN_TX_BUFFER_ELEM_TSCE_SHIFT;
+    element->efc = (second & CAN_TX_BUFFER_ELEM_EFC_MASK) >> CAN_TX_BUFFER_ELEM_EFC_SHIFT;
+    element->mm = (second & CAN_TX_BUFFER_ELEM_MM_MASK) >> CAN_TX_BUFFER_ELEM_MM_SHIFT;
+    length = CAN_getDataSize(element->dlc, element->fdf, element->rtr);
+    if (length > size - CAN_TEST_TX_HEADER_WORDS * sizeof(uint32_t))
+    {
+        return DRV_ERROR;
+    }
+    offset += CAN_TEST_TX_HEADER_WORDS * sizeof(uint32_t);
+    for (byte = 0U; byte < CAN_MAX_PAYLOAD_BYTES; ++byte)
+    {
+        if ((byte < length) && ((byte % sizeof(uint32_t)) == 0U))
+        {
+            word = READ_REG(REG32(offset + byte));
+        }
+        /* Decode little-endian bytes from aligned Message RAM word reads. */
+        element->data[byte] = byte < length ? (word >> (8U * (byte % sizeof(uint32_t)))) & 0xFFU : 0U;
+    }
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

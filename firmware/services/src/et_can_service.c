@@ -912,6 +912,27 @@ static et_wrap_status_t execute_tx_command(et_can_id_t id, uint16_t command, con
         return et_can_wrap_request_tx(id, read_word(body));
     }
 
+    if (command == ET_CAN_COMMAND_TX_READ)
+    {
+        result = et_can_wrap_read_tx(id, read_word(body), &frame);
+
+        if (result != ET_WRAP_STATUS_OK)
+        {
+            return result;
+        }
+
+        write_word(&response[ET_CAN_TX_FIELD_INDEX * ET_CAN_WIRE_WORD_BYTES], read_word(body));
+        write_word(&response[ET_CAN_TX_FIELD_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES],
+                   frame.identifier);
+        write_word(&response[ET_CAN_TX_FIELD_FLAGS * ET_CAN_WIRE_WORD_BYTES], frame.flags);
+        write_word(&response[ET_CAN_TX_FIELD_DLC * ET_CAN_WIRE_WORD_BYTES], frame.dlc);
+        write_word(&response[ET_CAN_TX_FIELD_MARKER * ET_CAN_WIRE_WORD_BYTES], frame.marker);
+        (void)memcpy(&response[ET_CAN_TX_FIELD_DATA * ET_CAN_WIRE_WORD_BYTES], frame.data,
+                     ET_CAN_FRAME_DATA_BYTES);
+
+        return ET_WRAP_STATUS_OK;
+    }
+
     result = et_can_wrap_get_tx_status(id, &status);
 
     if (result == ET_WRAP_STATUS_OK)
@@ -1344,7 +1365,8 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     }
 
     /* Phase 1: Decode state-changing requests without inventing missing parameters. */
-    if ((command >= ET_CAN_COMMAND_TX_WRITE) && (command <= ET_CAN_COMMAND_TX_STATUS_GET))
+    if (((command >= ET_CAN_COMMAND_TX_WRITE) && (command <= ET_CAN_COMMAND_TX_STATUS_GET)) ||
+        (command == ET_CAN_COMMAND_TX_READ))
     {
         return execute_tx_command(id, command, body, response);
     }
@@ -1523,7 +1545,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_LINE_SELECT_SET] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_IRQ_CLEAR] = 1u,
         [ET_CAN_COMMAND_IRQ_CAPTURE_START] = ET_CAN_IRQ_CONTROL_WORDS,
-        [ET_CAN_COMMAND_TX_EVENT_ACK] = 1u};
+        [ET_CAN_COMMAND_TX_EVENT_ACK] = 1u,
+        [ET_CAN_COMMAND_TX_READ] = 1u};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -1550,7 +1573,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_STATUS_GET] = ET_CAN_TX_EVENT_STATUS_WORDS,
-        [ET_CAN_COMMAND_TX_EVENT_READ] = ET_CAN_TX_EVENT_WORDS};
+        [ET_CAN_COMMAND_TX_EVENT_READ] = ET_CAN_TX_EVENT_WORDS,
+        [ET_CAN_COMMAND_TX_READ] = ET_CAN_TX_WRITE_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

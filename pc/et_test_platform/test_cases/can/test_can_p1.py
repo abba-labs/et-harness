@@ -42,6 +42,7 @@ from ._support import (
     phase_timing,
     rx_buffer_boundary_indices,
     tx_event_loopback_ram,
+    tx_order_ram,
 )
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
@@ -2701,3 +2702,184 @@ def test_can_p1_015_clock_stop_and_recovery(can_support, resource_driver, record
                 assert released is False
                 can.initializing_set(False)
                 can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+
+# =============================================================================
+# TX请求集合与发送顺序
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN专用Buffer、TX FIFO和TX Queue在三帧同时挂起时的发送顺序。
+#
+# 测试方法：
+# 1. 每种组织独立复位CAN和资源池，配置三项TX与内部回环RX0。
+# 2. 按0x300、0x100、0x200预装索引0/1/2，读回全部帧，确认没有Pending。
+# 3. 一次批量请求三项，等待全部完成，按接收次序取出三帧并逐项Ack。
+#
+# 通过条件：
+# 1. FIFO按0x300/0x100/0x200发送，Queue和专用Buffer按0x100/0x200/0x300发送。
+# 2. 序号、完整数据和帧头一致，三项完成位有效、无Pending，TX/RX均回到空闲。
+@pytest.mark.parametrize("mode", ("buffer", "fifo", "queue"))
+def test_can_p1_008_tx_fifo_queue_order(
+    can_support, resource_driver, record_property, mode
+) -> None:
+
+    # 准备：ID次序不同于数值优先次序；按公共文档以前四字节小端序号覆盖Pattern。
+    support = can_support
+    can = support.can
+    layout = tx_order_ram(support, mode=mode)
+    frames = tuple(
+        CanTxFrame(
+            identifier, CanFrameFlags.NONE, 8, index, index.to_bytes(4, "little") + PATTERN_A[4:]
+        )
+        for index, identifier in enumerate((0x300, 0x100, 0x200))
+    )
+    expected = frames if mode == "fifo" else (frames[1], frames[2], frames[0])
+    order, preload = [], []
+    record_property("mode", mode)
+    record_property("expected", [asdict(frame) for frame in expected])
+    record_property("order_text", order)
+    record_property("preload_text", preload)
+
+    # 清理：仅复位本Case CAN和整池资源，保留原始断言错误。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 隔离：硬件先复位，资源池随后清空，不触碰控制UART。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 配置：Classic内部回环，三项TX和四项RX0；关闭无关计时和错误刺激。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(
+            CanTiming(
+                phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+                phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+            )
+        )
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+        can.filter_set(
+            0,
+            CanFilter(CanFilterType.RANGE, CanFilterAction.FIFO0, 0x100, 0x300),
+            extended=False,
+        )
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.DISABLED,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 预装：全部写完、读回后才发请求；不通过逐槽发送改变仲裁输入集合。
+        for index, frame in enumerate(frames):
+            can.tx_write(index, frame)
+            prepared = can.tx_read(index)
+            record_observation(
+                record_property,
+                key="preload",
+                value=asdict(prepared),
+                source="dut",
+                endpoint="TX.BUFFER",
+            )
+            preload.append(
+                f"槽{index}：ID=0x{prepared.identifier:03X}，数据={prepared.data.hex(' ').upper()}"
+            )
+            assert prepared == frame
+
+        # 启动：一次W1S请求三项，Pending基线必须为零；不使用循环单项请求。
+        before = can.tx_status_get()
+        record_observation(
+            record_property,
+            key="pending_before",
+            value=before.pending,
+            source="dut",
+            endpoint="TX.PENDING",
+        )
+        assert before.pending == 0
+        can.tx_request(0b111)
+        completed = can.wait_tx_complete(0b111, timeout_s=TIMEOUT_S)
+        record_observation(
+            record_property,
+            key="completed",
+            value=completed.completed,
+            source="dut",
+            endpoint="TX.COMPLETED",
+        )
+        assert completed.completed & 0b111 == 0b111
+
+        # 接收：预期次序独立给出，按FIFO真实Get Index读帧，记录后比较并Ack。
+        for frame in expected:
+            can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+            actual = can.rx_read(CanRxSource.FIFO0)
+            record_observation(
+                record_property,
+                key="order",
+                value=asdict(actual),
+                source="dut",
+                endpoint="RX.FRAME",
+            )
+            order.append(
+                f"ID=0x{actual.identifier:03X}，序号={actual.data[0] if actual.data else '缺失'}"
+            )
+            assert actual.identifier == frame.identifier and actual.flags == frame.flags
+            assert actual.dlc == frame.dlc and actual.data == frame.data
+            can.rx_fifo_ack(0, actual.index)
+
+        # 终态：额外帧、Pending、FIFO不空或丢帧都应失败，不能只比较三帧ID。
+        final = can.tx_status_get()
+        rx = can.rx_fifo_status_get(0)
+        record_observation(
+            record_property,
+            key="pending",
+            value=final.pending,
+            source="dut",
+            endpoint="TX.PENDING",
+        )
+        record_observation(
+            record_property,
+            key="free_count",
+            value=final.free_count,
+            source="dut",
+            endpoint="TX.FIFO_FREE",
+        )
+        record_observation(
+            record_property,
+            key="rx_final",
+            value=asdict(rx),
+            source="dut",
+            endpoint="RX0.STATUS",
+        )
+        assert final.pending == 0 and not final.full
+        assert final.free_count == layout.tx_fifo_count
+        assert rx.fill == 0 and not rx.lost

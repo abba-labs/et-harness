@@ -3,7 +3,7 @@
 # 边界：不执行配置、复位、收发、等待、断言或清理；流程必须保留在Case。
 # 依赖：CAN/CRG公共Model及芯片执行事实映射。
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import import_module
 from types import ModuleType
 
@@ -111,6 +111,31 @@ def loopback_ram(support: CanSupport, *, payload_bytes: int = 8) -> CanRamLayout
         rx_buffer_payload_bytes=payload,
         rx0_payload_bytes=payload,
         rx1_payload_bytes=payload,
+    )
+
+
+# 纯布局计算：三项TX加四项RX0，三种组织使用同一数据容量和接收布局。
+def tx_order_ram(support: CanSupport, *, mode: str) -> CanRamLayout:
+
+    if mode not in ("buffer", "fifo", "queue") or support.ram_limits.tx_count < 3:
+        raise ConfigurationError("CAN TX order requires three slots and a valid organization")
+    layout = loopback_ram(support)
+    extra = 2 * (support.mapping.CAN_RAM_HEADER_BYTES + layout.tx_payload_bytes)
+    buffer_offset = layout.rx_buffer_offset + extra
+    end = buffer_offset + support.ram_limits.rx_buffer_count * (
+        support.mapping.CAN_RAM_HEADER_BYTES + layout.rx_buffer_payload_bytes
+    )
+    if end > support.ram_limits.ram_bytes:
+        raise ConfigurationError("CAN TX order layout exceeds Message RAM")
+    return replace(
+        layout,
+        tx_buffer_count=3 if mode == "buffer" else 0,
+        tx_fifo_count=0 if mode == "buffer" else 3,
+        tx_queue=mode == "queue",
+        event_offset=layout.event_offset + extra,
+        rx0_offset=layout.rx0_offset + extra,
+        rx1_offset=layout.rx1_offset + extra,
+        rx_buffer_offset=buffer_offset,
     )
 
 

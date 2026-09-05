@@ -281,6 +281,12 @@ class CanDriver:
     def tx_write(self, index: int, frame: CanTxFrame, *, timeout_s: float | None = None) -> None:
         self._request(CanCommand.TX_WRITE, codec.tx_frame_words(index, frame), timeout_s=timeout_s)
 
+    # 读回软件持有的TX槽，不返回上次写入请求的缓存，不发起发送。
+    # 只等待本次响应；占用槽或非法响应直接报错，不自动等待槽释放。
+    def tx_read(self, index: int, *, timeout_s: float | None = None) -> CanTxFrame:
+        words = self._request(CanCommand.TX_READ, (codec.uint32(index),), timeout_s=timeout_s)
+        return codec.decode_tx_frame(index, words)
+
     # 一次提交显式非零TX Buffer位图；只等待接受响应，不代表总线完成。
     # 失败直接上抛且不重试；帧准备和完成检查由调用者分开执行。
     def tx_request(self, mask: int, *, timeout_s: float | None = None) -> None:

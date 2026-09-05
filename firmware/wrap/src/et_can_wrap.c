@@ -986,7 +986,7 @@ static int encode_tx_element(const et_can_tx_frame_t *frame, CAN_TxBufElement *e
 /**
  * @brief Prepare one allocated TX element without requesting transmission.
  * @param[in] id Logical controller.
- * @param[in] index Dedicated buffer or current FIFO/Queue put index.
+ * @param[in] index Allocated software-owned slot, including FIFO/Queue preload slots.
  * @param[in] frame Explicit protocol frame; unused payload bytes are ignored by the Driver.
  * @return OK or an argument, busy, state, unsupported-instance or Driver error.
  * @note Checks actual RAM configuration and pending state; no polling or implicit reset.
@@ -1043,7 +1043,8 @@ et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
     {
         CAN_getTxFIFOQueStatus(instance, &fifo);
 
-        if ((fifo.fifoFull != 0u) || (index != fifo.putIdx))
+        /* Batch preloading must not advance TXBAR; pending slots remain protected above. */
+        if (fifo.fifoFull != 0u)
         {
             return ET_WRAP_STATUS_BUSY;
         }
@@ -1104,6 +1105,57 @@ et_wrap_status_t et_can_wrap_request_tx(et_can_id_t id, uint32_t mask)
     }
 
     CAN_testRequestTxMask(instance, mask);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read one prepared basic TX element through the own-IP Driver.
+ * @param[in] id Logical controller.
+ * @param[in] index Allocated software-owned TX slot.
+ * @param[out] frame Actual header and payload; unused payload bytes are zero.
+ * @return OK, BUSY, INVALID_ARGUMENT, NOT_SUPPORTED or IO_ERROR.
+ * @note Does not request transmission, acknowledge a FIFO or use cached request data.
+ */
+et_wrap_status_t et_can_wrap_read_tx(et_can_id_t id, uint32_t index, et_can_tx_frame_t *frame)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TxBufElement element;
+    size_t byte;
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if ((frame == NULL) || (index >= ram_limits.tx_count) || (index >= sizeof(uint32_t) * CHAR_BIT))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if ((CAN_getTxBufReqPend(instance) & (1u << index)) != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    if (CAN_testReadTxBuffer(instance, index, &element) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    frame->identifier = element.xtd ? element.id : element.id >> frame_mapping.standard_id_shift;
+    frame->flags = (element.xtd ? ET_CAN_FRAME_EXTENDED : 0u) |
+                   (element.rtr ? ET_CAN_FRAME_REMOTE : 0u) | (element.fdf ? ET_CAN_FRAME_FD : 0u) |
+                   (element.brs ? ET_CAN_FRAME_BRS : 0u) | (element.esi ? ET_CAN_FRAME_ESI : 0u) |
+                   (element.efc ? ET_CAN_FRAME_STORE_EVENT : 0u) |
+                   (element.tx_tsce ? ET_CAN_FRAME_CAPTURE_TIME : 0u);
+    frame->dlc = element.dlc;
+    frame->marker = element.mm;
+
+    for (byte = 0u; byte < ET_CAN_FRAME_DATA_BYTES; ++byte)
+    {
+        frame->data[byte] = (uint8_t)element.data[byte];
+    }
 
     return ET_WRAP_STATUS_OK;
 }
