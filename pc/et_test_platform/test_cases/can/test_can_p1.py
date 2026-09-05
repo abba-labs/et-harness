@@ -590,6 +590,10 @@ def test_can_p1_001_frame_formats(
     layout = loopback_ram(support, payload_bytes=64)
     completed_nodes = []
 
+    # 报告仅展示每种格式的进度和最近实测帧，完整32帧数据仍保存在原始证据。
+    format_summary = [f"{format_name}/{id_bound}: 尚未接收到帧"]
+    record_property("format_summary", format_summary)
+
     # 清理：异常也复位当前CAN和整池资源，不能留下未完成TX污染下一节点。
     with case_cleanup_scope(
         lambda: (
@@ -666,6 +670,12 @@ def test_can_p1_001_frame_formats(
                 actual = can.rx_read(CanRxSource.FIFO0)
                 can.rx_fifo_ack(0, actual.index)
                 after = can.rx_fifo_status_get(0)
+                format_summary[0] = (
+                    f"{format_name}/{id_bound}: 已核对{len(completed_nodes)}/32帧；"
+                    f"最近RX ID=0x{actual.identifier:X}, flags=0x{int(actual.flags):02X}, "
+                    f"DLC={actual.dlc}, 长度={len(actual.data)}, "
+                    f"前8Byte={actual.data[:8].hex(' ').upper()}"
+                )
                 record_property(
                     "current_node", f"{format_name}/{id_bound}/DLC{dlc}/{'B' if inverse else 'A'}"
                 )
@@ -708,6 +718,11 @@ def test_can_p1_001_frame_formats(
                 assert ready.fill == 1 and after.fill == 0
                 assert not (ready.lost or after.lost)
                 completed_nodes.append((dlc, inverse))
+
+                # 仅强断言全部通过后更新成功帧数，不把接收到但不匹配的帧计入通过数。
+                format_summary[0] = format_summary[0].replace(
+                    f"已核对{len(completed_nodes) - 1}/32帧", f"已核对{len(completed_nodes)}/32帧"
+                )
 
     # 完整性：执行数是过程补充证据，不代替每帧前面的元数据和数据断言。
     record_property("completed_nodes", len(completed_nodes))

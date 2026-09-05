@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 13:15 CST
+更新时间：2026-09-05 13:30 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；11项SPEC、28项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；12项SPEC、27项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -264,7 +264,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 |---|---|---|---|---|
 | CAN_P0_001 | CAN复位与受保护配置 | P0 | R0 | PLANNED，见第3节 |
 | CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | IMPLEMENTED，尚未HIL，见第3节 |
-| CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | PLANNED，见第3节 |
+| CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | SPEC，见第3节 |
 | CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | 已实现SPEC，未HIL |
@@ -393,10 +393,9 @@ gap: []
 
 ### CAN_P0_003 CAN双节点正常总线收发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P0_003
 case_name: CAN双节点正常总线收发
 report_feature: |-
@@ -410,20 +409,20 @@ method:
     - "帧输入：正常模式、500 kbit/s；两端依次发送标准ID 0x123和0x321，各2帧8-byte且序号不同。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "引脚与总线：经独立GPIO Driver配置被测端TX/RX及收发器Enable；另一片上节点同样配置，CAN盒子由其设备接口设置，不能向盒子发送DUT的GPIO命令。"
+    - "引脚与总线：经独立GPIO Driver配置被测端TX/RX；当前固定连接的收发器应处于工作状态。CAN盒子由其设备接口设置，不能向盒子发送DUT的GPIO命令。"
     - "双端初始化：两端配置相同位时序和接收过滤，关闭所有回环，退出INIT。"
     - "正向发送：被测CAN发两帧，逐帧等待硬件TX完成、对端RX有效并Ack。"
     - "反向发送：保持同一接线，对端发两帧，被测CAN接收并Ack。"
     - "双向核对：逐帧检查ID、长度、序号和数据，以及双方TX完成、无RX Lost和Bus Off。"
   observations:
     - "外部路径：对端RX.FRAME对应被测端输入，反向同理；两端回环均关闭。"
-    - "硬件终态：被测端TX.COMPLETED有效、RX.LOST=0、PROTOCOL.BUS_OFF=0；Peer必须提供真实发送完成和接收记录，不要求盒子暴露DUT寄存器。"
+    - "硬件终态：被测端TX.COMPLETED有效、RX.LOST=0、PROTOCOL.BUS_OFF=0。盒子发送以被测端实际RX作为总线完成证据，不把SDK接受入队当完成；正向必须为盒子接收而非本机回显。"
   pass_criteria:
     - "链路真实：四帧均由另一控制器接收，不能使用本机回环数据代替。"
     - "数据正确：双方有效字节和元数据逐项相等，无多帧、少帧和超时。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R2, full_coverage_level: R4, board: "被测CAN经收发器连接Peer；实例和GPIO来自连接文件", bench: "另一CAN节点或CAN盒子，支持基础发送/捕获；无需示波器"}
+timeout: "每次TX/RX等待有界5 s，四帧顺序执行，缺帧立即超时失败"
+cleanup: ["关闭CAN盒子通道", "复位当前CAN", "Resource Pool Reset"]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "被测CAN经收发器连接Peer；实例和GPIO来自连接文件", bench: "配置指定的CAN盒子，支持基础发送/捕获；无需示波器"}
 backend: [FPGA, Silicon]
 evidence: ["CAN双节点正常总线收发：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
@@ -431,9 +430,9 @@ failure_observations:
   - {"key":"peer_frames","label":"Peer实际捕获帧及发送完成记录","source":"peer","role":"actual","format":"text"}
   - {"key":"status","label":"被测CAN TX.COMPLETED、RX.LOST和PROTOCOL.BUS_OFF","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN双节点正常总线收发的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_001 CAN帧格式与DLC边界
 
@@ -1999,13 +1998,16 @@ cases:
       - {source: observation, path: tx_completed, label: TX完成位图, format: hex32, aggregate: all}
       - {source: observation, path: rx_fill, label: RX0填充数（发送前/可读/Ack后）, format: text, aggregate: all}
       - {source: observation, path: rx_lost, label: RX0丢帧标志（三阶段）, format: text, aggregate: all}
-  CAN_P1_001:
-    summary: 逐帧核对ID、格式、DLC和全部数据；摘要展示最后观测节点，完整矩阵保存在原始记录。
+  CAN_P0_003:
+    summary: 被测CAN与盒子在500 kbit/s正常模式下双向各传两帧，比较真实接收数据，不使用回环。
     fields:
-      - {source: measurement, path: current_node, label: 格式与DLC节点, format: text, aggregate: all}
-      - {source: measurement, path: format_text, label: 实际帧头, format: text, aggregate: all}
-      - {source: measurement, path: payload_text, label: 实际payload, format: text, aggregate: all}
-      - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: all}
+      - {source: measurement, path: frame_text, label: 四帧实际接收, format: text, aggregate: all}
+      - {source: measurement, path: status_text, label: 硬件终态, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 输入, format: text, aggregate: all}
+  CAN_P1_001:
+    summary: 每种格式执行DLC0～15及A/B数据共32帧，逐帧比较全部数据；下列为各格式进度与最近RX采样，完整帧在原始记录。
+    fields:
+      - {source: measurement, path: format_summary, label: 各格式实际收发, format: text, aggregate: all}
   CAN_P1_002:
     summary: 核对标准ID Range、Dual、Mask、首匹配、未匹配路由及High Priority状态。
     fields:
@@ -2062,7 +2064,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=9; IMPLEMENTATION_GAP=28 | ADAPTED=11; IMPLEMENTATION_GAP=28; NEEDS_VERIFICATION=3 | 11 SPEC、28 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=9; IMPLEMENTATION_GAP=28 | ADAPTED=12; IMPLEMENTATION_GAP=27; NEEDS_VERIFICATION=3 | 12 SPEC、27 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

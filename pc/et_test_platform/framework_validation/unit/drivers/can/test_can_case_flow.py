@@ -28,6 +28,9 @@ from et_test_platform.test_cases.can._support import CanSupport, loopback_ram, p
 from et_test_platform.test_cases.can.test_can_p0 import (
     test_can_p0_002_internal_loopback as run_case,
 )
+from et_test_platform.test_cases.can.test_can_p0 import (
+    test_can_p0_003_external_bus as run_external_case,
+)
 from et_test_platform.test_cases.can.test_can_p1 import (
     EXTENDED_FILTER_NODES,
     STANDARD_FILTER_NODES,
@@ -236,6 +239,68 @@ def test_clock_stop_case_preserves_handshake_and_recovery(fault, tmp_path) -> No
     )
     row = next(row for row in model["cases"] if row["case_id"] == "CAN_P1_015")
     assert row["status"] == status
+
+
+# 外部收发使用独立盒子RX和DUT RX Golden；任一方向字节错误或盒子回显必须失败。
+@pytest.mark.parametrize("fault", (None, "peer_data", "dut_data", "echo"))
+def test_external_bus_case_independent_peer(fault):
+    from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
+
+    support, resource, target, calls = dependencies()
+    target.responses = responses()[:12]
+    target.responses[10] = pack("<I", 0)
+    payloads = (bytes.fromhex("01 00 00 00 75 86 97 A8"), bytes.fromhex("02 00 00 00 75 86 97 A8"))
+    for _ in payloads:
+        target.responses.extend([b"", b"", pack("<7I", 0, 1, 0, 0, 0, 0, 0)])
+    for index, payload in enumerate(payloads):
+        actual = bytes(8) if fault == "dut_data" else payload
+        target.responses.extend(
+            [
+                pack("<5I", 1, index, index + 1, 0, 0),
+                pack("<8I", 0x321, 0, 8, 0, 0, 0, 8, index) + actual + bytes(56),
+                b"",
+            ]
+        )
+    target.responses.extend([pack("<5I", 0, 2, 2, 0, 0), bytes(60)])
+    sent = []
+    peer_frames = iter(
+        [
+            CanReceivedFrame(
+                CanFrame(0x123, bytes(8) if fault == "peer_data" else payload),
+                index,
+                is_echo=fault == "echo",
+            )
+            for index, payload in enumerate(payloads)
+        ]
+    )
+    box = SimpleNamespace(
+        identity="software-box:CAN1",
+        open=lambda: "software fixture",
+        configure=lambda config: calls.append(("box_config", config.nominal_bitrate)),
+        clear=lambda: None,
+        receive=lambda **_kwargs: next(peer_frames),
+        send=lambda frame, **_kwargs: sent.append(frame),
+        error_get=lambda: 0,
+        close=lambda: calls.append(("box_close",)),
+    )
+    gpio = SimpleNamespace(configure_signal=lambda *args: calls.append(("gpio", *args)))
+    properties = []
+    if fault:
+        with pytest.raises(AssertionError):
+            run_external_case(
+                (support, gpio, ((2, 7), (3, 8)), box),
+                resource,
+                lambda k, v: properties.append((k, v)),
+            )
+    else:
+        run_external_case(
+            (support, gpio, ((2, 7), (3, 8)), box), resource, lambda k, v: properties.append((k, v))
+        )
+        assert not target.responses
+        assert sent == [CanFrame(0x321, payload) for payload in payloads]
+        assert len(dict(properties)["frame_text"]) == 4
+    assert calls[:2] == [("can", 0), ("resource",)]
+    assert calls[-3:] == [("box_close",), ("can", 0), ("resource",)]
 
 
 # 独立构造TX Event Case的硬件响应序列；事件内容与发送Expected不互相读取。

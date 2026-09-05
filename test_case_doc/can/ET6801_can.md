@@ -1,10 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-05 13:20 CST
+更新时间：2026-09-05 13:40 CST
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成48条命令及11条Formal Case；这11条在FPGA复测全部PASS（84个参数节点），Excel生成成功，见6.4。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；11项SPEC、28项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成48条命令及12条Formal Case；先前11条在FPGA复测全部PASS（84个参数节点），新外部收发Case待实测。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；12项SPEC、27项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -365,14 +365,14 @@ Hardware=SUPPORTED仅表示寄存器/描述支持所述能力，不代表实际F
 |---|---:|---|
 | 能力/行为目标 | 39 | 37项准入公共Feature；2项候选行为不提前发布ID |
 | 测试目标 | 42 | P0=3、P1=21、P2=13、P3=5；P2_008拆出独立TX Event目标P2_013 |
-| 完整格式PLAN | 28 | 除11项SPEC和3项DESIGN_GAP外，其余输入、流程、Observation、判据、资源已列 |
-| 已实现SPEC | 11 | 基础回环、格式/过滤/RX存储、TX组织、TX Event FIFO及Clock Stop；FPGA复测11项PASS |
+| 完整格式PLAN | 27 | 除12项SPEC和3项DESIGN_GAP外，其余输入、流程、Observation、判据、资源已列 |
+| 已实现SPEC | 12 | 含新增外部收发；已有内部回环相关11条FPGA PASS，外部Case待HIL |
 | DESIGN_GAP目标 | 3 | P2_006、P2_013、P3_003已有具体确认流程，关键语义未定；不是SKIP |
 | 已设计核心可片内构造 | 24 | 含11项SPEC及13项PLAN；TSU外部节点和IRQ外部节点另需相应连接 |
 | PLAN内固定CAN总线 | 7 | 原5项加取消/重发、ISO格式；仍需盒子相应静默/原始捕获/Non-ISO能力 |
 | PLAN内总线加AUX输入 | 1 | P2_012；CAN盒子负责帧收发，另需合法时钟输入 |
 | PLAN内专用刺激或计量 | 7 | Monitor原始位流、协议注入、RAM延迟、TTCAN定时响应、TDC延迟、Pause测量、TEST pins |
-| 当前注册/执行 | 11 / 11 | 11条Case均PASS；84个参数节点，不重复计算为84条Case |
+| 当前注册/执行 | 12 / 11 | 已执行11条Case均PASS；另新增外部收发1条未执行 |
 
 2026-09-04用户已确认：**当前FPGA CANFD0连接CAN盒子的CAN1通道**。连接文件选择can0、RX GPIO58、TX GPIO59；ET6801 SDK对应复用均为11。盒子适配器复用参考工程的ZLG接口，尚未实际打开设备确认型号/序列号、终端匹配和支持速率；不能把“已接盒子”写成这些能力全部具备。AUX输入和其他仪器连接均未确认。
 
@@ -395,7 +395,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 |---|---|---|
 | CAN_P0_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R0，按公共PLAN实施 |
 | CAN_P0_002 | ADAPTED | 500 kbit/s、两帧8-byte内部回环；FPGA PASS（2组数据） |
-| CAN_P0_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R2，按公共PLAN实施 |
+| CAN_P0_003 | ADAPTED | 连接文件选择CAN/GPIO、配置指定盒子；500 kbit/s双向各两帧，完整比较并记录双方实收；待HIL |
 | CAN_P1_001 | ADAPTED | 6种格式×2个ID边界，每组DLC0～15及双Pattern；FPGA PASS |
 | CAN_P1_002 | ADAPTED | 标准Range/Dual/Mask、首匹配、路由、未匹配和High Priority状态；FPGA PASS |
 | CAN_P1_003 | ADAPTED | 扩展Range/Dual/Mask、XIDAM、29-bit高位、首匹配和High Priority状态；FPGA PASS |
@@ -495,6 +495,8 @@ SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致�
 首轮HIL记录（2026-09-05 13:08 CST）：源码`1f55e29a`，配置流水线运行目录`artifacts/runs/20260905_130036_124328_local_et6801_fpga_atp_testing/`。固件0 Error、0 Warning，XC7VX980T配置、BootROM到main、PFLASH Erase/Programming/Verify均成功；CAN共84个参数节点，83 PASS、1 FAIL。失败节点CAN_P1_008[queue]三帧收发与顺序均通过，但代码断言TXFQS.TFFL=3，实际为0。ET6801.svd明确TXBC.TFQM=1时TFFL读0，属于Case判据错误，不能认定硬件故障。另报告导出在CAN_P1_007的重复`rx_buffer_frame`观测绑定处失败，原始session与Case结果已保存，不宣称Excel生成成功。下一批仅修正CAN判据及本IP报告绑定，再复测。
 
 复测记录（2026-09-05 13:20 CST）：源码`3072ade0`，`artifacts/runs/20260905_131534_634172_local_et6801_fpga_atp_testing/`。仅修改PC判据及报告绑定，复用上一轮已经Verify的PFLASH固件；84 PASS、0 FAIL、0 SKIP，11个稳定Case全部通过。Queue仍严格检查三项完成、Pending清零、Full=0、优先级顺序及完整payload，不通过降低数据检查换取PASS。Excel：`artifacts/reports/20260905_131808_015134_ET6801_CAN测试报告.xlsx`。对应修复的总软件门禁1304 PASS、17 SKIP，Guarded任务`20260905_131208_c9464e6e`；本机宿主编译器缺失的Native测试SKIP不是硬件Case SKIP。
+
+外部收发开发记录（2026-09-05 13:40 CST）：新增P0_003，通过连接文件选CAN/GPIO、运行配置选USBCANFD-200U的CAN1；软件测试包含双向坏数据和发送回显拒绝。P1_001报告改为每种格式进度及最近RX前8-byte摘要，原始完整帧保留，避免384帧全文聚合超过Excel字符上限。总门禁1308 PASS、17 SKIP，Guarded任务`20260905_133557_fe0d6f2a`；已收集12条Case共85个节点。未修改固件，本阶段新增Case尚无硬件结果。
 
 ### 6.5 覆盖结论
 

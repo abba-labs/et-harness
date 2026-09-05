@@ -4,12 +4,15 @@
 # 依赖：当前Framework连接、Capability、CAN/CRG Driver和本IP Support。
 
 import os
+from pathlib import Path
 
 import pytest
 
 from ...core.errors import ConfigurationError
 from ...drivers.can import CAN_SERVICE_ID, CanDriver
 from ...drivers.crg import CRG_SERVICE_ID, CrgDriver
+from ...drivers.gpio import GPIO_SERVICE_ID, GpioDriver, GpioFunction
+from ...instruments.can_boxes.connection import create_zlg_can_box_from_environment
 from ...profiles.hardware_connections import load_hardware_connections
 from ._support import CanSupport, chip_mapping
 
@@ -54,3 +57,28 @@ def can_support(framework_communication, target_capabilities):
         mapping,
         mapping.CAN_CLOCK_HZ[connections.lane],
     )
+
+
+# 外部依赖只读选择：GPIO独立验证、盒子仅构造对象；不在Fixture中打开或配置设备。
+@pytest.fixture
+def can_external_support(can_support, framework_communication, target_capabilities):
+
+    connections = load_hardware_connections(
+        capabilities=target_capabilities, expected_lane=os.environ.get("ET_TARGET_KIND")
+    ).select("can")["can"]
+    endpoint = connections["dut"]
+    if endpoint.handle != can_support.handle or set(endpoint.gpio) != {"rx", "tx"}:
+        raise ConfigurationError("CAN external connection requires the selected handle and RX/TX")
+    services = {
+        (item.service_id, item.instance_id) for item in framework_communication.runtime_services
+    }
+    if (GPIO_SERVICE_ID, 0) not in services:
+        raise ConfigurationError("CAN external case requires independent GPIO Service")
+
+    # 仅核对本Case的两根引脚，不全局禁止其他串行Case复用这些GPIO。
+    gpio = GpioDriver(framework_communication.target_client)
+    pins = ((endpoint.gpio["rx"], GpioFunction.CAN_RX), (endpoint.gpio["tx"], GpioFunction.CAN_TX))
+    for number, function in pins:
+        gpio.validate_signal(number, function, can_support.can.instance_id)
+    box = create_zlg_can_box_from_environment(os.environ, device_name="can_box", base=Path.cwd())
+    return can_support, gpio, pins, box
