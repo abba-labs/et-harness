@@ -420,7 +420,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P2_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
 | CAN_P2_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
 | CAN_P2_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、misc_mapping_gap；资源R1，按公共PLAN实施 |
-| CAN_P2_004 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、message_ram_mapping_gap；资源R1，按公共PLAN实施 |
+| CAN_P2_004 | ADAPTED | 已按SDK三组独立窗口实现全实例交错收发、首尾Guard和Filter重配；软件正负向通过，尚未HIL |
 | CAN_P2_005 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、board_mapping_gap、observer_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P2_006 | NEEDS_VERIFICATION | 有注入位但注入作用于哪次RAM写/读、影响哪实例及单次/持续语义未闭合；ECC Force不是替代。 |
 | CAN_P2_007 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R1；尚需Driver/Mapping/台架能力适配，未执行 |
@@ -503,12 +503,12 @@ pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_
 |---|---|---|---|---|---|---|---|
 | `CAN_P0_003` | FPGA | NOT_EXECUTED | CAN_F_003 / 正常外部总线 | 本轮未选中；前次FAIL为Pending=1、Completed=0、ACK Error、TEC=128 | 外部链路未打通，原因未确认，不能认定硬件缺陷 | 物理链路条件或定位结论变化后复测 | `artifacts/runs/20260905_135501_157677_local_et6801_fpga_atp_testing/`；独立诊断`artifacts/runs/20260905_142834_245093_can_link_diagnostic/` |
 
-最近全注册集合的历史外部FAIL仍保留。Silicon未实测。原13项待开发中的其余10项仍未实现，不能把当前注册集合PASS扩大为全部42项目标已覆盖。
+最近全注册集合的历史外部FAIL仍保留。Silicon未实测。该Run之后另实现P2_004，尚未HIL；原13项中的其余9项仍未实现，不能把当前注册集合PASS扩大为全部42项目标已覆盖。
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 无需外部通信的剩余开发项
 
-2026-09-05 17:05 CST更新：原13项中P0_001、P1_011片内参数、P1_016已经实现并取得FPGA PASS，报告生成及结果备注检查通过；其余10项仍为IMPLEMENTATION_GAP而不是SKIP。
+2026-09-05 17:15 CST更新：原13项中P0_001、P1_011片内参数、P1_016已经取得FPGA PASS且报告通过；P2_004代码及软件正负向验证完成、尚未HIL；其余9项仍为IMPLEMENTATION_GAP而不是SKIP。
 
 | Case ID | 片内测试内容 | 执行前仍需完成 |
 |---|---|---|
@@ -522,7 +522,7 @@ pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_
 | `CAN_P2_001` | DMA经DMU TX/RX搬运 | 补DMU接口、DMA端点/格式映射及跨IP Case |
 | `CAN_P2_002` | DMA搬运TX Event | 补Event虚拟端点及队列推进适配，CPU不能代搬 |
 | `CAN_P2_003` | ECC Force/Mask/Clear及ISR | 补ECC MISC、共享IRQ适配及Case；不冒充真实纠错测试 |
-| `CAN_P2_004` | 多实例Message RAM隔离 | 先明确物理区域/别名关系，再做多实例数据和Guard验证 |
+| `CAN_P2_004` | 多实例Message RAM隔离 | 已实现；复用SDK独立窗口映射，三实例同时占用、倒序取帧，末实例重配后比对全部配置及Guard；软件正负向和报告验证通过，待HIL |
 | `CAN_P2_007` | DMU非法访问及IRQ | 补受限错误刺激和真实IRQ接口，再做各节点复位恢复 |
 | `CAN_P2_008` | DMA接收附加TSU时间戳 | 补TSU/DMU元素映射及DMA搬运Case，保存独立时间戳Oracle |
 

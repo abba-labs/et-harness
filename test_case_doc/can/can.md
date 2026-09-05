@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 16:10 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；15项SPEC、24项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；16项SPEC、23项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -271,7 +271,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前15个SPEC、24个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
+当前16个SPEC、23个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
@@ -302,7 +302,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | PLANNED，见第3节 |
-| CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | PLANNED，见第3节 |
+| CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | SPEC，见第3节 |
 | CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | PLANNED，见第3节 |
 | CAN_P2_006 | CAN Message RAM真实ECC注入 | P2 | R1 | DESIGN_GAP，见第5节 |
 | CAN_P2_007 | CAN DMU非法访问与中断 | P2 | R1 | PLANNED，见第3节 |
@@ -1460,10 +1460,9 @@ gap: ["case_implementation_gap","misc_mapping_gap"]
 
 ### CAN_P2_004 CAN多实例Message RAM隔离
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_004
 case_name: CAN多实例Message RAM隔离
 report_feature: |-
@@ -1486,18 +1485,18 @@ method:
   pass_criteria:
     - "覆盖明确：全部可同时运行的实例均参与，不将代表实例结果扩大为全实例。"
     - "隔离成立：数据、配置和Guard三者均隔离；RAM物理别名关系需先由芯片映射确认。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每次INIT/TX/RX等待独立有界5 s；不以固定Sleep替代硬件状态"
+cleanup: ["逐个CRG复位全部参与CAN", "Resource Pool Reset；全部清理动作均尝试"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "全部Capability声明CAN及CRG；独立完整RAM窗口映射，不使用DMA/GPIO", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN多实例Message RAM隔离：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"frames","label":"各实例RX.FRAME实际ID和payload","source":"dut","role":"actual","format":"text"}
   - {"key":"guards","label":"各实例CONFIG和Message RAM Guard前后值","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN多实例Message RAM隔离的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","message_ram_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_005 CAN内部与外部回环引脚对照
 
@@ -1989,6 +1988,12 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P2_004:
+    summary: 核对全部实例并存收发，以及仅重配最后实例后的配置和RAM首尾保持。
+    fields:
+      - {source: measurement, path: frames, label: 各实例RX实际ID及数据, format: text, aggregate: all}
+      - {source: measurement, path: guards, label: 各实例RAM首尾实际值, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: same}
   CAN_P0_001:
     summary: 仲裁位时序仅在配置写权限打开时改变，复位后恢复芯片定义值。
     fields:
@@ -2095,7 +2100,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=12; IMPLEMENTATION_GAP=25 | ADAPTED=15; IMPLEMENTATION_GAP=24; NEEDS_VERIFICATION=3 | 15 SPEC、24 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=12; IMPLEMENTATION_GAP=25 | ADAPTED=16; IMPLEMENTATION_GAP=23; NEEDS_VERIFICATION=3 | 16 SPEC、23 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

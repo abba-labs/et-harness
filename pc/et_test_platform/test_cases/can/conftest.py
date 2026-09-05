@@ -4,6 +4,7 @@
 # 依赖：当前Framework连接、Capability、CAN/CRG Driver和本IP Support。
 
 import os
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,37 @@ def can_support(framework_communication, target_capabilities):
         mapping,
         mapping.CAN_CLOCK_HZ[connections.lane],
     )
+
+
+# 全实例只读入口：核对Capability与Runtime交集，不配置硬件或截取代表实例。
+@pytest.fixture
+def can_instance_supports(can_support, framework_communication, target_capabilities):
+
+    # 全实例是本Case的Feature，不沿用普通Case的代表实例选择。
+    services = {
+        (item.service_id, item.instance_id) for item in framework_communication.runtime_services
+    }
+    supports = []
+
+    # 只查询限制并构造Driver；任何复位和配置均留在Case主体。
+    for handle in target_capabilities.instances("can"):
+        suffix = handle.removeprefix("can")
+        if not suffix.isdecimal() or (CAN_SERVICE_ID, int(suffix)) not in services:
+            raise ConfigurationError(f"CAN instance has no matching runtime service: {handle}")
+        driver = CanDriver(framework_communication.target_client, int(suffix))
+        supports.append(
+            replace(
+                can_support,
+                handle=handle,
+                can=driver,
+                ram_limits=driver.ram_limits_get(),
+                timing_limits=driver.timing_limits_get(),
+            )
+        )
+
+    if len(supports) < 2:
+        raise ConfigurationError("CAN isolation requires at least two declared instances")
+    return tuple(supports)
 
 
 # 外部依赖只读选择：GPIO独立验证、盒子仅构造对象；不在Fixture中打开或配置设备。
