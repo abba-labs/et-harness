@@ -15,3 +15,9 @@ CAN_RAM_HEADER_BYTES = 8
 CAN_STD_FILTER_BYTES = 4
 CAN_EXT_FILTER_BYTES = 8
 CAN_EVENT_BYTES = 8
+
+# 三实例控制基址间隔0x8000；SDK将各自前0x4000映射为独立Message RAM。
+# UT5覆盖完整16KiB；这里只声明每个实例可测的相对区域，不暴露CPU裸地址给Case。
+CAN_RAM_TEST_REGIONS = MappingProxyType(
+    {"can0": ((0, 0x4000),), "can1": ((0, 0x4000),), "can2": ((0, 0x4000),)}
+)

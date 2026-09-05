@@ -68,6 +68,60 @@ from et_test_platform.test_cases.can.test_can_p1 import (
 from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_015_clock_stop_and_recovery as run_clock_stop_case,
 )
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_016_message_ram_march as run_ram_case,
+)
+
+
+# 测试Feature：RAM Case完整模式与March顺序、首错拒绝和不复位重建回环。
+# 测试方法：用两word区域的独立Wire向量运行真实Case，故意破坏一次March旧值。
+# 通过条件：正确向量全部消费，坏数据触发强断言；每次退出资源归零。
+@pytest.mark.parametrize("corrupt", (False, True))
+def test_ram_case_march_order_and_independent_expected(corrupt) -> None:
+
+    support, resource, target, calls = dependencies()
+    support.mapping.CAN_RAM_TEST_REGIONS = {"can0": ((0, 8),)}
+    target.responses = [b"", pack("<I", 1)]
+
+    # 三个模式均先写整区再读；响应不能从发送请求反向取Expected。
+    for values in ((0x5A5A5A5A, 0x5A5A5A5A), (0xA5A5A5A5, 0xA5A5A5A5), (0x5A5A5A5A, 0x5A5A5A5B)):
+        target.responses.extend([b"", pack("<64I", *values, *([0] * 62))])
+
+    target.responses.append(b"")
+
+    # 五个读阶段分别是0/1/0/1/0；第三阶段损坏时应停在该批断言。
+    for index, value in enumerate((0, 0xFFFFFFFF, 0, 0xFFFFFFFF, 0)):
+        actual = 1 if corrupt and index == 2 else value
+        target.responses.append(pack("<64I", actual, value, *([0] * 62)))
+
+    target.responses.extend(
+        [b""] * 7
+        + [
+            pack("<I", 0),
+            b"",
+            b"",
+            pack("<7I", 0, 1, 0, 1, 0, 0, 0),
+            pack("<5I", 1, 0, 1, 0, 0),
+            pack("<8I", 0x123, 0, 8, 0, 0, 0, 8, 0)
+            + bytes.fromhex("31 42 53 64 75 86 97 A8")
+            + bytes(56),
+            b"",
+        ]
+    )
+    properties = []
+
+    if corrupt:
+        with pytest.raises(AssertionError, match="down_r0w1"):
+            run_ram_case(support, resource, lambda k, v: properties.append((k, v)))
+    else:
+        run_ram_case(support, resource, lambda k, v: properties.append((k, v)))
+        assert not target.responses
+        exchanges = [request for request in target.requests if request["command"] == 53]
+        assert [request["body"][9:13] for request in exchanges] == [
+            pack("<I", v) for v in (0, 0, 1, 1)
+        ]
+
+    assert calls[-1] == ("resource",)
 
 
 # 测试Feature：真实IRQ Case必须比较实际线路、屏蔽Raw及逐源清除。

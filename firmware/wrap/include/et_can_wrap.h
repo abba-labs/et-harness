@@ -491,4 +491,10 @@ et_wrap_status_t et_can_wrap_clear_irq(et_can_id_t id, uint32_t sources);
 et_wrap_status_t et_can_wrap_get_irq_route(et_can_id_t id, et_can_irq_line_t line, uint32_t events,
                                            et_irq_route_t *route);
 
+/** Bounded transport batch; not the chip's RAM capacity or a test pattern size. */
+#define ET_CAN_RAM_ACCESS_WORDS 64u
+et_wrap_status_t et_can_wrap_access_ram(et_can_id_t id, uint32_t offset, uint32_t count,
+                                        const uint32_t *input, uint32_t *output,
+                                        uint8_t descending);
+
 #endif

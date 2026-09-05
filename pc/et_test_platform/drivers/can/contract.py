@@ -11,6 +11,8 @@ WORD = Struct("<I")
 INSTANCE = Struct("<B")
 POLL_INTERVAL_S = 0.001
 FRAME_DATA_BYTES = 64
+# 固定Wire批大小，不代表芯片RAM容量；最后一批允许少于64个有效word。
+RAM_ACCESS_WORDS = 64
 CLASSIC_DATA_BYTES = 8
 STANDARD_ID_MAX = 0x7FF
 EXTENDED_ID_MAX = 0x1FFFFFFF
@@ -73,6 +75,9 @@ class CanCommand(IntEnum):
     TX_BUFFER_IRQ_SET = 48
     IRQ_CAPTURE_PENDING = 49
     IRQ_LINE_EVENTS_GET = 50
+    RAM_WORDS_READ = 51
+    RAM_WORDS_WRITE = 52
+    RAM_WORDS_EXCHANGE = 53
 
 
 REQUEST_WORDS = (
@@ -127,6 +132,9 @@ REQUEST_WORDS = (
     2,  # TX_BUFFER_IRQ_SET: selected slot and Boolean enable.
     2,  # IRQ_CAPTURE_PENDING: watched sources and line-1 subset; retain Raw.
     0,  # IRQ_LINE_EVENTS_GET: per-line Service latches.
+    3,  # RAM_WORDS_READ: byte offset, valid count, traversal direction.
+    3 + RAM_ACCESS_WORDS,
+    3 + RAM_ACCESS_WORDS,
 )
 RESPONSE_WORDS = (
     2,
@@ -180,6 +188,9 @@ RESPONSE_WORDS = (
     0,  # TX_BUFFER_IRQ_SET: explicit write, no response fields.
     0,  # IRQ_CAPTURE_PENDING: explicit capture setup.
     2,  # IRQ_LINE_EVENTS_GET: line-0 and line-1 source latches.
+    RAM_ACCESS_WORDS,
+    0,
+    RAM_ACCESS_WORDS,
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -294,5 +305,6 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TX_EVENT_READ,
         CanCommand.TX_READ,
         CanCommand.IRQ_LINE_EVENTS_GET,
+        CanCommand.RAM_WORDS_READ,
     }
 )

@@ -8,6 +8,7 @@ from time import sleep
 
 import pytest
 
+from ...core.deadline import OperationDeadline
 from ...drivers.can import (
     CanBusConfig,
     CanFilter,
@@ -50,7 +51,251 @@ from ._support import (
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
 
 
-# ------------------------------ IRQ线路与独立清除 ------------------------------
+# =============================================================================
+# Message RAM完整遍历
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN Message RAM固定模式、地址别名与March C-读写；重建后正常收发。
+#
+# 测试方法：
+# 1. 复位CAN及资源池，进入INIT，仅遍历芯片映射明确允许的Message RAM区域。
+# 2. 分别整区写入0x5A5A5A5A、0xA5A5A5A5和相对字索引异或模式，整区读回核对。
+# 3. 执行March C-六阶段；每个地址先读后立即写，再到下一地址，降序阶段亦如此。
+# 4. 记录每阶段实际字数和首错位置，重建最小布局并比较一帧内部回环数据。
+#
+# 通过条件：
+# 1. 所有受测字的各阶段读回均匹配预先生成的Expected，不能以抽样代替整区。
+# 2. RAM测试后TX完成、RX数据一致；本Case不宣称ECC注入或物理阵列完整覆盖。
+def test_can_p1_016_message_ram_march(can_support, resource_driver, record_property) -> None:
+
+    # 范围：64-word只是传输批大小；被测总范围只能来自芯片映射和实际发布的容量。
+    support = can_support
+    can = support.can
+    regions = support.mapping.CAN_RAM_TEST_REGIONS[support.handle]
+    word_bytes, batch_words = 4, 64
+    chunks = []
+
+    # 按映射区域切成有界传输批，不扩大到控制寄存器或其他实例的RAM。
+    for offset, length in regions:
+        assert offset % word_bytes == length % word_bytes == 0 and length > 0
+        assert 0 <= offset < offset + length <= support.ram_limits.ram_bytes
+        chunks.extend(
+            (address, min(batch_words, (offset + length - address) // word_bytes))
+            for address in range(offset, offset + length, batch_words * word_bytes)
+        )
+    total_words = sum(count for _, count in chunks)
+    stage_counts = {}
+    record_property("range", {"regions": regions, "words": total_words, "stages": stage_counts})
+    record_property("expected", "固定模式/地址模式/March C-各读值必须完全相符；恢复ID=0x123")
+    # 16KiB有768批RAM请求；120s是开发前通信预算，不用重跑或扩大超时掩盖硬件失败。
+    deadline = OperationDeadline.start(120.0, label="CAN Message RAM March C-")
+
+    # 清理：整块RAM测试结束后复位控制器，避免破坏性模式成为下一Case的配置。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 隔离：复位本CAN也停止其DMU，资源池清空；不配置或启动DMA访问者。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+
+        # 固定与地址模式：先全区域写入，再读完整区域，保留跨地址别名检测能力。
+        for pattern_name, constant in (
+            ("fixed_a", 0x5A5A5A5A),
+            ("fixed_b", 0xA5A5A5A5),
+            ("address", None),
+        ):
+            # 写阶段不先读取可能尚未初始化ECC的RAM。
+            for offset, count in chunks:
+                values = tuple(
+                    constant
+                    if constant is not None
+                    else ((offset // word_bytes + index) ^ 0x5A5A5A5A)
+                    for index in range(count)
+                )
+                can.ram_words_write(
+                    offset, values, timeout_s=min(TIMEOUT_S, deadline.remaining_s())
+                )
+
+            # 每次断言前保存真实RAM读回和该批Expected；发生首错就保留其相对offset。
+            read_count = 0
+
+            # 逐批完整读取，比较独立生成的Expected，不能只核对最后一批。
+            for offset, count in chunks:
+                expected = tuple(
+                    constant
+                    if constant is not None
+                    else ((offset // word_bytes + index) ^ 0x5A5A5A5A)
+                    for index in range(count)
+                )
+                actual = can.ram_words_read(
+                    offset, count, timeout_s=min(TIMEOUT_S, deadline.remaining_s())
+                )
+                record_observation(
+                    record_property,
+                    key="ram",
+                    value=actual,
+                    source="dut",
+                    endpoint=f"MESSAGE_RAM[{offset}]",
+                )
+                first_mismatch = next(
+                    (
+                        offset + index * word_bytes
+                        for index in range(count)
+                        if actual[index] != expected[index]
+                    ),
+                    None,
+                )
+                record_property(
+                    "ram_position",
+                    {
+                        "stage": pattern_name,
+                        "offset": offset,
+                        "expected": expected,
+                        "first_mismatch": first_mismatch,
+                    },
+                )
+                assert actual == expected, f"{pattern_name}: Message RAM byte offset {offset}"
+                read_count += count
+
+            stage_counts[pattern_name] = read_count
+            assert read_count == total_words
+
+        # March C-：全写0、升序r0w1/r1w0、降序r0w1/r1w0、全读0。
+        for stage, before, after, descending in (
+            ("w0", None, 0, False),
+            ("up_r0w1", 0, 0xFFFFFFFF, False),
+            ("up_r1w0", 0xFFFFFFFF, 0, False),
+            ("down_r0w1", 0, 0xFFFFFFFF, True),
+            ("down_r1w0", 0xFFFFFFFF, 0, True),
+            ("r0", 0, None, False),
+        ):
+            visited = 0
+
+            # 降序同时反转批次和批内word访问；返回数组仍按地址升序便于定位。
+            for offset, count in reversed(chunks) if descending else chunks:
+                timeout = min(TIMEOUT_S, deadline.remaining_s())
+
+                if before is None:
+                    can.ram_words_write(offset, (after,) * count, timeout_s=timeout)
+                else:
+                    actual = (
+                        can.ram_words_read(offset, count, timeout_s=timeout)
+                        if after is None
+                        else can.ram_words_exchange(
+                            offset, (after,) * count, descending=descending, timeout_s=timeout
+                        )
+                    )
+                    record_observation(
+                        record_property,
+                        key="ram",
+                        value=actual,
+                        source="dut",
+                        endpoint=f"MESSAGE_RAM[{offset}]",
+                    )
+                    first_mismatch = next(
+                        (
+                            offset + index * word_bytes
+                            for index in range(count)
+                            if actual[index] != before
+                        ),
+                        None,
+                    )
+                    record_property(
+                        "ram_position",
+                        {
+                            "stage": stage,
+                            "offset": offset,
+                            "expected": before,
+                            "first_mismatch": first_mismatch,
+                        },
+                    )
+                    assert actual == (before,) * count, f"{stage}: Message RAM byte offset {offset}"
+
+                visited += count
+
+            stage_counts[stage] = visited
+            assert visited == total_words
+
+        # 重建：不再复位，直接在测试后全零RAM上建立最小回环，证明布局确实恢复。
+        can.timing_set(
+            CanTiming(
+                phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+                phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+            )
+        )
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(loopback_ram(support))
+        can.filter_set(
+            0, CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123), extended=False
+        )
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.DISABLED,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 恢复刺激：一帧完整数据及真实TX/RX状态，不以配置成功充当通信成功。
+        can.tx_write(0, CanTxFrame(0x123, CanFrameFlags.NONE, 8, 0, PATTERN_A))
+        can.tx_request(1)
+        tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+        received = can.rx_read(CanRxSource.FIFO0)
+        record_observation(
+            record_property,
+            key="restore",
+            value=asdict(received),
+            source="dut",
+            endpoint="RX.FRAME",
+        )
+        record_observation(
+            record_property,
+            key="restore_tx",
+            value=tx.completed,
+            source="dut",
+            endpoint="TX.COMPLETED",
+        )
+        record_property("range", {"regions": regions, "words": total_words, "stages": stage_counts})
+        assert received.identifier == 0x123 and received.dlc == 8 and received.data == PATTERN_A
+        assert tx.completed & 1
+        can.rx_fifo_ack(0, received.index)
+
+
+# =============================================================================
+# IRQ线路与独立清除
+# =============================================================================
 
 
 # 测试 Feature：
@@ -762,7 +1007,9 @@ EXTENDED_FILTER_NODES = (
 )
 
 
-# ------------------------------ 帧格式 ------------------------------
+# =============================================================================
+# 帧格式
+# =============================================================================
 
 
 # 测试 Feature：

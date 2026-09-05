@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 15:21 CST
+更新时间：2026-09-05 16:10 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；13项SPEC、26项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；14项SPEC、25项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共51条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共54条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -171,6 +171,11 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | TX_BUFFER_IRQ_SET | 48 | 已分配TX槽index、enabled（严格0/1） | 无；仅设置该槽的发送完成事件，不隐式开启全局Source或Line |
 | IRQ_CAPTURE_PENDING | 49 | sources、line1_sources子集 | 无；与IRQ_CAPTURE_START使用相同绑定顺序及新证据代次，但保留硬件Raw后开放投递，用于验证先屏蔽后投递；已有捕获时返回BUSY |
 | IRQ_LINE_EVENTS_GET | 50 | 无 | Line0、Line1各自实际回调锁存的公共Source位图；是Service证据，不是寄存器；随IRQ_EVENT_RESET或新捕获代次清空 |
+| RAM_WORDS_READ | 51 | offset_bytes、count_words、descending | 64个U32；前count项为实际读值，其余为0；仅INIT可用 |
+| RAM_WORDS_WRITE | 52 | offset_bytes、count_words、descending、64个U32 | 无；前count项写RAM，其余输入必须为0 |
+| RAM_WORDS_EXCHANGE | 53 | 与RAM_WORDS_WRITE相同 | 64个U32旧值；每word先读后立即写，再访问下一地址；返回仍按地址升序排列 |
+
+RAM访问限制：offset以Byte计且4-byte对齐，count为1～64；全部范围必须落在当前实例声明的Message RAM容量内。descending严格为0/1，只改变访问顺序。固件不生成测试模式、不比较Expected、不计算PASS；PC负责算法、完整读值比较和首错定位。
 
 `CanDriver.tx_buffer_irq_set`只控制TX槽事件；`irq_capture_pending`不清硬件Raw，`irq_line_events_get`只读回调线路证据。既有命令ID及Body不变；原`irq_capture_start`仍先清Raw后绑定。停止捕获保留证据，重置证据不会清硬件Raw。
 
@@ -263,29 +268,29 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前8个SPEC、31个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。基础外部收发允许片上Peer或CAN盒子；位流注入、精确时标和电气隔离另列资源，不能假定盒子全具备。
+当前14个SPEC、25个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
 | CAN_P0_001 | CAN复位与受保护配置 | P0 | R0 | PLANNED，见第3节 |
-| CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | IMPLEMENTED，尚未HIL，见第3节 |
+| CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | SPEC，见第3节 |
 | CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | SPEC，见第3节 |
-| CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_002 | CAN标准ID过滤与路由 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_003 | CAN扩展ID过滤与掩码 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_004 | CAN Remote帧允许与拒绝 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_005 | CAN RX FIFO水位、满与环回 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | SPEC，见第3节 |
-| CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | 已实现SPEC，未HIL |
+| CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | PLANNED，见第3节 |
+| CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | SPEC，见第3节 |
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
 | CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | 已实现SPEC，未HIL |
-| CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | SPEC，见第3节 |
+| CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_017 | CAN取消请求与重发 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | PLANNED，见第3节 |
 | CAN_P1_019 | CAN Monitor与Restricted模式 | P1 | R4 | PLANNED，见第3节 |
@@ -1065,10 +1070,9 @@ gap: []
 
 ### CAN_P1_016 CAN Message RAM模式与March C-
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_016
 case_name: CAN Message RAM模式与March C-
 report_feature: |-
@@ -1084,7 +1088,7 @@ method:
     - "排他停机：停止全部共享RAM访问者并进入INIT，确认受测区域不包含控制寄存器或协议资源。"
     - "固定模式：遍历每个对齐地址写模式并逐字读回，记录首个不匹配地址、Expected和Actual。"
     - "地址模式：每个字写相对字索引异或0x5A5A5A5A，完整回读，检查地址别名。"
-    - "March执行：按输入定义六个阶段遍历完整区域，每次读紧跟对应Expected，不用最后一次读取替代全程检查。"
+    - "March执行：按输入定义六个阶段遍历完整区域；每word读取后立即写新值再访问下一word，PC逐批比较全部旧值与Expected，不用最后一次读取替代全程检查。"
     - "重建验证：全部清零并重建最小CAN布局，发一帧内部回环；保留实际测试字数及每阶段计数。"
   observations:
     - "RAM读回：MESSAGE_RAM[offset]等于每阶段独立Expected，测试范围及首错地址明确。"
@@ -1092,7 +1096,7 @@ method:
   pass_criteria:
     - "遍历完整：每阶段访问数等于声明区域字数，所有读回正确；不能只抽样称全RAM通过。"
     - "结果区分：本Case只验证可寻址RAM读写/March C-，不声称完成ECC注入、纠错和所有物理阵列覆盖。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
+timeout: "RAM遍历总Deadline为120 s，单命令不超过剩余预算和5 s；16 KiB、64-word批大小对应768个RAM命令；恢复收发各等待5 s。"
 cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
 resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
@@ -1102,9 +1106,9 @@ failure_observations:
   - {"key":"range","label":"Message RAM测试范围、字数及March阶段计数","source":"measurement","role":"actual","format":"text"}
   - {"key":"restore","label":"重建后RX.FRAME及TX.COMPLETED","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN Message RAM模式与March C-的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","message_ram_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_017 CAN取消请求与重发
 
@@ -1982,6 +1986,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_016:
+    summary: 按映射区域完整执行固定/地址模式及March C-，再重建布局核对回环；不代表ECC注入测试。
+    fields:
+      - {source: measurement, path: range, label: RAM范围和各阶段完成字数, format: text, aggregate: all}
+      - {source: measurement, path: ram_position, label: 最近核对位置与首错偏移, format: text, aggregate: all}
+      - {source: observation, path: restore, label: 恢复RX帧, format: text, aggregate: all}
+      - {source: observation, path: restore_tx, label: 恢复TX完成, format: hex32, aggregate: all}
   CAN_P1_011:
     summary: 核对屏蔽后Raw、真实ISR线路、逐源W1C及第二笔新事件；内部与外部路径分别统计。
     fields:
@@ -2076,7 +2087,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=10; IMPLEMENTATION_GAP=27 | ADAPTED=13; IMPLEMENTATION_GAP=26; NEEDS_VERIFICATION=3 | 13 SPEC、26 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=11; IMPLEMENTATION_GAP=26 | ADAPTED=14; IMPLEMENTATION_GAP=25; NEEDS_VERIFICATION=3 | 14 SPEC、25 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

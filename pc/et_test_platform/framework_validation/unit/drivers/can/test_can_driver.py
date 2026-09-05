@@ -43,6 +43,36 @@ TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
 
 
+# 测试Feature：RAM读、写和逐字交换的固定Wire、有效长度、方向及独立读回。
+# 测试方法：使用独立64-word响应，检查三条命令；非对齐、空数组与尾部污染均拒绝。
+# 通过条件：读可重试、写和交换不可重试；返回旧值而非写入值，无隐式硬件动作。
+def test_ram_access_golden_and_bounds() -> None:
+
+    target = TargetStub(
+        [pack("<64I", 0x12345678, 0xABCDEF01, *([0] * 62)), b"", pack("<64I", 7, 8, *([0] * 62))]
+    )
+    driver = CanDriver(target, 2)
+    assert driver.ram_words_read(8, 2) == (0x12345678, 0xABCDEF01)
+    driver.ram_words_write(12, (10, 20), timeout_s=0.2)
+    assert driver.ram_words_exchange(16, (30, 40), descending=True) == (7, 8)
+    assert [request["command"] for request in target.requests] == [51, 52, 53]
+    assert target.requests[0]["body"] == bytes.fromhex("02 08000000 02000000 00000000")
+    assert target.requests[2]["body"] == bytes.fromhex(
+        "02 10000000 02000000 01000000 1e000000 28000000"
+    ) + bytes(248)
+    assert [request["retry_safe"] for request in target.requests] == [True, False, False]
+
+    for offset, count in ((1, 2), (0, 0), (0, 65)):
+        with pytest.raises(ValueError):
+            driver.ram_words_read(offset, count)
+
+    assert len(target.requests) == 3
+    target.responses = [pack("<64I", *([1] * 64))]
+
+    with pytest.raises(ProtocolError, match="padding"):
+        driver.ram_words_read(0, 1)
+
+
 # 测试Feature：单槽完成事件、保留Raw的捕获启动及实际线路证据。
 # 测试方法：用独立小端Golden检查三个新增命令；非法Boolean不得发送到目标。
 # 通过条件：命令、字段顺序和重试属性准确，旧命令无需改变。

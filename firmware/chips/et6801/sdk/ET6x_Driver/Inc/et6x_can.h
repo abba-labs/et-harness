@@ -1479,6 +1479,13 @@ typedef enum
 } CAN_TestActivity;
 /** ET6801 Message RAM aperture: driver uses CANx - 0x4000, UT5 tests 16 KiB. */
 #define CAN_TEST_MSG_RAM_BYTES (0x4000U)
+/** Access aligned words only within this controller's Message RAM, while INIT is set.
+ * Optional input writes each word; optional output reads it before the write.
+ * Descending changes visit order, not the ascending-offset array layout.
+ * The primitive performs no pattern generation, comparison, retry or verdict.
+ */
+int32_t CAN_testAccessRAMWords(CAN_Type *CANx, uint32_t offset, uint32_t count,
+                               const uint32_t *input, uint32_t *output, uint32_t descending);
 /** Message RAM R0/T0 stores standard ID in ID[28:18], extended ID in ID[28:0]. */
 #define CAN_TEST_STANDARD_ID_SHIFT (18U)
 #define CAN_TEST_STANDARD_ID_MAX (0x7FFU)

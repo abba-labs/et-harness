@@ -756,6 +756,45 @@ et_wrap_status_t et_can_wrap_get_ram_limits(et_can_id_t id, et_can_ram_limits_t 
 }
 
 /**
+ * @brief Access only the selected controller's Message RAM through its test Driver.
+ * @param[in] id Logical controller identity.
+ * @param[in] offset Aligned byte offset within the published aperture.
+ * @param[in] count Nonzero word count bounded by the Wire batch limit.
+ * @param[in] input Optional ascending-offset words to write.
+ * @param[out] output Optional words sampled before their corresponding writes.
+ * @param[in] descending Boolean traversal direction; array indexing remains ascending.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED, STATE_ERROR or IO_ERROR.
+ * @note No comparison, pattern generation or test orchestration is performed.
+ */
+et_wrap_status_t et_can_wrap_access_ram(et_can_id_t id, uint32_t offset, uint32_t count,
+                                        const uint32_t *input, uint32_t *output, uint8_t descending)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((count == 0u) || (count > ET_CAN_RAM_ACCESS_WORDS) || (descending > 1u) ||
+        ((input == NULL) && (output == NULL)) || (offset % sizeof(uint32_t) != 0u) ||
+        (offset >= ram_limits.ram_bytes) ||
+        (count > (ram_limits.ram_bytes - offset) / sizeof(uint32_t)))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_getOpMode(instance) != CAN_OPERATION_MODE_SW_INIT)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    return CAN_testAccessRAMWords(instance, offset, count, input, output, descending) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
  * @brief Configure one complete RAM layout through the CAN Driver only.
  * @param[in] id Logical controller.
  * @param[in] layout Explicit byte offsets, counts, capacities and FIFO policies.

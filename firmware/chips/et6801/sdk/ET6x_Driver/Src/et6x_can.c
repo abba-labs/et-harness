@@ -2561,5 +2561,51 @@ int32_t CAN_testReadTxBuffer(CAN_Type *CANx, uint32_t index, CAN_TxBufElement *e
     }
     return DRV_OK;
 }
+/**
+ * @brief Read and/or write a bounded sequence of aligned Message RAM words.
+ * @param CANx Selected controller; its own 16 KiB aperture precedes the control block.
+ * @param offset Byte offset from the aperture start, never an arbitrary CPU address.
+ * @param count Number of words, validated before any access.
+ * @param input Optional new words indexed by ascending offset.
+ * @param output Optional previous words indexed by ascending offset.
+ * @param descending Visit high to low when one, low to high when zero.
+ * @return DRV_OK or DRV_ERROR; INIT and bounds errors cause no RAM access.
+ */
+int32_t CAN_testAccessRAMWords(CAN_Type *CANx, uint32_t offset, uint32_t count,
+                               const uint32_t *input, uint32_t *output, uint32_t descending)
+{
+    uint32_t step;
+    uint32_t index;
+    uint32_t address;
+
+    assert_param(IS_CAN_PERIPH(CANx));
+
+    if ((CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT) || (descending > 1U) ||
+        ((input == NULL) && (output == NULL)) || (count == 0U) ||
+        (offset % sizeof(uint32_t) != 0U) || (offset >= CAN_TEST_MSG_RAM_BYTES) ||
+        (count > (CAN_TEST_MSG_RAM_BYTES - offset) / sizeof(uint32_t)))
+    {
+        return DRV_ERROR;
+    }
+
+    /* Each read immediately precedes its corresponding write, including descending visits. */
+    for (step = 0U; step < count; ++step)
+    {
+        index = descending != 0U ? count - step - 1U : step;
+        address = (uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + offset + index * sizeof(uint32_t);
+
+        if (output != NULL)
+        {
+            output[index] = READ_REG(REG32(address));
+        }
+
+        if (input != NULL)
+        {
+            WRITE_REG(REG32(address), input[index]);
+        }
+    }
+
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

@@ -192,9 +192,16 @@ int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
 
 /* Optional ECR.CEL read-clear model catches accidental repeated reads in a getter. */
 static unsigned consume_enabled, ecr_reads, psr_reads, txbc_reads;
+static unsigned ram_trace_enabled, ram_trace_count;
+static uintptr_t ram_trace[4];
 uint32_t can_test_read(volatile uint32_t *address)
 {
     uint32_t value=*address;
+    if (ram_trace_enabled && (uintptr_t)address >= (uintptr_t)test_memory.ram &&
+        (uintptr_t)address < (uintptr_t)CAN0 && ram_trace_count < 4)
+    {
+        ram_trace[ram_trace_count++] = (uintptr_t)address - (uintptr_t)test_memory.ram;
+    }
     if (address==&CAN0->TXBC) { ++txbc_reads; }
     if (consume_enabled && address==&CAN0->ECR)
     {
@@ -872,6 +879,27 @@ int main(void)
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_BUFFER_IRQ_SET,
                                   request, 9, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
         assert(CAN0->TXBTIE==1);
+    }
+
+    /* Bounded RAM primitive preserves per-word descending order and validates before mutation. */
+    {
+        uint32_t input[2]={0x12345678U,0xABCDEF01U}, output[2]={0};
+        uint32_t *ram=(uint32_t *)test_memory.ram;
+        CAN0->CCCR=CAN_OPERATION_MODE_SW_INIT;
+        ram[0]=7; ram[1]=8;
+        ram_trace_enabled=1; ram_trace_count=0;
+        assert(et_can_wrap_access_ram(0,0,2,input,output,1)==ET_WRAP_STATUS_OK);
+        ram_trace_enabled=0;
+        assert(output[0]==7 && output[1]==8);
+        assert(ram[0]==input[0] && ram[1]==input[1]);
+        assert(ram_trace_count==2 && ram_trace[0]==4 && ram_trace[1]==0);
+        assert(et_can_wrap_access_ram(0,1,2,input,output,0)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_access_ram(0,16380,2,input,output,0)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_access_ram(0,0,65,input,output,0)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(ram[0]==input[0] && ram[1]==input[1]);
+        CAN0->CCCR=0;
+        assert(et_can_wrap_access_ram(0,0,2,input,output,0)==ET_WRAP_STATUS_STATE_ERROR);
+        assert(ram[0]==input[0] && ram[1]==input[1]);
     }
 
     return 0;

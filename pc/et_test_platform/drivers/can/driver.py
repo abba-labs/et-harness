@@ -475,6 +475,64 @@ class CanDriver:
         words = self._request(CanCommand.IRQ_LINE_EVENTS_GET, timeout_s=timeout_s)
         return CanIrqSource(words[0]), CanIrqSource(words[1])
 
+    # Message RAM按公共word数组访问；三种操作共用只做编解码的边界检查。
+    # 请求在timeout_s内完成，通信错误直接上抛，不重试写或交换，不自动推进RAM测试。
+    def ram_words_read(
+        self,
+        offset: int,
+        count: int,
+        *,
+        descending: bool = False,
+        timeout_s: float | None = None,
+    ) -> tuple[int, ...]:
+        return self._ram_access(CanCommand.RAM_WORDS_READ, offset, count, (), descending, timeout_s)
+
+    # 写指定相对偏移的word数组；INIT前置条件由目标验证，失败不改变其他IP。
+    # 不等待CAN收发，也不执行比较；命令超时直接上抛，禁止自动重发。
+    def ram_words_write(
+        self,
+        offset: int,
+        values: tuple[int, ...],
+        *,
+        descending: bool = False,
+        timeout_s: float | None = None,
+    ) -> None:
+        self._ram_access(
+            CanCommand.RAM_WORDS_WRITE, offset, len(values), values, descending, timeout_s
+        )
+
+    # 对每个word先读后写，再访问下一个word；返回旧值，数组仍按地址升序排列。
+    # descending只改变硬件访问顺序；单次timeout_s内完成，不隐式重试或比较Expected。
+    # 目标状态错误或通信超时直接上抛，不自动复位控制器。
+    def ram_words_exchange(
+        self,
+        offset: int,
+        values: tuple[int, ...],
+        *,
+        descending: bool = False,
+        timeout_s: float | None = None,
+    ) -> tuple[int, ...]:
+        return self._ram_access(
+            CanCommand.RAM_WORDS_EXCHANGE, offset, len(values), values, descending, timeout_s
+        )
+
+    # 纯协议边界：校验word对齐、固定批大小及零填充，容量由目标发布并独立验证。
+    def _ram_access(self, command, offset, count, values, descending, timeout_s):
+        codec.uint32(offset)
+        codec.uint32(count)
+        if offset % contract.WORD.size or not 1 <= count <= contract.RAM_ACCESS_WORDS:
+            raise ValueError("CAN Message RAM access requires aligned offset and 1..64 words")
+        words = (offset, count, codec.boolean(descending))
+        if command != CanCommand.RAM_WORDS_READ:
+            words += tuple(codec.uint32(value) for value in values)
+            words += (0,) * (contract.RAM_ACCESS_WORDS - count)
+        response = self._request(command, words, timeout_s=timeout_s)
+        if command == CanCommand.RAM_WORDS_WRITE:
+            return ()
+        if any(response[count:]):
+            raise ProtocolError("CAN Message RAM response has nonzero padding")
+        return response[:count]
+
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(
         self, command: CanCommand, words: tuple[int, ...] = (), *, timeout_s: float | None = None

@@ -1352,13 +1352,70 @@ static et_wrap_status_t execute_status_command(et_can_id_t id, uint16_t command,
 }
 
 /**
- * @brief Execute one validated basic CAN command through the own Wrap.
+ * @brief Decode a bounded Message RAM read, write or per-word exchange.
+ * @param[in] id Logical controller selected by the Service.
+ * @param[in] command RAM access operation; never a pattern algorithm.
+ * @param[in] body Capacity-checked selector and optional fixed word array.
+ * @param[out] response Capacity-checked sampled-word array, nullable for writes.
+ * @return Own Wrap status, or INVALID_ARGUMENT before malformed requests reach hardware.
+ * @note No comparison, address-order planning, retry or test verdict is performed here.
+ */
+static et_wrap_status_t execute_ram_access(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                           uint8_t *response)
+{
+    uint32_t input[ET_CAN_RAM_ACCESS_WORDS];
+    uint32_t output[ET_CAN_RAM_ACCESS_WORDS] = {0u};
+    uint32_t offset = read_word(&body[ET_CAN_RAM_ACCESS_OFFSET * ET_CAN_WIRE_WORD_BYTES]);
+    uint32_t count = read_word(&body[ET_CAN_RAM_ACCESS_COUNT * ET_CAN_WIRE_WORD_BYTES]);
+    uint32_t descending = read_word(&body[ET_CAN_RAM_ACCESS_DESCENDING * ET_CAN_WIRE_WORD_BYTES]);
+    uint32_t index;
+    et_wrap_status_t status;
+
+    /* Phase 1: Decode a bounded request completely before touching Message RAM. */
+    if ((count == 0u) || (count > ET_CAN_RAM_ACCESS_WORDS) || (descending > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (command != ET_CAN_COMMAND_RAM_WORDS_READ)
+    {
+        for (index = 0u; index < ET_CAN_RAM_ACCESS_WORDS; ++index)
+        {
+            input[index] =
+                read_word(&body[(ET_CAN_RAM_ACCESS_SELECT_WORDS + index) * ET_CAN_WIRE_WORD_BYTES]);
+
+            if ((index >= count) && (input[index] != 0u))
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+        }
+    }
+
+    /* Phase 2: One own-Wrap primitive; only the PC knows patterns or expected values. */
+    status = et_can_wrap_access_ram(
+        id, offset, count, command == ET_CAN_COMMAND_RAM_WORDS_READ ? NULL : input,
+        command == ET_CAN_COMMAND_RAM_WORDS_WRITE ? NULL : output, (uint8_t)descending);
+
+    /* Phase 3: Return sampled words and deterministic zero padding, never request echoes. */
+    if ((status == ET_WRAP_STATUS_OK) && (command != ET_CAN_COMMAND_RAM_WORDS_WRITE))
+    {
+        for (index = 0u; index < ET_CAN_RAM_ACCESS_WORDS; ++index)
+        {
+            write_word(&response[index * ET_CAN_WIRE_WORD_BYTES], output[index]);
+        }
+    }
+
+    return status;
+}
+
+/**
+ * @brief Execute one validated CAN command through the own Wrap.
  * @param[in,out] service Selected CAN Service and managed IRQ state.
  * @param[in] command Public command number.
  * @param[in] body Validated payload after the instance prefix.
  * @param[out] response Validated output storage, nullable for writes.
  * @return Own Wrap status without performing retry or test assertions.
- * @note All configuration queries read hardware independently of prior requests.
+ * @note Configuration queries read hardware independently of prior requests.
  */
 static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t command,
                                         const uint8_t *body, uint8_t *response)
@@ -1372,6 +1429,12 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if ((command >= ET_CAN_COMMAND_RAM_WORDS_READ) &&
+        (command <= ET_CAN_COMMAND_RAM_WORDS_EXCHANGE))
+    {
+        return execute_ram_access(id, command, body, response);
+    }
 
     if (((command >= ET_CAN_COMMAND_IRQ_MASK_SET) && (command <= ET_CAN_COMMAND_IRQ_EVENT_RESET)) ||
         (command == ET_CAN_COMMAND_IRQ_CAPTURE_PENDING) ||
@@ -1599,7 +1662,10 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_CAPTURE_PENDING] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_ACK] = 1u,
         [ET_CAN_COMMAND_TX_READ] = 1u,
-        [ET_CAN_COMMAND_TX_BUFFER_IRQ_SET] = ET_CAN_IRQ_CONTROL_WORDS};
+        [ET_CAN_COMMAND_TX_BUFFER_IRQ_SET] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_RAM_WORDS_READ] = ET_CAN_RAM_ACCESS_SELECT_WORDS,
+        [ET_CAN_COMMAND_RAM_WORDS_WRITE] = ET_CAN_RAM_ACCESS_WRITE_WORDS,
+        [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WRITE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -1624,6 +1690,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u,
         [ET_CAN_COMMAND_IRQ_SNAPSHOT_GET] = ET_CAN_IRQ_SNAPSHOT_WORDS,
         [ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET] = ET_CAN_IRQ_LINE_COUNT,
+        [ET_CAN_COMMAND_RAM_WORDS_READ] = ET_CAN_RAM_ACCESS_WORDS,
+        [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_STATUS_GET] = ET_CAN_TX_EVENT_STATUS_WORDS,

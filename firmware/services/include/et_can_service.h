@@ -41,6 +41,15 @@
 #define ET_CAN_RX_BITMAP_HIGH 1u
 /** Two-word IRQ controls carry a source mask plus a Boolean, line or subset. */
 #define ET_CAN_IRQ_CONTROL_WORDS 2u
+/** RAM access selector carries offset/count/direction, followed by a fixed 64-word payload. */
+typedef enum
+{
+    ET_CAN_RAM_ACCESS_OFFSET = 0u,
+    ET_CAN_RAM_ACCESS_COUNT = 1u,
+    ET_CAN_RAM_ACCESS_DESCENDING = 2u,
+    ET_CAN_RAM_ACCESS_SELECT_WORDS
+} et_can_ram_access_word_t;
+#define ET_CAN_RAM_ACCESS_WRITE_WORDS (ET_CAN_RAM_ACCESS_SELECT_WORDS + ET_CAN_RAM_ACCESS_WORDS)
 /** Public tx_field word order; DATA marks the start of 64 payload bytes. */
 typedef enum
 {
@@ -247,6 +256,9 @@ typedef enum
     ET_CAN_COMMAND_TX_BUFFER_IRQ_SET = 48u,
     ET_CAN_COMMAND_IRQ_CAPTURE_PENDING = 49u,
     ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET = 50u,
+    ET_CAN_COMMAND_RAM_WORDS_READ = 51u,
+    ET_CAN_COMMAND_RAM_WORDS_WRITE = 52u,
+    ET_CAN_COMMAND_RAM_WORDS_EXCHANGE = 53u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
