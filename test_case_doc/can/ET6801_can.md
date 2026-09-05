@@ -489,8 +489,10 @@ SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions | 说明 |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| FPGA | 11 | 0 | 0 | 0 | 0 | 11 | 0 | 84个参数节点仅完成软件收集，未形成HIL结果 |
+| FPGA | 11 | 11 | 10 | 1 | 0 | 0 | 84 | 2026-09-05首轮：83个参数节点PASS、P1_008的Queue节点FAIL；Excel导出失败，见下文 |
 | Silicon | 11 | 0 | 0 | 0 | 0 | 11 | 0 | 尚未执行；时钟D04映射仍需闭合 |
+
+首轮HIL记录（2026-09-05 13:08 CST）：源码`1f55e29a`，配置流水线运行目录`artifacts/runs/20260905_130036_124328_local_et6801_fpga_atp_testing/`。固件0 Error、0 Warning，XC7VX980T配置、BootROM到main、PFLASH Erase/Programming/Verify均成功；CAN共84个参数节点，83 PASS、1 FAIL。失败节点CAN_P1_008[queue]三帧收发与顺序均通过，但代码断言TXFQS.TFFL=3，实际为0。ET6801.svd明确TXBC.TFQM=1时TFFL读0，属于Case判据错误，不能认定硬件故障。另报告导出在CAN_P1_007的重复`rx_buffer_frame`观测绑定处失败，原始session与Case结果已保存，不宣称Excel生成成功。下一批仅修正CAN判据及本IP报告绑定，再复测。
 
 ### 6.5 覆盖结论
 
