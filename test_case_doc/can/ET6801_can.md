@@ -470,16 +470,16 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-05 16:53 CST`
+状态更新时间：`2026-09-05 17:05 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-05 16:41 CST` | `e87ec3c2750a40aec2dd3d555e121a620eca61b5` | `false` | `artifacts/runs/20260905_163747_343417_local_et6801_fpga_atp_testing/` |
+| FPGA | `2026-09-05 16:56 CST` | `a92a1df5f50154b45878efb9eef852dedd895e92` | `false` | `artifacts/runs/20260905_165607_843058_local_et6801_fpga_atp_testing/` |
 
 Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控制连接COM12@115200。
-本Run已编译当前固件（0 Error、0 Warning），按bitfile、BootROM、PFLASH执行，下载显示Verify OK。目标是FPGA，不因工程目标名含SILICON而计为Silicon实测。
+本Run仅运行PC测试及报告，复用`20260905_163747_343417_local_et6801_fpga_atp_testing`已验证固件：源码`e87ec3c2750a40aec2dd3d555e121a620eca61b5`，编译0 Error、0 Warning，bitfile、BootROM、PFLASH顺序执行且Verify OK。目标是FPGA，不因工程目标名含SILICON而计为Silicon实测。
 
 ### 当前结果汇总
 
@@ -489,7 +489,7 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 88个参数节点全部PASS，逻辑Case为P0_001、P0_002、P1_001～P1_009、P1_011、P1_015、P1_016。
 P1_011只覆盖两个内部线路参数，四个外部参数未选择；P0_003也未选择。上述14 PASS只表示本次选择范围，不代表外部参数通过。
-pytest退出0，但报告因新Case重复Observation key而失败，Pipeline退出1；没有生成本Run有效Excel。正在CAN Case侧修正报告摘要，原始Observation及原Run不改写。不能将本Run声明为完整流水线PASS。
+pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_ET6801_CAN测试报告.xlsx`；只读核对15行，其中14 PASS、1 NOT_SELECTED，结果和备注均非空。P0_001和P1_011改为唯一报告摘要，原始逐次Observation仍保留；前次报告失败的Run不改写。
 
 新增硬件事实：
 
@@ -508,7 +508,7 @@ pytest退出0，但报告因新Case重复Observation key而失败，Pipeline退�
 
 ### 无需外部通信的剩余开发项
 
-2026-09-05 16:30 CST更新：原13项中P0_001、P1_011片内参数、P1_016已经实现并取得FPGA PASS，报告待修复；其余10项仍为IMPLEMENTATION_GAP而不是SKIP。
+2026-09-05 17:05 CST更新：原13项中P0_001、P1_011片内参数、P1_016已经实现并取得FPGA PASS，报告生成及结果备注检查通过；其余10项仍为IMPLEMENTATION_GAP而不是SKIP。
 
 | Case ID | 片内测试内容 | 执行前仍需完成 |
 |---|---|---|
@@ -526,7 +526,7 @@ pytest退出0，但报告因新Case重复Observation key而失败，Pipeline退�
 | `CAN_P2_007` | DMU非法访问及IRQ | 补受限错误刺激和真实IRQ接口，再做各节点复位恢复 |
 | `CAN_P2_008` | DMA接收附加TSU时间戳 | 补TSU/DMU元素映射及DMA搬运Case，保存独立时间戳Oracle |
 
-这些实现缺口不能由重复运行现有84个参数节点消除；外部收发故障也不应阻挡它们的片内部分开发。
+这些实现缺口不能由重复运行现有88个片内参数节点消除；外部收发故障也不应阻挡它们的片内部分开发。
 
 ### 既有开发与测试记录（历史，不代表本轮执行）
 
