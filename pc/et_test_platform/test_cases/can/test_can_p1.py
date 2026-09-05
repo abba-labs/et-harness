@@ -324,6 +324,7 @@ def test_can_p1_011_irq_lines_and_clear(
     expected_lines = (int(sources & ~line1), int(line1))
     box = can_irq_peer[3] if can_irq_peer else None
     trace = []
+    raw_hex_trace = []
     record_property("expected", {"mode": mode, "line_sources": expected_lines})
     record_property("isr", trace)
 
@@ -442,6 +443,9 @@ def test_can_p1_011_irq_lines_and_clear(
                 source="dut",
                 endpoint="IRQ.RAW",
             )
+            # 按采样顺序保存十六进制展示摘要，原始数值由上面的Observation独立留存。
+            raw_hex_trace.append(f"0x{int(raw.raw_status):08X}")
+            record_property("raw_hex_trace", raw_hex_trace)
             record_observation(
                 record_property,
                 key="rx_frame",
@@ -482,6 +486,8 @@ def test_can_p1_011_irq_lines_and_clear(
                 source="dut",
                 endpoint="IRQ.RAW",
             )
+            raw_hex_trace.append(f"0x{int(tx_cleared.raw_status):08X}")
+            record_property("raw_hex_trace", raw_hex_trace)
             assert tx_cleared.raw_status & sources == CanIrqSource.RX_FIFO0_NEW
             can.irq_clear(CanIrqSource.RX_FIFO0_NEW)
             cleared = can.irq_snapshot_get()
@@ -492,6 +498,8 @@ def test_can_p1_011_irq_lines_and_clear(
                 source="dut",
                 endpoint="IRQ.RAW",
             )
+            raw_hex_trace.append(f"0x{int(cleared.raw_status):08X}")
+            record_property("raw_hex_trace", raw_hex_trace)
             assert not cleared.raw_status & sources
             can.rx_fifo_ack(0, received.index)
             can.irq_capture_stop()

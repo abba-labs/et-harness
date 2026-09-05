@@ -1992,7 +1992,7 @@ cases:
   CAN_P0_001:
     summary: 仲裁位时序仅在配置写权限打开时改变，复位后恢复芯片定义值。
     fields:
-      - {source: observation, path: protected_timings, label: 关闭/开启/再次关闭权限后的仲裁时序, format: text, aggregate: all}
+      - {source: measurement, path: protected_timing_summary, label: 关闭/开启/再次关闭权限后的仲裁时序摘要, format: text, aggregate: all}
       - {source: observation, path: restored_timing, label: 复位后的仲裁时序, format: text, aggregate: all}
       - {source: observation, path: restored_fd, label: 复位后的FD使能, format: bool, aggregate: same}
   CAN_P1_016:
@@ -2005,9 +2005,8 @@ cases:
   CAN_P1_011:
     summary: 核对屏蔽后Raw、真实ISR线路、逐源W1C及第二笔新事件；内部与外部路径分别统计。
     fields:
-      - {source: observation, path: raw, label: IRQ Raw逐阶段值, format: hex32, aggregate: all}
+      - {source: measurement, path: raw_hex_trace, label: 两轮IRQ Raw（屏蔽/清TX/清RX）, format: text, aggregate: all}
       - {source: measurement, path: isr, label: ISR线路与事件计数, format: text, aggregate: all}
-      - {source: observation, path: tx_complete, label: TX完成位图, format: hex32, aggregate: all}
       - {source: measurement, path: expected, label: 模式与线路Expected, format: text, aggregate: all}
   CAN_P1_008:
     summary: 核对三帧同时挂起后的发送次序；不代表跨节点总线仲裁测试。

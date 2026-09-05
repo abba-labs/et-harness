@@ -26,6 +26,9 @@ from et_test_platform.drivers.can import (
 from et_test_platform.framework_validation.unit.drivers.can.test_can_driver import TargetStub
 from et_test_platform.test_cases.can._support import CanSupport, loopback_ram, phase_timing
 from et_test_platform.test_cases.can.test_can_p0 import (
+    test_can_p0_001_reset_and_configuration_protection as run_protection_case,
+)
+from et_test_platform.test_cases.can.test_can_p0 import (
     test_can_p0_002_internal_loopback as run_case,
 )
 from et_test_platform.test_cases.can.test_can_p0 import (
@@ -129,7 +132,7 @@ def test_ram_case_march_order_and_independent_expected(corrupt) -> None:
 # 通过条件：正常两笔刺激完成；错误线路导致断言失败，仍停止捕获并复位资源。
 @pytest.mark.parametrize("tx_line", (0, 1))
 @pytest.mark.parametrize("wrong_line", (False, True))
-def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line) -> None:
+def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line, tmp_path) -> None:
 
     support, resource, target, calls = dependencies()
     target.responses = [b"", b"", pack("<I", 1)] + [b""] * 8 + [pack("<I", 0)]
@@ -182,6 +185,94 @@ def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line) -> None:
 
     assert target.requests[-1]["command"] == 40
     assert calls[-1] == ("resource",)
+    assert_case_report(properties, "CAN_P1_011", "FAIL" if wrong_line else "PASS", tmp_path)
+
+
+# 测试Feature：配置保护Case的实际流程、阶段读回和唯一报告字段。
+# 测试方法：真实Driver消费独立硬件Golden，错误解锁读回必须失败；正常路径导出模型。
+# 通过条件：禁止写保持、允许写改变、复位恢复，报告不从重复Observation中猜选值。
+@pytest.mark.parametrize("corrupt", (False, True))
+def test_configuration_protection_flow_and_report(corrupt, tmp_path) -> None:
+
+    support, resource, target, _ = dependencies()
+    support.mapping.CAN_RESET_NOMINAL_TIMING = (1, 11, 4, 4)
+    support.mapping.CAN_RESET_INITIALIZING = True
+    support.mapping.CAN_RESET_FD_ENABLED = False
+    support.mapping.CAN_ENDIAN_SIGNATURE = 0x87654321
+    identity = pack("<2I", 0x33081115, 0x87654321)
+    reset = pack("<8I", 1, 11, 4, 4, 1, 11, 4, 4)
+    options = pack("<10I", 0, 0, 1, 0, 0, 1, 0, 0, 0, 0)
+    target.responses = [
+        identity,
+        reset,
+        options,
+        pack("<I", 1),
+        b"",
+        b"",
+        pack("<10I", 1, 0, 1, 0, 0, 1, 0, 0, 0, 0),
+    ]
+
+    # 锁定时BRP仍为4，解锁及再次锁定后应为8，不读取Case输入来制造Expected。
+    for permission, brp in ((0, 4), (1, 4 if corrupt else 8), (0, 8)):
+        target.responses.extend(
+            [b"", pack("<I", permission), b"", pack("<8I", brp, 15, 4, 4, 1, 11, 4, 4)]
+        )
+
+    target.responses.extend([reset, options, pack("<I", 1), identity])
+    properties = []
+
+    if corrupt:
+        with pytest.raises(AssertionError):
+            run_protection_case(support, resource, lambda k, v: properties.append((k, v)))
+    else:
+        run_protection_case(support, resource, lambda k, v: properties.append((k, v)))
+        assert not target.responses
+        assert_case_report(properties, "CAN_P0_001", "PASS", tmp_path)
+
+
+# 将真实Case记录做JSON往返后交给现有报告模型；不补造缺失的Observation。
+def assert_case_report(properties, case_id, status, directory) -> None:
+
+    from pathlib import Path
+
+    from et_test_platform.results.case_report import build_case_report_model
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import _case_observations, _case_recorded_outputs
+
+    item = SimpleNamespace(user_properties=properties)
+    measurements, _ = _case_recorded_outputs(item)
+    write_json_result(
+        directory / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "can-case-software-report",
+            "chip_id": "et6801",
+            "finished_at": "2026-09-05T08:50:00Z",
+            "exitstatus": int(status != "PASS"),
+        },
+    )
+    write_json_result(
+        directory / "cases/node/result.json",
+        {
+            "schema_version": 1,
+            "run_id": "can-case-software-report",
+            "case_run_id": "node",
+            "case_id": case_id,
+            "status": status,
+            "duration_s": 0.01,
+            "measurements": measurements,
+            "observations": _case_observations(item),
+            "evidence_complete": True,
+            "evidence_sources": ["dut"],
+            "missing_evidence_sources": [],
+            "error": "injected mismatch" if status != "PASS" else None,
+        },
+    )
+    model = build_case_report_model(
+        Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md", directory
+    )
+    row = next(row for row in model["cases"] if row["case_id"] == case_id)
+    assert row["status"] == status
 
 
 # 明确序列化两帧独立RX Golden；不从Case刚发送的请求取回数据制造一致性。

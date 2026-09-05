@@ -155,6 +155,8 @@ def test_can_p0_001_reset_and_configuration_protection(
                 source="dut",
                 endpoint="CONFIG.BIT_TIMING",
             )
+            # 报告摘要使用完整阶段列表；原始逐次观测仍保留，不能把同名观测当唯一字段。
+            record_property("protected_timing_summary", protected_timings)
             assert actual == expected
 
         # 恢复：第二组时序和FD已真实改变，再复位核对，不能从当前读数推算Expected。
