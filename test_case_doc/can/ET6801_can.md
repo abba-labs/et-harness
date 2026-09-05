@@ -1,10 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-05 14:00 CST
+更新时间：2026-09-05 14:49 CST
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成48条命令及12条Formal Case；先前11条在FPGA复测全部PASS（84个参数节点），新外部收发Case待实测。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；12项SPEC、27项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成48条命令及12条Formal Case；2026-09-05 14:45 FPGA内部专项11条全部PASS（84个参数节点），外部收发P0_003本轮未选中，其前次FAIL仍未解决。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；12项SPEC、27项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -372,15 +372,15 @@ Hardware=SUPPORTED仅表示寄存器/描述支持所述能力，不代表实际F
 | PLAN内固定CAN总线 | 7 | 原5项加取消/重发、ISO格式；仍需盒子相应静默/原始捕获/Non-ISO能力 |
 | PLAN内总线加AUX输入 | 1 | P2_012；CAN盒子负责帧收发，另需合法时钟输入 |
 | PLAN内专用刺激或计量 | 7 | Monitor原始位流、协议注入、RAM延迟、TTCAN定时响应、TDC延迟、Pause测量、TEST pins |
-| 当前注册/执行 | 12 / 12 | 11 PASS、1 FAIL；完整回归85个参数节点为84 PASS、1 FAIL |
+| 当前注册/本轮执行 | 12 / 11 | 本轮内部专项84参数PASS；外部P0_003未选中，前次FAIL保留，不计本轮SKIP |
 
-2026-09-04用户已确认：**当前FPGA CANFD0连接CAN盒子的CAN1通道**。连接文件选择can0、RX GPIO58、TX GPIO59；ET6801 SDK对应复用均为11。盒子适配器复用参考工程的ZLG接口，尚未实际打开设备确认型号/序列号、终端匹配和支持速率；不能把“已接盒子”写成这些能力全部具备。AUX输入和其他仪器连接均未确认。
+2026-09-04用户已确认：**当前FPGA CANFD0连接CAN盒子的CAN1通道**。连接文件选择can0、RX GPIO58、TX GPIO59；ET6801 SDK对应复用均为11。2026-09-05已实际打开USBCANFD-200U并完成正向、反向和只听诊断，但没有完整收发帧；终端物理匹配、收发器状态及实际位速率未证实。AUX输入和其他仪器连接均未确认。
 
 CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺激/时序的Case直接按公共0.5规划示波器、脉冲发生器或协议发生器；盒子若已具备等效能力可以复用，不为避免仪器而弱化判据。下表是能力清单，不是新增采购清单。
 
 | Case范围 | 最小外部动作 | 当前结论 |
 |---|---|---|
-| P0_003 | 普通Classic发送与实际帧捕获 | 固定连接和ZLG适配代码已准备，盒子型号/终端及实际收发待验证；不需要示波器 |
+| P0_003 | 普通Classic发送与实际帧捕获 | 已运行FAIL，首帧无ACK；盒子型号已确认，物理链路原因仍未定位 |
 | P1_012、P1_021、P3_001 | 对应速率的Classic/FD/BRS收发，连续捕获与真实发送结果 | 先查询盒子能力，不假定所有盒子都支持FD或5Mbps；不要求TDC延迟器用于基础通信 |
 | P2_005 | 静默捕获，正对照确认捕获有效 | 先确认盒子是否支持listen-only；不直接要求新增分析仪 |
 | P1_017、P1_019、P1_020 | 分别需无ACK尝试捕获、无ACK仍保持合法EOF的位流Peer、ISO/Non-ISO发送 | PLAN已写；普通盒子未必支持原始位流，尤其Monitor不能只看ACK错误后损坏帧的RX |
@@ -466,6 +466,66 @@ GPIO依赖同步：公共GPIO功能新增CAN_RX/CAN_TX，ET6801映射为GPIO58_M
 PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、不可变配置Model及CanDriver已实现。20项专项软件测试验证精确Wire、独立读回、非法参数无请求、Deadline、GPIO CAN信号和CRG CAN类别编码；无真实CAN收发，不能作为正式Case通过证据。
 
 ### 6.4 当前测试状态
+
+<!-- ET_CHIP_TEST_STATUS_BEGIN -->
+## 当前芯片测试状态
+
+状态更新时间：`2026-09-05 14:49 CST`
+
+### 最近一次运行身份
+
+| Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
+|---|---|---|---|---|
+| FPGA | `2026-09-05 14:45 CST` | `03b76c29a599ad986187fc8adbb5494b1e58f763` | `false` | `artifacts/runs/20260905_144502_692584_local_et6801_fpga_atp_testing/` |
+
+Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控制连接COM12@115200。
+本轮PC源码身份由Session记录；固件复用首轮已完成PFLASH Verify的镜像，没有重新编译、烧录或重启，不能宣称板上固件由本轮SHA重新构建。
+
+### 当前结果汇总
+
+| Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FPGA | 12 | 11 | 11 | 0 | 0 | 1 | 84 |
+
+Silicon未实测，不并入本次FPGA运行身份表。
+
+本表只统计最新专项运行，不抹掉前次失败。11条通过项为P0_002、P1_001～P1_009、P1_015。
+P0_003本轮通过进程级pytest选择排除，正式注册表未修改；pytest为84 PASS、1 deselected，未执行的外部项不是SKIP，也没有重新取得PASS。
+Pipeline读取原run_config.yaml，构建/部署/启动均关闭，测试和报告启用；Manifest为PASS、exit_code=0。
+Excel：`artifacts/reports/20260905_144740_432199_ET6801_CAN测试报告.xlsx`。该报告是内部专项，不是42项目标全部通过的报告。
+
+### 当前非PASS Case
+
+| Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
+|---|---|---|---|---|---|---|---|
+| `CAN_P0_003` | FPGA | NOT_EXECUTED | CAN_F_003 / 正常外部总线 | 本轮未选中；前次FAIL为Pending=1、Completed=0、ACK Error、TEC=128 | 外部链路未打通，原因未确认；不能认定硬件缺陷 | 外部链路条件或定位结论变化后复测 | `artifacts/runs/20260905_135501_157677_local_et6801_fpga_atp_testing/`；独立诊断`artifacts/runs/20260905_142834_245093_can_link_diagnostic/` |
+
+最新一次全量注册集合的历史结论仍为11 PASS、1 FAIL；不能把本轮只选内部项的0 FAIL解释为外部问题已修复。
+<!-- ET_CHIP_TEST_STATUS_END -->
+
+### 无需外部通信的剩余开发项
+
+2026-09-05 14:49 CST核对公共PLAN与当前Driver：下列13项目标可规划片内核心测试，但尚未成为可直接执行的正式Case，状态为IMPLEMENTATION_GAP而不是SKIP。
+
+| Case ID | 片内测试内容 | 执行前仍需完成 |
+|---|---|---|
+| `CAN_P0_001` | 复位、INIT/CCE配置保护 | 基于已有配置接口补正式Case；区分软件参数拒绝与硬件保护事实 |
+| `CAN_P1_010` | 8/16-bit Message Marker | 补位宽配置与事件解码适配、Case；不能只测已有8-bit路径 |
+| `CAN_P1_011` | INT0/INT1路由、屏蔽、W1C | 先用已有IRQ接口完成内部回环节点；完整Case还包含外部路径 |
+| `CAN_P1_013` | 内部时间戳、锁存与回绕 | 补原子清零读回及时间窗口预算，再实现Case |
+| `CAN_P1_014` | 四种Timeout计数源 | 补重装动作并实现四源Case与真实ISR断言 |
+| `CAN_P1_016` | Message RAM固定模式及March C- | 闭合受测RAM映射、受限访问及所有访问者停机条件 |
+| `CAN_P1_018` | TSU内部捕获、New/Lost及读清 | 补TSU接口/映射/Case；外部时间基参数仍需FPGA测试入口 |
+| `CAN_P2_001` | DMA经DMU TX/RX搬运 | 补DMU接口、DMA端点/格式映射及跨IP Case |
+| `CAN_P2_002` | DMA搬运TX Event | 补Event虚拟端点及队列推进适配，CPU不能代搬 |
+| `CAN_P2_003` | ECC Force/Mask/Clear及ISR | 补ECC MISC、共享IRQ适配及Case；不冒充真实纠错测试 |
+| `CAN_P2_004` | 多实例Message RAM隔离 | 先明确物理区域/别名关系，再做多实例数据和Guard验证 |
+| `CAN_P2_007` | DMU非法访问及IRQ | 补受限错误刺激和真实IRQ接口，再做各节点复位恢复 |
+| `CAN_P2_008` | DMA接收附加TSU时间戳 | 补TSU/DMU元素映射及DMA搬运Case，保存独立时间戳Oracle |
+
+这些实现缺口不能由重复运行现有84个参数节点消除；外部收发故障也不应阻挡它们的片内部分开发。
+
+### 既有开发与测试记录（历史，不代表本轮执行）
 
 中断管理开发（2026-09-05 07:35 CST）：在既有35条命令后追加IRQ源使能、Line选择、快照、清除、捕获启停和固定Evidence共8条命令，累计43条。CAN Service通过IRQ Manager绑定CAN0/1/2各自INT0/INT1，回调只执行固定快照、锁存、计数及防风暴屏蔽；物理IRQ映射保持芯片私有，未加入Case判断、动态内存或跨IP调用。真实CAN Driver/Wrap/Service Native回归、PC Wire/非法参数专项回归及总软件门禁通过；总门禁1215 PASS、0 FAIL、0 SKIP，证据`artifacts/runs/20260904_can_development/stages/can_irq_gate.log`。配置流水线ET6801_SILICON_FLASH构建通过，证据`artifacts/runs/20260904_can_development/stages/can_irq_build.log`和`artifacts/runs/20260905_072001_727590_can_firmware_build_only/stages/build_firmware_silicon/`。本批未烧录，尚无CAN HIL结论。
 
