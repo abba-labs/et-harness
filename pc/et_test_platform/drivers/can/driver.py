@@ -75,6 +75,21 @@ class CanDriver:
             raise ProtocolError(f"CAN clock stop acknowledgement is not Boolean: {value}")
         return bool(value)
 
+    # 在一个Deadline内等待实际Clock Stop Ack；不写请求、不改变INIT或CRG。
+    # 超时保留最后读值，禁止把已发送的请求当作硬件应答。
+    def wait_clock_stop_ack(self, acknowledged: bool, *, timeout_s: float) -> bool:
+        codec.boolean(acknowledged)
+        deadline = OperationDeadline.start(timeout_s, label=f"CAN clock stop {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.clock_stop_ack_get(timeout_s=deadline.remaining_s())
+                if last is acknowledged:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"CAN clock stop expected={acknowledged}, last={last}") from error
+
     # 直接使能或屏蔽公共CAN中断源；仅用于未启动托管Capture时的寄存器语义测试。
     # 不绑定NVIC、不选择中断线，非法位图和非Boolean在发命令前拒绝。
     def irq_mask_set(

@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 10:50 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；9项SPEC、30项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；10项SPEC、29项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -204,6 +204,8 @@ Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试
 
 `protocol_status_consume`对应显式消费命令，不属于安全只读查询；异常直接上抛，不补采样。`timestamp_get/reset`、`timeout_counter_get`、`clock_stop_set/ack_get`均只执行所命名的一个动作，Clock Stop的退出和INIT恢复由Case明确编排。
 
+`wait_clock_stop_ack(acknowledged, timeout_s=...)`在单一Deadline内查询实际应答并返回匹配的Boolean；超时保留最后读值，不发送请求、不改变INIT或时钟。
+
 RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_get`。模型显式传参，不在Driver内选择测试布局；这些动作均只等待本次响应，失败原样上抛，不替调用者复位。
 
 总线配置对应`CanBusConfig`、`CanBusLimits`、`bus_config_set/get`、`bus_limits_get`；回环使用`CanLoopback`与`loopback_set/get`。Selector必须传公共Enum，不能直接传芯片数值。SET不自动重试；GET对未知Enum/非法Boolean拒绝解码。
@@ -275,7 +277,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
 | CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_017 | CAN取消请求与重发 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | PLANNED，见第3节 |
@@ -1016,10 +1018,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P1_015 CAN Clock Stop请求与恢复
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_015
 case_name: CAN Clock Stop请求与恢复
 report_feature: |-
@@ -1033,7 +1034,7 @@ method:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "运行基线：配置内部回环，发送PATTERN_A并确认TX完成及RX匹配。"
     - "停钟请求：确认TX无挂起后置CLOCK.STOP_REQUEST，等待INIT进入及STOP_ACK有效。"
-    - "应答读取：保存请求、应答和模式；不读取已实际关闭总线时钟的寄存器。"
+    - "应答读取：已发送请求记录为Measurement，实际STOP_ACK和INIT分别取硬件值；不把请求值当作应答，不关闭总线时钟。"
     - "退出请求：保持模块时钟开启，先解除请求并等待STOP_ACK=0，再清INIT并确认可运行；ACK仍有效时INIT受硬件保持，不能颠倒顺序。"
     - "恢复发送：发送不同PATTERN_B并比较RX与TX终态，确认不是读取旧接收帧。"
   observations:
@@ -1042,18 +1043,20 @@ method:
   pass_criteria:
     - "应答准确：空闲时请求可获应答、解除可退出，不把请求位回读当应答。"
     - "恢复正确：新的独立帧收发成功；功耗和外部唤醒另列待完善目标。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每次TX完成、RX就绪、INIT和STOP_ACK等待上限5 s；不使用固定Sleep判断握手。"
+cleanup: ["复位本Case的CAN实例和Service状态", "Resource Pool Reset；两步均尝试并保留原始错误"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例及CRG复位接口；无DMA/DMU参与", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN Clock Stop请求与恢复：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"clock","label":"CLOCK.STOP_REQUEST/STOP_ACK与CONFIG.INIT","source":"dut","role":"actual","format":"text"}
-  - {"key":"frame","label":"恢复后的RX.FRAME及TX.COMPLETED","source":"dut","role":"actual","format":"text"}
+  - {key: completed, label: TX.COMPLETED实际位图, source: dut, role: actual, format: hex32}
+  - {key: pending, label: TX.PENDING实际位图, source: dut, role: actual, format: hex32}
+  - {"key":"clock_states","label":"已发送请求与实际ACK及INIT","source":"measurement","role":"actual","format":"text"}
+  - {"key":"frame","label":"两次RX.FRAME实际数据","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN Clock Stop请求与恢复的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_016 CAN Message RAM模式与March C-
 
@@ -1974,6 +1977,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_015:
+    summary: 核对Clock Stop握手及解除后新帧收发；未关闭CRG时钟，不代表功耗验证。
+    fields:
+      - {source: measurement, path: clock_states, label: 请求及实际ACK/INIT, format: text, aggregate: all}
+      - {source: measurement, path: frame_text, label: 停钟前及恢复后的RX数据, format: text, aggregate: all}
+      - {source: measurement, path: tx_completed, label: 两次TX完成位图, format: text, aggregate: all}
+      - {source: measurement, path: rx_empty, label: 两次Ack后RX0填充数, format: text, aggregate: all}
   CAN_P0_002:
     summary: 核对内部回环两帧的完整数据、TX完成与RX FIFO读取及Ack。
     fields:
@@ -2044,7 +2054,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=7; IMPLEMENTATION_GAP=30 | ADAPTED=9; IMPLEMENTATION_GAP=30; NEEDS_VERIFICATION=3 | 9 SPEC、30 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=8; IMPLEMENTATION_GAP=29 | ADAPTED=10; IMPLEMENTATION_GAP=29; NEEDS_VERIFICATION=3 | 10 SPEC、29 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

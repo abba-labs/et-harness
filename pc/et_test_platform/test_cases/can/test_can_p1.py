@@ -31,6 +31,8 @@ from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
 from ._support import (
     FD_LENGTHS,
+    PATTERN_A,
+    PATTERN_B,
     TIMEOUT_S,
     dedicated_loopback_ram,
     fifo_loopback_ram,
@@ -2524,3 +2526,178 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
         )
         status_trace.append(asdict(final_status))
         assert final_status.fill == 0
+
+
+# =============================================================================
+# Clock Stop请求与恢复
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN空闲停钟请求/应答、INIT进入及解除后的新帧收发。
+#
+# 测试方法：
+# 1. 复位CAN和资源池，配置内部回环，发送PATTERN_A并读取/Ack接收帧。
+# 2. 确认没有Pending TX后请求Clock Stop，等待实际ACK并读取INIT。
+# 3. 保持CRG时钟开启，先撤销请求并等ACK解除，再清INIT，发送不同的PATTERN_B。
+#
+# 通过条件：
+# 1. 请求后ACK和INIT均为1，撤销后ACK先为0，清INIT后恢复运行。
+# 2. 两帧ID、格式、DLC和全部数据正确，TX无挂起、RX Ack后为空。
+# 3. 仅验证停钟握手，不把请求位或命令成功当作ACK，也不宣称功耗通过。
+def test_can_p1_015_clock_stop_and_recovery(can_support, resource_driver, record_property) -> None:
+
+    # 准备：两组不同数据避免恢复阶段误读旧帧；时序来自实例时钟与公开上限。
+    support = can_support
+    can = support.can
+    timing = CanTiming(
+        phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+        phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+    )
+    layout = loopback_ram(support)
+    clock_states, frame_text, tx_completed, rx_empty = [], [], [], []
+    record_property("clock_states", clock_states)
+    record_property("frame_text", frame_text)
+    record_property("tx_completed", tx_completed)
+    record_property("rx_empty", rx_empty)
+    record_property("expected", {"before": PATTERN_A, "after": PATTERN_B})
+
+    # 清理：每个退出路径都尝试CAN复位和资源整池复位，不改CRG输入时钟。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 隔离：先复位唯一参与的CAN，再复位资源池，不触碰控制UART。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 配置：INIT窗口内设置Classic时序，关闭FD/BRS、TDC、Timeout等无关功能。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+
+        # 过滤与回环：只接收标准ID0x123到RX0；不用引脚、CAN盒子或外部仪器。
+        can.ram_layout_set(layout)
+        can.filter_set(
+            0,
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x123),
+            extended=False,
+        )
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 数据路径：第一次建立运行基线；握手完成后第二次验证新数据，不隐式重新配置。
+        for sequence, payload in enumerate((PATTERN_A, PATTERN_B)):
+            can.tx_write(0, CanTxFrame(0x123, CanFrameFlags.NONE, 8, sequence, payload))
+            can.tx_request(1)
+            tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+            can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+            received = can.rx_read(CanRxSource.FIFO0)
+            can.rx_fifo_ack(0, received.index)
+            drained = can.rx_fifo_status_get(0)
+
+            # 观测：RX、TX和FIFO分别记录实际端点，摘要在断言前追加，失败现场也保留。
+            record_observation(
+                record_property,
+                key="frame",
+                value=asdict(received),
+                source="dut",
+                endpoint="RX.FRAME",
+            )
+            record_observation(
+                record_property,
+                key="completed",
+                value=tx.completed,
+                source="dut",
+                endpoint="TX.COMPLETED",
+            )
+            record_observation(
+                record_property,
+                key="pending",
+                value=tx.pending,
+                source="dut",
+                endpoint="TX.PENDING",
+            )
+            record_observation(
+                record_property,
+                key="rx",
+                value=asdict(drained),
+                source="dut",
+                endpoint="RX0.STATUS",
+            )
+            frame_text.append(f"帧{sequence + 1}：{received.data.hex(' ').upper()}")
+            tx_completed.append(tx.completed)
+            rx_empty.append(drained.fill)
+            assert received.identifier == 0x123 and received.flags == CanFrameFlags.NONE
+            assert received.dlc == 8 and received.data == payload
+            assert tx.completed & 1 and tx.pending == 0
+            assert drained.fill == 0 and not drained.lost
+
+            # 停钟握手只发生一次；恢复帧完成后直接结束，避免额外配置掩盖恢复问题。
+            if sequence == 0:
+                can.clock_stop_set(True)
+                acknowledged = can.wait_clock_stop_ack(True, timeout_s=TIMEOUT_S)
+                initializing = can.initializing_get()
+                record_observation(
+                    record_property,
+                    key="stop_ack",
+                    value=acknowledged,
+                    source="dut",
+                    endpoint="CLOCK.STOP_ACK",
+                )
+                record_observation(
+                    record_property,
+                    key="stop_init",
+                    value=initializing,
+                    source="dut",
+                    endpoint="CONFIG.INIT",
+                )
+                clock_states.append(f"请求=1；ACK={int(acknowledged)}；INIT={int(initializing)}")
+                assert acknowledged and initializing
+
+                # 恢复顺序：先撤销请求并等ACK=0，再清INIT；绝不实际关闭CRG时钟。
+                can.clock_stop_set(False)
+                released = can.wait_clock_stop_ack(False, timeout_s=TIMEOUT_S)
+                record_observation(
+                    record_property,
+                    key="released_ack",
+                    value=released,
+                    source="dut",
+                    endpoint="CLOCK.STOP_ACK",
+                )
+                clock_states.append(f"请求=0；ACK={int(released)}")
+                assert released is False
+                can.initializing_set(False)
+                can.wait_initializing(False, timeout_s=TIMEOUT_S)

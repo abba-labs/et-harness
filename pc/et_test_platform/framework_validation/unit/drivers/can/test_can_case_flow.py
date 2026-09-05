@@ -56,6 +56,9 @@ from et_test_platform.test_cases.can.test_can_p1 import (
 from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_009_tx_event_fifo_watermark_full_and_recovery as run_tx_event_case,
 )
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_015_clock_stop_and_recovery as run_clock_stop_case,
+)
 
 
 # 明确序列化两帧独立RX Golden；不从Case刚发送的请求取回数据制造一致性。
@@ -117,6 +120,119 @@ def dependencies(corrupt_second=False):
         40_000_000,
     )
     return support, resource, target, calls
+
+
+# 独立构造TX Event Case的硬件响应序列；事件内容与发送Expected不互相读取。
+
+
+# 测试Feature：停钟应答顺序与恢复数据，禁止以请求回显或旧帧代替实际结果。
+# 测试方法：固定Wire响应模拟正常、INIT错误、恢复数据错误三种路径，运行真实Case。
+# 通过条件：正常通过、两种错误均失败；每次退出复位，解除ACK后才能清INIT。
+@pytest.mark.parametrize("fault", (None, "init", "payload"))
+def test_clock_stop_case_preserves_handshake_and_recovery(fault, tmp_path) -> None:
+
+    support, resource, target, calls = dependencies()
+    target.responses = responses()[:10]
+    for index, data in enumerate(
+        (
+            bytes.fromhex("31 42 53 64 75 86 97 A8"),
+            bytes.fromhex("CE BD AC 9B 8A 79 68 57"),
+        )
+    ):
+        if index == 1 and fault == "payload":
+            data = bytes(8)
+        target.responses.extend(
+            [
+                b"",
+                b"",
+                pack("<7I", 0, 1, 0, 1, 0, 0, 0),
+                pack("<5I", 1, index, index + 1, 0, 0),
+                pack("<8I", 0x123, 0, 8, 0, 0, 0, 8, index) + data + bytes(56),
+                b"",
+                pack("<5I", 0, index + 1, index + 1, 0, 0),
+            ]
+        )
+        if index == 0:
+            target.responses.extend(
+                [
+                    b"",
+                    pack("<I", 1),
+                    pack("<I", 0 if fault == "init" else 1),
+                    b"",
+                    pack("<I", 0),
+                    b"",
+                    pack("<I", 0),
+                ]
+            )
+    properties = []
+
+    def record(key, value):
+        properties.append((key, value))
+
+    if fault:
+        with pytest.raises(AssertionError):
+            run_clock_stop_case(support, resource, record)
+    else:
+        run_clock_stop_case(support, resource, record)
+        assert not target.responses
+
+    # 逐条核对实际命令；模式切换前后的写请求不得隐式重试。
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    commands = [item["command"] for item in target.requests]
+    request_index = commands.index(33)
+    if fault != "init":
+        assert commands[request_index : request_index + 7] == [33, 34, 2, 33, 34, 1, 2]
+    for item in target.requests:
+        if item["command"] == 33:
+            assert item["retry_safe"] is False
+    values = dict(properties)
+    assert len(values["frame_text"]) == (1 if fault == "init" else 2)
+    assert len(values["clock_states"]) == (1 if fault == "init" else 2)
+    if fault == "payload":
+        assert values["frame_text"][-1] == "帧2：00 00 00 00 00 00 00 00"
+
+    # 用实际Case记录验证JSON往返和报告，避免只用理想标量掩盖嵌套Byte数据问题。
+    from pathlib import Path
+
+    from et_test_platform.results.case_report import build_case_report_model
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import _case_observations, _case_recorded_outputs
+
+    item = SimpleNamespace(user_properties=properties)
+    measurements, _ = _case_recorded_outputs(item)
+    status = "FAIL" if fault else "PASS"
+    write_json_result(
+        tmp_path / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-clock-stop",
+            "chip_id": "et6801",
+            "finished_at": "2026-09-05T03:35:00Z",
+            "exitstatus": int(bool(fault)),
+        },
+    )
+    write_json_result(
+        tmp_path / "cases/node/result.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-clock-stop",
+            "case_run_id": "node",
+            "case_id": "CAN_P1_015",
+            "status": status,
+            "duration_s": 0.01,
+            "measurements": measurements,
+            "observations": _case_observations(item),
+            "evidence_complete": True,
+            "evidence_sources": ["dut"],
+            "missing_evidence_sources": [],
+            "error": "software-injected mismatch" if fault else None,
+        },
+    )
+    model = build_case_report_model(
+        Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md", tmp_path
+    )
+    row = next(row for row in model["cases"] if row["case_id"] == "CAN_P1_015")
+    assert row["status"] == status
 
 
 # 独立构造TX Event Case的硬件响应序列；事件内容与发送Expected不互相读取。

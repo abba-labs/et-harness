@@ -10,7 +10,7 @@ from struct import pack
 from types import SimpleNamespace
 
 import pytest
-from et_test_platform.core.errors import ProtocolError
+from et_test_platform.core.errors import ProtocolError, RequestTimeout
 from et_test_platform.drivers.can import (
     CanBusConfig,
     CanDriver,
@@ -41,6 +41,46 @@ from et_test_platform.drivers.gpio import GpioDriver, GpioFunction
 
 TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
+
+
+# 测试Feature：ACK查询在同一个Deadline内重试，不重复发送Clock Stop请求。
+# 测试方法：先返回反向ACK再返回目标值，用确定性剩余时间检查每次请求。
+# 通过条件：只发查询命令，剩余时间递减，超时保留最后实际ACK。
+@pytest.mark.parametrize("expected", (False, True))
+def test_clock_stop_wait_uses_one_deadline(monkeypatch, expected) -> None:
+    from et_test_platform.drivers.can import driver as module
+
+    remaining = iter((0.8, 0.4))
+    deadline = SimpleNamespace(remaining_s=lambda: next(remaining), sleep=lambda seconds: None)
+    starts = []
+
+    def start(timeout, **kwargs):
+        starts.append(timeout)
+        return deadline
+
+    monkeypatch.setattr(module, "OperationDeadline", SimpleNamespace(start=start))
+    target = TargetStub([pack("<I", int(not expected)), pack("<I", int(expected))])
+    assert CanDriver(target, 0).wait_clock_stop_ack(expected, timeout_s=1.0) is expected
+    assert starts == [1.0]
+    assert [item["command"] for item in target.requests] == [34, 34]
+    assert [item["timeout_s"] for item in target.requests] == [0.8, 0.4]
+
+
+# 最后一笔ACK仍为0时超时，不插入复位、重新请求或假应答。
+def test_clock_stop_wait_timeout_keeps_last_ack(monkeypatch) -> None:
+    from et_test_platform.drivers.can import driver as module
+
+    def expire(seconds):
+        raise RequestTimeout("deadline expired")
+
+    deadline = SimpleNamespace(remaining_s=lambda: 0.1, sleep=expire)
+    monkeypatch.setattr(
+        module, "OperationDeadline", SimpleNamespace(start=lambda *a, **k: deadline)
+    )
+    target = TargetStub([pack("<I", 0)])
+    with pytest.raises(RequestTimeout, match="expected=True, last=False"):
+        CanDriver(target, 0).wait_clock_stop_ack(True, timeout_s=0.1)
+    assert [item["command"] for item in target.requests] == [34]
 
 
 # 只保存请求参数并返回显式安排的响应，不模拟期望硬件行为。
