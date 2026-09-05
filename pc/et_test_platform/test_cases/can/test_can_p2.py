@@ -46,22 +46,22 @@ def test_can_p2_004_instance_ram_isolation(
     can_instance_supports, resource_driver, record_property
 ) -> None:
 
-    # 准备：仅接受已声明完整独立窗口的映射；共享切片需要明确布局，不能猜测。
+    # 准备：并存切片由Mapping显式声明，不从单实例容量推断物理独占。
     supports = can_instance_supports
     layouts, filters, guards = {}, {}, {}
+    regions = supports[0].mapping.CAN_CONCURRENT_RAM_REGIONS
     frame_text, guard_text = [], []
+    hardware_trace = []
     record_property("expected", "每实例ID及数据独立；全部TX完成；首尾Guard和其他实例配置保持")
 
     # 每个实例保留开头两个word给Guard，所有CAN元素整体平移以免覆盖。
     for index, support in enumerate(supports):
-        regions = support.mapping.CAN_RAM_TEST_REGIONS.get(support.handle)
-        if regions != ((0, support.ram_limits.ram_bytes),):
-            raise ConfigurationError(
-                f"CAN independent full RAM window not mapped: {support.handle}"
-            )
+        start, size = regions[support.handle]
+        if start < 0 or start % 4 or size % 4 or start + size > support.ram_limits.ram_bytes:
+            raise ConfigurationError(f"CAN concurrent RAM slice is invalid: {support.handle}")
         layout = loopback_ram(support)
         offsets = {
-            name: getattr(layout, name) + 8
+            name: getattr(layout, name) + start + 8
             for name in (
                 "std_offset",
                 "ext_offset",
@@ -76,7 +76,7 @@ def test_can_p2_004_instance_ram_isolation(
         end = offsets["rx_buffer_offset"] + support.ram_limits.rx_buffer_count * (
             support.mapping.CAN_RAM_HEADER_BYTES + layout.rx_buffer_payload_bytes
         )
-        if end > support.ram_limits.ram_bytes - 4:
+        if end > start + size - 4:
             raise ConfigurationError(f"CAN layout overlaps final guard: {support.handle}")
         filters[support.handle] = CanFilter(
             CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100 + index, 0x100 + index
@@ -104,6 +104,7 @@ def test_can_p2_004_instance_ram_isolation(
         # 配置：各实例同时保持不同ID；Guard覆盖窗口首尾，不参与收发元素布局。
         for support in supports:
             can, handle = support.can, support.handle
+            start, size = regions[handle]
             can.initializing_set(True)
             can.wait_initializing(True, timeout_s=TIMEOUT_S)
             can.timing_set(
@@ -115,13 +116,18 @@ def test_can_p2_004_instance_ram_isolation(
             can.ram_layout_set(layouts[handle])
             can.filter_set(0, filters[handle], extended=False)
             can.loopback_set(CanLoopback.INTERNAL)
-            can.ram_words_write(0, (guards[handle][0],))
-            can.ram_words_write(support.ram_limits.ram_bytes - 4, (guards[handle][1],))
+            can.ram_words_write(start, (guards[handle][0],))
+            can.ram_words_write(start + size - 4, (guards[handle][1],))
 
         # 配置观测：全部写完才统一读回，才能发现后一个配置覆盖前一个实例。
         for support in supports:
             actual_layout = support.can.ram_layout_get()
             actual_filter = support.can.filter_get(0, extended=False)
+            # 配置阶段已可失败；报告先保存实际Filter，不能等收到帧才有硬件备注。
+            hardware_trace.append(
+                f"{support.handle} Filter: ID1=0x{actual_filter.id1:X}, ID2=0x{actual_filter.id2:X}"
+            )
+            record_property("hardware_trace", hardware_trace)
             record_observation(
                 record_property,
                 key="layout_before",
@@ -181,6 +187,8 @@ def test_can_p2_004_instance_ram_isolation(
                 f"{support.handle}: ID=0x{actual.identifier:X}, DATA={actual.data.hex(' ').upper()}"
             )
             record_property("frames", frame_text)
+            hardware_trace.append(frame_text[-1])
+            record_property("hardware_trace", hardware_trace)
             record_observation(
                 record_property,
                 key="frame",
@@ -239,6 +247,7 @@ def test_can_p2_004_instance_ram_isolation(
         # 终态：无额外RX，进入INIT后读实际布局、Filter和Guard，不复位后再验证。
         for support in supports:
             can, handle = support.can, support.handle
+            start, size = regions[handle]
             empty = can.rx_fifo_status_get(0)
             record_observation(
                 record_property,
@@ -254,11 +263,13 @@ def test_can_p2_004_instance_ram_isolation(
             actual_layout = can.ram_layout_get()
             actual_filter = can.filter_get(0, extended=False)
             actual_guards = (
-                can.ram_words_read(0, 1)[0],
-                can.ram_words_read(support.ram_limits.ram_bytes - 4, 1)[0],
+                can.ram_words_read(start, 1)[0],
+                can.ram_words_read(start + size - 4, 1)[0],
             )
             guard_text.append(f"{handle}: 0x{actual_guards[0]:08X}/0x{actual_guards[1]:08X}")
             record_property("guards", guard_text)
+            hardware_trace.append(guard_text[-1])
+            record_property("hardware_trace", hardware_trace)
             record_observation(
                 record_property,
                 key="layout_after",

@@ -1487,11 +1487,12 @@ method:
     - "隔离成立：数据、配置和Guard三者均隔离；RAM物理别名关系需先由芯片映射确认。"
 timeout: "每次INIT/TX/RX等待独立有界5 s；不以固定Sleep替代硬件状态"
 cleanup: ["逐个CRG复位全部参与CAN", "Resource Pool Reset；全部清理动作均尝试"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "全部Capability声明CAN及CRG；独立完整RAM窗口映射，不使用DMA/GPIO", bench: "不需要外部接线"}
+resources: {minimum_level: R1, full_coverage_level: R1, board: "全部Capability声明CAN及CRG；Mapping明确并存RAM区域，允许独立窗口或共享切片，不使用DMA/GPIO", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN多实例Message RAM隔离：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"frames","label":"各实例RX.FRAME实际ID和payload","source":"dut","role":"actual","format":"text"}
+  - {"key":"filter_before","label":"各实例配置后的实际Filter ID","source":"dut","role":"actual","format":"text"}
   - {"key":"guards","label":"各实例CONFIG和Message RAM Guard前后值","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN多实例Message RAM隔离的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
 gap: []
@@ -1991,8 +1992,7 @@ cases:
   CAN_P2_004:
     summary: 核对全部实例并存收发，以及仅重配最后实例后的配置和RAM首尾保持。
     fields:
-      - {source: measurement, path: frames, label: 各实例RX实际ID及数据, format: text, aggregate: all}
-      - {source: measurement, path: guards, label: 各实例RAM首尾实际值, format: text, aggregate: all}
+      - {source: measurement, path: hardware_trace, label: 实际Filter、RX帧与RAM首尾（截至停止步骤）, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 独立Expected, format: text, aggregate: same}
   CAN_P0_001:
     summary: 仲裁位时序仅在配置写权限打开时改变，复位后恢复芯片定义值。

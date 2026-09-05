@@ -28,13 +28,14 @@ from et_test_platform.test_cases.can.test_can_p2 import (
 
 
 # 测试 Feature：全实例并存、错误Guard拒绝及PASS/FAIL报告闭合。
-# 测试方法：三实例独立固定RX向量；选择性破坏最后实例尾Guard。
+# 测试方法：三实例固定RX向量；分别破坏配置阶段Filter及最后实例尾Guard。
 # 通过条件：所有RX就绪先于首次读取；坏Guard必须FAIL，每个实例均退出复位。
-@pytest.mark.parametrize("corrupt_guard", (False, True))
-def test_multi_instance_case_and_report(corrupt_guard, tmp_path) -> None:
+@pytest.mark.parametrize("fault", (None, "guard", "filter"))
+def test_multi_instance_case_and_report(fault, tmp_path) -> None:
 
     support, resource, _, resets = dependencies()
     support.mapping.CAN_RAM_TEST_REGIONS = {f"can{i}": ((0, 16384),) for i in range(3)}
+    support.mapping.CAN_CONCURRENT_RAM_REGIONS = {f"can{i}": (i * 4096, 4096) for i in range(3)}
     supports, timeline = [], []
 
     # 每个Fake只提供独立确定的响应；配置读回不读取Case发来的SET参数。
@@ -45,17 +46,19 @@ def test_multi_instance_case_and_report(corrupt_guard, tmp_path) -> None:
         layout = loopback_ram(current)
         driver.ram_layout_get.return_value = replace(
             layout,
-            std_offset=8,
-            ext_offset=12,
-            tx_offset=12,
-            event_offset=28,
-            rx0_offset=28,
-            rx1_offset=92,
-            rx_buffer_offset=92,
+            std_offset=index * 4096 + 8,
+            ext_offset=index * 4096 + 12,
+            tx_offset=index * 4096 + 12,
+            event_offset=index * 4096 + 28,
+            rx0_offset=index * 4096 + 28,
+            rx1_offset=index * 4096 + 92,
+            rx_buffer_offset=index * 4096 + 92,
         )
         first_filter = CanFilter(
             CanFilterType.DUAL, CanFilterAction.FIFO0, 0x100 + index, 0x100 + index
         )
+        if fault == "filter" and index == 0:
+            first_filter = replace(first_filter, id1=0x102, id2=0x102)
         last_filter = CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x500, 0x500)
         driver.filter_get.side_effect = [first_filter, last_filter if index == 2 else first_filter]
         driver.wait_tx_complete.return_value = CanTxStatus(0, 1, 0, 1, 0, 0, False)
@@ -91,7 +94,7 @@ def test_multi_instance_case_and_report(corrupt_guard, tmp_path) -> None:
             timeline.append(("read", i)) or values.pop(0)
         )
         driver.rx_fifo_status_get.return_value = CanRxFifoStatus(0, 1, 1, False, False)
-        tail = 0 if corrupt_guard and index == 2 else 0xA5A50000 | index
+        tail = 0 if fault == "guard" and index == 2 else 0xA5A50000 | index
         driver.ram_words_read.side_effect = [(0x5A5A0000 | index,), (tail,)]
         supports.append(current)
 
@@ -101,13 +104,16 @@ def test_multi_instance_case_and_report(corrupt_guard, tmp_path) -> None:
     def record(key, value):
         properties.append((key, value))
 
-    if corrupt_guard:
+    if fault:
         with pytest.raises(AssertionError):
             run_case(tuple(supports), resource, record)
     else:
         run_case(tuple(supports), resource, record)
 
-    assert timeline[:3] == [("ready", 0), ("ready", 1), ("ready", 2)]
-    assert timeline[3:6] == [("read", 2), ("read", 1), ("read", 0)]
+    if fault == "filter":
+        assert not timeline
+    else:
+        assert timeline[:3] == [("ready", 0), ("ready", 1), ("ready", 2)]
+        assert timeline[3:6] == [("read", 2), ("read", 1), ("read", 0)]
     assert resets[-4:] == [("can", 0), ("can", 1), ("can", 2), ("resource",)]
-    assert_case_report(properties, "CAN_P2_004", "FAIL" if corrupt_guard else "PASS", tmp_path)
+    assert_case_report(properties, "CAN_P2_004", "FAIL" if fault else "PASS", tmp_path)

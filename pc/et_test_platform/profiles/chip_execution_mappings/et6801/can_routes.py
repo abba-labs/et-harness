@@ -23,8 +23,15 @@ CAN_STD_FILTER_BYTES = 4
 CAN_EXT_FILTER_BYTES = 8
 CAN_EVENT_BYTES = 8
 
-# 三实例控制基址间隔0x8000；SDK将各自前0x4000映射为独立Message RAM。
-# UT5覆盖完整16KiB；这里只声明每个实例可测的相对区域，不暴露CPU裸地址给Case。
+# 三实例控制基址间隔0x8000；SDK各自前0x4000是CPU访问窗口，不代表独占RAM。
+# UT5覆盖单实例16KiB；这里只声明单实例可测范围，不推导并存时物理独立。
 CAN_RAM_TEST_REGIONS = MappingProxyType(
     {"can0": ((0, 0x4000),), "can1": ((0, 0x4000),), "can2": ((0, 0x4000),)}
+)
+
+# UT6使用各实例不同的相对偏移；20260905 HIL同偏移Filter出现最后实例覆盖。
+# 并存按共享16KiB预算划三段4KiB，剩余4KiB不占用；布局及Guard均限制在各段内。
+# 这是同时使用时的安全分配，不表示每个控制器的硬件容量仅4KiB。
+CAN_CONCURRENT_RAM_REGIONS = MappingProxyType(
+    {"can0": (0, 0x1000), "can1": (0x1000, 0x1000), "can2": (0x2000, 0x1000)}
 )
