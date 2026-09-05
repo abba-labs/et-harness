@@ -25,14 +25,14 @@ always:
   rules:
     - agent_rule_governance
     - task_context_navigation
-  protected_scopes:
-    - pc/et_test_platform/test_cases/**
-    - pc/et_test_platform/drivers/**
-    - firmware/services/**
-    - firmware/wrap/**
 
 changes:
   weekly-report:
+    protected_scopes:
+      - pc/et_test_platform/test_cases/**
+      - pc/et_test_platform/drivers/**
+      - firmware/services/**
+      - firmware/wrap/**
     read:
       - path: report/design/rules/R003_weekly_report_authoring.md
         reason: 周报事实口径、结构、异常项和归档规则
@@ -61,6 +61,11 @@ changes:
       - python tools/quality/validate_rule_governance.py
 
   rule:
+    protected_scopes:
+      - pc/et_test_platform/test_cases/**
+      - pc/et_test_platform/drivers/**
+      - firmware/services/**
+      - firmware/wrap/**
     read:
       - path: report/design/rules
         reason: 活动规则正文全集，用于跨规则冲突、重复和生命周期审查
@@ -81,6 +86,11 @@ changes:
       - python tools/quality/validate_rule_governance.py
 
   navigation:
+    protected_scopes:
+      - pc/et_test_platform/test_cases/**
+      - pc/et_test_platform/drivers/**
+      - firmware/services/**
+      - firmware/wrap/**
     read:
       - path: project-governance
         reason: 工程地图、模块画像和Task Context契约

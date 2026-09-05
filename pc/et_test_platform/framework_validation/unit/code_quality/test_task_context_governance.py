@@ -396,6 +396,55 @@ def test_bug_remediation_route_is_advisory_and_scope_bounded() -> None:
     ]
     assert "pc/et_test_platform/test_cases/aes/**" not in combined_context["write_scope"]["allowed"]
 
+    # 必须验证实际权限判定，而不是只检查allowed列表中出现目标路径。
+    target = "pc/et_test_platform/test_cases/uart/test_uart_p0.py"
+    assert compiler._scope_violations(governance_context, [target])
+    assert compiler._scope_violations(combined_context, [target]) == []
+    for path in (
+        "pc/et_test_platform/test_cases/aes/test_aes_p0.py",
+        "pc/et_test_platform/drivers/uart/driver.py",
+        "pc/et_test_platform/core/target.py",
+        "firmware/framework/src/et_router.c",
+    ):
+        assert compiler._scope_violations(combined_context, [path])
+
+
+# 测试Feature：批量修复可组合目标IP各层，但治理编辑仍优先保护业务源码。
+# 测试方法：编译CAN修复与三种治理编辑组合，对真实路径执行范围判定。
+# 通过条件：仅CAN声明层可写；其他IP/公共层拒绝，治理编辑不能借IP路由越权。
+@pytest.mark.parametrize("governance_change", ("weekly-report", "rule", "navigation"))
+def test_bug_route_preserves_governance_edit_protection(governance_change: str) -> None:
+
+    compiler = _load_compiler()
+    arguments = dict(
+        task_id="CAN-BUG-SCOPE",
+        intent="验证目标IP批量修复权限",
+        modules=["governance", "ip-package"],
+        changes=["bug-remediation", "case", "driver", "service", "wrap"],
+        ip="can",
+        chip="et6801",
+    )
+    context = compiler.build_task_context(**arguments)
+    targets = (
+        "pc/et_test_platform/test_cases/can/test_can_p1.py",
+        "pc/et_test_platform/drivers/can/driver.py",
+        "firmware/services/src/et_can_service.c",
+        "firmware/wrap/src/et_can_wrap.c",
+    )
+    assert compiler._scope_violations(context, targets) == []
+    for path in (
+        *[path.replace("can", "uart") for path in targets],
+        "firmware/framework/src/et_router.c",
+        "pc/et_test_platform/core/target.py",
+    ):
+        assert compiler._scope_violations(context, [path])
+
+    # 规则、周报和导航任务仍禁止业务写入，不能因为组合允许路径而解除保护。
+    arguments["changes"] = [*arguments["changes"], governance_change]
+    protected = compiler.build_task_context(**arguments)
+    for path in targets:
+        assert compiler._scope_violations(protected, [path])
+
 
 # 测试Feature：手动固件诊断与PC串口捕获分别进入最小写入范围。
 #
