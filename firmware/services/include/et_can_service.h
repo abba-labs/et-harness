@@ -244,6 +244,9 @@ typedef enum
     ET_CAN_COMMAND_TX_EVENT_READ = 45u,
     ET_CAN_COMMAND_TX_EVENT_ACK = 46u,
     ET_CAN_COMMAND_TX_READ = 47u,
+    ET_CAN_COMMAND_TX_BUFFER_IRQ_SET = 48u,
+    ET_CAN_COMMAND_IRQ_CAPTURE_PENDING = 49u,
+    ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET = 50u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
@@ -333,6 +336,8 @@ typedef struct
     et_irq_manager_t *irq_manager;
     et_irq_route_t irq_routes[ET_CAN_IRQ_LINE_COUNT];
     volatile uint32_t irq_event[ET_CAN_IRQ_EVENT_WORDS];
+    /* Actual callback line attribution; reset together with the evidence generation. */
+    volatile uint32_t irq_line_events[ET_CAN_IRQ_LINE_COUNT];
     uint32_t watched_sources;
     uint32_t line1_sources;
     uint8_t irq_priority;

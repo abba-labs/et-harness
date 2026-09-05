@@ -2158,6 +2158,40 @@ et_wrap_status_t et_can_wrap_set_irq_enabled(et_can_id_t id, uint32_t sources, u
 }
 
 /**
+ * @brief Enable one allocated TX slot's transmission-complete event.
+ * @param[in] id Logical controller identity.
+ * @param[in] index Allocated dedicated or FIFO/Queue TX slot.
+ * @param[in] enabled Boolean per-slot event enable.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED or IO_ERROR.
+ * @note This is independent of the global CAN interrupt source and output line.
+ */
+et_wrap_status_t et_can_wrap_set_tx_buffer_irq(et_can_id_t id, uint32_t index, uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+
+    if (enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+
+    if ((index >= ram_limits.tx_count) || (index >= config.txBufNum + config.txFIFOSize))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    return CAN_txBufTransIntrEnable(instance, index, enabled) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                        : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
  * @brief Route selected CAN sources to controller interrupt line 0 or 1.
  * @param[in] id Logical controller identity.
  * @param[in] sources Public semantic event mask.

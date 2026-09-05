@@ -437,6 +437,44 @@ class CanDriver:
     def tx_event_ack(self, index: int, *, timeout_s: float | None = None) -> None:
         self._request(CanCommand.TX_EVENT_ACK, (codec.uint32(index),), timeout_s=timeout_s)
 
+    # 设置指定TX槽的完成事件开关；不隐式开启全局中断源或IRQ Line。
+    # 参数：index为当前已分配槽，enabled为布尔值；失败由目标端原样上抛。
+    def tx_buffer_irq_set(
+        self, index: int, enabled: bool, *, timeout_s: float | None = None
+    ) -> None:
+        self._request(
+            CanCommand.TX_BUFFER_IRQ_SET,
+            (codec.uint32(index), codec.boolean(enabled)),
+            timeout_s=timeout_s,
+        )
+
+    # 保留已置位Raw后绑定并开放IRQ；与清历史状态的irq_capture_start明确分开。
+    # 只等待本次命令响应，不轮询ISR；超时及绑定失败直接上抛，写操作不重试。
+    def irq_capture_pending(
+        self,
+        sources: CanIrqSource,
+        *,
+        line1_sources: CanIrqSource = CanIrqSource.NONE,
+        timeout_s: float | None = None,
+    ) -> None:
+        source_mask = codec.irq_sources(sources)
+        line1_mask = codec.irq_sources(line1_sources)
+        if source_mask == 0 or line1_mask & ~source_mask:
+            raise ValueError("CAN capture sources must be nonzero and contain the Line1 subset")
+        self._request(
+            CanCommand.IRQ_CAPTURE_PENDING,
+            (source_mask, line1_mask),
+            timeout_s=timeout_s,
+        )
+
+    # 查询实际ISR投递线路的源锁存；返回Line0、Line1，不把Service证据冒充寄存器。
+    # 在调用者timeout_s内执行一次查询；协议或通信失败直接上抛，不清计数。
+    def irq_line_events_get(
+        self, *, timeout_s: float | None = None
+    ) -> tuple[CanIrqSource, CanIrqSource]:
+        words = self._request(CanCommand.IRQ_LINE_EVENTS_GET, timeout_s=timeout_s)
+        return CanIrqSource(words[0]), CanIrqSource(words[1])
+
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(
         self, command: CanCommand, words: tuple[int, ...] = (), *, timeout_s: float | None = None

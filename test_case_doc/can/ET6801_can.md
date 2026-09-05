@@ -1,10 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-05 14:49 CST
+更新时间：2026-09-05 15:21 CST
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成48条命令及12条Formal Case；2026-09-05 14:45 FPGA内部专项11条全部PASS（84个参数节点），外部收发P0_003本轮未选中，其前次FAIL仍未解决。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；12项SPEC、27项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
+**状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 当前51条命令及13条Formal Case，新增P1_011尚未实测；2026-09-05 14:45 FPGA内部专项11条全部PASS（84个参数节点），外部收发P0_003本轮未选中，其前次FAIL仍未解决。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；13项SPEC、26项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。当前内部回环PASS不代表外部CAN总线通过；未实现代码或未确认硬件语义不计为SKIP。
 
 ## 第一章 IP分析
 
@@ -333,7 +333,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_014 | SUPPORTED | CCCR.DAR[6]、TXBRP/TXBCR/TXBTO/TXBCF；无ACK排除完成/取消竞态 | IMPLEMENTATION_GAP | CAN_P1_017 |
 | CAN_F_015 | SUPPORTED | TXEFC/TXEFS/TXEFA；已实现状态、当前头读取、显式Ack及深度4/水位2 Case | ADAPTED | CAN_P1_009 |
 | CAN_F_016 | SUPPORTED | CCCR.WMM[11]/UTSU[10]；WMM=1时TX Event 16-bit Timestamp位置改为Marker | IMPLEMENTATION_GAP | CAN_P1_010 |
-| CAN_F_017 | SUPPORTED | IR/IE/ILS/ILE；每实例INT0/INT1独立，ECC只有一条共享向量 | IMPLEMENTATION_GAP | CAN_P1_011 |
+| CAN_F_017 | SUPPORTED | IR/IE/ILS/ILE；每实例INT0/INT1独立，ECC只有一条共享向量 | ADAPTED | CAN_P1_011 |
 | CAN_F_018 | SUPPORTED | TSCC.TCP[19:16]/TSS[1:0]、TSCV.TSC[15:0]、IR.TSW[16]；分频1～16 | IMPLEMENTATION_GAP | CAN_P1_013 |
 | CAN_F_019 | SUPPORTED | TOCC.TOP[31:16]/TOS[2:1]/ETOC[0]、TOCV.TOC、IR.TOO[18] | IMPLEMENTATION_GAP | CAN_P1_014 |
 | CAN_F_020 | SUPPORTED | CCCR.UTSU[10]、TSCFG/TSS1/TSS2/TS0/ATB；使用TS0避免推测缺失槽地址，外部总线接入仍待映射 | IMPLEMENTATION_GAP | CAN_P1_018、CAN_P2_008、CAN_P2_013 |
@@ -365,10 +365,10 @@ Hardware=SUPPORTED仅表示寄存器/描述支持所述能力，不代表实际F
 |---|---:|---|
 | 能力/行为目标 | 39 | 37项准入公共Feature；2项候选行为不提前发布ID |
 | 测试目标 | 42 | P0=3、P1=21、P2=13、P3=5；P2_008拆出独立TX Event目标P2_013 |
-| 完整格式PLAN | 27 | 除12项SPEC和3项DESIGN_GAP外，其余输入、流程、Observation、判据、资源已列 |
-| 已实现SPEC | 12 | 内部回环相关11条FPGA PASS，外部收发1条FAIL（ACK错误，尚未确认物理原因） |
+| 完整格式PLAN | 26 | 除13项SPEC和3项DESIGN_GAP外，其余输入、流程、Observation、判据、资源已列 |
+| 已实现SPEC | 13 | 既有内部相关11条FPGA PASS；P0_003前次FAIL；新增P1_011未实测 |
 | DESIGN_GAP目标 | 3 | P2_006、P2_013、P3_003已有具体确认流程，关键语义未定；不是SKIP |
-| 已设计核心可片内构造 | 24 | 含11项SPEC及13项PLAN；TSU外部节点和IRQ外部节点另需相应连接 |
+| 已设计核心可片内构造 | 24 | 含12项SPEC及12项PLAN；TSU外部节点和IRQ外部节点另需相应连接 |
 | PLAN内固定CAN总线 | 7 | 原5项加取消/重发、ISO格式；仍需盒子相应静默/原始捕获/Non-ISO能力 |
 | PLAN内总线加AUX输入 | 1 | P2_012；CAN盒子负责帧收发，另需合法时钟输入 |
 | PLAN内专用刺激或计量 | 7 | Monitor原始位流、协议注入、RAM延迟、TTCAN定时响应、TDC延迟、Pause测量、TEST pins |
@@ -406,7 +406,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_008 | ADAPTED | 三种TX组织预装读回、单次TXBAR、RX顺序/完整payload/最终状态；按SVD修正Queue TFFL后FPGA PASS |
 | CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS |
 | CAN_P1_010 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
-| CAN_P1_011 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1～R2，按公共PLAN实施 |
+| CAN_P1_011 | ADAPTED | 三种模式、两种线路分配；TXBTIE由CAN_txBufTransIntrEnable配置，保留Raw绑定IRQ后按真实回调线路留证；尚未HIL |
 | CAN_P1_012 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、clock_profile_gap、board_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P1_013 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、atomic_timestamp_snapshot_gap；资源R1，按公共PLAN实施 |
 | CAN_P1_014 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
@@ -470,7 +470,7 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-05 14:49 CST`
+状态更新时间：`2026-09-05 15:21 CST`
 
 ### 最近一次运行身份
 
@@ -485,7 +485,7 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 12 | 11 | 11 | 0 | 0 | 1 | 84 |
+| FPGA | 13 | 11 | 11 | 0 | 0 | 2 | 84 |
 
 Silicon未实测，不并入本次FPGA运行身份表。
 
@@ -499,19 +499,20 @@ Excel：`artifacts/reports/20260905_144740_432199_ET6801_CAN测试报告.xlsx`�
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
 | `CAN_P0_003` | FPGA | NOT_EXECUTED | CAN_F_003 / 正常外部总线 | 本轮未选中；前次FAIL为Pending=1、Completed=0、ACK Error、TEC=128 | 外部链路未打通，原因未确认；不能认定硬件缺陷 | 外部链路条件或定位结论变化后复测 | `artifacts/runs/20260905_135501_157677_local_et6801_fpga_atp_testing/`；独立诊断`artifacts/runs/20260905_142834_245093_can_link_diagnostic/` |
+| `CAN_P1_011` | FPGA | NOT_EXECUTED | CAN_F_017 / IRQ线路与W1C | 新增代码，未采集硬件结果 | 等待本批软件验证与新固件部署 | 片内节点先执行，外部节点按总线实际条件执行 | 无本Case HIL证据 |
 
 最新一次全量注册集合的历史结论仍为11 PASS、1 FAIL；不能把本轮只选内部项的0 FAIL解释为外部问题已修复。
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 无需外部通信的剩余开发项
 
-2026-09-05 14:49 CST核对公共PLAN与当前Driver：下列13项目标可规划片内核心测试，但尚未成为可直接执行的正式Case，状态为IMPLEMENTATION_GAP而不是SKIP。
+2026-09-05 15:21 CST更新：原13项中P1_011已经实现并注册、尚未HIL；其余12项仍为IMPLEMENTATION_GAP而不是SKIP。
 
 | Case ID | 片内测试内容 | 执行前仍需完成 |
 |---|---|---|
 | `CAN_P0_001` | 复位、INIT/CCE配置保护 | 基于已有配置接口补正式Case；区分软件参数拒绝与硬件保护事实 |
 | `CAN_P1_010` | 8/16-bit Message Marker | 补位宽配置与事件解码适配、Case；不能只测已有8-bit路径 |
-| `CAN_P1_011` | INT0/INT1路由、屏蔽、W1C | 先用已有IRQ接口完成内部回环节点；完整Case还包含外部路径 |
+| `CAN_P1_011` | INT0/INT1路由、屏蔽、W1C | 已实现三种模式及两种线路分配；待软件验证和HIL |
 | `CAN_P1_013` | 内部时间戳、锁存与回绕 | 补原子清零读回及时间窗口预算，再实现Case |
 | `CAN_P1_014` | 四种Timeout计数源 | 补重装动作并实现四源Case与真实ISR断言 |
 | `CAN_P1_016` | Message RAM固定模式及March C- | 闭合受测RAM映射、受限访问及所有访问者停机条件 |

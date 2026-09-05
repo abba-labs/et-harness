@@ -82,3 +82,13 @@ def can_external_support(can_support, framework_communication, target_capabiliti
         gpio.validate_signal(number, function, can_support.can.instance_id)
     box = create_zlg_can_box_from_environment(os.environ, device_name="can_box", base=Path.cwd())
     return can_support, gpio, pins, box
+
+
+# 只为外部IRQ参数节点解析盒子和引脚；内部节点不要求GPIO Service或外部设备。
+@pytest.fixture
+def can_irq_peer(request, mode):
+
+    if mode == "internal":
+        return None
+
+    return request.getfixturevalue("can_external_support")

@@ -27,6 +27,8 @@ from ...drivers.can import (
     CanUnmatchedPolicy,
 )
 from ...drivers.crg import CrgPeripheral
+from ...instruments.can_boxes.models import CanBusConfig as PeerBusConfig
+from ...instruments.can_boxes.models import CanFrame as PeerFrame
 from ...scheduling.run_context import record_observation
 from ..case_cleanup import case_cleanup_scope
 from ._support import (
@@ -46,6 +48,209 @@ from ._support import (
 )
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
+
+
+# ------------------------------ IRQ线路与独立清除 ------------------------------
+
+
+# 测试 Feature：
+# RX New/TX Complete中断的Line0/Line1投递、屏蔽、独立W1C及再次置位。
+#
+# 测试方法：
+# 1. 每节点复位CAN和资源池，配置内部/外部回环或Normal双节点，打开TX槽完成事件。
+# 2. 禁用中断投递后完成一笔收发，检查两个Raw置位且ISR计数为零。
+# 3. 保留Raw绑定并开放IRQ，核对真实ISR线路和Source，再逐源W1C检查另一源不受影响。
+# 4. Ack接收数据、停止捕获，再产生第二笔新数据；交换Line参数节点重复完整过程。
+#
+# 通过条件：
+# 1. 两个源都从指定物理线路实际投递，无未知中断或捕获Fault；屏蔽时不执行ISR。
+# 2. W1C只清目标位，第二笔数据仍正确投递；外部节点必须包含真实Peer收发证据。
+@pytest.mark.parametrize("mode", ("internal", "external", "normal"))
+@pytest.mark.parametrize("tx_line", (0, 1))
+def test_can_p1_011_irq_lines_and_clear(
+    can_support, can_irq_peer, resource_driver, record_property, mode, tx_line
+) -> None:
+
+    # 准备：源和线路都是公共语义；实例、时钟及外部引脚来自只读Support。
+    support = can_support
+    can = support.can
+    sources = CanIrqSource.RX_FIFO0_NEW | CanIrqSource.TX_COMPLETE
+    line1 = CanIrqSource.TX_COMPLETE if tx_line else CanIrqSource.RX_FIFO0_NEW
+    expected_lines = (int(sources & ~line1), int(line1))
+    box = can_irq_peer[3] if can_irq_peer else None
+    trace = []
+    record_property("expected", {"mode": mode, "line_sources": expected_lines})
+    record_property("isr", trace)
+
+    # 清理：先停止外部刺激和IRQ路由，再复位本CAN及整池资源。
+    with case_cleanup_scope(
+        lambda: (
+            *((("CAN box close", box.close),) if box else ()),
+            ("CAN IRQ stop", can.irq_capture_stop),
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 隔离：不继承任何其他Case的硬件状态，不复位控制通信UART。
+        can.irq_capture_stop()
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 外部节点：显式配置GPIO；外部回环的盒子只监听，Normal盒子参与ACK。
+        if box:
+            _, gpio, pins, _ = can_irq_peer
+
+            # 逐引脚配置本节点的RX/TX复用，不改其他IP已登记的接线。
+            for number, function in pins:
+                gpio.configure_signal(number, function, can.instance_id)
+
+            box.open()
+            box.configure(PeerBusConfig(listen_only=mode == "external"))
+            box.clear()
+
+        # 配置：Classic单TX/RX0，Filter允许正反向ID；全部控制项在Case内明确给出。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(
+            CanTiming(
+                phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+                phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+            )
+        )
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(loopback_ram(support))
+        can.filter_set(
+            0, CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, 0x123, 0x321), extended=False
+        )
+        can.loopback_set(
+            {
+                "internal": CanLoopback.INTERNAL,
+                "external": CanLoopback.EXTERNAL,
+                "normal": CanLoopback.DISABLED,
+            }[mode]
+        )
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=mode == "internal",
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.DISABLED,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.tx_buffer_irq_set(0, True)
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 两次真实刺激：第一笔验证投递/清除，第二笔证明清理后新事件仍有效。
+        for payload in (PATTERN_A, PATTERN_B):
+            can.irq_event_reset()
+            can.irq_mask_set(sources, False)
+            can.irq_clear(sources)
+            can.tx_write(0, CanTxFrame(0x123, CanFrameFlags.NONE, 8, 0, payload))
+            can.tx_request(1)
+            tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+
+            # 外部路径保留盒子真实捕获；Normal必须回发，不能把本机发送当作接收。
+            if box:
+                captured = box.receive(timeout_s=TIMEOUT_S)
+                record_observation(
+                    record_property,
+                    key="peer_frame",
+                    value=asdict(captured),
+                    source="peer",
+                    device_id=box.identity,
+                    endpoint="RX.FRAME",
+                )
+                assert captured.frame == PeerFrame(0x123, payload) and not captured.is_echo
+
+                if mode == "normal":
+                    box.send(PeerFrame(0x321, payload), single_shot=True)
+
+            can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+            received = can.rx_read(CanRxSource.FIFO0)
+            raw = can.irq_snapshot_get()
+            masked_event = can.irq_event_get()
+            record_observation(
+                record_property,
+                key="raw",
+                value=int(raw.raw_status),
+                source="dut",
+                endpoint="IRQ.RAW",
+            )
+            record_observation(
+                record_property,
+                key="rx_frame",
+                value=asdict(received),
+                source="dut",
+                endpoint="RX.FRAME",
+            )
+            record_observation(
+                record_property,
+                key="tx_complete",
+                value=tx.completed,
+                source="dut",
+                endpoint="TX.COMPLETED",
+            )
+            record_property("masked_event", asdict(masked_event))
+            assert received.identifier == (0x321 if mode == "normal" else 0x123)
+            assert received.data == payload and received.dlc == 8 and tx.completed & 1
+            assert raw.raw_status & sources == sources and not raw.enabled_sources & sources
+            assert raw.enabled_lines == 0 and masked_event.event_count == 0
+
+            # 投递：保留两源Raw，绑定真实向量后开放；回调只锁存并屏蔽，不清Raw。
+            can.irq_capture_pending(sources, line1_sources=line1)
+            event = can.irq_event_get()
+            lines = can.irq_line_events_get()
+            trace.append({"line_sources": [int(value) for value in lines], **asdict(event)})
+            record_property("isr", trace)
+            assert tuple(int(value) for value in lines) == expected_lines
+            assert event.latched_events == sources and event.event_count == 2
+            assert event.unexpected_count == event.overflow_count == event.fault_flags == 0
+
+            # 独立W1C：清TX必须保留RX，再清RX；不以Service锁存代替硬件Raw。
+            can.irq_clear(CanIrqSource.TX_COMPLETE)
+            tx_cleared = can.irq_snapshot_get()
+            record_observation(
+                record_property,
+                key="raw",
+                value=int(tx_cleared.raw_status),
+                source="dut",
+                endpoint="IRQ.RAW",
+            )
+            assert tx_cleared.raw_status & sources == CanIrqSource.RX_FIFO0_NEW
+            can.irq_clear(CanIrqSource.RX_FIFO0_NEW)
+            cleared = can.irq_snapshot_get()
+            record_observation(
+                record_property,
+                key="raw",
+                value=int(cleared.raw_status),
+                source="dut",
+                endpoint="IRQ.RAW",
+            )
+            assert not cleared.raw_status & sources
+            can.rx_fifo_ack(0, received.index)
+            can.irq_capture_stop()
+
 
 # 每种线格式分别覆盖两个ID边界；每个执行节点内部遍历16种DLC及两种数据。
 FORMAT_NODES = (

@@ -137,6 +137,8 @@ static et_wrap_status_t irq_event_access(et_can_service_t *service, uint8_t rese
         }
 
         ++service->irq_event[ET_CAN_IRQ_EVENT_GENERATION];
+        service->irq_line_events[ET_CAN_IRQ_LINE0] = 0u;
+        service->irq_line_events[ET_CAN_IRQ_LINE1] = 0u;
 
         for (index = 0u; index < ET_CAN_IRQ_EVENT_WORDS; ++index)
         {
@@ -202,6 +204,17 @@ static void can_irq_callback(void *context, et_irq_line_t irq_line, uint32_t rou
 
     service->irq_event[ET_CAN_IRQ_EVENT_LATCHED_EVENTS] |= active;
     increment_irq_counter(service, &service->irq_event[ET_CAN_IRQ_EVENT_COUNT]);
+
+    /* Attribute sources to the delivered physical line, not merely to the requested ILS value. */
+    if (irq_line == service->irq_routes[ET_CAN_IRQ_LINE0].irq_line)
+    {
+        service->irq_line_events[ET_CAN_IRQ_LINE0] |= active;
+    }
+
+    if (irq_line == service->irq_routes[ET_CAN_IRQ_LINE1].irq_line)
+    {
+        service->irq_line_events[ET_CAN_IRQ_LINE1] |= active;
+    }
 
     /* active already excludes sources outside route_events; only the physical line is checked here. */
     if ((irq_line != service->irq_routes[ET_CAN_IRQ_LINE0].irq_line) &&
@@ -280,11 +293,12 @@ static et_wrap_status_t stop_irq_capture(et_can_service_t *service)
  * @param[in,out] service CAN Service that owns the session.
  * @param[in] sources Nonzero public source mask.
  * @param[in] line1_sources Subset of sources routed to controller line 1.
+ * @param[in] clear_pending Clear old Raw for a fresh session, or preserve it for pending delivery.
  * @return OK or the exact setup/rollback failure.
  * @note Setup order is clear, select, bind, line-enable, source-enable; rollback is reversed.
  */
 static et_wrap_status_t start_irq_capture(et_can_service_t *service, uint32_t sources,
-                                          uint32_t line1_sources)
+                                          uint32_t line1_sources, uint8_t clear_pending)
 {
     uint32_t route_events[ET_CAN_IRQ_LINE_COUNT];
     et_can_irq_line_t line;
@@ -317,7 +331,7 @@ static et_wrap_status_t start_irq_capture(et_can_service_t *service, uint32_t so
     /* Phase 2: Clear stale state and publish the complete line selection before any route can fire. */
     status = et_can_wrap_set_irq_enabled(service->can_id, sources, 0u);
 
-    if (status == ET_WRAP_STATUS_OK)
+    if ((status == ET_WRAP_STATUS_OK) && (clear_pending != 0u))
     {
         status = et_can_wrap_clear_irq(service->can_id, sources);
     }
@@ -402,6 +416,7 @@ static et_wrap_status_t execute_irq_command(et_can_service_t *service, uint16_t 
     uint32_t sources;
     uint32_t value;
     uint16_t index;
+    uint32_t key;
 
     /* Phase 1: Route direct source/line controls while no managed capture owns them. */
     switch (command)
@@ -470,7 +485,29 @@ static et_wrap_status_t execute_irq_command(et_can_service_t *service, uint16_t 
         case ET_CAN_COMMAND_IRQ_CAPTURE_START:
         {
             return start_irq_capture(service, read_word(body),
-                                     read_word(&body[ET_CAN_WIRE_WORD_BYTES]));
+                                     read_word(&body[ET_CAN_WIRE_WORD_BYTES]), 1u);
+        }
+
+        case ET_CAN_COMMAND_IRQ_CAPTURE_PENDING:
+        {
+            /* Bind before unmasking; retain Raw so the hardware can deliver existing events. */
+            return start_irq_capture(service, read_word(body),
+                                     read_word(&body[ET_CAN_WIRE_WORD_BYTES]), 0u);
+        }
+
+        case ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET:
+        {
+            key = et_irq_manager_enter_critical();
+
+            for (index = 0u; index < ET_CAN_IRQ_LINE_COUNT; ++index)
+            {
+                write_word(&response[index * ET_CAN_WIRE_WORD_BYTES],
+                           service->irq_line_events[index]);
+            }
+
+            et_irq_manager_exit_critical(key);
+
+            return ET_WRAP_STATUS_OK;
         }
 
         case ET_CAN_COMMAND_IRQ_CAPTURE_STOP:
@@ -1336,7 +1373,9 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     uint8_t initializing;
     uint32_t requested;
 
-    if ((command >= ET_CAN_COMMAND_IRQ_MASK_SET) && (command <= ET_CAN_COMMAND_IRQ_EVENT_RESET))
+    if (((command >= ET_CAN_COMMAND_IRQ_MASK_SET) && (command <= ET_CAN_COMMAND_IRQ_EVENT_RESET)) ||
+        (command == ET_CAN_COMMAND_IRQ_CAPTURE_PENDING) ||
+        (command == ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET))
     {
         return execute_irq_command(service, command, body, response);
     }
@@ -1383,6 +1422,18 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
 
     switch (command)
     {
+        case ET_CAN_COMMAND_TX_BUFFER_IRQ_SET:
+        {
+            requested = read_word(&body[ET_CAN_WIRE_WORD_BYTES]);
+
+            if (requested > 1u)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            return et_can_wrap_set_tx_buffer_irq(id, read_word(body), (uint8_t)requested);
+        }
+
         case ET_CAN_COMMAND_INITIALIZING_SET:
         {
             requested = read_word(body);
@@ -1545,8 +1596,10 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_LINE_SELECT_SET] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_IRQ_CLEAR] = 1u,
         [ET_CAN_COMMAND_IRQ_CAPTURE_START] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_IRQ_CAPTURE_PENDING] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_ACK] = 1u,
-        [ET_CAN_COMMAND_TX_READ] = 1u};
+        [ET_CAN_COMMAND_TX_READ] = 1u,
+        [ET_CAN_COMMAND_TX_BUFFER_IRQ_SET] = ET_CAN_IRQ_CONTROL_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -1570,6 +1623,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TIMEOUT_COUNTER_GET] = 1u,
         [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u,
         [ET_CAN_COMMAND_IRQ_SNAPSHOT_GET] = ET_CAN_IRQ_SNAPSHOT_WORDS,
+        [ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET] = ET_CAN_IRQ_LINE_COUNT,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_STATUS_GET] = ET_CAN_TX_EVENT_STATUS_WORDS,

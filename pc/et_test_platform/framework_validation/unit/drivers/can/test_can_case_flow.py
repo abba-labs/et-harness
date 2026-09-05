@@ -63,8 +63,71 @@ from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_009_tx_event_fifo_watermark_full_and_recovery as run_tx_event_case,
 )
 from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_011_irq_lines_and_clear as run_irq_case,
+)
+from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_015_clock_stop_and_recovery as run_clock_stop_case,
 )
+
+
+# 测试Feature：真实IRQ Case必须比较实际线路、屏蔽Raw及逐源清除。
+# 测试方法：独立Wire序列覆盖两种线路分配；故意交换回调线路，确认Case拒绝。
+# 通过条件：正常两笔刺激完成；错误线路导致断言失败，仍停止捕获并复位资源。
+@pytest.mark.parametrize("tx_line", (0, 1))
+@pytest.mark.parametrize("wrong_line", (False, True))
+def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line) -> None:
+
+    support, resource, target, calls = dependencies()
+    target.responses = [b"", b"", pack("<I", 1)] + [b""] * 8 + [pack("<I", 0)]
+    line1 = 512 if tx_line else 1
+
+    # 软件夹具只提供预定采样，不读取Case发送的数据来制造Expected。
+    for index, data in enumerate(
+        (bytes.fromhex("31 42 53 64 75 86 97 A8"), bytes.fromhex("CE BD AC 9B 8A 79 68 57"))
+    ):
+        lines = (513 ^ line1, line1)
+        if wrong_line:
+            lines = tuple(reversed(lines))
+        target.responses.extend(
+            [
+                b"",
+                b"",
+                b"",
+                b"",
+                b"",
+                pack("<7I", 0, 1, 0, 1, 0, 0, 0),
+                pack("<5I", 1, index, index + 1, 0, 0),
+                pack("<8I", 0x123, 0, 8, 0, 0, 0, 8, index) + data + bytes(56),
+                pack("<4I", 513, 0, 0, 0),
+                pack("<8I", 0, 0, 0, 0, 0, 0, index * 2 + 1, 0),
+                b"",
+                pack("<8I", 513, 1, 513, 2, 0, 0, index * 2 + 2, 0),
+                pack("<2I", *lines),
+                b"",
+                pack("<4I", 1, 0, line1, 3),
+                b"",
+                pack("<4I", 0, 0, line1, 3),
+                b"",
+                b"",
+            ]
+        )
+    target.responses.append(b"")
+    properties = []
+
+    # 正向不得残留未消费的响应；错误线路必须在第一次投递核对时失败。
+    if wrong_line:
+        with pytest.raises(AssertionError):
+            run_irq_case(
+                support, None, resource, lambda k, v: properties.append((k, v)), "internal", tx_line
+            )
+    else:
+        run_irq_case(
+            support, None, resource, lambda k, v: properties.append((k, v)), "internal", tx_line
+        )
+        assert not target.responses
+
+    assert target.requests[-1]["command"] == 40
+    assert calls[-1] == ("resource",)
 
 
 # 明确序列化两帧独立RX Golden；不从Case刚发送的请求取回数据制造一致性。

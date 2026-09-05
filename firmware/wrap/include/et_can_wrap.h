@@ -481,6 +481,7 @@ typedef struct
 } et_can_irq_snapshot_t;
 
 et_wrap_status_t et_can_wrap_set_irq_enabled(et_can_id_t id, uint32_t sources, uint8_t enabled);
+et_wrap_status_t et_can_wrap_set_tx_buffer_irq(et_can_id_t id, uint32_t index, uint8_t enabled);
 et_wrap_status_t et_can_wrap_select_irq_line(et_can_id_t id, uint32_t sources,
                                              et_can_irq_line_t line);
 et_wrap_status_t et_can_wrap_set_irq_line_enabled(et_can_id_t id, et_can_irq_line_t line,

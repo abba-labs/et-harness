@@ -43,6 +43,34 @@ TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
 
 
+# 测试Feature：单槽完成事件、保留Raw的捕获启动及实际线路证据。
+# 测试方法：用独立小端Golden检查三个新增命令；非法Boolean不得发送到目标。
+# 通过条件：命令、字段顺序和重试属性准确，旧命令无需改变。
+def test_pending_irq_commands_golden() -> None:
+
+    target = TargetStub([b"", b"", pack("<2I", 1, 512)])
+    driver = CanDriver(target, 2)
+    driver.tx_buffer_irq_set(3, True, timeout_s=0.5)
+    driver.irq_capture_pending(
+        CanIrqSource.RX_FIFO0_NEW | CanIrqSource.TX_COMPLETE,
+        line1_sources=CanIrqSource.TX_COMPLETE,
+    )
+    assert driver.irq_line_events_get() == (
+        CanIrqSource.RX_FIFO0_NEW,
+        CanIrqSource.TX_COMPLETE,
+    )
+    assert [request["command"] for request in target.requests] == [48, 49, 50]
+    assert target.requests[0]["body"] == bytes.fromhex("02 03000000 01000000")
+    assert target.requests[1]["body"] == bytes.fromhex("02 01020000 00020000")
+    assert [request["retry_safe"] for request in target.requests] == [False, False, True]
+    assert target.requests[0]["timeout_s"] == 0.5
+
+    with pytest.raises(ValueError):
+        driver.tx_buffer_irq_set(3, 1)
+
+    assert len(target.requests) == 3
+
+
 # 真实Driver解码独立TX读回向量，错误槽号和非零尾部必须拒绝；只读命令允许安全重试。
 @pytest.mark.parametrize("fault", (None, "index", "padding", "flags"))
 def test_tx_readback_golden(fault) -> None:

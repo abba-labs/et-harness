@@ -829,6 +829,12 @@ int main(void)
         assert(*(uint32_t *)&response[16]==0 && *(uint32_t *)&response[28]==0);
         assert(*(uint32_t *)&response[24]==1);
 
+        /* Line evidence is attributed from the actual callback IRQ, not copied from ILS. */
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET,
+                                  request, 1, response, 32, &length)==ET_STATUS_OK);
+        assert(length==8 && *(uint32_t *)&response[0]==ET_CAN_IRQ_RX_FIFO0_NEW);
+        assert(*(uint32_t *)&response[4]==ET_CAN_IRQ_TX_COMPLETE);
+
         assert(et_can_wrap_get_irq_snapshot(0, &snapshot)==ET_WRAP_STATUS_OK);
         assert(snapshot.raw_status==watched && snapshot.enabled_sources==0);
         assert(snapshot.line1_sources==ET_CAN_IRQ_TX_COMPLETE && snapshot.enabled_lines==3);
@@ -840,6 +846,32 @@ int main(void)
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_STOP,
                                   request, 1, NULL, 0, &length)==ET_STATUS_OK);
         assert(CAN0->ILE==0 && bound_callback[0]==NULL && bound_callback[1]==NULL);
+
+        /* Preserve an unrelated pending bit too: a hidden clear would overwrite this stub IR. */
+        CAN0->IR=watched | ET_CAN_IRQ_TIMEOUT;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_PENDING,
+                                  request, 9, NULL, 0, &length)==ET_STATUS_OK);
+        assert(CAN0->IR==(watched | ET_CAN_IRQ_TIMEOUT));
+        assert(service.irq_line_events[0]==0 && service.irq_line_events[1]==0);
+        assert(service.irq_event[ET_CAN_IRQ_EVENT_COUNT]==0);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_STOP,
+                                  request, 1, NULL, 0, &length)==ET_STATUS_OK);
+
+        /* A per-slot event does not enable global IE/ILE; invalid slots have no side effect. */
+        CAN0->TXBC=1U<<CAN0_TXBC_NDTB_Pos;
+        CAN0->TXBTIE=0;
+        memset(request,0,sizeof(request)); request[5]=1;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_BUFFER_IRQ_SET,
+                                  request, 9, NULL, 0, &length)==ET_STATUS_OK);
+        assert(CAN0->TXBTIE==1 && CAN0->IE==0 && CAN0->ILE==0);
+        request[1]=1;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_BUFFER_IRQ_SET,
+                                  request, 9, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
+        assert(CAN0->TXBTIE==1);
+        request[1]=0; request[5]=2;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_BUFFER_IRQ_SET,
+                                  request, 9, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
+        assert(CAN0->TXBTIE==1);
     }
 
     return 0;

@@ -70,6 +70,9 @@ class CanCommand(IntEnum):
     TX_EVENT_READ = 45
     TX_EVENT_ACK = 46
     TX_READ = 47
+    TX_BUFFER_IRQ_SET = 48
+    IRQ_CAPTURE_PENDING = 49
+    IRQ_LINE_EVENTS_GET = 50
 
 
 REQUEST_WORDS = (
@@ -121,6 +124,9 @@ REQUEST_WORDS = (
     0,
     1,
     1,  # TX_READ: selected slot.
+    2,  # TX_BUFFER_IRQ_SET: selected slot and Boolean enable.
+    2,  # IRQ_CAPTURE_PENDING: watched sources and line-1 subset; retain Raw.
+    0,  # IRQ_LINE_EVENTS_GET: per-line Service latches.
 )
 RESPONSE_WORDS = (
     2,
@@ -171,6 +177,9 @@ RESPONSE_WORDS = (
     7,
     0,
     21,  # TX_READ: index + header + padded payload.
+    0,  # TX_BUFFER_IRQ_SET: explicit write, no response fields.
+    0,  # IRQ_CAPTURE_PENDING: explicit capture setup.
+    2,  # IRQ_LINE_EVENTS_GET: line-0 and line-1 source latches.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -284,5 +293,6 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TX_EVENT_STATUS_GET,
         CanCommand.TX_EVENT_READ,
         CanCommand.TX_READ,
+        CanCommand.IRQ_LINE_EVENTS_GET,
     }
 )
