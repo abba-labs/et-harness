@@ -5,6 +5,7 @@
 
 import pytest
 
+from ...core.errors import RequestTimeout
 from ...drivers.can import (
     CanBusConfig,
     CanFilter,
@@ -128,7 +129,34 @@ def test_can_p0_003_external_bus(can_external_support, resource_driver, record_p
         for payload in payloads:
             can.tx_write(0, CanTxFrame(0x123, CanFrameFlags(0), 8, 0, payload))
             can.tx_request(1)
-            tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+            try:
+                tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+            except RequestTimeout:
+                # 超时不重发、不改判据；在退出复位前读取错误现场，区分无ACK与其他协议错误。
+                protocol = can.protocol_status_consume()
+                box_error = box.error_get()
+                status = (
+                    f"TX未完成；LEC={protocol.last_error.name}, ACT={protocol.activity.name}, "
+                    f"TEC={protocol.tx_error_count}, REC={protocol.rx_error_count}, "
+                    f"BUS_OFF={protocol.bus_off}"
+                )
+                record_property("status_text", f"{status}, 盒子错误=0x{box_error:08X}")
+                record_observation(
+                    record_property,
+                    key="status",
+                    value=status,
+                    source="dut",
+                    endpoint="PROTOCOL.STATUS",
+                )
+                record_observation(
+                    record_property,
+                    key="peer_error",
+                    value=box_error,
+                    source="peer",
+                    device_id=box.identity,
+                    endpoint=f"{box.identity}.ERROR",
+                )
+                raise
             received = box.receive(timeout_s=TIMEOUT_S)
             frame_text.append(
                 f"盒子RX ID=0x{received.frame.identifier:03X}, DLC={received.frame.dlc}, "

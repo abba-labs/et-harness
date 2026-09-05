@@ -7,7 +7,7 @@ from struct import pack
 from types import SimpleNamespace
 
 import pytest
-from et_test_platform.core.errors import ConfigurationError
+from et_test_platform.core.errors import ConfigurationError, RequestTimeout
 from et_test_platform.drivers.can import (
     CanDriver,
     CanFilterAction,
@@ -242,8 +242,8 @@ def test_clock_stop_case_preserves_handshake_and_recovery(fault, tmp_path) -> No
 
 
 # 外部收发使用独立盒子RX和DUT RX Golden；任一方向字节错误或盒子回显必须失败。
-@pytest.mark.parametrize("fault", (None, "peer_data", "dut_data", "echo"))
-def test_external_bus_case_independent_peer(fault):
+@pytest.mark.parametrize("fault", (None, "peer_data", "dut_data", "echo", "tx_timeout"))
+def test_external_bus_case_independent_peer(fault, monkeypatch):
     from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
 
     support, resource, target, calls = dependencies()
@@ -285,7 +285,26 @@ def test_external_bus_case_independent_peer(fault):
     )
     gpio = SimpleNamespace(configure_signal=lambda *args: calls.append(("gpio", *args)))
     properties = []
-    if fault:
+    if fault == "tx_timeout":
+        # TX未完成时只注入ACK错误现场；禁止继续收发或把读到错误状态当成PASS。
+        target.responses = target.responses[:14] + [
+            pack("<15I", 3, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 1)
+        ]
+
+        def fail_wait(*_args, **_kwargs):
+            raise RequestTimeout("injected TX pending")
+
+        monkeypatch.setattr(CanDriver, "wait_tx_complete", fail_wait)
+        with pytest.raises(RequestTimeout, match="injected TX pending"):
+            run_external_case(
+                (support, gpio, ((2, 7), (3, 8)), box),
+                resource,
+                lambda k, v: properties.append((k, v)),
+            )
+        assert "LEC=ACK" in dict(properties)["status_text"]
+        assert "TEC=128" in dict(properties)["status_text"]
+        assert not target.responses and not sent
+    elif fault:
         with pytest.raises(AssertionError):
             run_external_case(
                 (support, gpio, ((2, 7), (3, 8)), box),
