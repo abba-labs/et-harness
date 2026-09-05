@@ -66,6 +66,9 @@ class CanCommand(IntEnum):
     IRQ_EVENT_GET = 41
     IRQ_EVENT_RESET = 42
     HIGH_PRIORITY_STATUS_GET = 43
+    TX_EVENT_STATUS_GET = 44
+    TX_EVENT_READ = 45
+    TX_EVENT_ACK = 46
 
 
 REQUEST_WORDS = (
@@ -113,6 +116,9 @@ REQUEST_WORDS = (
     0,
     0,
     0,
+    0,
+    0,
+    1,
 )
 RESPONSE_WORDS = (
     2,
@@ -159,6 +165,9 @@ RESPONSE_WORDS = (
     8,
     0,
     4,
+    5,
+    7,
+    0,
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -269,5 +278,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.IRQ_SNAPSHOT_GET,
         CanCommand.IRQ_EVENT_GET,
         CanCommand.HIGH_PRIORITY_STATUS_GET,
+        CanCommand.TX_EVENT_STATUS_GET,
+        CanCommand.TX_EVENT_READ,
     }
 )

@@ -28,6 +28,8 @@ from .models import (
     CanRxFrame,
     CanRxSource,
     CanTiming,
+    CanTxEvent,
+    CanTxEventStatus,
     CanTxFrame,
     CanTxStatus,
 )
@@ -397,6 +399,22 @@ class CanDriver:
         return codec.decode_high_priority_status(
             self._request(CanCommand.HIGH_PRIORITY_STATUS_GET, timeout_s=timeout_s)
         )
+
+    # 读取TX Event FIFO的fill/get/put/full/lost；不读取或Ack当前事件。
+    # 只等待本次请求，超时或设备失败直接上抛；Boolean非法时作为协议错误。
+    def tx_event_status_get(self, *, timeout_s: float | None = None) -> CanTxEventStatus:
+        words = self._request(CanCommand.TX_EVENT_STATUS_GET, timeout_s=timeout_s)
+        return CanTxEventStatus(*words[:3], *(codec.status_boolean(value) for value in words[3:]))
+
+    # 读取当前TX Event FIFO头；不Ack、不改变后续事件或TX状态。
+    # 只等待本次请求，超时或设备失败直接上抛；返回实际Get Index供显式Ack。
+    def tx_event_read(self, *, timeout_s: float | None = None) -> CanTxEvent:
+        return codec.decode_tx_event(self._request(CanCommand.TX_EVENT_READ, timeout_s=timeout_s))
+
+    # 只Ack调用者指定的当前TX Event FIFO头，不循环排空或清除IRQ。
+    # 只等待本次请求，超时或设备失败直接上抛；写操作不安全重试。
+    def tx_event_ack(self, index: int, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.TX_EVENT_ACK, (codec.uint32(index),), timeout_s=timeout_s)
 
     # 集中单次请求和精确长度检查；只读查询才声明可安全重试。
     def _request(

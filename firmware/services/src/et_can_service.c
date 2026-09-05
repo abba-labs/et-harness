@@ -934,6 +934,79 @@ static et_wrap_status_t execute_tx_command(et_can_id_t id, uint16_t command, con
 }
 
 /**
+ * @brief Execute one TX Event FIFO status, head read or acknowledgement primitive.
+ * @param[in] id Logical controller.
+ * @param[in] command Validated TX Event command.
+ * @param[in] body Validated request after the instance prefix; used only by ACK.
+ * @param[out] response Validated output storage for status and event reads.
+ * @return Own Wrap status without polling, comparison or implicit acknowledgement.
+ * @note Read and acknowledgement remain separate public commands.
+ */
+static et_wrap_status_t execute_tx_event_command(et_can_id_t id, uint16_t command,
+                                                 const uint8_t *body, uint8_t *response)
+{
+    et_can_tx_event_status_t status;
+    et_can_tx_event_t event;
+    et_wrap_status_t result;
+
+    switch (command)
+    {
+        case ET_CAN_COMMAND_TX_EVENT_STATUS_GET:
+        {
+            result = et_can_wrap_get_tx_event_status(id, &status);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_TX_EVENT_STATUS_FILL * ET_CAN_WIRE_WORD_BYTES],
+                           status.fill);
+                write_word(&response[ET_CAN_TX_EVENT_STATUS_GET_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                           status.get_index);
+                write_word(&response[ET_CAN_TX_EVENT_STATUS_PUT_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                           status.put_index);
+                write_word(&response[ET_CAN_TX_EVENT_STATUS_FULL * ET_CAN_WIRE_WORD_BYTES],
+                           status.full);
+                write_word(&response[ET_CAN_TX_EVENT_STATUS_LOST * ET_CAN_WIRE_WORD_BYTES],
+                           status.lost);
+            }
+
+            return result;
+        }
+
+        case ET_CAN_COMMAND_TX_EVENT_READ:
+        {
+            result = et_can_wrap_read_tx_event(id, &event);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_TX_EVENT_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES],
+                           event.identifier);
+                write_word(&response[ET_CAN_TX_EVENT_FLAGS * ET_CAN_WIRE_WORD_BYTES], event.flags);
+                write_word(&response[ET_CAN_TX_EVENT_DLC * ET_CAN_WIRE_WORD_BYTES], event.dlc);
+                write_word(&response[ET_CAN_TX_EVENT_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                           event.timestamp);
+                write_word(&response[ET_CAN_TX_EVENT_TYPE * ET_CAN_WIRE_WORD_BYTES],
+                           event.event_type);
+                write_word(&response[ET_CAN_TX_EVENT_MARKER * ET_CAN_WIRE_WORD_BYTES],
+                           event.marker);
+                write_word(&response[ET_CAN_TX_EVENT_INDEX * ET_CAN_WIRE_WORD_BYTES], event.index);
+            }
+
+            return result;
+        }
+
+        case ET_CAN_COMMAND_TX_EVENT_ACK:
+        {
+            return et_can_wrap_ack_tx_event(id, read_word(body));
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_NOT_SUPPORTED;
+        }
+    }
+}
+
+/**
  * @brief Execute a receive FIFO, buffer or frame primitive.
  * @param[in] id Logical controller.
  * @param[in] command Validated receive-group command.
@@ -1259,6 +1332,11 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
         return execute_filter_command(id, command, body, response);
     }
 
+    if ((command >= ET_CAN_COMMAND_TX_EVENT_STATUS_GET) && (command <= ET_CAN_COMMAND_TX_EVENT_ACK))
+    {
+        return execute_tx_event_command(id, command, body, response);
+    }
+
     /* RAM commands form one own-IP codec group; no orchestration is hidden here. */
     if ((command >= ET_CAN_COMMAND_RAM_LIMITS_GET) && (command <= ET_CAN_COMMAND_RAM_LAYOUT_GET))
     {
@@ -1444,7 +1522,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_MASK_SET] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_IRQ_LINE_SELECT_SET] = ET_CAN_IRQ_CONTROL_WORDS,
         [ET_CAN_COMMAND_IRQ_CLEAR] = 1u,
-        [ET_CAN_COMMAND_IRQ_CAPTURE_START] = ET_CAN_IRQ_CONTROL_WORDS};
+        [ET_CAN_COMMAND_IRQ_CAPTURE_START] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_TX_EVENT_ACK] = 1u};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
         [ET_CAN_COMMAND_INITIALIZING_GET] = 1u,
@@ -1469,7 +1548,9 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_CLOCK_STOP_ACK_GET] = 1u,
         [ET_CAN_COMMAND_IRQ_SNAPSHOT_GET] = ET_CAN_IRQ_SNAPSHOT_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
-        [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS};
+        [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
+        [ET_CAN_COMMAND_TX_EVENT_STATUS_GET] = ET_CAN_TX_EVENT_STATUS_WORDS,
+        [ET_CAN_COMMAND_TX_EVENT_READ] = ET_CAN_TX_EVENT_WORDS};
     et_can_service_t *service = (et_can_service_t *)context;
     uint16_t output_bytes;
     et_wrap_status_t status;

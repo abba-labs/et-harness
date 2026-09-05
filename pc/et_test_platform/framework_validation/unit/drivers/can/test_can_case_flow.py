@@ -53,6 +53,9 @@ from et_test_platform.test_cases.can.test_can_p1 import (
 from et_test_platform.test_cases.can.test_can_p1 import (
     test_can_p1_007_dedicated_rx_buffer_boundaries as run_rx_buffer_case,
 )
+from et_test_platform.test_cases.can.test_can_p1 import (
+    test_can_p1_009_tx_event_fifo_watermark_full_and_recovery as run_tx_event_case,
+)
 
 
 # 明确序列化两帧独立RX Golden；不从Case刚发送的请求取回数据制造一致性。
@@ -103,7 +106,7 @@ def dependencies(corrupt_second=False):
         reset=lambda peripheral, **kwargs: calls.append(("can", kwargs["instance"]))
     )
     resource = SimpleNamespace(reset=lambda: calls.append(("resource",)))
-    mapping = SimpleNamespace(CAN_RAM_HEADER_BYTES=8, CAN_STD_FILTER_BYTES=4)
+    mapping = SimpleNamespace(CAN_RAM_HEADER_BYTES=8, CAN_STD_FILTER_BYTES=4, CAN_EVENT_BYTES=8)
     support = CanSupport(
         "can0",
         CanDriver(target, 0),
@@ -116,6 +119,72 @@ def dependencies(corrupt_second=False):
         40_000_000,
     )
     return support, resource, target, calls
+
+
+# 独立构造TX Event Case的硬件响应序列；事件内容与发送Expected不互相读取。
+def tx_event_responses():
+    result = [
+        b"",
+        pack("<I", 1),
+        b"",
+        b"",
+        b"",
+        b"",
+        b"",
+        b"",
+        b"",
+        b"",
+        b"",
+        pack("<I", 0),
+    ]
+    payloads = (
+        bytes.fromhex("01 10 CE BD AC 9B 8A 79"),
+        bytes.fromhex("02 11 31 42 53 64 75 86"),
+        bytes.fromhex("03 12 CE BD AC 9B 8A 79"),
+        bytes.fromhex("04 13 31 42 53 64 75 86"),
+        bytes.fromhex("05 14 CE BD AC 9B 8A 79"),
+    )
+    event_status = (
+        (1, 0, 1, 0, 0),
+        (2, 0, 2, 0, 0),
+        (3, 0, 3, 0, 0),
+        (4, 0, 0, 1, 0),
+        (4, 0, 0, 1, 1),
+    )
+    irq_status = {1: 1 << 12, 2: (1 << 12) | (1 << 13), 4: 1 << 14, 5: 1 << 15}
+    for sequence, (payload, status) in enumerate(zip(payloads, event_status, strict=True), start=1):
+        result.extend(
+            [
+                b"",
+                b"",
+                pack("<7I", 0, 1, 0, 0, 0, 0, 0),
+                pack("<5I", 1, 0, 1, 0, 0),
+                pack("<8I", 0x369, 0, 8, 0, 0, 0, 8, 0) + payload + bytes(56),
+                b"",
+                pack("<5I", *status),
+            ]
+        )
+        if sequence in irq_status:
+            result.extend([pack("<4I", irq_status[sequence], 0, 0, 0), b""])
+    for index, marker in enumerate((0x10, 0x11, 0x12, 0x13)):
+        result.extend([pack("<7I", 0x369, 0, 8, 0x100 + index, 1, marker, index), b""])
+    recovery_payload = bytes.fromhex("A5 20 31 42 53 64 75 86")
+    result.extend(
+        [
+            pack("<5I", 0, 0, 0, 0, 1),
+            b"",
+            b"",
+            pack("<7I", 0, 1, 0, 0, 0, 0, 0),
+            pack("<5I", 1, 0, 1, 0, 0),
+            pack("<8I", 0x369, 0, 8, 0, 0, 0, 8, 0) + recovery_payload + bytes(56),
+            b"",
+            pack("<5I", 1, 0, 1, 0, 1),
+            pack("<7I", 0x369, 0, 8, 0x200, 1, 0x20, 0),
+            b"",
+            pack("<5I", 0, 1, 1, 0, 1),
+        ]
+    )
+    return result
 
 
 # 正常软件序列必须消费所有响应，两个独立Pattern均比较，Evidence四个端点分别存在。
@@ -174,6 +243,34 @@ def test_loopback_case_rejects_bad_payload_and_resets():
         run_case(support, resource, lambda key, value: None)
     assert target.responses == []
     assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+
+# TX Event Case必须执行真实Driver命令链，验证水位/满/丢失并在排空后恢复。
+def test_tx_event_case_request_sequence_and_evidence():
+    support, resource, target, calls = dependencies()
+    target.responses = tx_event_responses()
+    properties = []
+
+    run_tx_event_case(support, resource, lambda key, value: properties.append((key, value)))
+
+    assert target.responses == []
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    commands = [row["command"] for row in target.requests]
+    assert commands.count(44) == 8
+    assert commands.count(45) == 5
+    assert commands.count(46) == 5
+    assert commands.count(21) == 6 and commands.count(22) == 6
+    observations = [
+        value for _, value in properties if isinstance(value, dict) and "endpoint" in value
+    ]
+    assert {row["endpoint"] for row in observations} >= {
+        "TX_EVENT.STATUS",
+        "IRQ.RAW.TX_EVENT",
+        "TX_EVENT.STATUS_AFTER_DRAIN",
+        "TX_EVENT.RECOVERY",
+        "TX_EVENT[0]",
+        "TX_EVENT[3]",
+    }
 
 
 # 纯配置不得把不精确时钟取整，也不得把芯片RAM容量不足降级为SKIP。

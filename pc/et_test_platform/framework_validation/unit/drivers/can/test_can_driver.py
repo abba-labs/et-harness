@@ -28,6 +28,7 @@ from et_test_platform.drivers.can import (
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTxEventType,
     CanTxFrame,
     CanUnmatchedPolicy,
     codec,
@@ -415,6 +416,57 @@ def test_high_priority_status_contract() -> None:
 def test_high_priority_status_rejects_invalid_response(words) -> None:
     with pytest.raises(ProtocolError):
         CanDriver(TargetStub([pack("<4I", *words)]), 0).high_priority_status_get()
+
+
+# TX Event状态、读取和Ack必须保持三个独立命令，并准确标记只读重试属性。
+def test_tx_event_fifo_contract() -> None:
+    target = TargetStub(
+        [
+            pack("<5I", 4, 2, 1, 1, 1),
+            pack("<7I", 0x123, 0, 8, 0x5678, 1, 0xA5, 2),
+            b"",
+        ]
+    )
+    driver = CanDriver(target, 1)
+
+    status = driver.tx_event_status_get(timeout_s=0.4)
+    event = driver.tx_event_read(timeout_s=0.3)
+    driver.tx_event_ack(event.index, timeout_s=0.2)
+
+    assert status.fill == 4 and status.get_index == 2 and status.put_index == 1
+    assert status.full and status.lost
+    assert event.identifier == 0x123 and event.flags == CanFrameFlags.NONE
+    assert event.dlc == 8 and event.timestamp == 0x5678
+    assert event.event_type is CanTxEventType.TRANSMITTED
+    assert event.marker == 0xA5 and event.index == 2
+    assert [request["command"] for request in target.requests] == [44, 45, 46]
+    assert [request["retry_safe"] for request in target.requests] == [True, True, False]
+    assert target.requests[2]["body"] == pack("<BI", 1, 2)
+
+
+# TX Event保留类型、未知帧位、非法Boolean和不一致帧格式必须作为协议错误。
+@pytest.mark.parametrize(
+    "words",
+    (
+        (0x123, 0, 8, 0, 0, 0, 0),
+        (0x123, 0x80, 8, 0, 1, 0, 0),
+        (0x123, 4 | 2, 8, 0, 1, 0, 0),
+        (0x123, 8, 8, 0, 1, 0, 0),
+    ),
+)
+def test_tx_event_rejects_invalid_response(words) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<7I", *words)]), 0).tx_event_read()
+
+
+# TX Event状态Boolean严格校验，非法Ack索引在PC侧不得截断为u32。
+def test_tx_event_status_and_ack_bounds() -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<5I", 0, 0, 0, 2, 0)]), 0).tx_event_status_get()
+    target = TargetStub()
+    with pytest.raises(ValueError):
+        CanDriver(target, 0).tx_event_ack(-1)
+    assert target.requests == []
 
 
 # 未知过滤动作或掩码非法高位不能返回成功，避免报告把损坏数据当有效配置。

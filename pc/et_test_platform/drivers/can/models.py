@@ -299,6 +299,34 @@ class CanTxStatus:
     full: bool
 
 
+# TX Event FIFO非破坏性状态；查询不会确认当前事件，也不会清除lost。
+@dataclass(frozen=True, slots=True)
+class CanTxEventStatus:
+    fill: int
+    get_index: int
+    put_index: int
+    full: bool
+    lost: bool
+
+
+# TX Event类型为公共语义；保留值不作为有效事件返回。
+class CanTxEventType(IntEnum):
+    TRANSMITTED = 1
+    TRANSMITTED_AFTER_CANCEL = 2
+
+
+# 一项实际TX Event FIFO元素；index用于显式Ack当前硬件头。
+@dataclass(frozen=True, slots=True)
+class CanTxEvent:
+    identifier: int
+    flags: CanFrameFlags
+    dlc: int
+    timestamp: int
+    event_type: CanTxEventType
+    marker: int
+    index: int
+
+
 # 接收FIFO非破坏性观测；查询不Ack、不清lost，也不将fill自动转换成测试结果。
 @dataclass(frozen=True, slots=True)
 class CanRxFifoStatus:

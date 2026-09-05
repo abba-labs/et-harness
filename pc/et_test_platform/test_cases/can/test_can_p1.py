@@ -21,6 +21,7 @@ from ...drivers.can import (
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTxEventType,
     CanTxFrame,
     CanUnmatchedPolicy,
 )
@@ -37,6 +38,7 @@ from ._support import (
     pattern,
     phase_timing,
     rx_buffer_boundary_indices,
+    tx_event_loopback_ram,
 )
 
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
@@ -2210,3 +2212,307 @@ def test_can_p1_007_dedicated_rx_buffer_boundaries(
         assert repeated_status.low == repeated_low
         assert repeated_status.high == repeated_high
         assert repeated.identifier == identifiers[first_index] and repeated.data == recovery_payload
+
+
+# =============================================================================
+# TX Event FIFO
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN TX Event FIFO的新事件、水位、满、丢失、事件内容及Ack后恢复。
+#
+# 测试方法：
+# 1. 复位CAN和资源池，配置深度4、水位2的TX Event FIFO及内部回环。
+# 2. 依次发送5帧并保留每帧TX Event；在第1、2、4、5帧后读取状态与IRQ Raw。
+# 3. FIFO满后读取并Ack前4项，核对ID、DLC、Marker、Event Type和硬件索引。
+# 4. 排空后再发送第6帧，确认TX/RX及新事件均恢复，不要求硬件粘滞Lost自动清零。
+#
+# 通过条件：
+# 1. FILL依次达到1、2、4且第5帧保持4；Watermark、Full、Lost在对应边界出现。
+# 2. 前4项事件顺序、Marker和元数据准确，第5帧数据仍成功发送但事件未覆盖旧内容。
+# 3. Ack后FILL清零，第6帧可生成并读取新的TX Event。
+def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
+    can_support,
+    resource_driver,
+    record_property,
+) -> None:
+
+    # 准备：Expected只由固定输入序列和公开事件深度生成，不读取DUT结果。
+    support = can_support
+    can = support.can
+    identifier = 0x369
+    payload_bytes = 8
+    event_depth = 4
+    event_watermark = 2
+    markers = (0x10, 0x11, 0x12, 0x13, 0x14)
+    recovery_marker = 0x20
+    tracked_irq = (
+        CanIrqSource.TX_EVENT_NEW
+        | CanIrqSource.TX_EVENT_WATERMARK
+        | CanIrqSource.TX_EVENT_FULL
+        | CanIrqSource.TX_EVENT_LOST
+    )
+    layout = tx_event_loopback_ram(support, watermark=event_watermark)
+    timing = CanTiming(
+        phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal),
+        phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
+    )
+    expected_event_indices = tuple(range(event_depth))
+    expected_event_markers = markers[:event_depth]
+    threshold_status = {}
+    threshold_irq = {}
+    received_markers = []
+    received_indices = []
+
+    # Expected：先登记边界、事件顺序和恢复Marker，避免由Event读回反推期望。
+    record_property(
+        "expected",
+        {
+            "depth": event_depth,
+            "watermark": event_watermark,
+            "event_markers": list(expected_event_markers),
+            "event_indices": list(expected_event_indices),
+            "recovery_marker": recovery_marker,
+        },
+    )
+
+    # 清理：失败或成功退出时，只整体复位当前CAN和资源池。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 基线：先复位硬件和资源，排除上一Case遗留的Message RAM及IRQ状态。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+
+        # 配置：一个标准ID进入RX0；每个成功发送的帧同时请求保存TX Event。
+        can.initializing_set(True)
+        can.wait_initializing(True, timeout_s=TIMEOUT_S)
+        can.timing_set(timing)
+        can.options_set(
+            CanOptions(
+                fd_enabled=False,
+                brs_enabled=False,
+                automatic_retry=True,
+                tx_pause=False,
+                edge_filter=False,
+                protocol_exception=True,
+                tdc_enabled=False,
+                tdc_offset_cycles=0,
+                tdc_filter_cycles=0,
+                ram_watchdog_cycles=0,
+            )
+        )
+        can.ram_layout_set(layout)
+        can.filter_set(
+            0,
+            CanFilter(CanFilterType.DUAL, CanFilterAction.FIFO0, identifier, identifier),
+            extended=False,
+        )
+        can.loopback_set(CanLoopback.INTERNAL)
+        can.bus_config_set(
+            CanBusConfig(
+                monitor=True,
+                restricted=False,
+                timestamp_divisor=1,
+                timestamp_source=CanTimestampSource.INTERNAL,
+                timeout_source=CanTimeoutSource.CONTINUOUS,
+                timeout_period=0,
+                timeout_enabled=False,
+                reject_remote_ext=True,
+                reject_remote_std=True,
+                unmatched_ext=CanUnmatchedPolicy.REJECT,
+                unmatched_std=CanUnmatchedPolicy.REJECT,
+            )
+        )
+        can.irq_mask_set(tracked_irq, False)
+        can.irq_clear(tracked_irq)
+        can.initializing_set(False)
+        can.wait_initializing(False, timeout_s=TIMEOUT_S)
+
+        # 激励：逐帧发送并立即读取RX0，防止RX深度干扰TX Event满/丢失边界。
+        for sequence, marker in enumerate(markers, start=1):
+            payload = bytes((sequence, marker)) + pattern(
+                payload_bytes - 2,
+                inverse=bool(sequence & 1),
+            )
+            can.tx_write(
+                0,
+                CanTxFrame(
+                    identifier,
+                    CanFrameFlags.STORE_EVENT,
+                    payload_bytes,
+                    marker,
+                    payload,
+                ),
+            )
+            can.tx_request(1)
+            can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+            can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+            received = can.rx_read(CanRxSource.FIFO0)
+            can.rx_fifo_ack(0, received.index)
+            record_observation(
+                record_property,
+                key="rx_frame",
+                value={
+                    "sent": sequence,
+                    "identifier": received.identifier,
+                    "data": received.data.hex(" ").upper(),
+                },
+                source="dut",
+                endpoint="RX_FIFO[0].FRAME",
+            )
+            assert received.identifier == identifier and received.data == payload
+
+            # 观测：每次发送后保存Event状态；关键边界另外保存IRQ Raw。
+            event_status = can.tx_event_status_get()
+            record_observation(
+                record_property,
+                key="tx_event_status",
+                value={
+                    "sent": sequence,
+                    "fill": event_status.fill,
+                    "get_index": event_status.get_index,
+                    "put_index": event_status.put_index,
+                    "full": event_status.full,
+                    "lost": event_status.lost,
+                },
+                source="dut",
+                endpoint="TX_EVENT.STATUS",
+            )
+
+            if sequence in (1, 2, 4, 5):
+                irq_raw = can.irq_snapshot_get().raw_status & tracked_irq
+                threshold_status[sequence] = event_status
+                threshold_irq[sequence] = irq_raw
+                record_observation(
+                    record_property,
+                    key="tx_event_irq",
+                    value={"sent": sequence, "raw": int(irq_raw)},
+                    source="dut",
+                    endpoint="IRQ.RAW.TX_EVENT",
+                )
+                can.irq_clear(tracked_irq)
+
+        # 边界判定：前四帧填满Event FIFO，第五帧不得覆盖但必须报告Lost。
+        assert threshold_status[1].fill == 1 and not threshold_status[1].full
+        assert not threshold_status[1].lost
+        assert threshold_irq[1] & CanIrqSource.TX_EVENT_NEW
+        assert not threshold_irq[1] & (
+            CanIrqSource.TX_EVENT_WATERMARK
+            | CanIrqSource.TX_EVENT_FULL
+            | CanIrqSource.TX_EVENT_LOST
+        )
+        assert threshold_status[2].fill == 2 and not threshold_status[2].full
+        assert not threshold_status[2].lost
+        assert threshold_irq[2] & CanIrqSource.TX_EVENT_WATERMARK
+        assert threshold_status[4].fill == event_depth and threshold_status[4].full
+        assert not threshold_status[4].lost
+        assert threshold_irq[4] & CanIrqSource.TX_EVENT_FULL
+        assert threshold_status[5].fill == event_depth and threshold_status[5].full
+        assert threshold_status[5].lost
+        assert threshold_irq[5] & CanIrqSource.TX_EVENT_LOST
+
+        # 读取与Ack：逐项核对实际事件，再用该项返回的Get Index进行确认。
+        for expected_index, expected_marker in zip(
+            expected_event_indices,
+            expected_event_markers,
+            strict=True,
+        ):
+            event = can.tx_event_read()
+            record_observation(
+                record_property,
+                key="tx_event",
+                value={
+                    "index": event.index,
+                    "identifier": event.identifier,
+                    "flags": int(event.flags),
+                    "dlc": event.dlc,
+                    "timestamp": event.timestamp,
+                    "event_type": int(event.event_type),
+                    "marker": event.marker,
+                },
+                source="dut",
+                endpoint=f"TX_EVENT[{event.index}]",
+            )
+            received_indices.append(event.index)
+            received_markers.append(event.marker)
+            assert event.index == expected_index
+            assert event.identifier == identifier
+            assert event.flags == CanFrameFlags.NONE and event.dlc == payload_bytes
+            assert event.event_type is CanTxEventType.TRANSMITTED
+            assert event.marker == expected_marker
+            can.tx_event_ack(event.index)
+
+        # 排空观测：FILL和FULL必须恢复；Lost可能是硬件粘滞历史事实，不伪造清零。
+        drained = can.tx_event_status_get()
+        record_observation(
+            record_property,
+            key="tx_event_drained",
+            value={"fill": drained.fill, "full": drained.full, "lost": drained.lost},
+            source="dut",
+            endpoint="TX_EVENT.STATUS_AFTER_DRAIN",
+        )
+        assert drained.fill == 0 and not drained.full
+
+        # 恢复刺激：排空后发送一帧，确认新的Event和RX数据均可再次产生。
+        recovery_payload = bytes((0xA5, recovery_marker)) + pattern(payload_bytes - 2)
+        can.tx_write(
+            0,
+            CanTxFrame(
+                identifier,
+                CanFrameFlags.STORE_EVENT,
+                payload_bytes,
+                recovery_marker,
+                recovery_payload,
+            ),
+        )
+        can.tx_request(1)
+        can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+        can.wait_rx_available(0, timeout_s=TIMEOUT_S)
+        recovery_rx = can.rx_read(CanRxSource.FIFO0)
+        can.rx_fifo_ack(0, recovery_rx.index)
+        recovery_status = can.tx_event_status_get()
+        recovery_event = can.tx_event_read()
+        record_observation(
+            record_property,
+            key="tx_event_recovery",
+            value={
+                "fill": recovery_status.fill,
+                "index": recovery_event.index,
+                "marker": recovery_event.marker,
+                "rx_data": recovery_rx.data.hex(" ").upper(),
+            },
+            source="dut",
+            endpoint="TX_EVENT.RECOVERY",
+        )
+        assert recovery_rx.data == recovery_payload
+        assert recovery_status.fill == 1
+        assert recovery_event.identifier == identifier
+        assert recovery_event.event_type is CanTxEventType.TRANSMITTED
+        assert recovery_event.marker == recovery_marker
+        can.tx_event_ack(recovery_event.index)
+        assert can.tx_event_status_get().fill == 0
+
+        # 报告摘要：保持固定字段，详细寄存器现象由Observation单独承载。
+        record_property("event_markers", received_markers)
+        record_property("event_indices", received_indices)
+        record_property(
+            "thresholds",
+            {
+                str(count): {
+                    "fill": threshold_status[count].fill,
+                    "full": threshold_status[count].full,
+                    "lost": threshold_status[count].lost,
+                    "irq": int(threshold_irq[count]),
+                }
+                for count in (1, 2, 4, 5)
+            },
+        )
+        record_property(
+            "recovery",
+            {"fill": recovery_status.fill, "marker": recovery_event.marker},
+        )

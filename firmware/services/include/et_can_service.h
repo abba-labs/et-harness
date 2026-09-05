@@ -30,6 +30,8 @@
 #define ET_CAN_TX_WRITE_WORDS 21u
 #define ET_CAN_RX_FRAME_WORDS 24u
 #define ET_CAN_TX_STATUS_WORDS 7u
+#define ET_CAN_TX_EVENT_STATUS_WORDS 5u
+#define ET_CAN_TX_EVENT_WORDS 7u
 #define ET_CAN_RX_FIFO_STATUS_WORDS 5u
 #define ET_CAN_RX_SELECT_WORDS 2u
 #define ET_CAN_RX_BITMAP_WORDS 2u
@@ -75,6 +77,28 @@ typedef enum
     ET_CAN_TX_STATUS_PUT_INDEX = 5u,
     ET_CAN_TX_STATUS_FULL = 6u,
 } et_can_tx_status_word_t;
+
+/** Public TX Event FIFO status word order. */
+typedef enum
+{
+    ET_CAN_TX_EVENT_STATUS_FILL = 0u,
+    ET_CAN_TX_EVENT_STATUS_GET_INDEX = 1u,
+    ET_CAN_TX_EVENT_STATUS_PUT_INDEX = 2u,
+    ET_CAN_TX_EVENT_STATUS_FULL = 3u,
+    ET_CAN_TX_EVENT_STATUS_LOST = 4u,
+} et_can_tx_event_status_word_t;
+
+/** Public TX Event FIFO element word order; unrelated to Message RAM bit positions. */
+typedef enum
+{
+    ET_CAN_TX_EVENT_IDENTIFIER = 0u,
+    ET_CAN_TX_EVENT_FLAGS = 1u,
+    ET_CAN_TX_EVENT_DLC = 2u,
+    ET_CAN_TX_EVENT_TIMESTAMP = 3u,
+    ET_CAN_TX_EVENT_TYPE = 4u,
+    ET_CAN_TX_EVENT_MARKER = 5u,
+    ET_CAN_TX_EVENT_INDEX = 6u,
+} et_can_tx_event_word_t;
 
 /** Public RX FIFO fill/indices/full/lost word order. */
 typedef enum
@@ -216,6 +240,9 @@ typedef enum
     ET_CAN_COMMAND_IRQ_EVENT_GET = 41u,
     ET_CAN_COMMAND_IRQ_EVENT_RESET = 42u,
     ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET = 43u,
+    ET_CAN_COMMAND_TX_EVENT_STATUS_GET = 44u,
+    ET_CAN_COMMAND_TX_EVENT_READ = 45u,
+    ET_CAN_COMMAND_TX_EVENT_ACK = 46u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

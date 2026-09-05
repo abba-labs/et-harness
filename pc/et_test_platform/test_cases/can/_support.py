@@ -276,6 +276,63 @@ def dedicated_loopback_ram(support: CanSupport, *, filter_count: int) -> CanRamL
     )
 
 
+# 纯布局计算：一个标准Filter、一个TX槽、四项TX Event及四项RX0。
+# Event水位由Case显式传入；本函数只验证目标容量并计算不重叠偏移。
+def tx_event_loopback_ram(support: CanSupport, *, watermark: int) -> CanRamLayout:
+
+    mapping = support.mapping
+    limits = support.ram_limits
+    event_count = 4
+    rx_count = 4
+    payload = 8
+    if not 0 <= watermark <= event_count:
+        raise ConfigurationError("CAN TX Event watermark must be within depth four")
+    if (
+        limits.std_count < 1
+        or limits.tx_count < 1
+        or limits.event_count < event_count
+        or limits.rx_fifo_count < rx_count
+    ):
+        raise ConfigurationError(
+            "CAN TX Event Case requires one filter/TX slot and four Event/RX entries"
+        )
+
+    stride = mapping.CAN_RAM_HEADER_BYTES + payload
+    tx_offset = mapping.CAN_STD_FILTER_BYTES
+    event_offset = tx_offset + stride
+    rx_offset = event_offset + event_count * mapping.CAN_EVENT_BYTES
+    buffer_offset = rx_offset + rx_count * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN TX Event layout exceeds the message RAM aperture")
+
+    return CanRamLayout(
+        std_offset=0,
+        std_count=1,
+        ext_offset=tx_offset,
+        ext_count=0,
+        tx_offset=tx_offset,
+        tx_buffer_count=1,
+        tx_fifo_count=0,
+        tx_queue=False,
+        tx_payload_bytes=payload,
+        event_offset=event_offset,
+        event_count=event_count,
+        event_watermark=watermark,
+        rx0_offset=rx_offset,
+        rx0_count=rx_count,
+        rx0_watermark=0,
+        rx0_overwrite=False,
+        rx1_offset=buffer_offset,
+        rx1_count=0,
+        rx1_watermark=0,
+        rx1_overwrite=False,
+        rx_buffer_offset=buffer_offset,
+        rx_buffer_payload_bytes=payload,
+        rx0_payload_bytes=payload,
+        rx1_payload_bytes=payload,
+    )
+
+
 # 选择Dedicated RX首尾和32-bit位图分组边界；较小实现仅保留实际存在的节点。
 # 返回值只依赖目标公开容量，Case仍逐项验证真实数据和位图。
 def rx_buffer_boundary_indices(limits: CanRamLimits) -> tuple[int, ...]:

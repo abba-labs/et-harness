@@ -1143,6 +1143,167 @@ et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *s
 }
 
 /**
+ * @brief Read actual TX Event FIFO occupancy without consuming an event.
+ * @param[in] id Logical controller.
+ * @param[out] status Fill, indices, full and lost facts from one Driver sample.
+ * @return OK or an argument, unsupported-instance or invalid-hardware-state error.
+ * @note A full or lost indication is an observation, not a test verdict.
+ */
+et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+    CAN_TxEventFIFOStatus actual;
+    uint32_t count;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+    CAN_getTxEventFIFOStatus(instance, &actual);
+    count = config.txEventFIFOSize;
+
+    /* Validate every Driver field before publishing a coherent public snapshot. */
+    if ((count > ram_limits.event_count) || (actual.fillLvl > count) || (actual.fifoFull > 1u) ||
+        (actual.eleLost > 1u) ||
+        ((count == 0u) && ((actual.fillLvl != 0u) || (actual.getIdx != 0u) ||
+                           (actual.putIdx != 0u) || (actual.fifoFull != 0u))) ||
+        ((count != 0u) && ((actual.getIdx >= count) || (actual.putIdx >= count))))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    status->fill = actual.fillLvl;
+    status->get_index = actual.getIdx;
+    status->put_index = actual.putIdx;
+    status->full = actual.fifoFull;
+    status->lost = actual.eleLost;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read the current TX Event FIFO head through the existing CAN Driver.
+ * @param[in] id Logical controller.
+ * @param[out] event Actual event metadata and current hardware Get Index.
+ * @return OK or an argument, empty FIFO, bad layout or unsupported-instance error.
+ * @note The event remains owned by hardware until et_can_wrap_ack_tx_event is called.
+ */
+et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+    CAN_TxEventFIFOElement actual;
+    et_can_tx_event_status_t status;
+    et_can_ram_region_t region;
+    et_wrap_status_t result;
+    uint32_t count;
+
+    if (event == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    /* Phase 1: Confirm a configured, non-empty and in-range hardware FIFO head. */
+    result = et_can_wrap_get_tx_event_status(id, &status);
+
+    if (result != ET_WRAP_STATUS_OK)
+    {
+        return result;
+    }
+
+    if (status.fill == 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    CAN_testGetMsgRAMConfig(instance, &config);
+    count = config.txEventFIFOSize;
+    region.offset = config.txEventFIFOStartAddr;
+    region.length = count * CAN_TX_EVENT_FIFO_SIZE_WORDS * sizeof(uint32_t);
+
+    if ((count == 0u) || !ram_regions_valid(&region, 1u))
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    /* Phase 2: Read exactly the current head; no hidden acknowledge or polling follows. */
+    (void)memset(&actual, 0, sizeof(actual));
+    CAN_readTxEventFIFO(instance, &actual);
+
+    if ((actual.xtd > 1u) || (actual.rtr > 1u) || (actual.esi > 1u) || (actual.brs > 1u) ||
+        (actual.fdf > 1u) || (actual.dlc > ET_CAN_FRAME_DLC_MAX) ||
+        ((actual.et != ET_CAN_TX_EVENT_TRANSMITTED) &&
+         (actual.et != ET_CAN_TX_EVENT_TRANSMITTED_AFTER_CANCEL)) ||
+        (actual.id > frame_mapping.extended_id_max) ||
+        ((actual.xtd == 0u) &&
+         ((((actual.id >> frame_mapping.standard_id_shift) << frame_mapping.standard_id_shift) !=
+           actual.id) ||
+          ((actual.id >> frame_mapping.standard_id_shift) > frame_mapping.standard_id_max))))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    event->identifier = actual.xtd ? actual.id : actual.id >> frame_mapping.standard_id_shift;
+    event->flags = (actual.xtd ? ET_CAN_FRAME_EXTENDED : 0u) |
+                   (actual.rtr ? ET_CAN_FRAME_REMOTE : 0u) | (actual.fdf ? ET_CAN_FRAME_FD : 0u) |
+                   (actual.brs ? ET_CAN_FRAME_BRS : 0u) | (actual.esi ? ET_CAN_FRAME_ESI : 0u);
+    event->dlc = actual.dlc;
+    event->timestamp = actual.txts;
+    event->event_type = actual.et;
+    event->marker = actual.mm;
+    event->index = status.get_index;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Acknowledge the current TX Event FIFO head through the CAN Driver.
+ * @param[in] id Logical controller.
+ * @param[in] index Get Index returned by the preceding status or event read.
+ * @return OK or an argument, empty/stale index, unsupported-instance or Driver error.
+ * @note The current hardware status closes the SDK boundary-check gap before the write.
+ */
+et_wrap_status_t et_can_wrap_ack_tx_event(et_can_id_t id, uint32_t index)
+{
+    CAN_Type *instance = find_instance(id);
+    et_can_tx_event_status_t status;
+    et_wrap_status_t result;
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    result = et_can_wrap_get_tx_event_status(id, &status);
+
+    if (result != ET_WRAP_STATUS_OK)
+    {
+        return result;
+    }
+
+    if ((status.fill == 0u) || (index != status.get_index))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    return CAN_writeTxEventFIFOAck(instance, index) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                              : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
  * @brief Read one selected receive FIFO without acknowledging entries.
  * @param[in] id Logical controller.
  * @param[in] fifo Public FIFO index.

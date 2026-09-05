@@ -224,6 +224,35 @@ typedef struct
     uint32_t full;
 } et_can_tx_status_t;
 
+/** Actual TX Event FIFO occupancy; querying does not acknowledge its current head. */
+typedef struct
+{
+    uint32_t fill;
+    uint32_t get_index;
+    uint32_t put_index;
+    uint32_t full;
+    uint32_t lost;
+} et_can_tx_event_status_t;
+
+/** Stable event cause decoded from one transmitted-frame event element. */
+typedef enum
+{
+    ET_CAN_TX_EVENT_TRANSMITTED = 1u,
+    ET_CAN_TX_EVENT_TRANSMITTED_AFTER_CANCEL = 2u
+} et_can_tx_event_type_t;
+
+/** One TX Event FIFO element and the hardware index from which it was read. */
+typedef struct
+{
+    uint32_t identifier;
+    uint32_t flags;
+    uint32_t dlc;
+    uint32_t timestamp;
+    uint32_t event_type;
+    uint32_t marker;
+    uint32_t index;
+} et_can_tx_event_t;
+
 /** Actual receive FIFO state; querying does not acknowledge or clear lost status. */
 typedef struct
 {
@@ -267,6 +296,9 @@ et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
                                       const et_can_tx_frame_t *frame);
 et_wrap_status_t et_can_wrap_request_tx(et_can_id_t id, uint32_t mask);
 et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *status);
+et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status);
+et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event);
+et_wrap_status_t et_can_wrap_ack_tx_event(et_can_id_t id, uint32_t index);
 et_wrap_status_t et_can_wrap_get_rx_fifo_status(et_can_id_t id, uint32_t fifo,
                                                 et_can_rx_fifo_status_t *status);
 et_wrap_status_t et_can_wrap_read_rx(et_can_id_t id, et_can_rx_source_t source, uint32_t index,

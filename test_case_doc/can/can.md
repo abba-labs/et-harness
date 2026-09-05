@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 01:06 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；2项SPEC（P0_002、P1_001）、37项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；9项SPEC、30项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -94,7 +94,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、协议状态消费、计时控制和中断管理，共44条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共47条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -160,6 +160,9 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | IRQ_EVENT_GET | 41 | 无 | raw、masked、latched、count、unexpected、overflow、generation、fault共8项 |
 | IRQ_EVENT_RESET | 42 | 无 | 无；只清Service固定Evidence，不改变CAN或NVIC配置 |
 | HIGH_PRIORITY_STATUS_GET | 43 | 无 | buffer_index、storage、filter_index、extended_filter，共4项；不读取帧、不Ack FIFO或清IRQ |
+| TX_EVENT_STATUS_GET | 44 | 无 | fill、get_index、put_index、full、lost，共5项；不读取或Ack事件 |
+| TX_EVENT_READ | 45 | 无 | identifier、flags、dlc、timestamp、event_type、marker、index，共7项；只读当前头 |
+| TX_EVENT_ACK | 46 | 当前TX Event Get Index | 无；只Ack非空FIFO当前头，拒绝空FIFO或过期索引 |
 
 中断sources使用公共语义位图，覆盖RX FIFO0/1、Dedicated RX、TX完成/取消、TX Event、Timestamp、Timeout、错误状态和协议错误等30类事件。PC只传事件和控制器本地Line，不传芯片物理中断符号。Chip Config将事件映射到本芯片Driver枚举，并将本地Line映射为物理IRQ；CAN Service是唯一的Service→IRQ Manager绑定位置。
 
@@ -263,7 +266,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_006 | CAN RX FIFO满后阻塞与覆盖 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | 已实现SPEC，未HIL |
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | PLANNED，见第3节 |
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | PLANNED，见第3节 |
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
@@ -763,10 +766,9 @@ gap: ["case_implementation_gap","atomic_tx_request_driver_gap"]
 
 ### CAN_P1_009 CAN TX Event FIFO水位与丢失
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_009
 case_name: CAN TX Event FIFO水位与丢失
 report_feature: |-
@@ -775,32 +777,32 @@ p_level: P1
 feature_refs: [CAN_F_015]
 method:
   inputs:
-    - "事件输入：内部回环，TX Event FIFO深度4、水位2；5帧8-byte且Marker为0～4，接收FIFO及时排空防止RX溢出混淆。"
+    - "事件输入：内部回环，TX Event FIFO深度4、水位2；5帧8-byte且Marker为0x10～0x14，接收FIFO逐帧排空防止RX溢出混淆。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "事件配置：启用逐帧存TX Event，配置水位与深度，关闭自动读事件的ISR/DMU。"
     - "水位检查：发第一帧确认事件FILL=1、水位未到；发第二帧确认FILL=2及水位事件。"
     - "填满检查：发到第四帧，每帧确认TX成功，保存TX_EVENT.FULL和FILL=4。"
     - "事件丢失：发第五帧，确认数据仍成功接收但TX_EVENT.LOST置位；读取并Ack前四项。"
-    - "清除恢复：检查前四项ID/Marker/发送类型，清事件丢失后再发Marker=5，确认出现一条正确新事件。"
+    - "排空恢复：检查前四项ID/Marker/发送类型并逐项Ack；排空后再发Marker=0x20，确认出现一条正确新事件。LOST可能为硬件粘滞历史，不以软件猜测强制清零。"
   observations:
     - "事件内容：TX_EVENT.DATA的ID、Marker、发送结果来自真实成功发送，前四项不变。"
     - "容量边界：FILL在水位2/满4准确，额外帧成功但Event丢失，Ack后恢复。"
   pass_criteria:
     - "事件准确：已保存四条与发送序列一致，数据接收成功不能代替事件断言。"
-    - "满后行为：第五条不覆盖前四条、LOST置位；排空清除后新事件正常。"
+    - "满后行为：第五条不覆盖前四条、LOST置位；排空后新事件正常，FILL和FULL恢复。"
 timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
 cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
 resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN TX Event FIFO水位与丢失：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"events","label":"TX_EVENT.DATA的ID/Marker序列","source":"dut","role":"actual","format":"text"}
-  - {"key":"status","label":"TX_EVENT.FILL/FULL/LOST在1/2/4/5帧后的值","source":"dut","role":"actual","format":"text"}
+  - {"key":"tx_event","label":"TX_EVENT.DATA的ID/Marker序列","source":"dut","role":"actual","format":"text"}
+  - {"key":"tx_event_status","label":"TX_EVENT.FILL/FULL/LOST在1/2/4/5帧后的值","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN TX Event FIFO水位与丢失的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_010 CAN 8-bit与16-bit Message Marker
 
@@ -2025,6 +2027,13 @@ cases:
       - {source: observation, path: bitmap_high_all, label: 高32位New Data位图, format: hex32, aggregate: all}
       - {source: observation, path: rx_buffer_frame, label: 各目标Buffer实际帧, format: text, aggregate: all}
       - {source: measurement, path: expected, label: Buffer索引与位图Expected, format: text, aggregate: all}
+  CAN_P1_009:
+    summary: 核对TX Event FIFO水位、满、丢失、事件内容、逐项Ack及排空后恢复。
+    fields:
+      - {source: measurement, path: event_markers, label: 实际TX Event Marker顺序, format: text, aggregate: all}
+      - {source: measurement, path: event_indices, label: 实际TX Event Get Index顺序, format: text, aggregate: all}
+      - {source: measurement, path: thresholds, label: 第1/2/4/5帧后FILL/FULL/LOST及IRQ, format: text, aggregate: all}
+      - {source: measurement, path: recovery, label: 排空后新事件恢复, format: text, aggregate: all}
 ```
 <!-- ET_CASE_REPORT_END -->
 
@@ -2032,7 +2041,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=6; IMPLEMENTATION_GAP=31 | ADAPTED=8; IMPLEMENTATION_GAP=31; NEEDS_VERIFICATION=3 | 8 SPEC、31 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=7; IMPLEMENTATION_GAP=30 | ADAPTED=9; IMPLEMENTATION_GAP=30; NEEDS_VERIFICATION=3 | 9 SPEC、30 PLAN、3项确认流程；尚无CAN HIL结论，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

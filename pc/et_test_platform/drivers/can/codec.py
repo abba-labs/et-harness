@@ -26,6 +26,8 @@ from .models import (
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTxEvent,
+    CanTxEventType,
     CanTxFrame,
     CanUnmatchedPolicy,
 )
@@ -122,6 +124,32 @@ def decode_high_priority_status(words: tuple[int, ...]) -> CanHighPriorityStatus
     except ValueError as error:
         raise ProtocolError(f"CAN High Priority storage is invalid: {words[1]}") from error
     return CanHighPriorityStatus(words[0], storage, words[2], bool(words[3]))
+
+
+# 解码TX Event FIFO头；只接受基本帧标志、合法DLC和已定义事件类型。
+def decode_tx_event(words: tuple[int, ...]) -> CanTxEvent:
+    if len(words) != 7:
+        raise ProtocolError(f"CAN TX Event field count is invalid: {words}")
+    identifier, raw_flags, dlc, timestamp, raw_type, marker, index = words
+    flags = CanFrameFlags(raw_flags)
+    maximum_id = (
+        contract.EXTENDED_ID_MAX if flags & CanFrameFlags.EXTENDED else contract.STANDARD_ID_MAX
+    )
+    if (
+        raw_flags & ~int(RX_FLAGS)
+        or identifier > maximum_id
+        or dlc >= len(contract.FD_DATA_LENGTHS)
+    ):
+        raise ProtocolError(f"CAN TX Event header is invalid: {words}")
+    if (flags & CanFrameFlags.FD and flags & CanFrameFlags.REMOTE) or (
+        not flags & CanFrameFlags.FD and flags & (CanFrameFlags.BRS | CanFrameFlags.ESI)
+    ):
+        raise ProtocolError(f"CAN TX Event frame format is inconsistent: {words}")
+    try:
+        event_type = CanTxEventType(raw_type)
+    except ValueError as error:
+        raise ProtocolError(f"CAN TX Event type is invalid: {raw_type}") from error
+    return CanTxEvent(identifier, flags, dlc, timestamp, event_type, marker, index)
 
 
 # 严格解码已消费的单次状态；使用命名字段，不让Driver包含Wire索引。
