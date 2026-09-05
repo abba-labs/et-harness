@@ -1959,6 +1959,10 @@ def test_can_p1_007_dedicated_rx_buffer_boundaries(
     expected_high = sum(1 << (index - 32) for index in indices if index >= 32)
     received_data = {}
 
+    # 报告只绑定一份文本序列；逐帧硬件Observation仍按物理Buffer独立保留。
+    buffer_frame_text = []
+    record_property("buffer_frame_text", buffer_frame_text)
+
     # Expected：边界索引、两组位图和各Buffer输入在读取NDAT前固定。
     record_property(
         "expected",
@@ -2097,6 +2101,10 @@ def test_can_p1_007_dedicated_rx_buffer_boundaries(
                 inverse=bool(sequence & 1),
             )
             received_data[str(buffer_index)] = actual.data.hex(" ").upper()
+            buffer_frame_text.append(
+                f"RX Buffer {actual.index}: ID=0x{actual.identifier:03X}, "
+                f"DATA={actual.data.hex(' ').upper()}"
+            )
             record_observation(
                 record_property,
                 key="rx_buffer_frame",
@@ -2206,6 +2214,10 @@ def test_can_p1_007_dedicated_rx_buffer_boundaries(
         )
 
         # 判定：记录具体Buffer、位图和数据，不能只输出一个布尔结果。
+        buffer_frame_text.append(
+            f"再次接收 Buffer {repeated.index}: ID=0x{repeated.identifier:03X}, "
+            f"DATA={repeated.data.hex(' ').upper()}"
+        )
         record_property("indices", list(indices))
         record_property("new_data_all", {"low": all_set.low, "high": all_set.high})
         record_property("new_data_after_one", {"low": after_one.low, "high": after_one.high})
@@ -2881,5 +2893,7 @@ def test_can_p1_008_tx_fifo_queue_order(
             endpoint="RX0.STATUS",
         )
         assert final.pending == 0 and not final.full
-        assert final.free_count == layout.tx_fifo_count
+        # Free Count表达连续FIFO空闲项；Queue不提供该计数，读0，空闲由Pending/Full验证。
+        expected_free = layout.tx_fifo_count if mode == "fifo" else 0
+        assert final.free_count == expected_free
         assert rx.fill == 0 and not rx.lost

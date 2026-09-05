@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 12:50 CST
+更新时间：2026-09-05 13:15 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；11项SPEC、28项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；11项SPEC、28项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -753,7 +753,7 @@ method:
     - "顺序比较：FIFO期望0x300/0x100/0x200；Queue和专用Buffer期望0x100/0x200/0x300，检查完成位及最终TX空。"
   observations:
     - "发送顺序：RX.FRAME按接收顺序排列，独立Expected由TX组织和ID优先规则给出。"
-    - "请求终态：TX.PENDING清零、三项COMPLETED有效、TX FIFO/Queue回到空。"
+    - "请求终态：TX.PENDING清零、三项COMPLETED有效且FULL=0；FIFO的FREE_COUNT恢复容量，Queue的连续FIFO空闲计数不适用并读0，不将其误作Queue占用数。"
   pass_criteria:
     - "预装可靠：请求前全部数据已就绪、同一次硬件批量请求，不把调度竞态当优先级。"
     - "次序准确：三种模式分别满足其完整顺序且无丢失；不据此宣称验证跨节点仲裁。"
@@ -2046,7 +2046,7 @@ cases:
     fields:
       - {source: observation, path: bitmap_low_all, label: 低32位New Data位图, format: hex32, aggregate: all}
       - {source: observation, path: bitmap_high_all, label: 高32位New Data位图, format: hex32, aggregate: all}
-      - {source: observation, path: rx_buffer_frame, label: 各目标Buffer实际帧, format: text, aggregate: all}
+      - {source: measurement, path: buffer_frame_text, label: 各目标Buffer实际帧及再次接收帧, format: text, aggregate: all}
       - {source: measurement, path: expected, label: Buffer索引与位图Expected, format: text, aggregate: all}
   CAN_P1_009:
     summary: 核对TX Event FIFO水位、满、丢失、事件内容、逐项Ack及排空后恢复。

@@ -888,7 +888,7 @@ def test_fifo_mode_case_complete_software_flow(fifo, overwrite):
 
 
 # Dedicated Buffer边界Case必须跨越两组New Data位图并读回每个真实槽。
-def test_rx_buffer_boundary_case_complete_software_flow():
+def test_rx_buffer_boundary_case_complete_software_flow(tmp_path):
     support, resource, calls = storage_dependencies()
     properties = []
     run_rx_buffer_case(
@@ -899,6 +899,49 @@ def test_rx_buffer_boundary_case_complete_software_flow():
     payloads = next(value for key, value in properties if key == "buffer_payloads")
     assert set(payloads) == {"0", "31", "32", "63"}
     assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+
+    # 一次执行具有多个同名物理观测；报告应绑定人工摘要，不要求同名观测唯一。
+    from pathlib import Path
+
+    from et_test_platform.results.case_report import build_case_report_model
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import _case_observations, _case_recorded_outputs
+
+    item = SimpleNamespace(user_properties=properties)
+    measurements, _ = _case_recorded_outputs(item)
+    assert len(measurements["buffer_frame_text"]) == 5
+    write_json_result(
+        tmp_path / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-can-buffer",
+            "chip_id": "et6801",
+            "finished_at": "2026-09-05T05:08:00Z",
+            "exitstatus": 0,
+        },
+    )
+    write_json_result(
+        tmp_path / "cases/buffer/result.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-can-buffer",
+            "case_run_id": "buffer",
+            "case_id": "CAN_P1_007",
+            "status": "PASS",
+            "duration_s": 0.01,
+            "measurements": measurements,
+            "observations": _case_observations(item),
+            "evidence_complete": True,
+            "evidence_sources": ["dut"],
+            "missing_evidence_sources": [],
+        },
+    )
+    model = build_case_report_model(
+        Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md", tmp_path
+    )
+    row = next(row for row in model["cases"] if row["case_id"] == "CAN_P1_007")
+    assert row["status"] == "PASS"
+    assert "RX Buffer 63" in row["remark"] and "再次接收" in row["remark"]
 
 
 # 标准Filter全部参数节点必须执行真实匹配、路由和High Priority软件语义。
@@ -1016,7 +1059,8 @@ def test_tx_order_case_atomic_request_and_evidence(mode, fault, tmp_path) -> Non
         target.responses.extend(
             [b"", pack("<5I", i, identifier, 0, 8, i) + payloads[i] + bytes(56)]
         )
-    free = 0 if mode == "buffer" else 3
+    # 独立Golden：TFFL只用于FIFO；Queue组织按硬件定义读0。
+    free = 3 if mode == "fifo" else 0
     target.responses.extend(
         [
             pack("<7I", 0, 0, 0, free, 0, 0, 0),
