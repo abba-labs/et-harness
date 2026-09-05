@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-05 01:06 CST
+更新时间：2026-09-05 10:50 CST
 
 开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；9项SPEC、30项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，但没有硬件测试结果；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -9,6 +9,9 @@
 ### 0.1 测试对象与稳定参数
 
 CAN控制器通过Message RAM保存过滤项、收发帧和发送事件；Classic CAN、CAN FD、时间戳、DMA搬运、错误处理分别定义可观测语义，不把控制器、收发器和外部CAN分析仪当成同一个对象。
+
+内部回环Case只从连接文件选择实例，并核对CAN/CRG及本Case所需能力，不依赖外部GPIO Service或RX/TX接线。
+外部总线Case实施时必须单独选择连接、校验GPIO复用与冲突，并在Case中显式配置；不能复用内部回环的免引脚条件。
 
 | 参数 | 公共语义 |
 |---|---|
@@ -2030,10 +2033,10 @@ cases:
   CAN_P1_009:
     summary: 核对TX Event FIFO水位、满、丢失、事件内容、逐项Ack及排空后恢复。
     fields:
-      - {source: measurement, path: event_markers, label: 实际TX Event Marker顺序, format: text, aggregate: all}
-      - {source: measurement, path: event_indices, label: 实际TX Event Get Index顺序, format: text, aggregate: all}
-      - {source: measurement, path: thresholds, label: 第1/2/4/5帧后FILL/FULL/LOST及IRQ, format: text, aggregate: all}
-      - {source: measurement, path: recovery, label: 排空后新事件恢复, format: text, aggregate: all}
+      - {source: measurement, path: event_trace, label: TX_EVENT实际索引及Marker, format: text, aggregate: all}
+      - {source: measurement, path: status_trace, label: 第1至5帧及排空/恢复/最后Ack后TX_EVENT状态, format: text, aggregate: all}
+      - {source: measurement, path: irq_trace, label: 第1/2/4/5帧后IRQ Raw, format: text, aggregate: all}
+      - {source: measurement, path: rx_trace, label: 前五帧和恢复帧RX ID及数据, format: text, aggregate: all}
 ```
 <!-- ET_CASE_REPORT_END -->
 

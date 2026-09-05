@@ -203,9 +203,9 @@ static void can_irq_callback(void *context, et_irq_line_t irq_line, uint32_t rou
     service->irq_event[ET_CAN_IRQ_EVENT_LATCHED_EVENTS] |= active;
     increment_irq_counter(service, &service->irq_event[ET_CAN_IRQ_EVENT_COUNT]);
 
-    if (((irq_line != service->irq_routes[ET_CAN_IRQ_LINE0].irq_line) &&
-         (irq_line != service->irq_routes[ET_CAN_IRQ_LINE1].irq_line)) ||
-        ((active & ~route_events) != 0u))
+    /* active already excludes sources outside route_events; only the physical line is checked here. */
+    if ((irq_line != service->irq_routes[ET_CAN_IRQ_LINE0].irq_line) &&
+        (irq_line != service->irq_routes[ET_CAN_IRQ_LINE1].irq_line))
     {
         increment_irq_counter(service, &service->irq_event[ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT]);
         service->irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_UNEXPECTED;

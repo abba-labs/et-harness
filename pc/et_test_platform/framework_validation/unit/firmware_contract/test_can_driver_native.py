@@ -191,10 +191,11 @@ int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
 }
 
 /* Optional ECR.CEL read-clear model catches accidental repeated reads in a getter. */
-static unsigned consume_enabled, ecr_reads, psr_reads;
+static unsigned consume_enabled, ecr_reads, psr_reads, txbc_reads;
 uint32_t can_test_read(volatile uint32_t *address)
 {
     uint32_t value=*address;
+    if (address==&CAN0->TXBC) { ++txbc_reads; }
     if (consume_enabled && address==&CAN0->ECR)
     {
         ++ecr_reads;
@@ -764,6 +765,25 @@ int main(void)
         assert(CAN0->CCCR==8);
     }
 
+    /* One Event read uses one RAM-config query (four TXBC fields), keeping bounds checks. */
+    {
+        et_can_tx_event_t event;
+        uint32_t *entry=(uint32_t *)&test_memory.ram[128];
+        CAN0->TXEFC=(2U<<16)|128U;
+        CAN0->TXEFS=(1U<<16)|1U;
+        entry[0]=0x369U<<18;
+        entry[1]=(0x10U<<24)|(1U<<22)|(8U<<16)|0x3456U;
+        txbc_reads=0;
+        assert(et_can_wrap_read_tx_event(0,&event)==ET_WRAP_STATUS_OK);
+        assert(txbc_reads==4);
+        assert(event.identifier==0x369 && event.marker==0x10 && event.index==0);
+        assert(event.timestamp==0x3456 && event.dlc==8);
+        CAN0->TXEFS=0;
+        assert(et_can_wrap_read_tx_event(0,&event)==ET_WRAP_STATUS_BUSY);
+        CAN0->TXEFS=3;
+        assert(et_can_wrap_read_tx_event(0,&event)==ET_WRAP_STATUS_IO_ERROR);
+    }
+
     /* Public semantic sources route through Service and leave fixed IRQ evidence. */
     {
         const uint32_t watched = ET_CAN_IRQ_RX_FIFO0_NEW | ET_CAN_IRQ_TX_COMPLETE;
@@ -805,6 +825,11 @@ int main(void)
         assert(et_can_wrap_get_irq_snapshot(0, &snapshot)==ET_WRAP_STATUS_OK);
         assert(snapshot.raw_status==watched && snapshot.enabled_sources==0);
         assert(snapshot.line1_sources==ET_CAN_IRQ_TX_COMPLETE && snapshot.enabled_lines==3);
+        /* A foreign physical line must still be diagnosed after removing the impossible mask test. */
+        CAN0->IE=ET_CAN_IRQ_RX_FIFO0_NEW;
+        bound_callback[0](bound_context[0], CAN1_INT0_IRQn, bound_route_events[0]);
+        assert(service.irq_event[ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT]==1);
+        assert(service.irq_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] & ET_CAN_IRQ_FAULT_UNEXPECTED);
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_IRQ_CAPTURE_STOP,
                                   request, 1, NULL, 0, &length)==ET_STATUS_OK);
         assert(CAN0->ILE==0 && bound_callback[0]==NULL && bound_callback[1]==NULL);

@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-05 07:35 CST
+更新时间：2026-09-05 10:50 CST
+
+2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
 **状态：CAN开发进行中，尚未完成全部Case设计审核及实现。** 已完成盒子工具、接线配置、Capability身份及47条基础/收发/过滤/High Priority/TX Event/中断命令；已注册9条Formal Case，尚未操作硬件。已定位39项能力/行为（37项准入Feature、2项待定）、42项测试目标；9项SPEC、30项PLAN、3项DESIGN_GAP。仪器按刺激/观测职责分别规划。CAN盒子已连接是用户确认的环境事实，不是CAN Case PASS；未实现代码或未确认硬件语义不计为SKIP。
 

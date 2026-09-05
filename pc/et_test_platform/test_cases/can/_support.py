@@ -1,7 +1,7 @@
 # CAN只读依赖和纯数据构造。
-# 职责：保存明确选中的实例、引脚与限制，生成位时序和互不重叠的RAM布局。
+# 职责：保存明确选中的实例与限制，生成位时序和互不重叠的RAM布局。
 # 边界：不执行配置、复位、收发、等待、断言或清理；流程必须保留在Case。
-# 依赖：CAN/GPIO/CRG公共Model及芯片执行事实映射。
+# 依赖：CAN/CRG公共Model及芯片执行事实映射。
 
 from dataclasses import dataclass
 from importlib import import_module
@@ -10,11 +10,9 @@ from types import ModuleType
 from ...core.errors import ConfigurationError
 from ...drivers.can import CanDriver, CanPhaseTiming, CanRamLayout, CanRamLimits, CanTiming
 from ...drivers.crg import CrgDriver
-from ...drivers.gpio import GpioDriver, GpioFunction
 from ...profiles import chip_execution_mappings
 
 TIMEOUT_S = 5.0
-SIGNALS = {"rx": GpioFunction.CAN_RX, "tx": GpioFunction.CAN_TX}
 PATTERN_A = bytes.fromhex("31 42 53 64 75 86 97 A8")
 PATTERN_B = bytes.fromhex("CE BD AC 9B 8A 79 68 57")
 # 独立Expected表来自公共CAN标准DLC定义，不导入Driver的编码表当Oracle。
@@ -36,8 +34,6 @@ class CanSupport:
     handle: str
     can: CanDriver
     crg: CrgDriver
-    gpio: GpioDriver
-    pins: tuple[tuple[int, GpioFunction], ...]
     ram_limits: CanRamLimits
     timing_limits: CanTiming
     mapping: ModuleType

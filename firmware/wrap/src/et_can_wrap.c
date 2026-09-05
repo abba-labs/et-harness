@@ -1143,32 +1143,21 @@ et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *s
 }
 
 /**
- * @brief Read actual TX Event FIFO occupancy without consuming an event.
- * @param[in] id Logical controller.
+ * @brief Read and validate TX Event occupancy with its current RAM configuration.
+ * @param[in] instance Validated CAN Driver instance.
+ * @param[out] config Current RAM configuration retained for the caller's bounds check.
  * @param[out] status Fill, indices, full and lost facts from one Driver sample.
  * @return OK or an argument, unsupported-instance or invalid-hardware-state error.
- * @note A full or lost indication is an observation, not a test verdict.
+ * @note One command-local snapshot is shared; no persistent configuration cache is used.
  */
-et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status)
+static et_wrap_status_t read_tx_event_status(CAN_Type *instance, CAN_MsgRAMConfigParams *config,
+                                             et_can_tx_event_status_t *status)
 {
-    CAN_Type *instance = find_instance(id);
-    CAN_MsgRAMConfigParams config;
     CAN_TxEventFIFOStatus actual;
     uint32_t count;
-
-    if (status == NULL)
-    {
-        return ET_WRAP_STATUS_INVALID_ARGUMENT;
-    }
-
-    if (instance == NULL)
-    {
-        return ET_WRAP_STATUS_NOT_SUPPORTED;
-    }
-
-    CAN_testGetMsgRAMConfig(instance, &config);
+    CAN_testGetMsgRAMConfig(instance, config);
     CAN_getTxEventFIFOStatus(instance, &actual);
-    count = config.txEventFIFOSize;
+    count = config->txEventFIFOSize;
 
     /* Validate every Driver field before publishing a coherent public snapshot. */
     if ((count > ram_limits.event_count) || (actual.fillLvl > count) || (actual.fifoFull > 1u) ||
@@ -1187,6 +1176,31 @@ et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event
     status->lost = actual.eleLost;
 
     return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read actual TX Event FIFO occupancy without consuming an event.
+ * @param[in] id Logical controller.
+ * @param[out] status Fill, indices, full and lost facts from the Driver.
+ * @return OK or an argument, unsupported-instance or invalid-hardware-state error.
+ * @note A full or lost indication is an observation, not a test verdict.
+ */
+et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_MsgRAMConfigParams config;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return read_tx_event_status(instance, &config, status);
 }
 
 /**
@@ -1217,7 +1231,7 @@ et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *ev
     }
 
     /* Phase 1: Confirm a configured, non-empty and in-range hardware FIFO head. */
-    result = et_can_wrap_get_tx_event_status(id, &status);
+    result = read_tx_event_status(instance, &config, &status);
 
     if (result != ET_WRAP_STATUS_OK)
     {
@@ -1229,7 +1243,6 @@ et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *ev
         return ET_WRAP_STATUS_BUSY;
     }
 
-    CAN_testGetMsgRAMConfig(instance, &config);
     count = config.txEventFIFOSize;
     region.offset = config.txEventFIFOStartAddr;
     region.length = count * CAN_TX_EVENT_FIFO_SIZE_WORDS * sizeof(uint32_t);

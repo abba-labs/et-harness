@@ -3,6 +3,7 @@
 # 边界：不把内部回环当作外部位速率测量，不在Case绑定芯片地址或实例。
 # 依赖：CAN/CRG/Resource公共Driver及只读Support。
 
+from dataclasses import asdict
 from time import sleep
 
 import pytest
@@ -2262,8 +2263,17 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
     expected_event_markers = markers[:event_depth]
     threshold_status = {}
     threshold_irq = {}
-    received_markers = []
-    received_indices = []
+
+    # 报告：每个列表只登记一次，pytest在Case结束时采集已追加的真实值。
+    # 空列表表示尚未到达该阶段；每次采样后、断言前追加，不重复登记历史快照。
+    event_trace = []
+    status_trace = []
+    irq_trace = []
+    rx_trace = []
+    record_property("event_trace", event_trace)
+    record_property("status_trace", status_trace)
+    record_property("irq_trace", irq_trace)
+    record_property("rx_trace", rx_trace)
 
     # Expected：先登记边界、事件顺序和恢复Marker，避免由Event读回反推期望。
     record_property(
@@ -2284,7 +2294,7 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
             ("Resource pool reset", resource_driver.reset),
         )
     ):
-        # 基线：先复位硬件和资源，排除上一Case遗留的Message RAM及IRQ状态。
+        # 隔离：先复位硬件和资源，排除上一Case遗留的控制状态。
         support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
         resource_driver.reset()
 
@@ -2358,13 +2368,13 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
                 record_property,
                 key="rx_frame",
                 value={
-                    "sent": sequence,
                     "identifier": received.identifier,
-                    "data": received.data.hex(" ").upper(),
+                    "data": received.data,
                 },
                 source="dut",
                 endpoint="RX_FIFO[0].FRAME",
             )
+            rx_trace.append({"identifier": received.identifier, "data": received.data})
             assert received.identifier == identifier and received.data == payload
 
             # 观测：每次发送后保存Event状态；关键边界另外保存IRQ Raw。
@@ -2372,17 +2382,11 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
             record_observation(
                 record_property,
                 key="tx_event_status",
-                value={
-                    "sent": sequence,
-                    "fill": event_status.fill,
-                    "get_index": event_status.get_index,
-                    "put_index": event_status.put_index,
-                    "full": event_status.full,
-                    "lost": event_status.lost,
-                },
+                value=asdict(event_status),
                 source="dut",
                 endpoint="TX_EVENT.STATUS",
             )
+            status_trace.append(asdict(event_status))
 
             if sequence in (1, 2, 4, 5):
                 irq_raw = can.irq_snapshot_get().raw_status & tracked_irq
@@ -2391,10 +2395,11 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
                 record_observation(
                     record_property,
                     key="tx_event_irq",
-                    value={"sent": sequence, "raw": int(irq_raw)},
+                    value=int(irq_raw),
                     source="dut",
                     endpoint="IRQ.RAW.TX_EVENT",
                 )
+                irq_trace.append(f"0x{int(irq_raw):08X}")
                 can.irq_clear(tracked_irq)
 
         # 边界判定：前四帧填满Event FIFO，第五帧不得覆盖但必须报告Lost。
@@ -2438,8 +2443,7 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
                 source="dut",
                 endpoint=f"TX_EVENT[{event.index}]",
             )
-            received_indices.append(event.index)
-            received_markers.append(event.marker)
+            event_trace.append({"index": event.index, "marker": event.marker})
             assert event.index == expected_index
             assert event.identifier == identifier
             assert event.flags == CanFrameFlags.NONE and event.dlc == payload_bytes
@@ -2451,11 +2455,12 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
         drained = can.tx_event_status_get()
         record_observation(
             record_property,
-            key="tx_event_drained",
-            value={"fill": drained.fill, "full": drained.full, "lost": drained.lost},
+            key="tx_event_status",
+            value=asdict(drained),
             source="dut",
             endpoint="TX_EVENT.STATUS_AFTER_DRAIN",
         )
+        status_trace.append(asdict(drained))
         assert drained.fill == 0 and not drained.full
 
         # 恢复刺激：排空后发送一帧，确认新的Event和RX数据均可再次产生。
@@ -2476,43 +2481,46 @@ def test_can_p1_009_tx_event_fifo_watermark_full_and_recovery(
         recovery_rx = can.rx_read(CanRxSource.FIFO0)
         can.rx_fifo_ack(0, recovery_rx.index)
         recovery_status = can.tx_event_status_get()
+        record_observation(
+            record_property,
+            key="tx_event_status",
+            value=asdict(recovery_status),
+            source="dut",
+            endpoint="TX_EVENT.STATUS_AFTER_RECOVERY",
+        )
+        status_trace.append(asdict(recovery_status))
+        record_observation(
+            record_property,
+            key="rx_frame",
+            value={"identifier": recovery_rx.identifier, "data": recovery_rx.data},
+            source="dut",
+            endpoint="RX_FIFO[0].FRAME",
+        )
+        rx_trace.append({"identifier": recovery_rx.identifier, "data": recovery_rx.data})
         recovery_event = can.tx_event_read()
         record_observation(
             record_property,
-            key="tx_event_recovery",
-            value={
-                "fill": recovery_status.fill,
-                "index": recovery_event.index,
-                "marker": recovery_event.marker,
-                "rx_data": recovery_rx.data.hex(" ").upper(),
-            },
+            key="tx_event",
+            value=asdict(recovery_event),
             source="dut",
-            endpoint="TX_EVENT.RECOVERY",
+            endpoint="TX_EVENT.DATA",
         )
+        event_trace.append({"index": recovery_event.index, "marker": recovery_event.marker})
         assert recovery_rx.data == recovery_payload
         assert recovery_status.fill == 1
         assert recovery_event.identifier == identifier
         assert recovery_event.event_type is CanTxEventType.TRANSMITTED
         assert recovery_event.marker == recovery_marker
         can.tx_event_ack(recovery_event.index)
-        assert can.tx_event_status_get().fill == 0
 
-        # 报告摘要：保持固定字段，详细寄存器现象由Observation单独承载。
-        record_property("event_markers", received_markers)
-        record_property("event_indices", received_indices)
-        record_property(
-            "thresholds",
-            {
-                str(count): {
-                    "fill": threshold_status[count].fill,
-                    "full": threshold_status[count].full,
-                    "lost": threshold_status[count].lost,
-                    "irq": int(threshold_irq[count]),
-                }
-                for count in (1, 2, 4, 5)
-            },
+        # 终态：记录原有最终查询再断言，失败时也保留最终实际状态。
+        final_status = can.tx_event_status_get()
+        record_observation(
+            record_property,
+            key="tx_event_status",
+            value=asdict(final_status),
+            source="dut",
+            endpoint="TX_EVENT.STATUS_AFTER_FINAL_ACK",
         )
-        record_property(
-            "recovery",
-            {"fill": recovery_status.fill, "marker": recovery_event.marker},
-        )
+        status_trace.append(asdict(final_status))
+        assert final_status.fill == 0

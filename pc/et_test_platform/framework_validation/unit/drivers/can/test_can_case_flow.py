@@ -111,8 +111,6 @@ def dependencies(corrupt_second=False):
         "can0",
         CanDriver(target, 0),
         crg,
-        None,
-        (),
         CanRamLimits(16384, 128, 64, 32, 64, 32, 64),
         CanTiming(CanPhaseTiming(512, 256, 128, 128), CanPhaseTiming(32, 32, 16, 16)),
         mapping,
@@ -267,10 +265,132 @@ def test_tx_event_case_request_sequence_and_evidence():
         "TX_EVENT.STATUS",
         "IRQ.RAW.TX_EVENT",
         "TX_EVENT.STATUS_AFTER_DRAIN",
-        "TX_EVENT.RECOVERY",
+        "TX_EVENT.DATA",
+        "TX_EVENT.STATUS_AFTER_FINAL_ACK",
+        "RX_FIFO[0].FRAME",
         "TX_EVENT[0]",
         "TX_EVENT[3]",
     }
+
+
+# 测试Feature：TX Event失败现场在断言前保留，未执行恢复不能伪造为成功。
+# 测试方法：分别损坏首项Marker和最后FILL，驱动真实Case后检查对应Observation。
+# 通过条件：两种错误均FAIL，错误值仍在证据中，硬件与资源退出复位均执行。
+@pytest.mark.parametrize("fault", ("marker", "final_fill"))
+def test_tx_event_failure_keeps_actual_observation(fault: str, tmp_path) -> None:
+
+    support, resource, target, calls = dependencies()
+    target.responses = tx_event_responses()
+    if fault == "marker":
+        index = target.responses.index(pack("<7I", 0x369, 0, 8, 0x100, 1, 0x10, 0))
+        target.responses[index] = pack("<7I", 0x369, 0, 8, 0x100, 1, 0xFF, 0)
+    else:
+        target.responses[-1] = pack("<5I", 1, 1, 1, 0, 1)
+    properties = []
+
+    with pytest.raises(AssertionError):
+        run_tx_event_case(support, resource, lambda key, value: properties.append((key, value)))
+
+    observations = {
+        value["key"]: value
+        for _, value in properties
+        if isinstance(value, dict) and "endpoint" in value
+    }
+    assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    assert "tx_event_status" in observations and "tx_event_irq" in observations
+    if fault == "marker":
+        assert observations["tx_event"]["value"]["marker"] == 0xFF
+        assert observations["tx_event"]["endpoint"] == "TX_EVENT[0]"
+    else:
+        assert observations["tx_event_status"]["value"]["fill"] == 1
+        assert observations["tx_event_status"]["endpoint"] == "TX_EVENT.STATUS_AFTER_FINAL_ACK"
+        assert "rx_data" not in observations["tx_event"]["value"]
+
+    # 真实Case观测经过Canonical写入/重读和正式报告模型，错误现场必须仍显示为FAIL。
+    from pathlib import Path
+
+    from et_test_platform.results.case_report import build_case_report_model
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import _case_observations, _case_recorded_outputs
+
+    item = SimpleNamespace(user_properties=properties)
+    measurements, _ = _case_recorded_outputs(item)
+    # 摘要按采样追加，每个值只出现一次；不允许累计快照再次嵌套造成报告膨胀。
+    assert len(measurements["event_trace"]) == (1 if fault == "marker" else 5)
+    assert len(measurements["status_trace"]) == (5 if fault == "marker" else 8)
+    assert len(measurements["irq_trace"]) == 4
+    assert len(measurements["rx_trace"]) == (5 if fault == "marker" else 6)
+    write_json_result(
+        tmp_path / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-can-fault",
+            "chip_id": "et6801",
+            "finished_at": "2026-09-05T03:00:00Z",
+            "exitstatus": 1,
+        },
+    )
+    write_json_result(
+        tmp_path / "cases" / "fault" / "result.json",
+        {
+            "schema_version": 1,
+            "run_id": "software-can-fault",
+            "case_run_id": "fault",
+            "case_id": "CAN_P1_009",
+            "status": "FAIL",
+            "duration_s": 0.01,
+            "measurements": measurements,
+            "observations": _case_observations(item),
+            "evidence_complete": True,
+            "evidence_sources": ["dut"],
+            "missing_evidence_sources": [],
+            "error": "injected software response fault",
+        },
+    )
+    document = Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md"
+    model = build_case_report_model(document, tmp_path)
+    row = next(row for row in model["cases"] if row["case_id"] == "CAN_P1_009")
+    assert row["status"] == "FAIL"
+
+
+# 测试Feature：内部回环不依赖GPIO服务、引脚复用或外部接线冲突校验。
+# 测试方法：只注册CAN/CRG，提供重复的未使用引脚，执行真实Fixture并记录Wire。
+# 通过条件：仅发CAN容量/时序查询，不发GPIO命令；选定实例与芯片时钟保持不变。
+def test_internal_support_does_not_query_gpio(monkeypatch) -> None:
+
+    from et_test_platform.profiles.hardware_connections import (
+        ConnectionEndpoint,
+        HardwareConnections,
+    )
+    from et_test_platform.test_cases.can import conftest
+
+    target = TargetStub(
+        [
+            pack("<7I", 16384, 128, 64, 32, 64, 32, 64),
+            pack("<8I", 512, 256, 128, 128, 32, 32, 16, 16),
+        ]
+    )
+    connection = HardwareConnections(
+        "fpga", {"can": {"dut": ConnectionEndpoint("can0", {"rx": 58, "tx": 58})}}
+    )
+    monkeypatch.setattr(conftest, "load_hardware_connections", lambda **kwargs: connection)
+    monkeypatch.setattr(
+        conftest, "chip_mapping", lambda chip: SimpleNamespace(CAN_CLOCK_HZ={"fpga": 40_000_000})
+    )
+    framework = SimpleNamespace(
+        target_client=target,
+        runtime_services=[
+            SimpleNamespace(service_id=conftest.CAN_SERVICE_ID, instance_id=0),
+            SimpleNamespace(service_id=conftest.CRG_SERVICE_ID, instance_id=0),
+        ],
+    )
+    capabilities = SimpleNamespace(chip_id="et6801", interrupt=lambda *args, **kwargs: None)
+
+    support = conftest.can_support.__wrapped__(framework, capabilities)
+
+    assert support.can.instance_id == 0 and support.clock_hz == 40_000_000
+    assert [row["command"] for row in target.requests] == [9, 3]
+    assert all(row["service"] == conftest.CAN_SERVICE_ID for row in target.requests)
 
 
 # 纯配置不得把不精确时钟取整，也不得把芯片RAM容量不足降级为SKIP。
@@ -606,8 +726,6 @@ def storage_dependencies():
         "can0",
         can,
         crg,
-        None,
-        (),
         CanRamLimits(16384, 128, 64, 32, 64, 32, 64),
         CanTiming(CanPhaseTiming(512, 256, 128, 128), CanPhaseTiming(32, 32, 16, 16)),
         mapping,
