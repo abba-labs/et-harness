@@ -259,6 +259,10 @@ typedef enum
     ET_CAN_COMMAND_RAM_WORDS_READ = 51u,
     ET_CAN_COMMAND_RAM_WORDS_WRITE = 52u,
     ET_CAN_COMMAND_RAM_WORDS_EXCHANGE = 53u,
+    /** Explicit configuration gate and attempted write; no implicit unlock. */
+    ET_CAN_COMMAND_CONFIGURATION_WRITE_SET = 54u,
+    ET_CAN_COMMAND_CONFIGURATION_WRITE_GET = 55u,
+    ET_CAN_COMMAND_NOMINAL_TIMING_WRITE = 56u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

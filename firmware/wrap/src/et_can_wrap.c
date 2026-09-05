@@ -487,6 +487,73 @@ et_wrap_status_t et_can_wrap_set_timing(et_can_id_t id, const et_can_timing_t *t
 }
 
 /**
+ * @brief Read or set hardware configuration-write permission.
+ * @param[in] id Logical controller.
+ * @param[in] enabled Write request, ignored on a read.
+ * @param[out] actual Non-NULL selects read, NULL selects write.
+ * @return OK or argument/instance/state failure.
+ * @note Does not enter INIT or configure timing implicitly.
+ */
+et_wrap_status_t et_can_wrap_configuration_access(et_can_id_t id, uint8_t enabled, uint8_t *actual)
+{
+    CAN_Type *instance = find_instance(id);
+    uint32_t value;
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (CAN_testConfigurationAccess(instance, enabled, actual == NULL ? NULL : &value) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    if (actual != NULL)
+    {
+        *actual = (uint8_t)value;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Attempt a nominal timing write while preserving the permission gate.
+ * @param[in] id Logical controller.
+ * @param[in] timing Four positive physical timing counts.
+ * @return OK if issued, or argument/instance/state failure.
+ * @note OK is not proof of acceptance; PC must independently read hardware timing.
+ */
+et_wrap_status_t et_can_wrap_write_nominal_timing(et_can_id_t id, const et_can_bit_timing_t *timing)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_BitTimingParams encoded = {0};
+
+    if ((timing == NULL) || (timing_is_valid(timing, &timing_limits.nominal_max) == 0u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    encoded.nomRatePrescalar = timing->prescaler - 1u;
+    encoded.nomTimeSeg1 = timing->segment1 - 1u;
+    encoded.nomTimeSeg2 = timing->segment2 - 1u;
+    encoded.nomSynchJumpWidth = timing->sjw - 1u;
+
+    return CAN_testWriteNominalTiming(instance, &encoded) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                    : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
  * @brief Read back both timing phases and convert to actual positive counts.
  * @param[in] id Logical controller identity.
  * @param[out] timing Actual configured timing, independent of the request object.

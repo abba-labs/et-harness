@@ -3,6 +3,8 @@
 # 边界：实例/IO来自连接文件，时钟与RAM几何来自芯片映射；不直写寄存器。
 # 依赖：CAN/CRG/Resource Driver、只读Support与既有Evidence接口。
 
+from dataclasses import asdict, replace
+
 import pytest
 
 from ...core.errors import RequestTimeout
@@ -14,6 +16,7 @@ from ...drivers.can import (
     CanFrameFlags,
     CanLoopback,
     CanOptions,
+    CanPhaseTiming,
     CanRxSource,
     CanTimeoutSource,
     CanTimestampSource,
@@ -31,7 +34,173 @@ from ._support import PATTERN_A, PATTERN_B, TIMEOUT_S, loopback_ram, phase_timin
 pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
 
 
-# ------------------------------ 外部CAN总线 ------------------------------
+# =============================================================================
+# 复位与硬件配置保护
+# =============================================================================
+
+
+# 测试 Feature：
+# CAN仲裁位时序配置保护，INIT、FD开关及位时序的硬件复位。
+#
+# 测试方法：
+# 1. 复位CAN和资源池，从芯片映射取得独立复位Expected并核对硬件读回。
+# 2. 写第一组时序并打开FD，关闭配置权限后尝试写第二组，读回必须保持第一组。
+# 3. 打开配置权限再写第二组，确认真实改变；再次复位核对恢复值和身份。
+#
+# 通过条件：
+# 1. 关闭权限时真实写请求不能改变位时序，打开权限后可以改变。
+# 2. FD及时序先发生变化、复位后回到芯片定义；身份始终不变。
+def test_can_p0_001_reset_and_configuration_protection(
+    can_support, resource_driver, record_property
+) -> None:
+
+    # 准备：两组实际位时序来自可表示的500/250 kbit/s，而非物理寄存器编码。
+    support = can_support
+    can = support.can
+    reset_nominal = CanPhaseTiming(*support.mapping.CAN_RESET_NOMINAL_TIMING)
+    first = phase_timing(support.clock_hz, 500_000, support.timing_limits.nominal)
+    second = phase_timing(support.clock_hz, 250_000, support.timing_limits.nominal)
+    record_property(
+        "expected",
+        {"reset": asdict(reset_nominal), "first": asdict(first), "second": asdict(second)},
+    )
+
+    # 清理：配置保护关闭后仍通过独立CRG复位，异常不影响后续Case。
+    with case_cleanup_scope(
+        lambda: (
+            ("CAN reset", lambda: support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)),
+            ("Resource pool reset", resource_driver.reset),
+        )
+    ):
+        # 隔离：先复位本CAN，再清空资源池，不改变其他实例。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        resource_driver.reset()
+        identity = can.identity_get()
+        reset_timing = can.timing_get()
+        reset_options = can.options_get()
+        initializing = can.initializing_get()
+        record_observation(
+            record_property,
+            key="identity",
+            value=asdict(identity),
+            source="dut",
+            endpoint="IDENTITY",
+        )
+        record_observation(
+            record_property,
+            key="reset_timing",
+            value=asdict(reset_timing.nominal),
+            source="dut",
+            endpoint="CONFIG.BIT_TIMING",
+        )
+        record_observation(
+            record_property,
+            key="reset_fd",
+            value=reset_options.fd_enabled,
+            source="dut",
+            endpoint="CONFIG.FD_ENABLED",
+        )
+        record_observation(
+            record_property,
+            key="reset_init",
+            value=initializing,
+            source="dut",
+            endpoint="CONFIG.INIT",
+        )
+        assert identity.endian == support.mapping.CAN_ENDIAN_SIGNATURE
+        assert reset_timing.nominal == reset_nominal
+        assert initializing == support.mapping.CAN_RESET_INITIALIZING
+        assert reset_options.fd_enabled == support.mapping.CAN_RESET_FD_ENABLED
+
+        # 配置：普通Driver建立第一组时序；FD必须先改变，不能仅检查复位读值。
+        can.timing_set(CanTiming(first, reset_timing.data))
+        can.options_set(replace(reset_options, fd_enabled=True))
+        changed_fd = can.options_get().fd_enabled
+        record_observation(
+            record_property,
+            key="changed_fd",
+            value=changed_fd,
+            source="dut",
+            endpoint="CONFIG.FD_ENABLED",
+        )
+        assert changed_fd is True
+
+        # 硬件保护：三轮均真正发出NBTP写请求，既不隐式解锁，也不由软件拦截。
+        protected_timings = []
+
+        # 分别关闭、开启、再关闭权限，比较各次实际写后的仲裁时序。
+        for stage, permission, requested, expected in (
+            ("locked", False, second, first),
+            ("unlocked", True, second, second),
+            ("relocked", False, first, second),
+        ):
+            # 每轮记录实际CCE、写后时序；错误时保留决定性现场。
+            can.configuration_write_set(permission)
+            actual_permission = can.configuration_write_get()
+            record_observation(
+                record_property,
+                key=f"permission_{stage}",
+                value=actual_permission,
+                source="dut",
+                endpoint="CONFIG.WRITE_ENABLED",
+            )
+            assert actual_permission == permission
+            can.nominal_timing_write(requested)
+            actual = can.timing_get().nominal
+            protected_timings.append(asdict(actual))
+            record_observation(
+                record_property,
+                key="protected_timings",
+                value=protected_timings,
+                source="dut",
+                endpoint="CONFIG.BIT_TIMING",
+            )
+            assert actual == expected
+
+        # 恢复：第二组时序和FD已真实改变，再复位核对，不能从当前读数推算Expected。
+        support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
+        restored = can.timing_get().nominal
+        restored_fd = can.options_get().fd_enabled
+        restored_init = can.initializing_get()
+        restored_identity = can.identity_get()
+        record_observation(
+            record_property,
+            key="restored_timing",
+            value=asdict(restored),
+            source="dut",
+            endpoint="CONFIG.BIT_TIMING",
+        )
+        record_observation(
+            record_property,
+            key="restored_fd",
+            value=restored_fd,
+            source="dut",
+            endpoint="CONFIG.FD_ENABLED",
+        )
+        record_observation(
+            record_property,
+            key="restored_init",
+            value=restored_init,
+            source="dut",
+            endpoint="CONFIG.INIT",
+        )
+        record_observation(
+            record_property,
+            key="restored_identity",
+            value=asdict(restored_identity),
+            source="dut",
+            endpoint="IDENTITY",
+        )
+        assert restored == reset_nominal and restored_fd == support.mapping.CAN_RESET_FD_ENABLED
+        assert (
+            restored_init == support.mapping.CAN_RESET_INITIALIZING
+            and restored_identity == identity
+        )
+
+
+# =============================================================================
+# 外部CAN总线
+# =============================================================================
 
 
 # 测试 Feature：

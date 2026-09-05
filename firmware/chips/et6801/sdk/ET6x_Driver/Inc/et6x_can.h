@@ -1523,6 +1523,10 @@ int32_t CAN_testGetExtMsgIDFilter(CAN_Type *CANx, uint32_t index, CAN_ExtMsgIDFi
 /** Read IE, ILS and ILE once each without consuming IR. */
 void CAN_testGetInterruptConfig(CAN_Type *CANx, uint32_t *enabled, uint32_t *lineSelection,
                                 uint32_t *lineEnabled);
+/** Change/read CCE only; caller must already hold INIT. No timing writes. */
+int32_t CAN_testConfigurationAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual);
+/** Write NBTP without automatically opening CCE, allowing hardware protection observation. */
+int32_t CAN_testWriteNominalTiming(CAN_Type *CANx, const CAN_BitTimingParams *timing);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

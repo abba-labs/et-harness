@@ -20,6 +20,7 @@ from .models import (
     CanLoopback,
     CanOptionLimits,
     CanOptions,
+    CanPhaseTiming,
     CanProtocolStatus,
     CanRamLayout,
     CanRamLimits,
@@ -42,6 +43,27 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 本次受保护写显式保留硬件权限；普通timing_set的自动解锁行为不变。
+    # 只等待本次响应，timeout_s传到底层；失败上抛，不重试写入或改变INIT。
+    def configuration_write_set(self, enabled: bool, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.CONFIGURATION_WRITE_SET, (codec.boolean(enabled),), timeout_s=timeout_s
+        )
+
+    # 独立读取当前配置权限；单次响应失败直接上抛，不修改INIT。
+    def configuration_write_get(self, *, timeout_s: float | None = None) -> bool:
+        return codec.status_boolean(
+            self._request(CanCommand.CONFIGURATION_WRITE_GET, timeout_s=timeout_s)[0]
+        )
+
+    # 尝试写入仲裁位时序，不打开配置权限；返回不代表硬件接受，须另行读回。
+    # 一次请求在timeout_s内完成，通信错误直接上抛，不执行Case比较或重试。
+    def nominal_timing_write(
+        self, timing: CanPhaseTiming, *, timeout_s: float | None = None
+    ) -> None:
+        words = codec.timing_words(CanTiming(timing, timing))[: len(contract.PHASE_FIELDS)]
+        self._request(CanCommand.NOMINAL_TIMING_WRITE, words, timeout_s=timeout_s)
 
     # 连续消费一次协议状态和错误计数；读清字段会被确认，不允许自动重试。
     # 失败上抛，调用者应保存首个读回；返回值不是同时发生的原子快照。

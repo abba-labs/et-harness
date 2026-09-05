@@ -43,6 +43,28 @@ TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
 
 
+# 测试Feature：配置写权限与不隐式解锁的仲裁时序写命令。
+# 测试方法：核对独立Golden字节和只读重试属性，非法Boolean不能发送。
+# 通过条件：三条命令按顺序各执行一次，不隐藏配置动作或返回缓存。
+def test_configuration_protection_commands_golden() -> None:
+
+    target = TargetStub([b"", pack("<I", 1), b""])
+    driver = CanDriver(target, 2)
+    driver.configuration_write_set(False, timeout_s=0.3)
+    assert driver.configuration_write_get() is True
+    driver.nominal_timing_write(CanPhaseTiming(2, 11, 4, 4))
+    assert [request["command"] for request in target.requests] == [54, 55, 56]
+    assert target.requests[0]["body"] == bytes.fromhex("02 00000000")
+    assert target.requests[2]["body"] == bytes.fromhex("02 02000000 0b000000 04000000 04000000")
+    assert [request["retry_safe"] for request in target.requests] == [False, True, False]
+    assert target.requests[0]["timeout_s"] == 0.3
+
+    with pytest.raises(ValueError):
+        driver.configuration_write_set(1)
+
+    assert len(target.requests) == 3
+
+
 # 测试Feature：RAM读、写和逐字交换的固定Wire、有效长度、方向及独立读回。
 # 测试方法：使用独立64-word响应，检查三条命令；非对齐、空数组与尾部污染均拒绝。
 # 通过条件：读可重试、写和交换不可重试；返回旧值而非写入值，无隐式硬件动作。

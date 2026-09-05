@@ -78,6 +78,9 @@ class CanCommand(IntEnum):
     RAM_WORDS_READ = 51
     RAM_WORDS_WRITE = 52
     RAM_WORDS_EXCHANGE = 53
+    CONFIGURATION_WRITE_SET = 54
+    CONFIGURATION_WRITE_GET = 55
+    NOMINAL_TIMING_WRITE = 56
 
 
 REQUEST_WORDS = (
@@ -135,6 +138,9 @@ REQUEST_WORDS = (
     3,  # RAM_WORDS_READ: byte offset, valid count, traversal direction.
     3 + RAM_ACCESS_WORDS,
     3 + RAM_ACCESS_WORDS,
+    1,
+    0,
+    4,
 )
 RESPONSE_WORDS = (
     2,
@@ -191,6 +197,9 @@ RESPONSE_WORDS = (
     RAM_ACCESS_WORDS,
     0,
     RAM_ACCESS_WORDS,
+    0,
+    1,
+    0,
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -306,5 +315,6 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TX_READ,
         CanCommand.IRQ_LINE_EVENTS_GET,
         CanCommand.RAM_WORDS_READ,
+        CanCommand.CONFIGURATION_WRITE_GET,
     }
 )

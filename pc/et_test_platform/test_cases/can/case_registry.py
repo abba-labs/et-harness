@@ -4,6 +4,7 @@
 # 依赖：按P级分类的本IP正式测试函数。
 
 CAN_CASE_REGISTRY = (
+    "can_p0_001",
     "can_p0_002",
     "can_p0_003",
     "can_p1_001",

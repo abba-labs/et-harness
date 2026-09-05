@@ -493,6 +493,11 @@ et_wrap_status_t et_can_wrap_get_irq_route(et_can_id_t id, et_can_irq_line_t lin
 
 /** Bounded transport batch; not the chip's RAM capacity or a test pattern size. */
 #define ET_CAN_RAM_ACCESS_WORDS 64u
+/** Configuration permission write/read; actual non-NULL selects a read. */
+et_wrap_status_t et_can_wrap_configuration_access(et_can_id_t id, uint8_t enabled, uint8_t *actual);
+/** Attempt nominal timing write without changing configuration permission. */
+et_wrap_status_t et_can_wrap_write_nominal_timing(et_can_id_t id,
+                                                  const et_can_bit_timing_t *timing);
 et_wrap_status_t et_can_wrap_access_ram(et_can_id_t id, uint32_t offset, uint32_t count,
                                         const uint32_t *input, uint32_t *output,
                                         uint8_t descending);

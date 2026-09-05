@@ -2607,5 +2607,46 @@ int32_t CAN_testAccessRAMWords(CAN_Type *CANx, uint32_t offset, uint32_t count,
 
     return DRV_OK;
 }
+/**
+ * @brief Set CCE when actual is NULL, otherwise return the current CCE bit.
+ * @note A write requires INIT; no other configuration is changed.
+ */
+int32_t CAN_testConfigurationAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    if (actual != NULL)
+    {
+        *actual = READ_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk) != 0U;
+        return DRV_OK;
+    }
+    if ((enable > 1U) || (CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT))
+    {
+        return DRV_ERROR;
+    }
+    CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_CCE, enable);
+    return DRV_OK;
+}
+
+/**
+ * @brief Attempt one valid NBTP write, preserving CCE so hardware decides acceptance.
+ * @note DRV_OK means a bus write was issued, not that protected hardware accepted it.
+ */
+int32_t CAN_testWriteNominalTiming(CAN_Type *CANx, const CAN_BitTimingParams *timing)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    if ((timing == NULL) || (CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT) ||
+        (timing->nomRatePrescalar > CAN_NBTP_NBRP_MAX) ||
+        (timing->nomTimeSeg1 > CAN_NBTP_NTSEG1_MAX) ||
+        (timing->nomTimeSeg2 > CAN_NBTP_NTSEG2_MAX) ||
+        (timing->nomSynchJumpWidth > CAN_NBTP_NSJW_MAX))
+    {
+        return DRV_ERROR;
+    }
+    WRITE_REG(CANx->NBTP, (timing->nomRatePrescalar << CAN0_NBTP_NBRP_Pos) |
+              (timing->nomTimeSeg1 << CAN0_NBTP_NTSEG1_Pos) |
+              (timing->nomTimeSeg2 << CAN0_NBTP_NTSEG2_Pos) |
+              (timing->nomSynchJumpWidth << CAN0_NBTP_NSJW_Pos));
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

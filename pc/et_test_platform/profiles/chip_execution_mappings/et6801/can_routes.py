@@ -6,6 +6,13 @@
 
 from types import MappingProxyType
 
+# mttcan_cfg.svd：NBTP reset=0x06000A03，四字段按实际值=编码+1。
+# 这里只声明可独立核验的复位事实，不读取当前设备来生成Expected。
+CAN_RESET_NOMINAL_TIMING = (1, 11, 4, 4)
+CAN_RESET_INITIALIZING = True
+CAN_RESET_FD_ENABLED = False
+CAN_ENDIAN_SIGNATURE = 0x87654321
+
 # 当前FPGA Driver及历史硅前配置采用40MHz；实际总线速率由外部收发另行验证。
 # Silicon时钟源/分频实现尚有文档D04冲突，没有给它伪造一个可用频率。
 CAN_CLOCK_HZ = MappingProxyType({"fpga": 40_000_000})

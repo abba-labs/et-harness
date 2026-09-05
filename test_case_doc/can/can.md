@@ -2,7 +2,7 @@
 
 更新时间：2026-09-05 16:10 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；14项SPEC、25项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；15项SPEC、24项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共54条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共57条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -174,6 +174,9 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | RAM_WORDS_READ | 51 | offset_bytes、count_words、descending | 64个U32；前count项为实际读值，其余为0；仅INIT可用 |
 | RAM_WORDS_WRITE | 52 | offset_bytes、count_words、descending、64个U32 | 无；前count项写RAM，其余输入必须为0 |
 | RAM_WORDS_EXCHANGE | 53 | 与RAM_WORDS_WRITE相同 | 64个U32旧值；每word先读后立即写，再访问下一地址；返回仍按地址升序排列 |
+| CONFIGURATION_WRITE_SET | 54 | enabled：0/1 | 无；INIT下显式改变配置写权限，不修改位时序 |
+| CONFIGURATION_WRITE_GET | 55 | 无 | enabled：真实配置写权限 |
+| NOMINAL_TIMING_WRITE | 56 | brp、segment1、segment2、sjw：实际正整数 | 无；INIT下发出一次仲裁位时序写，不隐式解锁；成功返回不表示硬件接受，应独立读回 |
 
 RAM访问限制：offset以Byte计且4-byte对齐，count为1～64；全部范围必须落在当前实例声明的Message RAM容量内。descending严格为0/1，只改变访问顺序。固件不生成测试模式、不比较Expected、不计算PASS；PC负责算法、完整读值比较和首错定位。
 
@@ -268,11 +271,11 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前14个SPEC、25个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
+当前15个SPEC、24个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
-| CAN_P0_001 | CAN复位与受保护配置 | P0 | R0 | PLANNED，见第3节 |
+| CAN_P0_001 | CAN复位与受保护配置 | P0 | R0 | SPEC，见第3节 |
 | CAN_P0_002 | CAN内部回环基础收发 | P0 | R1 | SPEC，见第3节 |
 | CAN_P0_003 | CAN双节点正常总线收发 | P0 | R2 | SPEC，见第3节 |
 | CAN_P1_001 | CAN帧格式与DLC边界 | P1 | R1 | SPEC，见第3节 |
@@ -319,10 +322,9 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ### CAN_P0_001 CAN复位与受保护配置
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P0_001
 case_name: CAN复位与受保护配置
 report_feature: |-
@@ -335,9 +337,9 @@ method:
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "复位读取：读取IDENTITY及CONFIG.INIT、FD_ENABLED和BIT_TIMING，与芯片复位定义比较。"
-    - "配置窗口：进入INIT并确认后打开配置写权限，写入第一组位时序与FD开关。"
-    - "独立读回：从硬件CONFIG读取实际值，关闭写权限后尝试改变受保护位时序。"
-    - "保护验证：确认窗口关闭时受保护字段保持原值，再重新开启窗口并写第二组配置。"
+    - "配置窗口：INIT下写500 kbit/s仲裁位时序、打开FD并读回；第二组为250 kbit/s。"
+    - "独立读回：关闭配置权限后实际写第二组，时序应保持第一组；打开权限后写第二组，时序应变为第二组。"
+    - "保护验证：再次关闭权限并实际写第一组，时序应保持第二组；每轮读取真实权限与位时序。"
     - "再次复位：确认第二组读回成功，执行IP复位后复查初始字段，保存前后值。"
   observations:
     - "配置事实：CONFIG.BIT_TIMING在允许写时等于输入，禁止写时保持原值；证明硬件保护而非缓存回显。"
@@ -345,18 +347,19 @@ method:
   pass_criteria:
     - "保护正确：两组写入与禁止写场景全部满足配置窗口语义。"
     - "复位正确：被修改字段确实先变化、复位后恢复，不使用全寄存器零值断言。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
+timeout: "每次命令使用Driver有界超时；本Case不发送总线帧、不等待负向无帧窗口"
 cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
 resources: {minimum_level: R0, full_coverage_level: R0, board: "代表CAN实例；本Case仅配置和读回", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN复位与受保护配置：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"config","label":"CONFIG.BIT_TIMING允许写/禁止写/复位后读回","source":"dut","role":"actual","format":"text"}
+  - {"key":"protected_timings","label":"CONFIG.BIT_TIMING关闭/开启/再次关闭配置权限后的读回","source":"dut","role":"actual","format":"text"}
+  - {"key":"restored_timing","label":"CONFIG.BIT_TIMING复位后读回","source":"dut","role":"actual","format":"text"}
   - {"key":"identity","label":"IDENTITY与CONFIG.INIT/FD_ENABLED前后值","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN复位与受保护配置的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P0_002 CAN内部回环基础收发
 
@@ -1986,6 +1989,12 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P0_001:
+    summary: 仲裁位时序仅在配置写权限打开时改变，复位后恢复芯片定义值。
+    fields:
+      - {source: observation, path: protected_timings, label: 关闭/开启/再次关闭权限后的仲裁时序, format: text, aggregate: all}
+      - {source: observation, path: restored_timing, label: 复位后的仲裁时序, format: text, aggregate: all}
+      - {source: observation, path: restored_fd, label: 复位后的FD使能, format: bool, aggregate: same}
   CAN_P1_016:
     summary: 按映射区域完整执行固定/地址模式及March C-，再重建布局核对回环；不代表ECC注入测试。
     fields:
@@ -2087,7 +2096,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=11; IMPLEMENTATION_GAP=26 | ADAPTED=14; IMPLEMENTATION_GAP=25; NEEDS_VERIFICATION=3 | 14 SPEC、25 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=12; IMPLEMENTATION_GAP=25 | ADAPTED=15; IMPLEMENTATION_GAP=24; NEEDS_VERIFICATION=3 | 15 SPEC、24 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
