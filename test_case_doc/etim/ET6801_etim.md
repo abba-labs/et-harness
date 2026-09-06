@@ -6,8 +6,8 @@
 公共语义唯一入口：[etim.md](etim.md)。文档记录遵循工作区`DOCUMENTATION_RULES.md`。
 源码基线：ATP `codex_dev`，`a6b3e9b79815d11d97469b029063818591bf4f54`；本次分析前工作树干净。
 
-**阶段结论：PARTIAL_ANALYSIS。** 继续复核后准入44个Feature并写30个PLAN，0个Formal Case实现、0个实测。
-下面的Source Item全集含未闭合需求；不能用44/44映射或30/30机器块合法声称整个ETIM规划完成。
+**阶段结论：PARTIAL_ANALYSIS。** 继续复核后准入45个Feature并写32个PLAN，0个Formal Case实现、0个实测。
+下面的Source Item全集含未闭合需求；不能用45/45映射或32/32机器块合法声称整个ETIM规划完成。
 本地SDK中的测试函数、旧手册公式及入口调用均不是本轮FPGA/Silicon PASS。
 
 2026-09-06 18:15 CST复核基线为`c5e7c24bba855f044e7f5353f41f53ad7999fb54`，工作树初始干净。
@@ -17,6 +17,11 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 
 2026-09-06 20:45 CST继续复核基线为`98e3b2236f1e063e4bf9ba3981a9bddb99740ea1`，初始工作树干净。
 本轮只增加ETIM公共/芯片文档内容；相邻ADC/DAC/ACMP/XBAR资料只读，用于接收端Oracle及路由。
+
+2026-09-06 21:24 CST继续复核基线为`211f88eb08b5ded46fa62f9fbe83a97a5c82b82f`，初始工作树干净。
+本轮继续四槽连续DMA、PWM Peer输入、时钟链和边界；只修改两份ETIM文档，无硬件或SDK修改。
+修正：16:31版本把V6801 ElectricalTest记为NO_MATCH不准确；登记entry自身含54行有效PWM配置体，
+21:24复核已固定为T9并纳入P2_001的3 Tick周期、1 Tick高宽参数。源码没有仪器断言不等于没有有效测试目的。
 
 ## 第一章 Source Coverage / Evidence Set
 
@@ -60,7 +65,7 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 | V6003/DFP/Test/StressTest；V3101同路径 | NO_MATCH | 无有效ETIM测试，不据此新增压力覆盖 |
 | V6801/DFP/Test/ChipSieveTest/chip_sieve.c | NO_MATCH | `i2c_writeTime`不是ETIM |
 | V6003、V3101的ChipSieveTest/chip_sieve.c | FOUND | CS_ECAP_init、SRPWM_entry、ECAP_entry，外部捕获旧接口与断言 |
-| V6801/DFP/Test/ElectricalTest | NO_MATCH | 登记entry存在，未找到有效ETIM测量体 |
+| V6801/DFP/Test/ElectricalTest | FOUND | 21:24修正：entry内Electrical_ETIMER_Test配置P=2、A=1；无仪器断言，但单Tick高宽目的有效 |
 | V6003、V3101的DFP/Test父根中ElectricalTest locator | NO_MATCH | 父根可访问，登记子路径不存在；没有将S3101电气源码伪称为V3101来源 |
 | V6801/DFP/Test/Coremark | FOUND | README勾选ETIMER及复制驱动/CMSIS；没有独立ETIM性能测量体 |
 | V6003、V3101的DFP/Test父根中Coremark locator | NO_MATCH | 父根可访问，子目录不存在 |
@@ -113,6 +118,18 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 | D8 | V6801/DFP/Drivers/ET6x_Driver/Src/et6x_acmp.c，ACMP_configDAC及加载读取 | `7C47530FF86133E72BC9FD4EBB63190A1ED3B46662A0B5B0194C2CD18D5BDE1E` |
 | T6 | S6003/DFP/Test/FunctionalTest/etimer_ft.c，事件接收及XBAR体 | `44DBD03B1E9F12D1D3743ACD75B0FE66BDE1CA54ACA9FB8FABD25E6172483B78` |
 | T3 | S3101/DFP/Test/FunctionalTest/etimer_ft.c，事件接收及XBAR体 | `2EF73FAE26A07EF2D599927CAE921E43C130760A3F2D0B047A05B669642D5897` |
+| H13 | V6801/Tools/RegGen/svd/crg_cfg.svd，时钟源及分频、ETIM门控 | `433FA0DD700AA578E138CE465DB93E44DA6DB3E4105946ADBC84ED8D5A58C9D6` |
+| H14 | V6801/Tools/RegGen/svd/hdmac_cfg.svd，P2M/LLI/Burst/硬件握手 | `9576DF2F575F59CB8C4388BB309121EBB5311442B7C4C9DB55B0B3CB5A7BB9C3` |
+| H15 | V6801/Tools/RegGen/svd/sysc.svd，CFG_DMA_MUX_MK | `6264EA7385BDEF919ED052AFA51D71D26CF353586BCF554F5B22EB8FA2ACBB7D` |
+| H16 | V6801/Tools/RegGen/svd/epwm_cfg.svd，标准精度时基及输出事件 | `9BFAF817E6EAF63850C5625F9F0B20BBF4C7652D347EC90BB8C484F17F8795AA` |
+| D9 | V6801/DFP/Drivers/ET6x_Driver/Src/et6x_sysctrl.c，DMAMux请求和确认模式 | `44E40BCC54C81E3DA86B8680AD6B8B1C94326297ADDBAC9D1FB98C6850F8A07E` |
+| D10 | V6801/DFP/Drivers/ET6x_Driver/Inc/et6x_sysctrl.h，请求55..66与模式枚举 | `5F0F9DF64B6435592B331B6C56270E6A12D5F142F97DDCF15438A445B2CA2DF3` |
+| D11 | V6801/DFP/Drivers/ET6x_Driver/Src/et6x_crg.c，CPU/BUS/APB频率读取 | `CAD5D97F3A0E4F12D5038408F36469E79F20B92A3608473265EAC360D6EE465F` |
+| D12 | V6801/DFP/Drivers/CMSIS/Device/Source/system_et6x.c，启动及SystemCoreClock | `699D287D3FEFE85F0A8158D5A6C4D5875345BCBD3D8D9D54E77B15C8C066DC4A` |
+| D13 | V6801/DFP/Drivers/ET6x_Driver/Src/et6x_srpwm.c，SRPWM_initTB | `A86C7FD43AD5A1B93C127207A36E21B3DEC82F16B4F57747EB719716EDD9FFB4` |
+| T8 | V6801/DFP/Test/FPGATest/etimer_fpga_test.c，ETIMER_1及ISR | `3CD44ACBDA3C7345309E506C99BAD9BD188C774523E9AD586DB35F94DE5AB2E8` |
+| T9 | V6801/DFP/Test/ElectricalTest/electrical_test_entry.c，Electrical_ETIMER_Test | `333859316637AD84C7908A4AADB1AF5AE251D56A6C0BC7425F46081FC6707F17` |
+| T10 | V6801/DFP/Test/FunctionalTest/xbar_ft.c，test_6到test_18 | `ED8F8F1A68F3826ABCCC2931BD2AC8D70B5CBE9D75958CF1CEF29B8C3A2429DB` |
 
 文档先使用ET技能导航和共享toolbox摘要，再定向解析DOCX XML/OMML公式、PDF文字与关键示意图。
 目标SVD使用XML结构解析，特别处理本地拆分SVD中cluster内addressOffset已为绝对偏移的方言，
@@ -153,7 +170,7 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 | 目标字段 | 编码/路由事实 | 处置 |
 |---|---|---|
 | CAP_CTRL.cap_in_srcsel | 0..15 INPUTXBAR，16..27 OUTPUTXBAR，28..31 CLU，32..39 UART_RX，40..41 LIN_RX | 数量和路由选择为Capability；各Peer刺激方法G11未闭合 |
-| 同上 | 42..77 SRPWM两路输出；78..89 ETIM1_PWM..ETIM12_PWM | 目标SDK零基枚举与SVD一基信号名要显式转换；内部ETIM PWM路由无需外部跳线 |
+| 同上 | 42..77 SRPWM两路输出；78..89 ETIM1_PWM..ETIM12_PWM | SRPWM0..17的A/B按42+2s+b转换，P2_018覆盖；ETIM零基枚举与SVD一基信号名显式转换，内部路由无需跳线 |
 | 同上 | 90..122 CMPSS高/低/或，123..134 ADC事件，135..198 SDFM事件，199..210 CLB，211..218 GPIO2ETIM | SVD描述带排版编号噪声但编码字段明确；不把0..218都当成已测试输入源 |
 | SYNC_CTRL.SYNC_SRC_SEL | 0..17 SRPWM，18..23 INPUTXBAR，24..35 ETIM；其余描述为零 | 旧芯片ETIM输入编码18不能移植到本目标 |
 | SYNC_OUT.SYNC_OUT_SEL | 文本仍列到ETIM14，和12通道结构不一致 | 只有存在的源可用于后续映射，尾部选择值G06禁止猜测 |
@@ -211,11 +228,46 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | 自然最大值回卷；H2 32bit TIMER_CYC/CTRPHS及IRQ bit7，M2 13.4.8.2 | VERIFIED：最大值回卷事件区别于普通周期事件，目标有独立bit6/7；相位同步可把运行计数装到最大值附近，不需要跑完整32bit周期 | P1_012比较普通周期与最大周期，并采临界前后实际计数、自然pending和ISR；这证明最大终点路径，不冒充从零完整跑满最大周期的长稳测试 |
 | 外部SyncOut；H2 SYNC_OUT，H12输出XBAR，D6 EXTSYNCOUT，T6/T3 test_32 | VERIFIED：存在全局选定同步到XBAR/PIN路径；已存在ETIM源编码12～23，超出12通道的24/25不使用。旧函数实际选择PERIOD SyncOut而非CUSTOM Event | P2_013保留外部单次/周期脉冲及源选择。EN3 bit16描述称Event延展、旧enableSyncOut名称不够证明它是SyncOut总使能；具体外送开关和宽度仍G06 |
 | 外部Fault；H2 fault_sel，H12 ETXB及OUT_RPT，D6，T6/T3 test_20 | VERIFIED：目标有两个外部选择，参考体以GPIO→INPUTXBAR→ETXB刺激Fault，目标XBAR存在直出及实际电平上报 | P2_014给可审核双输入选路、封波与退出方法。每CORE的XBAR0/1究竟绑定哪两个ETXB输出仍为明确Mapping Gap，禁止复制旧ETXB3或推断索引公式 |
-| Capture DMA；H2 CMN.DMA，R6/R3 Case043，T6/T3 test_43 | UNKNOWN：目标3仅写“etimer 1事件”，前面又残留CEVT4..1旧列表，不能证明3=CEVT1或全部捕获事件；4～7无说明。1=PRD可明确使用 | P2_016以外部真实高低宽、冻结CAP端点、PRD请求和DMA目的内存闭合数据搬运；旧捕获事件请求及连续四槽DMA流仍未覆盖，不能改为MAPPED全集 |
+| Capture DMA；H2 CMN.DMA，R6/R3 Case043，T6/T3 test_43 | UNKNOWN：目标3仅写“etimer 1事件”，前面又残留CEVT4..1旧列表，不能证明3=CEVT1或全部捕获事件；4～7无说明。1=PRD可明确使用 | P2_016为冻结端点，21:24新增P2_017为持续更新四槽的PRD快照；旧捕获事件请求仍未覆盖，二者不能合称逐CEVT全集 |
 
 本轮没有发现现行ADC/DAC/ACMP/XBAR公共文档入口。上述Peer动作定义为ETIM Case所需的稳定
 协作语义和真实端点，后续必须通过各IP合法Service/Wrap实现；本任务不新增Peer代码或公共架构。
 共享CRG只确认ETIM门控和软复位字段，不能由此推出CAP_FILTER与DB的精确时钟编码公式。
+
+### 2.6 连续DMA、Peer输入与时钟链定案
+
+时间：2026-09-06 21:24 CST。以下均为静态资料裁决，非实测。
+
+| 对象 | 已核实事实 | 适配决定 |
+|---|---|---|
+| 连续四槽数据；H2、H14、H15、D9/D10 | VERIFIED：Capture可CONTINUOUS且不清计数；PRD请求明确；DMA具32bit、P2M、4-item Burst及有限LLI，下一节点可重装源/目的地址 | P2_017以每周期四边沿、周期后读四槽保留连续真实数据，不再以冻结数据代替；每行源回CAP1，目的下一行，链尾停止 |
+| DMAMUX确认模式；H15 CFG_DMA_MUX_MK | VERIFIED：0让一次触发响应多个ack直至finish；1屏蔽finish参与，一次触发仅响应一次ack。D10称前者BURST、后者SINGLE，不等于DMA的MSIZE字段 | P2_016逐字及P2_017逐行均明确使用模式1；P2_017的DMA source burst为4项。不能保留默认模式0，否则一次PRD可能提前填完链，制造连续采集假象 |
+| DMA选择3/4..7；H1/H2及D1/D2 | UNKNOWN：目标新CMN三位字段与旧全局源枚举不一致；目标UnitTest和参考test_43仍用旧模型，不能由它们推导新编码 | 本轮不生成CEVT请求PLAN、不调用旧enableDMA；剩余问题已缩为选择3的事件来源/槽及4..7定义、逐事件ack行为 |
+| SRPWM输入；H2/H3/H16、D1/D13、T8 | VERIFIED：18个SRPWM实例各A/B共36输入；标准精度UP模式、ZERO/CMPA置清输出，目标T8从SRPWM0_A取得四槽并检查高/低/周期 | P2_018为R2 Peer路径，独立于R1 ETIM自环；按全部36源与12个接收通道表达432个逻辑组合，未绑定组合不能消失。源停止负对照、A/B互换及两波形防止串路 |
+| T8断言适用性 | VERIFIED：源周期5000、A=2000；绝对R/F/R/F且连续模式；ISR末槽读取四值并关闭IRQ，断言窗口为1990..2010、2990..3010、4990..5010（严格不含端点） | 保留2000/3000/5000目的，不照搬先启动源、固定延时或旧±10；P2_018使用One-Shot稳定读取并单列未选对照。其余Continuous目的由P1_004/P2_017承担 |
+| 外部Fault支路；T10 test_6→test_18、H2/H12 | VERIFIED：GPIO29经INXB0、ETXB0进入ETIMER0 Fault，CBC、强制LOW；旧注释称14输出而目标结构为12，SDK的XBAR旧名称须按fault_sel=1解释 | 已落实P2_014的第一条示例路由。第二输入和各CORE配对仍需逐项Mapping，不能从这一个函数外推整表；实测还须读ETXB实际状态及PWM封波 |
+| 小周期输出；T9、H2、M2 | VERIFIED：T9终值2/A=1/divider=1即公共period_ticks=3、1 Tick高宽；文件仍include旧et6002.h，不能因此宣称本轮可编译 | P2_001加入3/4/5 Tick周期及最小/最大divider，无需另造Feature；旧S3101终值3/A=1则为4 Tick周期，不再只保留普通波形 |
+| 近全量程捕获；H1/H2、M2计数/捕获机制 | VERIFIED：32bit CAP绝对/相对值、全宽计数和独立每槽清零支持每个相邻间隔小于2^32；多槽总时间可超过一次回卷 | P2_002加入M=2^32、间隔M-K/M-2K/M-3K、divider=1/64，真实等待三段时间；先逐相邻模减再64位累加，不用相位加载缩短长间隔测试 |
+
+时钟链不能用一个`SystemCoreClock`常量替代。已把需要的证据分解为：
+
+| 时钟层 | 当前裁决与精确字段 | 后续Mapping输入 |
+|---|---|---|
+| 外部/内部参考与PLL | H13 CFG_PLLREF_CFG选择参考，CFG_PLLCLK_CFG0选择OSC/PLL；D12的SystemCoreClock初值25MHz，300/200/100MHz配置和SystemClock_Config主体被注释 | 实际Board/FPGA参考频率及容差、启动配置、PLL生效字段快照；注释频率不是现场证据 |
+| BUS分频 | H13 CFG_PLLCLK_CFG1.cfg_crg_div_bus合法编码0..7对应1..8；D11 CRG_getBUSClock先固定除3再除字段+1，OSC分支仍调用PLL函数，与H13描述不自洽 | 按实际选源和字段独立计算，不直接把CRG_getBUSClock结果当Oracle；本轮只记录风险，不修共享CRG Driver |
+| ETIM计数 | M2 13.4.3明确继承计数源为AHB_BUS1；H13确认ETIM门控，H2计数divider明确为编码+1 | 同ETIM内部通道共享根时钟的数字比例可直接消掉根频率，Fc/Fs=1；跨IP/绝对时间仍需目标ETIM工作时钟到BUS的适用绑定，不能从门控位置推断是哪条BUS |
+| SRPWM工作时钟 | H16周期单位为SRPWM工作时钟，D13把标准精度值移位7而非ETIM减1；H13的cfg_sel_pwm_intf只写接口时钟选择，不足以证明SRPWM计数时钟 | 固定Peer标准精度周期语义、实际工作时钟和ETIM/SRPWM时钟比；T8宽容差测试不证明二者永远同频 |
+| 捕获滤波采样 | H2 CAP_FILTER.clkprescale为8bit，仅写采样预分频；与M2旧连续N+1稳定滤波器结构不同 | 精确提供输入时钟及编码到采样周期公式；禁止借用ETIM计数divider+1，也不从其他IP同名字段推出公式 |
+| 死区延迟 | H2四条14bit延迟与旁路/MUX存在，但无独立精确clock公式 | 提供delay tick来源/倍数和目标支路延迟；不能默认等于分频后的ETIM计数Tick |
+
+上述结论已定向核对目标CRG SVD、CMSIS启动、CRG频率函数、目标ETIM/SRPWM配置及继承手册，
+不是“未找代码所以留待以后”。数字同根比例可继续推进；尚缺的是跨域连接和少数字段的精确定义。
+
+边界竞态同样分开处置：M2时基单元段给出立即改周期时COUNT小于新终值继续计数、大于时从0重启；
+目标H2只明确立即/Shadow选择，未说明比较采用大于还是等于，以及同拍写入仲裁。
+参考T6/T3 test_3有运行写周期和写0，但没有写前COUNT、自然边界身份或输出断言，不能证明具体竞态。
+因此已有P1_009继续覆盖严格早于新旧终点；“COUNT已越过新终值是否仍按M2重启”和“恰等于新终值时优先级”
+分别列为待确认，不用宽松周期集合把两种结果都判PASS。正常机制可继承不意味着目标新增位图的所有竞态已定案。
 
 ## 第三章 Source Item Trace
 
@@ -252,7 +304,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | TP023 | One-Shot | P1_004后续刺激下CAP保持 | MERGED |
 | TP024 | Continuous | P1_004多窗口真实刷新 | MERGED |
 | TP025 | One-Shot重装 | P1_004 ReArm后首槽及新数据，不以API返回成功替代 | MERGED |
-| TP026 | 滤波时钟分频 | P2_004跨已映射采样设置；编码公式Mapping G03，精确分频比测量仍待规划 | SPLIT |
+| TP026 | 滤波时钟分频 | P2_004跨已映射采样设置；2.6已核H2的8bit字段但无公式，禁止套用旧N+1滤波或其他IP；精确分频测量仍G03 | SPLIT |
 | TP027 | 滤波阈值 | P2_004唯一多数阈值；双方同时达阈值及精确边界G03 | SPLIT |
 | TP028 | 滤波窗口大小 | P2_004的8/16窗口；全边界与初始化瞬态G03 | SPLIT |
 | TP029 | Fault各通道输入 | P2_003软件、P2_014双外部输入；全输出支路及组合优先级仍G04/G05 | SPLIT |
@@ -288,7 +340,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | TP059 | 周期Shadow加载 | P1_009当前周期旧值、下一周期新值的连续边沿 | MAPPED |
 | TP060 | 比较Shadow加载 | P1_010未提交/半对负对照与成对提交，不复制旧顺序 | MAPPED |
 | TP061 | 事件Shadow加载 | P2_009当前旧点、下一周期新点及重复触发负对照，目标周期边界优先于旧SHWD字段 | MAPPED |
-| TP062 | DMA事件请求 | P2_006周期/比较搬运、P2_016真实Capture值到内存；Capture槽请求/连续流仍UNKNOWN G08 | SPLIT |
+| TP062 | DMA事件请求 | P2_006普通请求、P2_016冻结值、P2_017连续四槽PRD快照；每次Capture槽请求仍UNKNOWN G08 | SPLIT |
 
 ### 3.2 历史44个Case逐项处置
 
@@ -339,7 +391,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | 040 | 周期影子加载 | MAPPED：P1_009运行中过渡周期Oracle |
 | 041 | 比较影子加载 | MAPPED：P1_010半对/整对未提交负对照及边界提交 |
 | 042 | 事件影子加载 | MAPPED：P2_009修正新旧值相同、遗漏旧事件的原步骤，按目标周期边界证明过渡 |
-| 043 | DMA搬运Capture值 | SPLIT：P2_016保留100毫秒/40毫秒高宽及真实Capture到内存，明确采用PRD请求；旧CEVT请求和参考FT连续多槽流仍G08 |
+| 043 | DMA搬运Capture值 | SPLIT：P2_016保留100毫秒/40毫秒高宽及真实Capture到内存；P2_017补充持续更新四槽流，二者明确PRD请求；旧CEVT触发选择仍G08 |
 | 044 | 软件锁存、清零 | MAPPED：P0_001；R3仅标题和test_44仍保留有效目的，补齐前后计数Oracle |
 
 ### 3.3 目标及参考源码的有效测试语义
@@ -360,8 +412,8 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | V6801 FunctionalTest/etimer_ft.c：test_1 | P=3000、A约半周期的PWM；只有配置和输出，无外部断言；总入口全部调用被注释 | P1_001/P2_001保留波形目的，SPLIT |
 | 同文件：test_8 | 死区延迟10及互补输出，未形成完整自动Oracle | G04，UNKNOWN |
 | 同文件：test_9 | ETIM PWM内部到Capture，相对单槽在ISR检查3001；P=3000；使用旧IRQ/IO配置且入口未调用 | P1_003/P1_007；内部路由存在的线索，不作已执行证据 |
-| V6801 SmokeTest：TestCase1/2/3 | 1是PWM、2是DB、3是SRPWM内部Capture；入口只调用3；ISR接受3000或3001且关闭IRQ | PWM P1_001/P2_001、DB G04、Peer输入G11；同源内部环回不能宣称引脚电气PASS |
-| V6801 FPGATest：ETIMER_1 | SRPWM周期5000、高2000/低3000，经内部输入捕获RFRF绝对四槽，差值断言容差±10 | 数字捕获P1_002；SRPWM Peer语义仍G11，不能用ETIM源声称该Peer路由已覆盖 |
+| V6801 SmokeTest：TestCase1/2/3 | 1是PWM、2是DB、3是SRPWM内部Capture；入口只调用3；ISR接受3000或3001且关闭IRQ | PWM P1_001/P2_001、DB G04、Peer输入P2_018；内部环回不能宣称引脚电气PASS |
+| T8 V6801 FPGATest：ETIMER_1 / ETIMER_1_it | SRPWM0_A驱动四槽RFRF绝对连续捕获并检查约2000/3000/5000；ISR末槽读四值后关IRQ，不持续检查后续组 | SPLIT：P2_018保留SRPWM Peer路径和时间目的；连续更新由P1_004/P2_017承担，不把旧±10当独立误差预算 |
 | 同文件：ETIMER_2 | GPIO输入相对RFRR，断言2000/3000/5000±10；IC结构未完整初始化 | P2_002保留外部输入方法，重建初始化与误差预算；MAPPED |
 | 同文件：ETIMER_3 | 三通道延迟启动后周期同步，无可判定相位断言 | G06，UNKNOWN |
 | 同文件：ETIMER_4 | 死区10并在20/80比较值之间切换，while(1)，无自动波形断言；顶层只调用4，结束标记不可达 | G04/G07，UNKNOWN；不把4个函数全算入口覆盖 |
@@ -384,15 +436,17 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | 同两文件：test_33 | 自然IRQ分支；固定选中的源有限，S3101把P=50000路径称overflow但不足以证明32bit回卷 | P1_007/P1_008及G05/G09；SPLIT |
 | 同两文件：test_34 | Force=0xFFF且全Mask，断言RAW=0xFFF、STATUS=0，Clear后RAW=0；无真实ISR | P0_002保留强pending测试并补投递；MAPPED |
 | 同两文件：test_40/41 | 动态周期Shadow/Immediate对比及比较Shadow；test_41在写COMPA之前置UPDATE_VLD；没有过渡波形断言 | G07，UNKNOWN；不把错误提交顺序固化为公共动作 |
-| S6003 FT test_43 | 四个CAP值DMA到64项数组，DMA启动晚于输入，目的数组为局部栈且异步可能越过生存期，无数据断言 | G08，CONFLICT；保留搬运目的但拒绝该实现作为Oracle |
-| S3101 FT test_43 | 全局数组、关闭cache、配置8项后只使能一个DMA通道；仍旧全局请求模型，无数据断言 | G08，CONFLICT |
+| S6003 FT test_43 | 四个CAP值DMA到64项数组，DMA启动晚于输入，目的数组为局部栈且异步可能越过生存期，无数据断言 | SPLIT：P2_016静态双重Oracle、P2_017连续四槽及逐行Oracle；旧请求模型仍CONFLICT G08，拒绝局部数组和晚武装 |
+| S3101 FT test_43 | 全局数组、关闭cache、配置8项后只使能一个DMA通道；仍旧全局请求模型，无数据断言 | SPLIT：P2_017保存连续输入和缓存一致性目的，改为有限LLI和唯一行；旧请求编码CONFLICT G08 |
 | 同两文件：test_44 | 调用锁存/清零并把值存入局部变量，无前后关系断言 | P0_001补齐非零、保持、清零和重启观测；MAPPED |
 | 两份FT总入口 | S6003仅调用test_32；S3101仅调用test_34；其他定义及声明不等于入口执行 | 不改变上述有效测试意图，也不增加历史PASS |
 | S6003/S3101 SmokeTest | 两者有PWM、DB和SRPWM内部Capture三体；S6003入口只调用PWM，注释写64PIN无ECAP而禁用Capture；S3101只调用Capture | 静态PWM/P1与外部P2保留；封装备注不是目标ET6801不支持证据 |
-| V6003/V3101 FPGATest/ETIMER/etimer.c | 绝对SRPWM与外部相对捕获均有2000/3000/5000±10断言；同步和DB无强Oracle；V6003入口调用1..4但4不返回，V3101文件无同样顶层入口且SRPWM初始化被注释 | 捕获目的P1_002/P2_002，Peer G11，同步/DB G06/G04；SPLIT |
+| V6003/V3101 FPGATest/ETIMER/etimer.c | 绝对SRPWM与外部相对捕获均有2000/3000/5000±10断言；同步和DB无强Oracle；V6003入口调用1..4但4不返回，V3101文件无同样顶层入口且SRPWM初始化被注释 | 捕获目的P2_018/P2_002分别保留Peer和外部路径，同步/DB G06/G04；SPLIT |
 | V6003/V3101 ChipSieveTest | CS_ECAP_init/SRPWM_entry/ECAP_entry使用旧GPIO软件触发；分别断言约500 Tick高宽和2000 Tick周期 | P2_002保留外部周期/脉宽Oracle；旧触发机制不适用但同一目的仍可测，非NOT_APPLICABLE |
-| S3101 ElectricalTest：ETIMER_PWM | P=3、A=1，注释50MHz/25%和5ns；仅输出供仪器观察，没有当前实测 | P2_001保留外部普通波形；目标最高频率/5ns限值G09，SPLIT |
-| 同文件：ETIMER_Cap | 最大计数捕获意图；连续模式槽配置与ISR事件错配、打印无断言、无限等待、32位差值乘5有溢出风险 | P2_002只保留普通脉宽测法；最大时长及分辨率G09，不能称已覆盖极限 |
+| S3101 ElectricalTest：ETIMER_PWM | P=3、A=1，注释50MHz/25%和5ns；仅输出供仪器观察，没有当前实测 | P2_001明确4 Tick周期及1 Tick高宽，不再仅普通波形；目标最高频率/5ns限值G09，SPLIT |
+| 同文件：ETIMER_Cap | 最大计数捕获意图；连续模式槽配置与ISR事件错配、打印无断言、无限等待、32位差值乘5有溢出风险 | P2_002补充真实近全量程长间隔及64位累加，禁止只移植普通脉宽；分辨率电气认证限值仍G09 |
+| T9 V6801 ElectricalTest：Electrical_ETIMER_Test | P=2、A=1、divider=1，entry确实调用；没有独立观测或数值断言，旧头文件仍存在 | MAPPED：P2_001包含3 Tick周期及1 Tick高宽，旧NO_MATCH已在21:24修正，不表示源码已编译或执行 |
+| T10 V6801 XBAR FT：test_6 / test_18 | GPIO29→INXB0→ETXB0→ETIMER0，CBC LOW且无封波观测断言；旧14输出注释与目标不一致 | SPLIT：P2_014第一条实际路线可绑定，另一Fault输入及其余CORE配对仍G11 |
 | Coremark/SignalChain/BootROM复制驱动 | 仅驱动/API/README存在，没有新的ETIM测量目的或测试Oracle | CAPABILITY_ONLY/NOT_PUBLIC_FEATURE；不是性能Case证据 |
 
 两份FT中只有声明、没有实现体的历史编号仍由3.2需求表保留，不能因函数缺失删除对应需求。
@@ -419,7 +473,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | FT test_8、Smoke DB体、FPGA ETIMER_4死区部分 | P2_005正常延迟、输入选择、反相和旁路 | a支路歧义、窄脉冲及动态死区G04；动态比较由P1_010另行覆盖 |
 | FT test_16及UnitTest滤波配置部分 | P2_004唯一多数阈值短长脉冲；修正threshold大于window和IRQ槽错配 | 精确采样分频、双阈值边界和初始化瞬态G03 |
 | FT test_17/18/21/22/23中的软件Fault、test_33的Fault源 | P2_003软件CBC/OS、高低封波、恢复及重复输入自然IRQ | test_23互补组合优先级G05、test_20外部XBAR输入G11 |
-| UnitTest DMA选择和普通目标请求字段 | P2_006目标PRD/CMP请求真实搬运 | 两参考FT test_43的Capture值搬运目的仍G08，不能由常数源测试替代 |
+| UnitTest DMA选择和普通目标请求字段 | P2_006普通搬运、P2_016冻结Capture、P2_017连续四槽PRD快照 | Capture数据目的已单独规划，旧CEVT请求编码仍G08；不能由常数源测试替代 |
 
 新增七个PLAN没有消除所有有效需求；G项只留下上表明确列出的差异、边界和联动，
 不再笼统声称整个模块没有原理依据或需要目标RTL才能设计测试。
@@ -439,7 +493,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | FT test_8及FPGA ETIMER_4动态延迟；需求Case039 | P2_015在无在途延迟的运行窗口双向改值，P2_005静态处理保留 | a支路、窄脉冲及正在延迟时改值仍G04；没有用动态比较Case代替动态死区 |
 | UnitTest事件配置、需求Case038/042 | P2_008计数事件接收、P2_009立即/Shadow过渡；旧新值不同且每个候选点均有独立完成事实 | 已越过新事件点、与周期/比较同拍的极端值仍G07 |
 | FT test_33和需求所有IRQ，Case033明确外部100毫秒周期 | P1_012自然最大值回卷，P2_002补100毫秒/50%与真实捕获ISR；既有P1_007/P1_008/P2_003保留 | 不把最大值附近装载后跨界称为从零跑满整个32bit计数空间；电气极限G09仍在 |
-| T6/T3 test_43及需求Case043：四CAP槽DMA到数组、40毫秒高宽 | P2_016逐槽冻结值到内存，外部100毫秒/40毫秒高宽和另一非对称刺激均保留；P2_006普通请求仍单独存在 | 旧每次CEVT请求、持续四槽流和无丢样要求不由冻结数据搬运等价替代，G08明确未完成 |
+| T6/T3 test_43及需求Case043：四CAP槽DMA到数组、40毫秒高宽 | P2_016逐槽冻结值及外部100毫秒/40毫秒高宽保留；P2_017补连续四槽流、先武装及逐行独立Oracle；P2_006仍为普通请求 | 旧每次CEVT请求仍G08；P2_017只证明保护窗内周期快照完整，不冒充逐捕获事件、高速压力或无限流 |
 | 新入口PWM_Compare_Shadow/Source/main.c | 配置A模式并只改A后commit，无波形断言；P1_010覆盖成对提交与过渡，目标要求A/B准备完整优先 | 该示例不是目标B写入可以省略的硬件证据 |
 | 新入口PWM_Complement/Source/main.c | a上升延迟、b选另一支路并下降延迟后反相，main调用后无限等待；P2_005覆盖已确认支路 | 使用a处理输出仅是API调用意图，未消解H2/H6/H7的a支路s3说明矛盾；G04保留 |
 | 新入口PWM_Out_Fault/Source/main.c | OS、强制LOW，软件输入SET再RESET，main实际调用但无恢复和输出断言；P2_003覆盖并强化 | 无本轮或既有可信执行证据，不能计为Fault PASS |
@@ -501,7 +555,11 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | XBAR.OUTPUT_LEVEL | H12 ETXB_RPT.etxb_out_rpt[resolved_output] | 必须用实际解析的输出索引；不是etxb_lat_rpt锁存值，也不是SW配置值 |
 | route_sync_output / SYNC_OUTPUT.EDGE_TIMES | H2 CFG_ETIM_SYNC_OUT选择12+i，经H12输出XBAR及D6 EXTSYNCOUT枚举到Bench引脚 | i只在0..11；全局旧尾项24/25禁用；外送开关和EN3 bit16关联必须独立核对，不能把驱动函数名当映射 |
 | 外部fault_source | CORE[i].PWM_CTRL.fault_sel=1或2，resolved ETXB路由 | sel所称XBAR0/1与具体ETXB索引绑定尚未证实；实施前补映射，不默认第一输出或旧CH3 |
-| P2_016 DMA捕获源 | CAP_CNT[i].CAP1..CAP4只读32bit固定源，CMN[i].DMA=1 | 在One-Shot冻结后先CPU读取留证再DMA；只恢复计数产生PRD，不能Rearm或伪装成CEVT请求 |
+| P2_016 DMA捕获源 | CAP_CNT[i].CAP1..CAP4只读32bit固定源，CMN[i].DMA=1；H15确认模式1 | 在One-Shot冻结后先CPU读取留证再DMA，source burst=1；只恢复计数产生PRD，不能Rearm或伪装成CEVT请求 |
+| P2_017 连续DMA | CMN[i].DMA=1、SYSCTRL请求55+i、H15确认模式1；DMA P2M/32bit/HW SRC，source burst=4，每LLI 4字 | 每节点从CAP1递增到CAP4，下一节点回到CAP1且换目的行；节点有限且末尾停止。Snapshot最坏耗时含ack、总线争用和LLI装载，必须小于后续首槽覆盖窗 |
+| P2_018 PWM Peer输入 | CAP_CTRL.cap_in_srcsel=42+2s+b，s=0..17，b=0为A、1为B；接收CORE=0..11 | 36×12为逻辑路由全集，执行逐组合保存身份；SRPWM标准精度UP、HR bypass及ZERO/CMPA动作由Peer负责，公共SRPWM动作未接入属于Implementation Gap |
+| P2_014 首条Fault路线 | T10的GPIO29/INXB0/ETXB0，CORE0.fault_sel=1 | H12实际ETXB输出上报与外部封波并行证明；未指定板卡不能把此参考引脚写成已接线Bench |
+| P2_002 长间隔 | TIMER_CYC=0xFFFFFFFF；CAP四槽绝对或逐槽clr_cnt；实际divider=1/64 | M用64位2^32表示，每段M-kK小于M；DUT要真实等待整个间隔，不能借P1_012近回卷相位预加载方法缩短等待 |
 
 ### 4.2 后续实现前必须满足的映射前提
 
@@ -524,12 +582,12 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | ETIM_F_006 | SUPPORTED | A模式存在；全部输出支路旁路G04 | IMPLEMENTATION_GAP | ETIM_P1_001, ETIM_P2_001 |
 | ETIM_F_007 | SUPPORTED | A+B模式存在；只规划普通严格内部点 | IMPLEMENTATION_GAP | ETIM_P1_001, ETIM_P2_001 |
 | ETIM_F_008 | SUPPORTED | EN1.PWM_EN；关闭电平不作结论 | IMPLEMENTATION_GAP | ETIM_P1_006 |
-| ETIM_F_009 | SUPPORTED | 每槽独立polar | IMPLEMENTATION_GAP | ETIM_P1_002, ETIM_P1_003, ETIM_P2_002 |
-| ETIM_F_010 | SUPPORTED | clr_cnt=0，四槽32位值 | IMPLEMENTATION_GAP | ETIM_P1_002, ETIM_P2_002 |
+| ETIM_F_009 | SUPPORTED | 每槽独立polar | IMPLEMENTATION_GAP | ETIM_P1_002, ETIM_P1_003, ETIM_P2_002, ETIM_P2_018 |
+| ETIM_F_010 | SUPPORTED | clr_cnt=0，四槽32位值 | IMPLEMENTATION_GAP | ETIM_P1_002, ETIM_P2_002, ETIM_P2_018 |
 | ETIM_F_011 | SUPPORTED | 每槽clr_cnt；精确误差预算G02 | IMPLEMENTATION_GAP | ETIM_P1_003, ETIM_P2_002, ETIM_P2_016 |
 | ETIM_F_012 | SUPPORTED | 旁路1与偶数2..62 | IMPLEMENTATION_GAP | ETIM_P1_005 |
 | ETIM_F_013 | SUPPORTED | stop_after=1..4 | IMPLEMENTATION_GAP | ETIM_P1_004 |
-| ETIM_F_014 | SUPPORTED | stop_after=1..4回绕槽序列 | IMPLEMENTATION_GAP | ETIM_P1_004 |
+| ETIM_F_014 | SUPPORTED | stop_after=1..4回绕槽序列 | IMPLEMENTATION_GAP | ETIM_P1_004, ETIM_P2_017 |
 | ETIM_F_015 | SUPPORTED | REARM复位MOD4并解冻 | IMPLEMENTATION_GAP | ETIM_P1_004 |
 | ETIM_F_016 | SUPPORTED | CAP_LOAD_EN独立于CAP_EN | IMPLEMENTATION_GAP | ETIM_P1_006 |
 | ETIM_F_017 | SUPPORTED | 每通道12源Force/Clear | IMPLEMENTATION_GAP | ETIM_P0_002 |
@@ -548,7 +606,7 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | ETIM_F_030 | SUPPORTED | H2 Fault overflow源，M2解释重复输入事件 | IMPLEMENTATION_GAP | ETIM_P2_003 |
 | ETIM_F_031 | SUPPORTED | H2/H6/H7窗口结构一致；常规唯一多数阈值 | IMPLEMENTATION_GAP | ETIM_P2_004 |
 | ETIM_F_032 | SUPPORTED | H2/H6/H7四链结构一致；当前仅自洽支路可映射 | IMPLEMENTATION_GAP | ETIM_P2_005, ETIM_P2_015 |
-| ETIM_F_033 | SUPPORTED | H2每通道PRD/CMP选择与SYSCTRL请求入口 | IMPLEMENTATION_GAP | ETIM_P2_006, ETIM_P2_016 |
+| ETIM_F_033 | SUPPORTED | H2每通道PRD/CMP选择与SYSCTRL请求入口 | IMPLEMENTATION_GAP | ETIM_P2_006, ETIM_P2_016, ETIM_P2_017 |
 | ETIM_F_034 | SUPPORTED | H2 EVT_TO_ADC五类计数事件，接收时刻由H8/H10及M2解释 | IMPLEMENTATION_GAP | ETIM_P2_008, ETIM_P2_009, ETIM_P2_010 |
 | ETIM_F_035 | SUPPORTED | H2 EN3.event_en每通道独立，不等于SyncOut开关 | IMPLEMENTATION_GAP | ETIM_P2_008, ETIM_P2_010 |
 | ETIM_F_036 | SUPPORTED | H2 shdw_ug bit2周期边界生效，更新点不沿旧SHWD编码 | IMPLEMENTATION_GAP | ETIM_P2_009 |
@@ -558,8 +616,9 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | ETIM_F_040 | SUPPORTED | H2全局SyncOut与H12/D6 XBAR外送；开关及宽度G06 | IMPLEMENTATION_GAP | ETIM_P2_013 |
 | ETIM_F_041 | SUPPORTED | H2 fault_sel=1/2，H12真实输出；双输入配对G11 | IMPLEMENTATION_GAP | ETIM_P2_014 |
 | ETIM_F_042 | SUPPORTED | H2直接延迟字段与R6/R3继承更新要求；只准入无在途延迟的安全窗口 | IMPLEMENTATION_GAP | ETIM_P2_015 |
-| ETIM_F_043 | SUPPORTED | H2只读CAP槽、PRD请求与DMA总线搬运；不是CEVT请求已确认 | IMPLEMENTATION_GAP | ETIM_P2_016 |
+| ETIM_F_043 | SUPPORTED | H2只读CAP槽、PRD请求及H14/H15有限链；冻结和连续快照均有数据Oracle，非CEVT请求已确认 | IMPLEMENTATION_GAP | ETIM_P2_016, ETIM_P2_017 |
 | ETIM_F_044 | SUPPORTED | H2 32bit边界及独立IRQ bit7，M2明确最大值回卷 | IMPLEMENTATION_GAP | ETIM_P1_012 |
+| ETIM_F_045 | SUPPORTED | H2输入42..77、H3十八SRPWM及T8实际Peer捕获代码；A/B及跨实例选路 | IMPLEMENTATION_GAP | ETIM_P2_018 |
 
 ## 第六章 Chip -> Public Case Adaptation
 
@@ -592,9 +651,11 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 | ETIM_P2_011 | IMPLEMENTATION_GAP | 无实现；含独立及内部DAC模拟输出；内部DAC测试观测路由和模拟预算待绑定 |
 | ETIM_P2_012 | IMPLEMENTATION_GAP | 无实现；两侧DAC与比较器模拟输入/参考映射及安全电压源，不能仅看代码回显 |
 | ETIM_P2_013 | IMPLEMENTATION_GAP | 无实现；SYNC_OUT选择12+i及EXTSYNCOUT；外送开关/脉冲可测性为G06 Mapping |
-| ETIM_P2_014 | IMPLEMENTATION_GAP | 无实现；fault_sel=1/2的目标ETXB配对未绑定，必须先解映射才能执行 |
+| ETIM_P2_014 | IMPLEMENTATION_GAP | 无实现；T10已定位CORE0第一条ETXB0路线，第二Fault源及其余配对G11，实际引脚Bench未绑定 |
 | ETIM_P2_015 | IMPLEMENTATION_GAP | 无实现；仅文字自洽支路，运行安全窗需要输入/延迟时钟和有界写入事实 |
 | ETIM_P2_016 | IMPLEMENTATION_GAP | 无实现；只覆盖冻结CAP值由PRD请求搬运，连续CEVT DMA仍UNKNOWN G08 |
+| ETIM_P2_017 | IMPLEMENTATION_GAP | 无实现；目标PRD/模式1/4字LLI已明确，DMA最坏完成时间、周期参考和输入Bench需绑定；不覆盖CEVT编码 |
+| ETIM_P2_018 | IMPLEMENTATION_GAP | 无实现；36×12输入选择事实明确，SRPWM公共动作、独立时钟比与捕获误差需绑定，不以ETIM自环替代Peer |
 
 以上主状态选择最先阻塞的实现缺口，Reason中保留并存的Mapping/Bench缺口，不把它们互相覆盖。
 
@@ -602,30 +663,30 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 
 | Gap | 当前目标证据缺口 | 解除所需最小资料/动作 |
 |---|---|---|
-| G02 | 具体内部PWM输出支路、同源时钟比、同步采样误差边界未绑定 | 目标时钟树/路由证据及适配映射；禁止从本次DUT测量反向调Expected或容差 |
+| G02 | 同ETIM根时钟数字比例可消去根频率；剩余具体输出支路、跨SRPWM时钟比和同步采样误差界未绑定；D11/D12不能直接当频率Oracle | 按2.6逐层固定真实参考/选源/BUS/工作时钟；ETIM绝对根频率、SRPWM工作时钟和参考输出延迟需适用证据，不能以本次捕获反向拟合 |
 | G03 | P2_004已给唯一多数窗口短长脉冲Oracle；未映射CLKPRESCALE编码/时钟界，双方同时达阈值、精确边界及高输入初始化瞬态未定 | 分频字段公式可由同结构说明或字段答复补齐；只针对剩余边界继续找适用资料，不再要求整个滤波RTL |
 | G04 | P2_005/015已给正常处理和无在途延迟时动态更新；a支路s3复制文字、延迟时钟、窄脉冲及延迟正在计数时改值未定 | 确认a支路实际输入和delay时钟；针对在途更新是否重载/续数及窄脉冲规则取得简短适用说明，不阻塞自洽支路正常设计 |
 | G05 | P2_003已按继承模型规划CBC/OS、重复输入和恢复；剩余Fault/DB优先级及同拍撤销/Clear竞态 | 针对组合优先级和同拍事件取得适用解释；正常路径不再等待目标状态机交付，实测不符则登记差异 |
 | G06 | P1_011包含运行相位改写，P2_007/013已保留外部相位及SyncOut；剩余停止时/同拍清零、SYNC_OUT越界尾项、EN3 bit16作用对象与精确延展 | 内部24..35、外送已有源12..23可映射；补充bit16到底控制Event还是SyncOut、外送总使能位置和脉宽/传播界，不把旧函数名当结论 |
 | G07 | P1_009/010与P2_009/015已覆盖正常立即/Shadow、事件接收及动态延迟；剩余计数已越过新值、重合比较/周期点、在途延迟改值 | 对这些准确边界取得适用说明；禁止使用加大Timeout或读最终值掩盖不确定过渡，不要求RTL文件 |
-| G08 | P2_008～012已有接收端方法，P2_016已有冻结CAP搬运；剩余DMA选择3是否Capture或CUSTOM事件、4..7、连续CEVT握手、DACC选择11缺描述 | 所需最小补充是具体DMA选择表和DACC漏项；接收延迟、独立DAC/内部DAC模拟端及ADC输入误差是明确Mapping/Bench。0延迟常规接收不等于Peer反相/255等全部配置已测 |
-| G09 | P1_012已有最大周期终点及自然回卷方法；P=0的可观测行为、最高频率/最小脉宽/最大捕获时长及压力限值仍缺适用规范 | 提供目标时钟/电气限值和最小周期边界说明；不移植旧50MHz/5ns，不把近边界加载测试称为全计数空间长稳 |
+| G08 | P2_008～012已有接收端，P2_016冻结值，P2_017连续四槽PRD快照；剩余DMA选择3事件来源/槽、4..7、逐CEVT握手、DACC选择11缺描述 | 具体选择表及漏项答复即可，不要求RTL；连续快照的模式1和有限链已定，执行时需独立DMA保护窗上界。0延迟常规接收不等于Peer反相/255等全部配置已测 |
+| G09 | P2_001已纳入1 Tick高宽及3/4/5 Tick周期，P2_002已纳入近全量程真实长间隔；剩余P=0行为、未给规范的电气最高频率/精度和压力限值 | 不再以缺实现/仪器为由把这两类方法列未设计；实际芯片工作时钟与仪器能力按2.6/G10绑定，认证限值另需适用规范，不移植旧50MHz/5ns |
 | G10 | 实际封装/板卡引脚、仪器和时钟精度未作为本任务硬件输入 | 后续独立硬件计划中绑定Bench、误差预算和门禁；普通P2方法保留，不标成硬件不支持 |
-| G11 | P2_014的双外部Fault方法完整，但XBAR0/1与每CORE ETXB配对未绑定；其余Capture/SYNC输入Peer仍有未设计项 | 先补双Fault配对和物理路由映射；随后针对SRPWM/CMP/SDFM/CLB/UART/LIN/XBAR等逐路构造刺激及接收Oracle，不能宣称219源已覆盖 |
+| G11 | P2_014已有CORE0首条XBAR示例，P2_018已有36个SRPWM输入×12接收通道的选路与隔离方法；其他Peer/非内部同步源仍有未设计项 | 后续继续CMP/SDFM/CLB/UART/LIN/CLU/XBAR具体输入刺激和接收Oracle，第二Fault输入及全部CORE配对仍需Mapping；不能宣称219源已覆盖 |
 
 完成Gate自检：
 
 - Source Coverage：已按登记可访问父根定向搜索；未用其他芯片替代缺失目标时序文档。
 - 需求Trace：62个有ID TP、44个历史Case及上述独立源码测试目的均有处置；Case019/TP030的删除占位为唯一无有效目的排除项。
-- Feature准入：44项为目标可识别硬件功能；本轮新增项结合H2及目标接收端H8～H12、继承要求/机制形成常规待测Oracle，数量/地址/SDK接口不单造Feature。
-- 公共Case：30个PLAN，其中R0三项、R1十一项、R2三项、R4十三项；未注册和未实现。
+- Feature准入：45项为目标可识别硬件功能；本轮PWM Peer选路由H2/H3/H16和T8共同支撑，Capture数据DMA为原F_043兼容扩展，数量/地址/SDK接口不单造Feature。
+- 公共Case：32个PLAN，其中R0三项、R1十一项、R2四项、R4十四项；未注册和未实现。
 - 方法审核：已有PLAN给出了输入、7步动作、硬件观测、Oracle、Timeout、Cleanup及报告事实；目标时钟/路由仍须满足映射前提。
 - **整体规划Gate：未通过。** G03～G09/G11仍影响适用性、刺激或判据，不能宣布ETIM整体分析完成。
 - 新增ETIM实现、Keil、Renode、FPGA、Silicon/HIL：本轮全部NOT_EXECUTED；通用软件门禁不属于ETIM实测，不可替代硬件证据。
 
 后续继续按“同族原理 + 目标SVD差异”收敛上述具体边界及Peer联动，不把ET6801 RTL作为输入前提。
-采样/延迟时钟等映射和复杂边界应分开处理；不能因一个边界未知阻塞已有30个PLAN的审核，
-也不能把这30个PLAN当作整个ETIM全集已闭合。任何实际硬件执行仍须单独人工门禁。
+采样/延迟时钟等映射和复杂边界应分开处理；不能因一个边界未知阻塞已有32个PLAN的审核，
+也不能把这32个PLAN当作整个ETIM全集已闭合。任何实际硬件执行仍须单独人工门禁。
 
 ### 7.1 文档校验记录
 
@@ -661,3 +722,13 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 - 本轮新增11个PLAN；另扩展P1_011运行相位更新、P2_002外部长周期与真实Capture ISR。3.6保留每个历史目的与剩余非等价部分，不以无断言示例计入实测。
 - 专项resource-control任务：`20260906_205525_7c1e512d`、`20260906_205545_a9f94190`、`20260906_205548_4dcb5007`、`20260906_205551_a5ad1f96`。
 - 总软件门禁和最终提交身份另存过程Artifact `remaining_coverage_validation.md`；这些校验不改变PARTIAL_ANALYSIS或NOT_EXECUTED硬件状态。
+
+### 7.4 连续DMA、Peer和时钟边界复核校验
+
+时间：2026-09-06 21:38 CST。
+
+- 本轮新增P2_017/P2_018两个PLAN，扩展P2_001单Tick高宽、P2_002近全量程真实等待；当前45个Feature、32个PLAN，全部未实现和未实测。
+- Scope检查通过，只改两份ETIM文档；Source Coverage的ElectricalTest遗漏已附时间戳修正，T8/T9/T10及H13～H16、D9～D13保留SHA256。
+- PLAN、公共IP边界、方法行语法和芯片映射专项通过；初轮resource-control记录为`20260906_213444_00d95d8d`、`20260906_213628_cba964d6`、`20260906_213631_e8eb115c`、`20260906_213634_e1a7a52c`。
+- 语义复核保留DMAMUX一次确认、逐行唯一Oracle、保护窗、Peer A/B互补及不同实例负对照、近全量程相邻模减和真实等待约束；结构校验不证明这些硬件路径PASS。
+- 最终软件门禁、提交及复核结果保存在过程Artifact `dma_clock_routing_validation.md`；本轮没有真实板卡、FPGA、Renode、Keil执行或共享层/SDK修改。

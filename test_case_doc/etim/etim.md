@@ -3,10 +3,11 @@
 时间：2026-09-06 16:22 CST
 
 本轮为首次分析记录，状态为 **PARTIAL_ANALYSIS / NOT_IMPLEMENTED / NOT_EXECUTED**。
-已确认测试方法的部分形成30个PLAN；其余有效需求保留在第五节及芯片Source Item Trace中。
+已确认测试方法的部分形成32个PLAN；其余有效需求保留在第五节及芯片Source Item Trace中。
 2026-09-06 18:06 CST复核：使用继承资料解释原理并以目标SVD裁定差异，不以取得RTL为分析前提。
 存在影响方法和Oracle的UNKNOWN，因此不能宣称整个IP规划完成或整体Implementation Ready。
 2026-09-06 20:35 CST继续复核：补充接收端事件、动态事件、外部同步/Fault/相位、动态死区和自然回卷方法；捕获数据搬运与捕获事件请求仍分开处置。
+2026-09-06 21:24 CST继续复核：加入连续Capture四槽周期快照DMA和PWM Peer输入选路；普通外部Case增加单Tick高宽及近全量程捕获参数。周期快照不等于每次CEVT握手。
 内部数字测量、引脚波形测量和电气极限不是同一覆盖结论。所有PLAN均未注册、未实现、未实测。
 
 ## 0. Stable IP Contract
@@ -39,6 +40,8 @@
 | `fault_source` | SOFTWARE或映射中的独立EXTERNAL输入；外部刺激源及XBAR实际输出必须分别有身份，不能只写路由寄存器当作已产生Fault |
 | `irq_source` | `FAULT_ONE_SHOT / FAULT_CBC / FAULT_OVERFLOW / COMPARE_ERROR / COMPARE_A / COMPARE_B / PERIOD / COUNTER_OVERFLOW / CAPTURE_1..4`中Capability支持的源 |
 | `deadline_ms` | Firmware单动作有界截止时间；PC事务截止时间必须覆盖该动作及传输余量，禁止无限等待或隐式重试 |
+| `capture_peer / peer_output` | 独立PWM Peer及其逻辑输出；Peer标准精度产生已知周期/高宽，ETIM只配置输入选择和捕获。Peer的周期编码、输出动作和时钟属于Peer契约及Mapping，不套用ETIM周期编码 |
+| `dma_snapshot_epochs` | 有限连续采集轮数；每轮四个真实捕获值更新后，由PERIOD请求读出一行。行号属于计划/Artifact身份，不冒充硬件生成序号 |
 
 PWM普通区间Oracle：设源时钟Fs、源分频Ds、接收时钟Fc、接收分频Dc，则期望周期捕获差值
 `N = period_ticks * Ds * Fc / (Fs * Dc)`；A模式高宽使用`compare_a_ticks`替换period_ticks，
@@ -47,6 +50,10 @@ A_B模式高宽使用`compare_b_ticks-compare_a_ticks`。优先构造整数N，�
 异步边沿量化允许误差由已验证的捕获时钟/路由上界给出，作为`capture_error_ticks`保存在参数证据中；
 没有这个上界时停止对应execution，不能借用历史代码的任意容差。
 同源数字环回只能证明比例/数字路径，不能证明绝对频率、分辨率、引脚电气质量或两端同源错误不存在。
+
+长间隔捕获仍限制每一对相邻边沿间隔小于一次回卷；允许四槽总体跨多次回卷，但只能先对每个相邻差值
+做模减，再以64位数相加。禁止直接对跨两个回卷的首尾槽做一次模减。量程边缘的保护间隔必须大于
+时钟容差累计值、刺激误差和捕获量化误差，不能把因计数位宽已知而计算出的理论时长宣称为实测极限。
 
 ### 0.2 直接动作与异步执行
 
@@ -71,6 +78,12 @@ A_B模式高宽使用`compare_b_ticks-compare_a_ticks`。优先构造整数N，�
 | `configure_event / set_event_enable / route_event` | 配置逻辑事件源、CUSTOM值、更新模式、输出使能及接收端选择；不隐式启动Peer、不将Event使能当SyncOut使能、不发送Peer软件触发 |
 | `route_sync_output` | 把已选软件/周期SyncOut接到Bench端点，返回逻辑路由身份；脉冲延展属于独立映射参数，不预先承诺未确认的脉宽 |
 | Peer协调动作 | Case分别调用各IP直接动作；需要紧邻计数的事件窗口操作由已有目标侧有界执行机制承载，各Service只访问本IP。Peer缺公共动作属于实现缺口，不授权ETIM Service/Wrap调用Peer Wrap或新增公共架构层 |
+
+连续DMA使用公共DMA的P2M、32bit传输、有限LLI和缓存一致性语义。每描述符只搬四个相邻槽，
+下一描述符重新指向首槽并指向下一目的行；每个外设请求只能完成本行，不能保持请求直到整链自动搬空。
+DMA必须在生产者启动前武装，目的和描述符的生存期延续到硬件静止后；采集中CPU不得代替DMA写目的数据。
+连续采集轮内不得冻结Capture、Rearm或逐轮停计数。Capture清计数固定关闭，计数周期重装不复位槽序列。
+周期到来至下一轮首槽覆盖前，DMA的整行完成和下一描述符准备均须落在独立上界内；不能只靠“数据看起来合理”推断无混行。
 
 Firmware负责同一动作内的时序敏感操作、短窗等待、原子现场采集和abort；PC负责参数化、独立Oracle、
 最终断言、Bench和Artifact。Case不能直接访问SDK、IRQ控制器、芯片私有端点或仪器传输。
@@ -124,12 +137,12 @@ ZERO与PERIOD只相隔一个计数Tick，相关实例必须加大分频并满足
 | ETIM_F_006 | ETIM PWM A比较模式 | A决定从周期起点开始的高电平宽度 | ETIM_P1_001, ETIM_P2_001 |
 | ETIM_F_007 | ETIM PWM A+B比较模式 | A和B分别确定高区间开始和结束 | ETIM_P1_001, ETIM_P2_001 |
 | ETIM_F_008 | ETIM PWM Enable/Disable | PWM关闭后无周期边沿，恢复后再次输出原配置周期 | ETIM_P1_006 |
-| ETIM_F_009 | ETIM 捕获边沿选择 | 按槽选择上升沿或下降沿，捕获值对应指定边沿序列 | ETIM_P1_002, ETIM_P1_003, ETIM_P2_002 |
-| ETIM_F_010 | ETIM 绝对捕获时间戳 | 不清计数器，连续时间戳差值反映外部事件间隔 | ETIM_P1_002, ETIM_P2_002 |
+| ETIM_F_009 | ETIM 捕获边沿选择 | 按槽选择上升沿或下降沿，捕获值对应指定边沿序列 | ETIM_P1_002, ETIM_P1_003, ETIM_P2_002, ETIM_P2_018 |
+| ETIM_F_010 | ETIM 绝对捕获时间戳 | 不清计数器，连续时间戳差值反映外部事件间隔 | ETIM_P1_002, ETIM_P2_002, ETIM_P2_018 |
 | ETIM_F_011 | ETIM 相对捕获时间戳 | 在指定槽事件后清计数器，后续时间戳反映距该事件的间隔 | ETIM_P1_003, ETIM_P2_002, ETIM_P2_016 |
 | ETIM_F_012 | ETIM 捕获输入预分频 | 输入预分频改变同极性捕获的事件间隔，不改变计数时钟配置 | ETIM_P1_005 |
 | ETIM_F_013 | ETIM 捕获One-Shot | 指定槽后停止加载，后续刺激不能覆盖该轮数据 | ETIM_P1_004 |
-| ETIM_F_014 | ETIM 捕获Continuous | 指定槽后回到首槽，后续刺激持续刷新捕获数据 | ETIM_P1_004 |
+| ETIM_F_014 | ETIM 捕获Continuous | 指定槽后回到首槽，后续刺激持续刷新捕获数据 | ETIM_P1_004, ETIM_P2_017 |
 | ETIM_F_015 | ETIM 捕获Rearm | One-Shot冻结后重新武装，从首槽开始接收下一轮 | ETIM_P1_004 |
 | ETIM_F_016 | ETIM Capture Load Enable/Disable | 关闭加载时CAP保持，恢复加载后随新事件更新 | ETIM_P1_006 |
 | ETIM_F_017 | ETIM 中断Force/Clear | Force建立指定pending，Clear只清指定源；不替代自然事件测试 | ETIM_P0_002 |
@@ -148,7 +161,7 @@ ZERO与PERIOD只相隔一个计数Tick，相关实例必须加大分频并满足
 | ETIM_F_030 | ETIM Fault重复输入中断 | Fault保持期间再次输入有效事件产生overflow pending | ETIM_P2_003 |
 | ETIM_F_031 | ETIM 窗口阈值滤波 | 唯一多数阈值下抑制短脉冲并允许稳定长脉冲产生捕获 | ETIM_P2_004 |
 | ETIM_F_032 | ETIM 死区支路处理 | 输入选择、边沿延迟和反相决定输出边沿；旁路恢复原支路 | ETIM_P2_005, ETIM_P2_015 |
-| ETIM_F_033 | ETIM 周期与比较DMA请求 | 自然计数事件触发DMA完成指定搬运，停止事件时不传输 | ETIM_P2_006, ETIM_P2_016 |
+| ETIM_F_033 | ETIM 周期与比较DMA请求 | 自然计数事件触发DMA完成指定搬运，停止事件时不传输 | ETIM_P2_006, ETIM_P2_016, ETIM_P2_017 |
 | ETIM_F_034 | ETIM 计数事件选择 | 零点、周期、A、B和自定义比较分别决定接收端触发时刻 | ETIM_P2_008, ETIM_P2_009, ETIM_P2_010 |
 | ETIM_F_035 | ETIM Event输出Enable/Disable | 关闭输出时接收端不响应，重新使能后由下一有效事件触发 | ETIM_P2_008, ETIM_P2_010 |
 | ETIM_F_036 | ETIM 事件Shadow加载 | 更新所在周期保留旧事件点，下一周期改用新事件点 | ETIM_P2_009 |
@@ -158,8 +171,9 @@ ZERO与PERIOD只相隔一个计数Tick，相关实例必须加大分频并满足
 | ETIM_F_040 | ETIM 外部SyncOut | 所选软件或周期同步通过外部输出路由形成真实引脚脉冲 | ETIM_P2_013 |
 | ETIM_F_041 | ETIM 外部Fault输入 | 选定外部输入产生封波与自然Fault中断，未选输入不产生Fault | ETIM_P2_014 |
 | ETIM_F_042 | ETIM 死区运行更新 | 无未完成延迟的安全窗口写新值后，后续边沿采用新延迟 | ETIM_P2_015 |
-| ETIM_F_043 | ETIM 捕获数据DMA搬运 | DMA从已冻结捕获槽搬运真实时间戳，值与独立刺激及捕获端点一致 | ETIM_P2_016 |
+| ETIM_F_043 | ETIM 捕获数据DMA搬运 | DMA从冻结槽或持续更新的捕获槽搬运真实时间戳，值与独立刺激一致；连续模式必须逐行证明无重复、缺失或混行 | ETIM_P2_016, ETIM_P2_017 |
 | ETIM_F_044 | ETIM 计数器回卷中断 | 自然计数越过最大值产生回卷pending及真实IRQ，普通周期清零不冒充回卷 | ETIM_P1_012 |
+| ETIM_F_045 | ETIM PWM Peer捕获选路 | 选中PWM Peer输出才刷新对应捕获槽，其他Peer输出不能替代被选源；周期与高低宽对应选中源 | ETIM_P2_018 |
 
 上述新增Feature只覆盖已描述的常规行为，不吞并滤波平局、死区窄脉冲、Fault与死区优先级、
 同步竞态或DMA捕获槽选择等剩余项。通道数、输入源数量和位宽仍是Capability参数。
@@ -198,8 +212,10 @@ ZERO与PERIOD只相隔一个计数Tick，相关实例必须加大分频并满足
 | ETIM_P2_014 | 外部XBAR Fault与恢复 | P2 | R4 | PLANNED | 实测Fault输入；XBAR.OUTPUT_LEVEL；自然Fault RAW；封波恢复波形 |
 | ETIM_P2_015 | 死区安全窗口动态更新 | P2 | R4 | PLANNED | 更新窗口；输入输出边沿；新旧实测延迟；Expected延迟 |
 | ETIM_P2_016 | 外部捕获值与DMA数据路径 | P2 | R4 | PLANNED | 输入波形；冻结CAPTURE.VALUE；DMA完成终态；Destination附件 |
+| ETIM_P2_017 | 连续捕获四槽周期快照DMA | P2 | R4 | PLANNED | 实测输入与周期基准；DMA硬件终态；逐行Destination；逐行Expected |
+| ETIM_P2_018 | PWM Peer捕获选路与隔离 | P2 | R2 | PLANNED | 选中Peer身份；CAPTURE.VALUE四槽；未选对照pending；Expected高低宽 |
 
-这些Case的语义不同于压力、最高频率、最小脉宽和最大捕获时长认证；后者仍为UNKNOWN，不能把普通矩阵当成替代。
+普通点、单Tick高宽和近全量程参数均保留实际测量；它们不等于压力认证或未给适用规范的最高频率、最小电气脉宽认证。
 
 ## 3. Machine-readable Case Contract
 
@@ -651,9 +667,9 @@ p_level: P2
 feature_refs: [ETIM_F_002, ETIM_F_003, ETIM_F_006, ETIM_F_007]
 method:
   inputs:
-    - 外部波形矩阵：对Bench声明可独立观测的PWM输出使用A和A_B模式，周期分别选为约0.1毫秒、1毫秒、5毫秒的整数Tick，A模式高宽约25%、50%、75%，A_B使用约25%到75%的高区间。
+    - 外部波形矩阵：对Bench声明可独立观测的PWM输出使用A和A_B模式，周期分别选为约0.1毫秒、1毫秒、5毫秒的整数Tick，A模式高宽约25%、50%、75%，A_B使用约25%到75%的高区间；另加入period_ticks为3、4、5的A模式，A固定1，divider覆盖最小及最大合法值，保留单Tick高宽目的而不假定电气最高频率。
     - 仪器时间基准：使用已校准示波器或时间间隔分析仪，记录时基精度、采样间隔、阈值和探头条件；Expected来自源时钟声明及分频配置，不从DUT捕获反推。
-    - 误差预算：周期和高宽的允许误差分别由时钟容差、仪器时基容差及两边沿采样误差上界相加得到，运行前固定，不按实测偏差放宽。
+    - 误差预算：周期和高宽的允许误差分别由时钟容差、仪器时基容差及两边沿采样误差上界相加得到，运行前固定，不按实测偏差放宽；单Tick参数要求总误差小于半Tick并满足Bench带宽，不能用更长高宽替换后仍计入该参数。
   steps:
     - 人工门禁与接线：确认目标板、输出端点、共地、允许电平及仪器输入规格，取得本次硬件门禁后连接并保存Bench身份。
     - 仪器基准设置：选择安全量程、测量阈值和至少能分辨最短高宽的采样率，读回设置并记录校准与时间精度信息。
@@ -667,7 +683,7 @@ method:
     - 外部周期与高宽：由外部时间基准提取的每周期及高宽落在Expected误差预算内，证明普通工作点的绝对时间和占空比。
   pass_criteria:
     - 外部时间符合：每一有效周期和高宽均在预先固定的误差预算内，边沿序列无额外或缺失脉冲。
-    - 波形矩阵完整：全部声明输出端点和普通参数完成，不把未确认的最高频率、最小脉宽或电气精度限值计入通过。
+    - 波形矩阵完整：全部声明输出端点、普通参数及3/4/5 Tick周期参数完成；最短高宽实测为1 Tick，未达到仪器分辨条件属于该参数未执行，不把未确认的最高频率或电气限值计入通过。
 timeout: 每输出参数10秒，仪器单次采集等待最多5秒。
 cleanup: [停止PWM输出, 恢复Bench安全输出状态, 停止仪器采集并释放会话, Disable并Clear本轮IRQ]
 resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的PWM输出端点及共地, bench: 已校准示波器或时间间隔分析仪和合适探头}
@@ -696,24 +712,24 @@ p_level: P2
 feature_refs: [ETIM_F_009, ETIM_F_010, ETIM_F_011, ETIM_F_021]
 method:
   inputs:
-    - 外部脉冲矩阵：信号源产生周期0.1毫秒、1毫秒、5毫秒、100毫秒且占空比25%、50%或75%的脉冲列，各已确认输入路由覆盖四槽RISING/FALLING/RISING/FALLING的绝对及全相对模式，保留长普通周期的自然Capture IRQ目的。
+    - 外部脉冲矩阵：信号源产生周期0.1毫秒、1毫秒、5毫秒、100毫秒且占空比25%、50%或75%的脉冲列，各已确认输入路由覆盖四槽RISING/FALLING/RISING/FALLING的绝对及全相对模式；另对每个计数实例的一条已确认外部输入，使用最大计数周期M和最小/最大divider，产生相邻间隔分别为M-K、M-2K、M-3K Tick的四边沿有限序列，覆盖近全量程；不把长时间矩阵重复扩乘全部等价输入选路。
     - 独立刺激观测：外部Observer在DUT输入端实测刺激边沿，输入电平、阈值及带宽由Bench确认；期望值来自实测刺激间隔乘接收计数频率。
-    - 误差及量程：运行前固定计数时钟容差、捕获量化误差和外部测量误差，最长测量间隔小于一次计数回卷；不声明最大捕获时长或分辨率极限。
+    - 误差及量程：运行前固定计数时钟容差、捕获量化误差和外部测量误差；长间隔保护量K取不小于1024 Tick及最长间隔总误差八倍的整数，要求3K小于M/4，使每一间隔的上下界均严格位于0到M之间。若时钟/仪器条件不满足，不缩短间隔后冒称近全量程通过。
   steps:
     - 门禁与输入连接：人工确认板卡、接收端点、共地和允许电平后连接信号源及外部Observer，保持信号源输出关闭。
-    - 刺激测量准备：配置当前周期与占空比及Observer采样，读回设置并固定误差预算，避免仅凭信号源面板值建立Oracle。
+    - 刺激测量准备：配置当前周期波形或四边沿有限序列，读回设置并固定误差预算；长间隔Observer须覆盖全部三段并具有独立时基，不能用稀疏软件时间戳代替真实边沿时间。
     - 捕获端武装：配置DUT长周期、输入分频旁路、滤波旁路、四槽One-Shot及当前绝对或相对模式，绑定末槽自然IRQ会话、Enable并Unmask，清pending并先启动接收。
-    - 外部刺激与采集：启动外部波形并同步保存DUT输入端真实边沿，在十个刺激周期内等待DUT末槽真实ISR，ISR保存清除前RAW、STATUS及首次来源后关闭该源投递，禁止Force。
+    - 外部刺激与采集：启动外部波形并同步保存DUT输入端真实边沿，普通参数在十个刺激周期内、长间隔参数在预先计算的三段总时长加余量内等待末槽真实ISR，ISR保存清除前RAW、STATUS及首次来源后关闭该源投递，禁止Force；长间隔期间不得停计数或相位预加载跳过真实等待。
     - 结果及刺激读取：关闭信号源后读取逐槽CAPTURE.VALUE和末槽RAW，同时取得覆盖本轮捕获窗的外部边沿附件。
-    - 独立间隔判定：绝对模式做相邻模减，相对模式舍弃首槽后比较后续槽；高宽、低宽和周期Expected由外部实测刺激换算，逐项应用固定误差预算。
+    - 独立间隔判定：绝对模式只做相邻模减，相对模式舍弃首槽后比较后续槽；高宽、低宽Expected由外部实测刺激换算。普通周期或长序列中需要的总时长以64位累加相邻结果，不对跨多次回卷的首尾槽直接模减。
     - 输入矩阵汇总：逐输入路由、周期、占空比及时间戳模式保存完整证据，结束后恢复安全输入和释放仪器。
   observations:
     - 实际输入端刺激：STIMULUS_OUTPUT.EDGE_TIMES包含DUT端真正收到的高低间隔，避免源设定误差或接线异常被归为捕获误差。
     - DUT捕获时间戳：逐槽CAPTURE.VALUE及本轮末槽pending证明真实加载，真实ISR首次来源及清除前STATUS证明外部捕获进入IRQ链，不能用PC计算结果或仅轮询代替。
   pass_criteria:
     - 捕获时间正确：高宽、低宽及周期对应外部刺激的实测时间，换算误差不超过预先固定预算。
-    - 路由模式完整：全部声明输入路由和普通脉冲参数在两时间戳模式下完成，并有匹配本通道末槽的真实ISR及STATUS；首槽启动延迟不作相对模式Oracle。
-timeout: 每参数10秒，DUT等待最多十个刺激周期加1秒，仪器采集最多5秒。
+    - 路由模式完整：全部声明输入路由、普通脉冲及近全量程参数在两时间戳模式下完成，并有匹配本通道末槽的真实ISR及STATUS；首槽启动延迟不作相对模式Oracle，长间隔实际等待与原始边沿证据必须齐全。
+timeout: 普通参数每实例10秒；长间隔参数在运行前由独立最慢计数频率计算三段总时长并加10%及5秒余量，固化为有界会话截止时间，PC短事务只查询会话状态，不自动重启长序列。
 cleanup: [先关闭外部信号源, 停止Capture及计数器, 禁用清除本轮IRQ, 恢复输入安全状态并释放仪器]
 resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的外部Capture输入路由及共地, bench: 信号源及已校准示波器或时间间隔分析仪}
 backend: [FPGA, Silicon]
@@ -1487,11 +1503,98 @@ gap: [case_implementation_gap, dma_request_mapping_gap, external_input_bench_map
 ```
 <!-- ET_CASE_PLAN_END -->
 
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: ETIM_P2_017
+case_name: 连续捕获四槽周期快照DMA
+report_feature: |-
+  1. ETIM 捕获Continuous
+  2. ETIM 捕获数据DMA搬运
+  3. ETIM 周期与比较DMA请求
+p_level: P2
+feature_refs: [ETIM_F_014, ETIM_F_043, ETIM_F_033]
+method:
+  inputs:
+    - 连续数据矩阵：每次运行8轮或64轮，DUT周期E为40000 Tick、四槽RISING/FALLING/RISING/FALLING且绝对连续捕获，同时产生A模式高宽2000 Tick、延迟旁路的周期参考输出；第j轮从0编号，令q为16j，四个刺激边沿相位分别为4000+q、10000+2q、22000+3q、30000+4q Tick，每行每槽均随轮次变化以暴露重复或混行。
+    - 快照搬运配置：DMA采用硬件PERIOD请求、P2M、32bit、每请求四字；有限LLI每节点搬一行，源递增读取四槽后由下一节点回到首槽，目的递增至下一行，链尾终止。目的前后保留哨兵；请求路由必须为一次请求一次确认而非持续至整链完成。
+    - 独立时序依据：脉冲源预载N段有限列表，由DUT每周期参考边沿逐次触发相应编号的四边沿段，段间保持LOW，不用PC逐段下发；外部Observer同时测输入和周期参考。参考边沿到计数零点的延迟界、捕获及计数时钟误差、整行DMA和描述符准备上界预先固定；每槽时间Oracle总误差小于8 Tick，DMA最坏时间小于周期请求到下一轮首槽覆盖的保护窗，运行前检查全部轮次而非用结果反推上界。
+  steps:
+    - 时序与门禁准备：确认安全输入和无负载周期参考输出，配置计数、四槽连续捕获、滤波及输入分频旁路，关闭Capture清计数、同步装载和Fault；固定每轮边沿Expected及保护窗。
+    - DMA先行武装：初始化目的哨兵和有限描述符，完成缓存准备，选择PERIOD请求并启用DMA；保持计数和刺激停止跨两个预期周期，确认目的、剩余量均未变化且无软件请求。
+    - 连续生产启动：先武装预载的有限列表和Observer，再启动DUT计数、PWM参考及Capture，每个周期参考触发列表下一段，恰好输出N段后停止接受触发；至有限链完成保持Capture连续加载，不冻结、不Rearm、不逐轮停机或CPU补写目的。
+    - 周期快照执行：每轮四边沿完成后由该轮PERIOD请求搬一行，目标侧仅等待有界DMA终态；外部Observer连续记录全部输入和周期基准，不以ISR调用次数代替DMA硬件进度。
+    - 完成数据取回：DMA完成后先停止输入和DUT计数，再确认DMA静止、读取COMPLETE及REMAINING并同步目的缓存，保存每节点配置和真实目的行、首尾哨兵及末轮CAP值。
+    - 逐行独立比较：由该轮实测输入相对周期参考的边沿时间及独立计数时钟换算四槽Expected，逐行逐槽匹配；所有行必须依次不同，无重复、缺行或上一行与下一行混合，末行另与停止后CAP端点一致。
+    - 轮数复核收尾：8轮及64轮各执行并保存完整波形和目的附件，链外哨兵保持、硬件无DMA错误且只完成计划行数；清理后说明这是PERIOD快照，不把它替代为每个CEVT自动握手或任意高速无丢样认证。
+  observations:
+    - 连续输入基准：STIMULUS_OUTPUT.EDGE_TIMES与PWM_OUTPUT.EDGE_TIMES证明每轮四边沿确实落入该轮计数窗口且保护窗未被侵入，建立独立逐行时间Oracle。
+    - DMA终态与目的行：DMA_CHANNEL.COMPLETE有效、REMAINING为零，Destination逐行保存四个真实时间戳且边界未改写；末行CAPTURE.VALUE独立读回只能校验末行，不能替代全部行Oracle。
+  pass_criteria:
+    - 行数据与时序正确：两轮数实例每行四槽均在固定时间预算内，行顺序唯一且完整、无混行；保护窗与DMA独立上界满足，不能只验最后四字。
+    - 请求与终态正确：停止生产的负对照不搬运，启动后只完成计划有限链，真实DMA终态和缓存同步后的目的同时成立，Capture期间未冻结或由软件产生DMA请求。
+timeout: 每实例在运行前按最慢计数时钟计算N乘E的时长并加20%及2秒余量；任一超时先停止生产者，再Abort DMA并等待静止，不重试同一序列。
+cleanup: [停止外部序列与DUT计数和PWM参考, 关闭Capture并确认DMA静止, 清本轮pending和释放DMA路由, 硬件静止后释放描述符及数据和仪器]
+resources: {minimum_level: R4, full_coverage_level: R4, board: 有外部捕获输入和独立周期参考输出且DMA可访问四槽, bench: 可触发有限序列的脉冲源及多通道时间Observer和片内DMA Peer}
+backend: [FPGA, Silicon]
+evidence: [完整输入及周期参考边沿, 有身份的逐行Destination与Expected, DMA硬件终态及描述符和边界哨兵]
+failure_observations:
+  - {key: actual_row, label: 本轮DMA实际四槽数据, source: artifact, role: actual, format: text}
+  - {key: expected_row, label: 独立时间期望四槽数据, source: oracle, role: expected, format: text}
+  - {key: dma_remaining, label: DMA实际剩余量, source: peer, role: actual, format: decimal}
+gap: [case_implementation_gap, dma_snapshot_timing_mapping_gap, external_input_bench_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
+<!-- ET_CASE_PLAN_BEGIN -->
+```yaml
+schema: et.case-plan.v1
+implementation_status: PLANNED
+case_id: ETIM_P2_018
+case_name: PWM Peer捕获选路与隔离
+report_feature: |-
+  1. ETIM PWM Peer捕获选路
+  2. ETIM 捕获边沿选择
+  3. ETIM 绝对捕获时间戳
+p_level: P2
+feature_refs: [ETIM_F_045, ETIM_F_009, ETIM_F_010]
+method:
+  inputs:
+    - Peer路由矩阵：遍历Capability声明的PWM Peer实例、A/B逻辑输出与DUT捕获通道组合，Peer标准精度向上计数且关闭高精度、同步、保护和延迟；被选输出两波形为完整周期5000且高宽2000 Tick、完整周期8000且高宽5500 Tick。同一实例另一输出配置互补非50%波形，A/B分别作为被选输入，不能用同形波形掩盖A/B串路。
+    - 输入隔离对照：每实例另选一个不同Peer实例的输出作为未选活动源，周期11000且高宽3500 Tick；被选Peer停止时其A/B均保持稳定，避免共享计数器造成对照污染，禁止由本DUT的PWM代替Peer。时钟比、Peer周期编码及捕获量化界在执行前固定。
+  steps:
+    - Peer和接收准备：分别通过各IP公共动作停止并配置两Peer，设置DUT最大周期、四槽绝对One-Shot、RISING/FALLING/RISING/FALLING、输入分频和滤波旁路，关闭DUT PWM及非目标同步和Fault。
+    - 未选活动对照：被选Peer保持稳定，武装接收并清pending后先读取四槽基线，再仅启动未选Peer跨三个周期，读取四槽和CAPTURE RAW，要求槽值不刷新且没有新的捕获pending。
+    - 被选波形启动：保持未选源运行，启动被选Peer并等待末槽真实pending，One-Shot冻结后停止被选Peer，读取四个CAPTURE.VALUE和各槽RAW，不使用预置数组替代端点。
+    - 高低宽独立比较：按相邻模减得到高宽、低宽及同极性周期，以被选Peer的完整周期和高宽乘独立时钟比得到Expected；三者均须匹配，且与未选Peer的Expected可分离。
+    - 输入选择交换：停止两源，重新配置DUT选择另一Peer实例的输出并交换两源身份，同时把新被选源配置为本轮被选波形、原被选源配置为11000/3500对照；重新武装后完整执行未选负对照和被选波形，不能只改字段读回。
+    - 第二波形复核：把被选源改为第二组周期和高宽，从停止配置重新执行；保存每个Peer输出和DUT通道身份，避免互补A/B、同名通道或旧结果误绑定。
+    - 路由汇总清理：全部声明组合均完成两波形及未选对照，记录未绑定组合为明确Mapping缺口，不以某一路通过概括全部输入；先停止两Peer再清理Capture和路由。
+  observations:
+    - 未选源捕获端点：活动对照期间四槽CAPTURE.VALUE保持且IRQ_RAW.CAPTURE各槽无新pending，证明未选活动输入没有泄漏到接收器。
+    - 被选源捕获时间戳：本轮四槽CAPTURE.VALUE和末槽RAW支撑高低宽与周期，三个时间量匹配被选Peer而非未选源，证明实际选路及捕获数据通路。
+  pass_criteria:
+    - 路由与隔离正确：两种选择方向的未选活动对照均无捕获，被选源启动后四槽确实更新；完整矩阵保留实例和输出身份，不遗漏未绑定组合。
+    - 数字时间符合：每波形的高宽、低宽和周期均在独立时钟及捕获误差界内，与未选源Oracle区间不相交；仅证明数字Peer输入，不声称外部引脚或绝对频率认证。
+timeout: 每路由参数5秒，单次末槽等待最多六个较慢Peer周期加1秒，超时停止两Peer且不隐式Rearm重试。
+cleanup: [停止两个PWM Peer并保持稳定输出, 停止DUT Capture及计数, 清捕获pending并解除输入选择, 释放Peer和DUT资源]
+resources: {minimum_level: R2, full_coverage_level: R2, board: 无外部跳线, bench: 两个可区分的片内PWM Peer输出及独立时钟映射}
+backend: [FPGA, Silicon]
+evidence: [Peer输出和DUT通道身份, 未选对照前后CAP及RAW, 被选四槽与独立高低宽及周期Expected]
+failure_observations:
+  - {key: capture_value, label: 被选源实际捕获值, source: dut, role: actual, format: hex32, semantic_ref: etim.feature.capture_value}
+  - {key: unselected_raw, label: 未选源活动时捕获pending, source: dut, role: actual, format: bool, semantic_ref: etim.interrupt.capture_raw}
+  - {key: expected_high, label: 被选源期望高宽Tick, source: oracle, role: expected, format: decimal}
+gap: [case_implementation_gap, pwm_peer_action_mapping_gap, peer_capture_clock_mapping_gap]
+```
+<!-- ET_CASE_PLAN_END -->
+
 ## 4. Chip Adaptation Summary
 
 | Chip | Feature Mapping | Case Adaptation | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=44 | IMPLEMENTATION_GAP=30 | 44个公共Feature、30个PLAN；0个实现、0个实测；剩余边界与路由项未完成 | `ET6801_etim.md` |
+| ET6801 | IMPLEMENTATION_GAP=45 | IMPLEMENTATION_GAP=32 | 45个公共Feature、32个PLAN；0个实现、0个实测；精确字段歧义及其余Peer路由未完成 | `ET6801_etim.md` |
 
 本汇总只统计已准入公共Feature和已定义PLAN，不是目标硬件需求全集的覆盖率分母。
 未准入的有效需求逐项保留在芯片文档，不能因为未分配Feature ID而从完成Gate中消失。
@@ -1507,10 +1610,10 @@ gap: [case_implementation_gap, dma_request_mapping_gap, external_input_bench_map
 | EG-05 | UNKNOWN | P2_003已规划旁路输出下CBC/One-Shot、重复输入及正常周期恢复；Fault与死区/互补优先级及同拍撤销/Clear竞态仍待可适用行为依据 |
 | EG-06 | UNKNOWN | P1_011含运行相位更新，P2_007保留外部相位波形、P2_013保留外送；停止时加载、同拍清零/同步优先级、精确脉冲延展及其使能位关联、非内部同步输入仍待核 |
 | EG-07 | UNKNOWN | P1_009/010和P2_009/015已有安全窗口立即/Shadow、事件接收及动态死区；计数已越过新值、比较/周期极端点和延迟计数期间更新仍未定，不能把安全窗口设计扩为全部竞态 |
-| EG-08 | UNKNOWN | P2_008～012已有真实接收端Oracle，相关接口及延迟为Mapping/Implementation Gap；P2_016覆盖冻结Capture值由周期请求搬运。Capture槽请求选择、连续捕获DMA握手及精确请求时序仍未定，不把DMA选择3的含混文字当CEVT1 |
-| EG-09 | UNKNOWN | P1_012已有最大周期自然回卷/IRQ与普通周期对照；最小运行周期、极限PWM脉宽、最大捕获时长、性能及压力限值仍须适用规范与外部时间基准，普通Case不得替代 |
+| EG-08 | UNKNOWN | P2_008～012已有接收端Oracle，P2_016为冻结值，P2_017为连续四槽PERIOD快照且有唯一行Oracle；逐CEVT握手和未确认的请求选择仍未定，不能把周期快照等价成逐捕获事件流。请求确认模式与DMA保护窗须按芯片映射固定 |
+| EG-09 | UNKNOWN | P1_012保留自然回卷/IRQ；P2_001已有3/4/5 Tick周期及单Tick高宽，P2_002已有真实近全量程长间隔，不再笼统列为未设计。零周期、精确端点竞态和目标电气/压力认证限值仍需适用说明 |
 | EG-10 | MAPPING_GAP | 外部输入/输出Bench端点、仪器精度和计数时钟容差尚未绑定；P2普通测量方法保留，不能因当前未接线删除 |
-| EG-11 | UNKNOWN | P2_014已规划外部Fault选路与真实封波；其双输入到XBAR输出的目标绑定为Mapping Gap。其余Capture/SYNC输入矩阵的各Peer刺激与接收Oracle仍未逐一闭合，数量不是覆盖证明 |
+| EG-11 | UNKNOWN | P2_014已有外部Fault，P2_018已有PWM Peer各输出到各捕获通道的选路/未选隔离方法；其余逻辑/串行/模拟事件Peer及非内部同步输入仍须逐组闭合，不能用PWM Peer矩阵替代全部Capture/SYNC源 |
 
 优先顺序：先复核并实现P0计数和IRQ基础，再闭合EG-02实施内部捕获/PWM；外部普通测量与
 EG-03～EG-09的剩余边界按继承资料、目标字段说明及后续适配证据继续定向收敛；硬件执行另需授权。该顺序不缩小完整IP覆盖义务。
