@@ -5,7 +5,8 @@
 ## 0. 不可违反
 
 - 仓库：`Abba-shenfu/Automated_Testing_Platform`。
-- 默认工作分支为`review_code`；用户明确指定时以用户选择为准。未经明确要求不得修改`main`。
+- 开发只能在`codex_dev`分支继续；仅当用户（人工）明确指定其他分支时才允许例外。不得根据旧文档、当前检出的分支或Agent建议自行换分支、新建分支或worktree。
+- 本机正式仓库为`D:\lihuan\vibe_code\codex\projects\ET_ATP_Testing`（WSL：`/mnt/d/lihuan/vibe_code/codex/projects/ET_ATP_Testing`）。每次开始或恢复工作先核对`git rev-parse --show-toplevel`和`git branch --show-current`；不符时停止写入并报告，不自动切换或回退到旧副本。
 - 禁止临时补丁分支、Force Push、改写历史、覆盖并行修改或丢弃用户变更。
 - 公共架构已冻结；优先级为`可靠 > 稳定 > 轻量化 > 易扩展`。
 - 局部问题优先复用正确层并做最小修改；禁止无证据增加Framework、Registry、Workflow、DI、Plugin或通用资源图。
