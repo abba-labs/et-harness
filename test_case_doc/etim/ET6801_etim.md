@@ -6,9 +6,14 @@
 公共语义唯一入口：[etim.md](etim.md)。文档记录遵循工作区`DOCUMENTATION_RULES.md`。
 源码基线：ATP `codex_dev`，`a6b3e9b79815d11d97469b029063818591bf4f54`；本次分析前工作树干净。
 
-**阶段结论：PARTIAL_ANALYSIS。** 已准入22个Feature并写12个PLAN，0个Formal Case实现、0个实测。
-下面的Source Item全集含未闭合需求；不能用22/22映射或12/12机器块合法声称整个ETIM规划完成。
+**阶段结论：PARTIAL_ANALYSIS。** 继承复核后准入33个Feature并写19个PLAN，0个Formal Case实现、0个实测。
+下面的Source Item全集含未闭合需求；不能用33/33映射或19/19机器块合法声称整个ETIM规划完成。
 本地SDK中的测试函数、旧手册公式及入口调用均不是本轮FPGA/Silicon PASS。
+
+2026-09-06 18:15 CST复核基线为`c5e7c24bba855f044e7f5353f41f53ad7999fb54`，工作树初始干净。
+用户明确ETIM为继承IP，目标硬件交付只有SVD，无法提供RTL。本轮据此纠正分析方法：
+6003/3101参考资料可以解释稳定机制，ET6801 SVD负责确认功能存在并约束字段、数量和路由差异。
+RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，但也不能单独证明ET6801硬件已验证。
 
 ## 第一章 Source Coverage / Evidence Set
 
@@ -88,10 +93,12 @@
 | M1 | SVN/ET6003/03参考资料/IDS/ET6003-用户手册_寄存器定义_V1.0.0.docx | `4ABC402E551A37732369703E5E9CD2D5445CAA73344B56C5938463C72E25EE70` |
 | M2 | SVN/ET6003/03参考资料/ET60157-用户手册_V1.0.0.pdf | `B4D2F0754CDD717CE4708E9BA1542730610C7F5A7FA7F20E364D91EC3D845AB4` |
 | B1 | BOOT两份ET6x_Driver/Src/et6x_etimer.c | `6578D4228329D33CF877EB68C698C67AC4575F53769AD83E30409EE596B3665C` |
+| H6 | V6003/Tools/RegGen/svd/etim_cfg.svd，继承字段复核 | `0D933B6EA0ECF45BEE94A53FC964527D0411C79F9E86A33D0E0E05E53282935F` |
+| H7 | V3101/Tools/RegGen/svd/etim_cfg.svd，继承字段复核 | `E42753DAF63523DC1B46215742327995F5B80E1732FEF0AA5A4DAB82E2A2CDC6` |
 
 文档先使用ET技能导航和共享toolbox摘要，再定向解析DOCX XML/OMML公式、PDF文字与关键示意图。
 目标SVD使用XML结构解析，特别处理本地拆分SVD中cluster内addressOffset已为绝对偏移的方言，
-不再次叠加cluster起点。参考手册只用于发现问题和保留测试目的，不能独自证明目标硬件SUPPORTED。
+不再次叠加cluster起点。参考资料用于解释继承机制和设计Oracle，结合目标SVD确认适用范围，不能独自证明目标硬件SUPPORTED。
 过程输出位于外层项目`Et_Automated_Testing_Platform_Code/artifacts/runs/20260906_154000_etim_analysis/`，
 含chip query、doc discovery、定向文字提取和私有参考图；这些图不作为可公开波形报告。
 
@@ -136,7 +143,7 @@
 
 最少接线路线是独立ETIM PWM通道经`cap_in_srcsel`输入另一ETIM Capture。
 本轮只能确认这条数字路由存在，不能宣称全部输出支路、延迟旁路和捕获时钟误差上界已经实现映射。
-尤其DB_SEL的a支路第3级MUX说明错写为b支路；普通PWM源优先选择有直接证据的支路，
+尤其DB_SEL的a支路第3级MUX说明与支路标题不一致；普通PWM源优先选择有直接证据的支路，
 其余支路保持G04，不允许把部分路由结果扩成12路PWM全覆盖。捕获通道可逐一轮换，生产者仍须独立。
 
 ### 2.3 已确认Driver风险（只记录，未修改）
@@ -153,6 +160,24 @@
 | D2 ETIMER_resetCapture | 接口接受mask形式但POSITION_VAL只选一个通道 | 公共直接动作采用单逻辑通道，适配层拒绝混合mask |
 | H2 DB_SEL及同步/触发文字 | a支路文字指向b、若干选择项残留通道12/13 | 保留G04/G06/G08，寄存器字段存在不证明具体时序和路由文字都正确 |
 
+### 2.4 继承机制复核与适用裁决
+
+以下比较使用H2/H6/H7的XML字段内容，而不是仅看同名API或相同文件名。VERIFIED指所列
+静态事实有证据；常规行为Oracle是基于目标字段与继承资料形成的待测契约，不等于ET6801实测。
+
+| 机制 | 证据与裁决 | 可以确定的设计 / 剩余边界 |
+|---|---|---|
+| 窗口滤波 | VERIFIED：H2/H6/H7的CAP_FILTER四字段位宽和描述一致，均为W=SAMPWIN+1、T=THRESH+1、FILINIT选择全零或当前输入；并非从旧连续采样结构刚在6801改造 | P2_004用T>W/2消除双阈值歧义，短脉冲不足T次采样、长平台填满窗口；采样周期编码归G03映射，不用M2旧N+1公式覆盖窗口算法 |
+| 四链死区 | VERIFIED：三份SVD均有同样s0输入选择、s1上升延迟、s2下降延迟、s3旁路/直出/反相以及四个14bit延迟；a支路s3描述复制b也在两参考SVD存在 | P2_005先覆盖文字自洽的b支路；a支路是共同文档歧义，不是已证实目标新增机制，不能无依据改正为确定事实；窄脉冲和动态延迟另G04 |
+| Shadow | VERIFIED：目标shdw_ug明确周期边界加载，update_vld明确A/B都写完再提交并硬件清零；H6/H7及FT test_40/41保留同类需求 | P1_009/010已有独立过渡边沿Oracle；目标周期边界优先于M2旧SHWD可编程比较/事件装载点，不再等待RTL |
+| 同步 | VERIFIED：三份CTRPHS均明说同步到达时装入计数器，SW_SYNC、SYNC_IN_EN、SYNCO_SEL语义一致；目标输入选择扩到6bit | P1_011验证运行中的相位跳变及禁用对照，目标ETIM输入24..35取代旧18起始；停止时、同拍清零等竞态不影响该正常路径规划 |
+| Fault | VERIFIED：目标CBC/One-Shot、软件输入、Clear、输出极性及三个自然IRQ均存在且与继承结构相符；M2 13.4.5.2解释CBC周期退出、OS同周期撤销+Clear及重复输入overflow | P2_003将这些正常状态路径作为继承测试Oracle，保留无Clear负对照；没有将旧输出互补图套给新DB，Fault/DB优先级仍G05。若实测不符需登记目标差异，不改Expected凑PASS |
+| DMA | VERIFIED：目标每通道DMA三位字段明确列出1=PRD、2=CMP，与SYSCTRL十二个请求入口共同确认普通请求选择；旧全局四路API与新字段不适用范围不同 | P2_006以公共DMA硬件终态和Destination证明基本搬运；3所称事件是哪一CAP槽及4..7仍UNKNOWN，旧src=0..55不能直接下发 |
+
+G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需要绑定的独立时钟/映射事实，
+不是“滤波/死区/同步全部原理未知”。若映射未完成，相应execution不能开始，更不能自行放宽容差。
+可继续从目标时钟字段、同族同结构说明或硬件方对具体字段的简短答复补齐，不要求内部RTL文件。
+
 ## 第三章 Source Item Trace
 
 ### 3.1 需求Test Point逐项处置
@@ -166,16 +191,16 @@
 | TP001 | 各PWM通道输出波形 | H1/H3为12通道；P1_001/P2_001覆盖已确认路由，其余输出支路G04/G02 | SPLIT |
 | TP002 | 分频改变波形频率 | 六位实际1..64；P0_001读回、P1_001数字比例、P2_001外部时间 | SPLIT |
 | TP003 | 32位周期及输出周期 | P0_001配置边界、P1_001/P2_001普通波形；运行极限G09 | SPLIT |
-| TP004 | 相位装载后波形偏移 | CTRPHS/SYNC_CTRL存在；触发边界G06 | UNKNOWN |
+| TP004 | 相位装载后波形偏移 | P1_011证明计数相位装载；引脚相位测量仍G06/G10，不能以计数替代波形 | SPLIT |
 | TP005 | A/A+B占空模式 | P1_001和P2_001分别内部与外部高低宽 | SPLIT |
 | TP006 | A比较值影响波形 | 同上A模式参数分支，动态更新另G07 | MERGED |
 | TP007 | B比较值影响波形 | 同上A_B分支，非法顺序P1_008 | SPLIT |
-| TP008 | 死区上升延迟 | OUT.APOS_DLY/BPOS_DLY四链之一，延迟时钟G04 | UNKNOWN |
-| TP009 | 死区下降延迟 | OUT.ANEG/BNEG，G04 | UNKNOWN |
-| TP010 | 死区输入源选择 | DB_SEL.s0a/s0b存在，完整通路G04 | UNKNOWN |
-| TP011 | 死区上升延迟使能 | DB_SEL.s1a/s1b，G04 | UNKNOWN |
-| TP012 | 死区下降延迟使能 | DB_SEL.s2a/s2b，G04 | UNKNOWN |
-| TP013 | 死区输出选择/反相 | DB_SEL.s3a/s3b文字冲突，G04 | CONFLICT |
+| TP008 | 死区上升延迟 | P2_005正常脉宽与已映射支路；a支路及窄脉冲G04 | SPLIT |
+| TP009 | 死区下降延迟 | P2_005正常延迟；剩余同TP008 | SPLIT |
+| TP010 | 死区输入源选择 | P2_005自身/另一支路来源Observer；a支路G04 | SPLIT |
+| TP011 | 死区上升延迟使能 | P2_005单开/双开/旁路；未确认支路G04 | SPLIT |
+| TP012 | 死区下降延迟使能 | P2_005单开/双开/旁路；未确认支路G04 | SPLIT |
+| TP013 | 死区输出选择/反相 | P2_005覆盖自洽b支路，a支路s3仍CONFLICT G04 | SPLIT |
 | TP014 | PWM使能后输出 | P1_006恢复后真实周期，不只Enable读回 | MERGED |
 | TP015 | PWM失能停止输出 | P1_006稳定窗无新捕获，关闭电平不作假定 | MERGED |
 | TP016 | Timer使能 | P0_001实时计数、P1_006恢复输出 | SPLIT |
@@ -188,25 +213,25 @@
 | TP023 | One-Shot | P1_004后续刺激下CAP保持 | MERGED |
 | TP024 | Continuous | P1_004多窗口真实刷新 | MERGED |
 | TP025 | One-Shot重装 | P1_004 ReArm后首槽及新数据，不以API返回成功替代 | MERGED |
-| TP026 | 滤波时钟分频 | CAP_FILTER.CLKPRESCALE倍数公式缺失，G03 | UNKNOWN |
-| TP027 | 滤波阈值 | 目标窗口计数阈值，不等于旧连续采样算法；G03 | UNKNOWN |
-| TP028 | 滤波窗口大小 | 窗口+1明确，平局/输出保持规则缺失；G03 | UNKNOWN |
-| TP029 | Fault各通道输入 | PWM_CTRL Fault字段明确，激活到输出/恢复G05 | UNKNOWN |
+| TP026 | 滤波时钟分频 | P2_004跨已映射采样设置；编码公式Mapping G03，精确分频比测量仍待规划 | SPLIT |
+| TP027 | 滤波阈值 | P2_004唯一多数阈值；双方同时达阈值及精确边界G03 | SPLIT |
+| TP028 | 滤波窗口大小 | P2_004的8/16窗口；全边界与初始化瞬态G03 | SPLIT |
+| TP029 | Fault各通道输入 | P2_003软件输入，XBAR及全输出支路G05/G11 | SPLIT |
 | TP030 | “采样转换结束时刻”Fault | 两份Case019步骤仅“删除”，无ETIM有效刺激/观测；不排除其他Fault需求 | REJECTED |
-| TP031 | One-Shot Fault | 软件Fault及恢复步骤历史不一致；目标退出时序G05 | UNKNOWN |
-| TP032 | CBC Fault | 需输入撤销与周期边界关系，G05 | UNKNOWN |
-| TP033 | 软件Fault触发 | fault_sw存在，不能用IRQ Force替代；G05 | UNKNOWN |
+| TP031 | One-Shot Fault | P2_003沿继承周期恢复模型，保留无Clear对照；同拍竞态G05 | SPLIT |
+| TP032 | CBC Fault | P2_003输入撤销后周期边界恢复；同拍竞态G05 | SPLIT |
+| TP033 | 软件Fault触发 | P2_003真实fault_sw输入及自然IRQ，不使用Force | MAPPED |
 | TP034 | XBAR Fault输入 | 两个目标XBAR选择；刺激路由和恢复G05/G11 | UNKNOWN |
-| TP035 | Fault强制高电平 | fault_out=1明确，最终输出优先级和观察点G05 | UNKNOWN |
-| TP036 | Fault强制低电平 | fault_out=0明确，最终输出优先级和观察点G05 | UNKNOWN |
+| TP035 | Fault强制高电平 | P2_003延迟/反相旁路下独立电平Observer，组合优先级G05 | SPLIT |
+| TP036 | Fault强制低电平 | P2_003低电平参数，组合优先级G05 | SPLIT |
 | TP037 | Fault与互补 | 旧需求奇通道不变与旧手册继承关系冲突，目标新DB结构；G05 | CONFLICT |
 | TP038 | 零点事件输出 | EVT_TO_ADC选择零点存在，接收端观测G08 | UNKNOWN |
 | TP039 | 周期事件输出 | 同上周期事件，不能由内部IRQ替代外送事件；G08 | UNKNOWN |
 | TP040 | A比较事件输出 | 同上A事件，G08 | UNKNOWN |
 | TP041 | 自定义事件值输出 | EVENT_CNT存在，G08/G07 | UNKNOWN |
-| TP042 | 同步输入相位校正 | 目标CTRPHS及SYNC_IN_EN；G06 | UNKNOWN |
-| TP043 | 同步输入源选择 | 目标路由编码不同于历史；G06/G11 | UNKNOWN |
-| TP044 | 同步输出到ETIM | 软件/周期源存在；接收相位Oracle G06 | UNKNOWN |
+| TP042 | 同步输入相位校正 | P1_011运行计数器正常装载；停止和竞态G06 | SPLIT |
+| TP043 | 同步输入源选择 | P1_011内部ETIM源；其余Peer G06/G11 | SPLIT |
+| TP044 | 同步输出到ETIM | P1_011软件/周期/关闭模式与接收COUNT.LIVE | MAPPED |
 | TP045 | 同步输出到ADC | 接收ADC真实转换/时间证据G08 | UNKNOWN |
 | TP046 | 同步输出到DAC | DACC选择存在，双路触发/更新证据G08 | UNKNOWN |
 | TP047 | 同步输出到ACMP | CMPC[11]双nibble选择，G08 | UNKNOWN |
@@ -216,15 +241,15 @@
 | TP051 | 全部IRQ源 | P0_002所有Force位，P1_007比较/周期/捕获自然源，P1_008配置错误；Fault/回卷G05/G09 | SPLIT |
 | TP052 | IRQ Mask | P0_002 RAW保留且STATUS抑制，不接受最终全零单点证明 | MERGED |
 | TP053 | IRQ Unmask | P0_002原pending恢复投递 | MERGED |
-| TP054 | 运行时周期立即加载 | 不能由停止配置替代动态生效边界，G07 | UNKNOWN |
-| TP055 | 运行时比较立即加载 | 同上，包含A/B过渡，G07 | UNKNOWN |
+| TP054 | 运行时周期立即加载 | P1_009安全窗口双向改变；计数已越过新值G07 | SPLIT |
+| TP055 | 运行时比较立即加载 | P1_010先于比较点写入；已越过比较点G07 | SPLIT |
 | TP056 | 运行时相位立即加载 | 新目标没有旧SHWD相位加载位，不能直接排除相位更新目的；G06/G07 | UNKNOWN |
 | TP057 | 运行时死区立即加载 | 四链时序和过渡G04/G07 | UNKNOWN |
 | TP058 | 运行时事件立即加载 | EVENT_CNT与接收端事件，G07/G08 | UNKNOWN |
-| TP059 | 周期Shadow加载 | H2明确边界装载，但完整过渡观测G07 | UNKNOWN |
-| TP060 | 比较Shadow加载 | UPDATE_VLD比较对提交存在；历史提交顺序错误，G07 | UNKNOWN |
+| TP059 | 周期Shadow加载 | P1_009当前周期旧值、下一周期新值的连续边沿 | MAPPED |
+| TP060 | 比较Shadow加载 | P1_010未提交/半对负对照与成对提交，不复制旧顺序 | MAPPED |
 | TP061 | 事件Shadow加载 | H2有SHDW_UG事件位，接收Oracle G07/G08 | UNKNOWN |
-| TP062 | DMA事件请求 | 目标12路通道请求不同于旧4全局输出；G08 | CONFLICT |
+| TP062 | DMA事件请求 | P2_006周期/比较搬运；Capture槽请求仍UNKNOWN G08；旧API冲突已定位适用范围 | SPLIT |
 
 ### 3.2 历史44个Case逐项处置
 
@@ -236,11 +261,11 @@
 | 001 | PWM通道输出；步骤周期与“50kHz”期望未给一致时钟 | SPLIT：P1_001数字、P2_001外部；路由全集G02/G04，重算Oracle |
 | 002 | PWM分频波形 | SPLIT：P1_001全部合法divider、P2_001外部时间 |
 | 003 | 周期设置并看频率 | SPLIT：P0_001字段、P1_001/P2_001普通波形、动态与极限G07/G09 |
-| 004 | 相位偏移输出 | UNKNOWN：G06；不能只读CTRPHS |
+| 004 | 相位偏移输出 | SPLIT：P1_011计数装载，外部相位波形目的仍G06/G10 |
 | 005 | 占空比调节 | SPLIT：P1_001/P2_001静态参数；运行时更新G07 |
 | 006 | A比较模式 | SPLIT：P1_001/P2_001；保留高宽Oracle |
 | 007 | A+B及非法比较顺序 | SPLIT：P1_001/P2_001波形、P1_008错误；动态边界G07 |
-| 008 | 死区延迟、交换及反相 | UNKNOWN：G04；不沿用旧互补/交换接口 |
+| 008 | 死区延迟、交换及反相 | SPLIT：P2_005自洽支路正常波形；a支路歧义、动态和窄脉冲G04 |
 | 009 | 捕获通道及周期值 | MAPPED：P1_002/003/004覆盖捕获端通道，内部源映射G02 |
 | 010 | 捕获输入预分频 | MAPPED：P1_005实际倍率全矩阵 |
 | 011 | 捕获上下沿 | MAPPED：P1_002/003；原代码部分“下降沿”仍配置上升，改用非对称刺激 |
@@ -248,40 +273,41 @@
 | 013 | One-Shot | MERGED：P1_004冻结前后比较 |
 | 014 | Continuous | MERGED：P1_004后续刷新，不以ISR出现一次代替 |
 | 015 | Rearm | MERGED：P1_004新一轮数据及槽序列 |
-| 016 | 滤波分频 | UNKNOWN：G03；历史threshold大于window、IRQ槽错配不能形成Oracle |
-| 017 | OS Fault输出及退出 | UNKNOWN：G05 |
-| 018 | CBC Fault输出及退出 | UNKNOWN：G05 |
+| 016 | 滤波分频 | SPLIT：P2_004唯一多数窗口跨采样设置；精确分频比和边界G03，旧错误方法不复制 |
+| 017 | OS Fault输出及退出 | SPLIT：P2_003正常周期恢复及无Clear对照；同拍竞态G05 |
+| 018 | CBC Fault输出及退出 | SPLIT：P2_003正常周期恢复；同拍竞态G05 |
 | 019 | “采样转换时刻”，步骤为“删除” | REJECTED：无有效ETIM测试目的；仅排除此条，不删除Fault测试全集 |
 | 020 | XBAR Fault输入 | UNKNOWN：G05/G11 |
-| 021 | Fault输出高 | UNKNOWN：G05 |
-| 022 | Fault输出低 | UNKNOWN：G05 |
+| 021 | Fault输出高 | SPLIT：P2_003旁路输出高电平；互补/死区组合G05 |
+| 022 | Fault输出低 | SPLIT：P2_003旁路输出低电平；互补/死区组合G05 |
 | 023 | Fault与互补输出 | CONFLICT：G05；目标优先级未定 |
 | 024 | 零点事件外送 | UNKNOWN：G08；同名FT实际配置DAC/ACMP，不按函数编号机械映射 |
 | 025 | 周期事件外送 | UNKNOWN：G08；ADC完成须接收端真实证据 |
 | 026 | A比较事件外送 | UNKNOWN：G08 |
 | 027 | 自定义事件外送 | UNKNOWN：G08 |
-| 028 | 同步输入 | UNKNOWN：G06 |
+| 028 | 同步输入 | SPLIT：P1_011内部源，其他Peer及外部相位波形G06/G11 |
 | 029 | 同步ADC | UNKNOWN：G08 |
 | 030 | 同步DAC | UNKNOWN：G08 |
 | 031 | 同步ACMP | UNKNOWN：G08 |
 | 032 | 同步XBAR/PIN | UNKNOWN：G06/G08 |
-| 033 | 自然IRQ，含Fault和回卷 | SPLIT：P1_007、P1_008；剩余G05/G09，不能由Force全部替代 |
+| 033 | 自然IRQ，含Fault和回卷 | SPLIT：P1_007、P1_008、P2_003三个Fault源；回卷G09，不能由Force替代 |
 | 034 | IRQ屏蔽和清除 | MAPPED：P0_002增加真实投递和选择清除证明 |
-| 035 | 周期立即加载 | UNKNOWN：G07，停止后配置不是等价替代 |
-| 036 | 比较立即加载 | UNKNOWN：G07 |
+| 035 | 周期立即加载 | SPLIT：P1_009运行安全窗口，计数已越过新值G07 |
+| 036 | 比较立即加载 | SPLIT：P1_010运行安全窗口，已越过比较点G07 |
 | 037 | 相位立即加载 | UNKNOWN：G06/G07 |
 | 038 | 事件立即加载 | UNKNOWN：G07/G08 |
 | 039 | 死区立即加载 | UNKNOWN：G04/G07 |
-| 040 | 周期影子加载 | UNKNOWN：G07 |
-| 041 | 比较影子加载 | UNKNOWN：G07；必须写好A/B再提交，不照搬历史顺序 |
+| 040 | 周期影子加载 | MAPPED：P1_009运行中过渡周期Oracle |
+| 041 | 比较影子加载 | MAPPED：P1_010半对/整对未提交负对照及边界提交 |
 | 042 | 事件影子加载 | UNKNOWN：G07/G08 |
-| 043 | DMA搬运Capture值 | CONFLICT：G08；旧软件捕获API和四路全局DMA选择不可移植，但搬运目的保留 |
+| 043 | DMA搬运Capture值 | UNKNOWN：G08捕获槽选择；P2_006仅覆盖普通自然请求，不冒充Capture值搬运目的已覆盖 |
 | 044 | 软件锁存、清零 | MAPPED：P0_001；R3仅标题和test_44仍保留有效目的，补齐前后计数Oracle |
 
 ### 3.3 目标及参考源码的有效测试语义
 
 本表的“存在”“入口调用”“历史断言”严格分开；没有当前运行日志，不给历史PASS。
 函数中错误配置只影响历史Oracle可信度，不能据此删除原测试目的。
+表中G03～G08原始待办按3.5节继承复核逐项细化，历史源码事实不因新增PLAN而改写。
 
 | 来源/符号 | 实际刺激、观测和入口事实 | 目标处置 |
 |---|---|---|
@@ -338,9 +364,26 @@
 |---|---|---|
 | ET6002详细设计PWM/Capture公式（含OMML） | 历史设计给PWM周期、A或B-A占空及绝对/相对捕获计算思路 | 采用数学关系，但其prd单位含混；由目标P=3000断言与M2包含终值解释普通P+1，不直接复制参数 |
 | M2第13章计数图，物理153页附近 | 旧器件0..P含终点，A/(P+1)、(B-A)/(P+1) | 普通波形辅助证据；不能证明目标P=0、最大周期、最高频率 |
-| M2 Fault段及输出图，物理155～157页附近 | 旧OS退出要求输入无效与清除在同周期，CBC在周期边界退出；旧图Fault在互补之后 | 目标新DB链不能直接继承；保留G05，不发布目标优先级 |
-| M1/M2滤波段 | 旧连续N+1采样与目标窗口阈值结构不同 | 不能用旧滤波延迟公式填补目标CLKPRESCALE/G03 |
-| M2捕获和事件段，物理160～166页 | 输入预分频针对波形；旧四路DMA、旧同步编码和16时钟事件脉冲说明 | 只保留目的；目标DMA/SyncOut/EN3文本冲突仍G06/G08 |
+| M2 Fault段及输出图，物理155～157页附近 | 旧OS退出要求输入无效与清除在同周期，CBC在周期边界退出 | 结合目标同义Fault字段形成P2_003正常路径Oracle；不把旧互补图当目标DB优先级证据 |
+| M1/M2滤波段 | 旧连续N+1采样与窗口阈值结构不同 | H6/H7已和H2同为窗口结构，P2_004依据三份SVD；不用旧公式填补CLKPRESCALE |
+| M2捕获和事件段，物理160～166页 | 输入预分频针对波形；旧四路DMA、旧同步编码和16时钟事件脉冲说明 | 机制可继承、编码按H2；普通内部同步P1_011和DMA P2_006已规划，外送延展和Capture请求仍G06/G08 |
+
+### 3.5 参考源码待办的继承复核处置
+
+本表是3.3中相应G项的新处置，不把原来的无断言函数记成已有覆盖，也不删除未覆盖部分。
+
+| 3.3来源集合/符号 | 本轮Case对应关系 | 仍未由该Case覆盖的目的 |
+|---|---|---|
+| 三芯片FT test_3及test_40 | P1_009运行周期立即/Shadow双向更新 | 新周期小于当前计数的异常边界G07、极限G09 |
+| FT test_5/6/7、test_41；FPGA ETIMER_4动态比较部分 | P1_010比较立即与Shadow成对提交；P1_001静态占空仍保留 | 已越过比较点的更新G07；不称相同高宽即等价覆盖 |
+| FT test_4/28；FPGA ETIMER_3 | P1_011内部同步软件/周期源与相位计数装载 | 外部相位波形、非内部源和同拍优先级G06/G11 |
+| FT test_8、Smoke DB体、FPGA ETIMER_4死区部分 | P2_005正常延迟、输入选择、反相和旁路 | a支路歧义、窄脉冲及动态死区G04；动态比较由P1_010另行覆盖 |
+| FT test_16及UnitTest滤波配置部分 | P2_004唯一多数阈值短长脉冲；修正threshold大于window和IRQ槽错配 | 精确采样分频、双阈值边界和初始化瞬态G03 |
+| FT test_17/18/21/22/23中的软件Fault、test_33的Fault源 | P2_003软件CBC/OS、高低封波、恢复及重复输入自然IRQ | test_23互补组合优先级G05、test_20外部XBAR输入G11 |
+| UnitTest DMA选择和普通目标请求字段 | P2_006目标PRD/CMP请求真实搬运 | 两参考FT test_43的Capture值搬运目的仍G08，不能由常数源测试替代 |
+
+新增七个PLAN没有消除所有有效需求；G项只留下上表明确列出的差异、边界和联动，
+不再笼统声称整个模块没有原理依据或需要目标RTL才能设计测试。
 
 ## 第四章 Public Observation / Execution Mapping
 
@@ -369,6 +412,16 @@
 | irq Force/Clear | CMN_INT[i].INT_FORCE_IND / INT_CLR | 对指定合法bit操作；避免读改写把其他源动作重复触发 |
 | IRQ_DELIVERY.* | 平台当前IRQ会话的真实ISR锁存/计数 | 不是硬件寄存器，报告必须单列Service来源 |
 | PWM_OUTPUT / STIMULUS_OUTPUT | Bench输出/输入端外部Observer边沿附件 | 目前未绑定引脚、仪器、精度、阈值，属于G10；禁止复用旧固定GPIO号 |
+| UPDATE.COMMIT_PENDING | CORE[i].PWM_CTRL.update_vld | A/B写完再置位；硬件清零；读取零不是提交成功的充分证明 |
+| update mode | CORE[i].PWM_CTRL.shdw_ug | bit0周期、bit1比较对、bit2事件；本次P1_009/010仅前两项 |
+| SYNC.PHASE / INPUT_ENABLE | CORE[i].CTRPHS / SYNC_CTRL.sync_in_en | 分别记录；实际相位作用通过RLCNT_RPT观测 |
+| configure_sync / emit_sync | CORE[i].SYNC_CTRL.synco_sel / sync_src_sel / sw_sync | 内部源编码24+i；软件0、周期1、关闭2或3；不操作全局CFG_ETIM_SYNC_OUT就能验证内部同步 |
+| configure_fault / set_fault_input / clear_fault | CORE[i].PWM_CTRL.fault_mode/out/en/sel/sw/clr | sel=0软件，CBC=0、OS=1；fault_clr与CMN_INT.INT_CLR严格区分 |
+| FAULT_OUTPUT.LEVEL | 已确认旁路支路的外部Observer | 不从PWM_CTRL.fault_out回显构造Actual |
+| filter WINDOW_MAJORITY | CORE[i].CAP_FILTER及EN2滤波使能 | W=SAMPWIN+1、T=THRESH+1，初始化按filinit，采样时钟范围G03；捕获输入预分频固定旁路 |
+| configure_delay | OUT[g].DB_SEL及APOS/ANEG/BPOS/BNEG_DLY | g=0..5；b支路自洽，s0b=0自身/1另一支路；s3b=0或3旁路、1处理、2反相；a支路s3文字仍G04 |
+| configure_dma_request | CMN[i].DMA.dma_ch_sel，SYSCTRL请求55+i | 1=周期、2=比较；不使用旧API的0..55源枚举 |
+| DMA_CHANNEL.COMPLETE / REMAINING | 已有公共DMA契约解析的目标DMA端硬件终态 | ETIM文档不复制DMA寄存器布局；数据源绑定CORE[i].TIMER_CYC固定读，公共动作不得越层 |
 
 ### 4.2 后续实现前必须满足的映射前提
 
@@ -405,6 +458,17 @@
 | ETIM_F_020 | SUPPORTED | A/B/Period三个自然源；不含真正回卷 | IMPLEMENTATION_GAP | ETIM_P1_007 |
 | ETIM_F_021 | SUPPORTED | Capture四槽bit8..11 | IMPLEMENTATION_GAP | ETIM_P1_007 |
 | ETIM_F_022 | SUPPORTED | A≥B配置错误bit3 | IMPLEMENTATION_GAP | ETIM_P1_008 |
+| ETIM_F_023 | SUPPORTED | shdw_ug bit0周期边界，H2 | IMPLEMENTATION_GAP | ETIM_P1_009 |
+| ETIM_F_024 | SUPPORTED | shdw_ug bit1及update_vld，H2 | IMPLEMENTATION_GAP | ETIM_P1_010 |
+| ETIM_F_025 | SUPPORTED | shdw_ug关闭为立即加载；安全窗口，H2 | IMPLEMENTATION_GAP | ETIM_P1_009, ETIM_P1_010 |
+| ETIM_F_026 | SUPPORTED | CTRPHS同步到达时装载；H2/H6/H7 | IMPLEMENTATION_GAP | ETIM_P1_011 |
+| ETIM_F_027 | SUPPORTED | SYNCO_SEL软件/周期/关闭，H2 | IMPLEMENTATION_GAP | ETIM_P1_011 |
+| ETIM_F_028 | SUPPORTED | H2 CBC字段存在，正常恢复Oracle沿M2继承；目标未实测 | IMPLEMENTATION_GAP | ETIM_P2_003 |
+| ETIM_F_029 | SUPPORTED | H2 OS和Clear字段存在，正常恢复Oracle沿M2继承；目标未实测 | IMPLEMENTATION_GAP | ETIM_P2_003 |
+| ETIM_F_030 | SUPPORTED | H2 Fault overflow源，M2解释重复输入事件 | IMPLEMENTATION_GAP | ETIM_P2_003 |
+| ETIM_F_031 | SUPPORTED | H2/H6/H7窗口结构一致；常规唯一多数阈值 | IMPLEMENTATION_GAP | ETIM_P2_004 |
+| ETIM_F_032 | SUPPORTED | H2/H6/H7四链结构一致；当前仅自洽支路可映射 | IMPLEMENTATION_GAP | ETIM_P2_005 |
+| ETIM_F_033 | SUPPORTED | H2每通道PRD/CMP选择与SYSCTRL请求入口 | IMPLEMENTATION_GAP | ETIM_P2_006 |
 
 ## 第六章 Chip -> Public Case Adaptation
 
@@ -422,6 +486,13 @@
 | ETIM_P1_008 | IMPLEMENTATION_GAP | 无实现；默认错误Mask和修正配置后Clear顺序需明确实现 |
 | ETIM_P2_001 | IMPLEMENTATION_GAP | 无实现；另有G10外部输出Bench与时钟精度映射，未操作仪器 |
 | ETIM_P2_002 | IMPLEMENTATION_GAP | 无实现；另有G10外部输入Bench，不能以旧GPIO/软件捕获API替代 |
+| ETIM_P1_009 | IMPLEMENTATION_GAP | 无实现；需无丢边连续Capture及写入窗口现场，目标Safe Window已明确 |
+| ETIM_P1_010 | IMPLEMENTATION_GAP | 无实现；需周期基准及两种边沿，不以高宽单值代替相位和成对提交 |
+| ETIM_P1_011 | IMPLEMENTATION_GAP | 无实现；内部SYNC编码和目标侧采样传播上界待绑定 |
+| ETIM_P2_003 | IMPLEMENTATION_GAP | 无实现；外部旁路输出/仪器G10，继承正常恢复路径不含Fault/DB优先级 |
+| ETIM_P2_004 | IMPLEMENTATION_GAP | 无实现；采样时钟编码/周期范围Mapping G03及外部输入Bench G10 |
+| ETIM_P2_005 | IMPLEMENTATION_GAP | 无实现；delay时钟Mapping及a支路s3歧义G04，b支路正常路径可先映射 |
+| ETIM_P2_006 | IMPLEMENTATION_GAP | 无实现；DMA Peer及请求55+i需绑定；不覆盖Capture槽DMA |
 
 以上主状态选择最先阻塞的实现缺口，Reason中保留并存的Mapping/Bench缺口，不把它们互相覆盖。
 
@@ -430,13 +501,13 @@
 | Gap | 当前目标证据缺口 | 解除所需最小资料/动作 |
 |---|---|---|
 | G02 | 具体内部PWM输出支路、同源时钟比、同步采样误差边界未绑定 | 目标时钟树/路由证据及适配映射；禁止从本次DUT测量反向调Expected或容差 |
-| G03 | CAP_FILTER.CLKPRESCALE未说明是否编码+1；THRESH+1与SAMPWIN+1已知，但双方同时达到阈值、初始化到输出的规则未定 | ET6801当前Revision滤波RTL或时序规范，给出分频、平局和传播边界，随后设计短/长脉冲及阈值边界PLAN |
-| G04 | DB_SEL.s3a文本复制b支路；APOS/ANEG/BPOS/BNEG计数时钟、窄脉冲吞吐和更新边界不明 | 当前DB数据通路图/RTL及delay时钟说明，逐支路建立独立外部边沿Oracle，再覆盖6组及延迟边界 |
-| G05 | 只有Fault字段，缺目标CBC/OS退出、重复Fault溢出和Fault/DB优先级真值表 | 当前Fault状态机/时序表，明确输入撤销、Clear、周期边界同时发生的行为；补输出与RAW前后证据及安全恢复PLAN |
-| G06 | SYNC_OUT选择文字仍列ETIM13/14；EN3公共延展位说明不充分；相位装载优先级不明 | 当前同步MUX表及SW/周期SyncOut脉冲、CTRPHS装载时序；不采用旧18起始输入编码和16周期脉冲假定 |
-| G07 | Shadow边界和比较对提交字段存在，但读取配置不能区分当前生效值；立即更新和计数已越过新值时的行为未知 | 当前PWM更新时序/RTL；构造跨更新点的连续边沿证据、A/B原子提交与无提交对照，再形成完整PLAN |
-| G08 | DMA字段仅3位却带旧通道描述，0/1/2/3含义对capture槽不明确，4..7未解释；ADC/DAC/ACMP接收链未闭合 | 当前每通道DMA事件真值表与请求脉冲/握手协议、接收端触发映射；保留Destination数据和接收端终态，不只测选择字段 |
-| G09 | 目标最高频率/最小脉宽/最大捕获时长没有明确规范；P=0、P=max、计数回卷与周期事件关系不清 | 当前时序与电气限值、计数器边界RTL；外部仪器Oracle及安全有界运行方案，不能移植旧50MHz/5ns指标 |
+| G03 | P2_004已给唯一多数窗口短长脉冲Oracle；未映射CLKPRESCALE编码/时钟界，双方同时达阈值、精确边界及高输入初始化瞬态未定 | 分频字段公式可由同结构说明或字段答复补齐；只针对剩余边界继续找适用资料，不再要求整个滤波RTL |
+| G04 | P2_005已给正常延迟/反相/旁路Oracle；a支路s3复制文字、延迟时钟、窄脉冲和动态延迟未定 | 确认a支路实际输入和delay时钟；其余边界定向查询同结构资料或简短硬件说明，不阻塞b支路正常设计 |
+| G05 | P2_003已按继承模型规划CBC/OS、重复输入和恢复；剩余Fault/DB优先级及同拍撤销/Clear竞态 | 针对组合优先级和同拍事件取得适用解释；正常路径不再等待目标状态机交付，实测不符则登记差异 |
+| G06 | P1_011已覆盖内部同步和运行相位装载；剩余停止时、同拍清零、外部相位波形、全局SYNC_OUT尾项和EN3延展 | 内部路由使用目标24..35；外送端点与传播界单独映射，不能把尾部旧通道名矛盾扩成所有同步不可规划 |
+| G07 | P1_009/010已覆盖正常窗口的立即/Shadow及A/B提交；剩余计数已越过新值、事件Shadow和动态延迟 | 对异常更新边界及事件接收端继续定向分析；正常过渡波形已经有完整Oracle，不要求RTL |
+| G08 | P2_006已覆盖PRD/CMP普通请求搬运；DMA选择3的Capture槽身份、4..7、请求精确时序及ADC/DAC/ACMP接收链未闭合 | 只需具体DMA选择表缺失项及接收端触发事实；旧全局API与新字段版本差异已定位，不再把普通请求也记CONFLICT |
+| G09 | 目标最高频率/最小脉宽/最大捕获时长没有明确规范；P=0、P=max、计数回卷与周期事件关系不清 | 目标时钟/电气限值和计数边界说明，可结合继承资料补齐；无需RTL文件，不能移植旧50MHz/5ns指标 |
 | G10 | 实际封装/板卡引脚、仪器和时钟精度未作为本任务硬件输入 | 后续独立硬件计划中绑定Bench、误差预算和门禁；普通P2方法保留，不标成硬件不支持 |
 | G11 | 其余输入源只有MUX枚举，Peer刺激/接收终态未完成逐路设计 | 针对所选ADC/SRPWM/CMP/SDFM/CLB/UART/LIN/XBAR的目标路由事实与公共Peer契约；逐项增加或复用Case，不能宣称219源已覆盖 |
 
@@ -444,14 +515,15 @@
 
 - Source Coverage：已按登记可访问父根定向搜索；未用其他芯片替代缺失目标时序文档。
 - 需求Trace：62个有ID TP、44个历史Case及上述独立源码测试目的均有处置；Case019/TP030的删除占位为唯一无有效目的排除项。
-- Feature准入：22项为目标可识别硬件功能；数量/地址/SDK接口不单造Feature；未知功能没有伪造Feature ID。
-- 公共Case：12个PLAN，其中R0三项、R1七项、R4两项；未注册和未实现。
+- Feature准入：33项为目标可识别硬件功能；新增项结合H2与H6/H7或M2解释常规行为，数量/地址/SDK接口不单造Feature。
+- 公共Case：19个PLAN，其中R0三项、R1十项、R2一项、R4五项；未注册和未实现。
 - 方法审核：已有PLAN给出了输入、7步动作、硬件观测、Oracle、Timeout、Cleanup及报告事实；目标时钟/路由仍须满足映射前提。
 - **整体规划Gate：未通过。** G03～G09/G11仍影响适用性、刺激或判据，不能宣布ETIM整体分析完成。
 - 新增ETIM实现、Keil、Renode、FPGA、Silicon/HIL：本轮全部NOT_EXECUTED；通用软件门禁不属于ETIM实测，不可替代硬件证据。
 
-后续最小外部输入是ET6801当前ETIM时序说明或对应Revision RTL，优先补滤波、DB/Fault、Sync/Shadow和DMA。
-在这些事实未明确前可以审核基础子集，但不得自动开展未授权的硬件试探来填补规范空白。
+后续继续按“同族原理 + 目标SVD差异”收敛上述具体边界及Peer联动，不把ET6801 RTL作为输入前提。
+采样/延迟时钟等映射和复杂边界应分开处理；不能因一个边界未知阻塞已有19个PLAN的审核，
+也不能把这19个PLAN当作整个ETIM全集已闭合。任何实际硬件执行仍须单独人工门禁。
 
 ### 7.1 文档校验记录
 
@@ -467,3 +539,13 @@
 
 可追溯专项任务记录：工作区`artifacts/resource-control/tasks/20260906_164510_889b6fe8.jsonl`、
 `20260906_164515_9f6b9fe7.jsonl`、`20260906_164643_47cc0b98.jsonl`及`20260906_164646_ca97ad96.jsonl`。
+
+### 7.2 继承复核文档校验
+
+时间：2026-09-06 18:16 CST
+
+- Scope检查通过：仅修改本目录两份ETIM文档；没有变更实现、其他芯片源码或检查器。
+- PLAN、公共IP边界、芯片Feature/Case映射及统一方法行语法专项全部通过，当前33个Feature、19个PLAN。
+- 新增七个PLAN逐项检查了输入、七步动作、硬件端点、独立Oracle、负对照、资源和安全清理；3.5保留未被等价覆盖的历史目的。
+- 专项记录为工作区resource-control任务`20260906_181515_a5962005`、`20260906_181517_71b54b91`、`20260906_181520_998d3f38`、`20260906_181533_96d6d50f`。
+- 本轮总软件门禁与精确提交身份另存过程Artifact `inheritance_validation.md`；不将软件校验写成ETIM实测PASS。
