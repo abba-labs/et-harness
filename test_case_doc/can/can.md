@@ -2100,7 +2100,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=12; IMPLEMENTATION_GAP=25 | ADAPTED=16; IMPLEMENTATION_GAP=23; NEEDS_VERIFICATION=3 | 16 SPEC、23 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=16; IMPLEMENTATION_GAP=23; NEEDS_VERIFICATION=3 | 16 SPEC、23 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

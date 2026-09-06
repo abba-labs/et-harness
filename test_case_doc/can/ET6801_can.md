@@ -144,7 +144,7 @@ IR常用源：RF0N/W/F/L=0～3，RF1N/W/F/L=4～7，HPM8、TC9、TCF10、TFE11�
 |---|---|---|
 | S01 MISC地址 | 整片SVD把CAN_MISC0/1/2 base列为0x4051C800/0x40524800/0x4052C800，同时MISC寄存器又带0x800起始偏移；当前头文件CAN_MISC基址采用CAN基址，结构体保留0x800再到ET_HEAD | CONFLICT。按SVD直接base+offset会多加0x800。后续先核对RegGen源/合并映射并验证只读签名；本轮不修改SVD、不让生成器静默修正 |
 | S02 TSU寄存器数量 | TSS2.NTSG默认编码1描述8个Timestamp，最少编码也有4个；当前独立SVD只列TS0/TS1，无对应TS2～TS7数组 | CONFLICT。不能把“只枚举两个”当硬件只有两个，也不能按手册猜地址写入；全槽地址仍需修订；P1_018只使用TS0、NTSG和TSS1即可构造New/Lost，不再因此阻塞单槽方法 |
-| S03 Message RAM | 6801驱动/FPGA UT5采用CANx-0x4000、16KiB；UT6实际按i×0x200平移各实例Filter/TX/RX区域 | 20260905 P2_004同偏移写后CAN0 Filter读成CAN2的0x102；不同CPU窗口不代表独占。并存Mapping按共享预算分别分配0/0x1000/0x2000起始的4KiB切片，等待全实例收发确认；不复制旧8KiB |
+| S03 Message RAM | 6801驱动/FPGA UT5采用CANx-0x4000、16KiB；UT6实际按i×0x200平移各实例Filter/TX/RX区域 | P2_004同偏移写后CAN0 Filter读成CAN2的0x102；不同CPU窗口不代表独占。按共享预算分别分配0/0x1000/0x2000起始的4KiB切片后，全实例收发、配置及Guard已FPGA PASS；不声称完成全地址别名矩阵 |
 | S04 时钟 | CRG.PLLCLK_CFG3描述PLL/AUX及分频；驱动使用旧PLLCLK_CFG0，FPGA写死40MHz；分频描述里还有400M/600M混杂 | CONFLICT。20/40/80MHz组合、AUX路线和FPGA受控性需以当前实现确认，尚不能标“FPGA不支持” |
 | S05 旧芯片描述残留 | MISC grant/exit类字段注释有“6002已经删除”等内容 | 不能据此判定ET6801功能不存在；相关RAM仲裁/时序结论保持待核实 |
 | S06 ECC控制 | SYSC.INJECT[13]名为1BIT、[12]名为2BIT，但bit12描述同样写注入1-bit；旧FT7注入调用注释 | CONFLICT/UNKNOWN：不能只按宏名确定双错和注入时点；P2_006的写/读阶段分离诊断见3.4，不能宣称真实纠错已覆盖 |
@@ -339,7 +339,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_020 | SUPPORTED | CCCR.UTSU[10]、TSCFG/TSS1/TSS2/TS0/ATB；使用TS0避免推测缺失槽地址，外部总线接入仍待映射 | IMPLEMENTATION_GAP | CAN_P1_018、CAN_P2_008、CAN_P2_013 |
 | CAN_F_021 | SUPPORTED | CCCR.CSR[4]/CSA[3]/INIT[0]；与MISC的CLKSTOP_REQ/ACK关系需区别 | ADAPTED | CAN_P1_015 |
 | CAN_F_022 | SUPPORTED | 驱动CANx-0x4000、FPGA UT5测试16KiB；地址范围是驱动依据，不等于已经硅证全容量 | ADAPTED | CAN_P1_016 |
-| CAN_F_023 | SUPPORTED | CAN0/1/2及其RAM；UT6标注共享但当前没有独立证据证明物理别名关系 | IMPLEMENTATION_GAP | CAN_P2_004 |
+| CAN_F_023 | SUPPORTED | CAN0/1/2按共享预算分片；全实例交错数据、独立Filter及Guard已有FPGA证据 | ADAPTED | CAN_P2_004 |
 | CAN_F_024 | SUPPORTED | DMU虚拟TX+0x200、RX0+0x280、RX1+0x300；DMU_DMA_CFG.RX_SEL[5:4] | IMPLEMENTATION_GAP | CAN_P2_001、CAN_P2_008 |
 | CAN_F_025 | SUPPORTED | DMU TX Event+0x380；接收选择与RX0/RX1互斥，不能同时当三个独立DMA请求 | IMPLEMENTATION_GAP | CAN_P2_002、CAN_P2_013 |
 | CAN_F_026 | SUPPORTED | DMUIR bit30/27/25/19/17/5/3/2/0及DMUIE；RX0错误字段缺失不擅自套用相邻位 | IMPLEMENTATION_GAP | CAN_P2_007 |
@@ -406,12 +406,12 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_008 | ADAPTED | 三种TX组织预装读回、单次TXBAR、RX顺序/完整payload/最终状态；按SVD修正Queue TFFL后FPGA PASS |
 | CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS |
 | CAN_P1_010 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
-| CAN_P1_011 | ADAPTED | 三种模式、两种线路分配；TXBTIE由CAN_txBufTransIntrEnable配置，保留Raw绑定IRQ后按真实回调线路留证；尚未HIL |
+| CAN_P1_011 | ADAPTED | 三种模式、两种线路分配；内部两节点FPGA PASS，Raw/实际回调线路/独立W1C均核对；外部四节点未执行 |
 | CAN_P1_012 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、clock_profile_gap、board_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P1_013 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、atomic_timestamp_snapshot_gap；资源R1，按公共PLAN实施 |
 | CAN_P1_014 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
 | CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS |
-| CAN_P1_016 | ADAPTED | 每实例独立16KiB；受限64-word批访问，PC完整模式/March C-比较并重建回环，尚未HIL |
+| CAN_P1_016 | ADAPTED | 单实例16KiB完整模式/March C-及重建回环FPGA PASS；CPU窗口不能解释为多实例独占容量 |
 | CAN_P1_017 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P1_018 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R1～R3；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P1_019 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
@@ -420,7 +420,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P2_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
 | CAN_P2_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
 | CAN_P2_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、misc_mapping_gap；资源R1，按公共PLAN实施 |
-| CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；依据UT6及实测改为共享预算下的并存切片，全实例数据/配置/Guard断言不变，待复测 |
+| CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；按UT6及实测修正并存切片后，全实例数据、配置及Guard均FPGA PASS；原失败证据保留 |
 | CAN_P2_005 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、board_mapping_gap、observer_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P2_006 | NEEDS_VERIFICATION | 有注入位但注入作用于哪次RAM写/读、影响哪实例及单次/持续语义未闭合；ECC Force不是替代。 |
 | CAN_P2_007 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R1；尚需Driver/Mapping/台架能力适配，未执行 |
@@ -470,13 +470,13 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-05 17:05 CST`
+状态更新时间：`2026-09-05 17:37 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-05 16:56 CST` | `a92a1df5f50154b45878efb9eef852dedd895e92` | `false` | `artifacts/runs/20260905_165607_843058_local_et6801_fpga_atp_testing/` |
+| FPGA | `2026-09-05 17:32 CST` | `481d554000115e0c852506b05535e9d2ed988670` | `false` | `artifacts/runs/20260905_173259_503773_local_et6801_fpga_atp_testing/` |
 
 Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控制连接COM12@115200。
 本Run仅运行PC测试及报告，复用`20260905_163747_343417_local_et6801_fpga_atp_testing`已验证固件：源码`e87ec3c2750a40aec2dd3d555e121a620eca61b5`，编译0 Error、0 Warning，bitfile、BootROM、PFLASH顺序执行且Verify OK。目标是FPGA，不因工程目标名含SILICON而计为Silicon实测。
@@ -485,17 +485,18 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 15 | 14 | 14 | 0 | 0 | 1 | 88 |
+| FPGA | 16 | 15 | 15 | 0 | 0 | 1 | 89 |
 
-88个参数节点全部PASS，逻辑Case为P0_001、P0_002、P1_001～P1_009、P1_011、P1_015、P1_016。
-P1_011只覆盖两个内部线路参数，四个外部参数未选择；P0_003也未选择。上述14 PASS只表示本次选择范围，不代表外部参数通过。
-pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_ET6801_CAN测试报告.xlsx`；只读核对15行，其中14 PASS、1 NOT_SELECTED，结果和备注均非空。P0_001和P1_011改为唯一报告摘要，原始逐次Observation仍保留；前次报告失败的Run不改写。
+89个参数节点全部PASS，逻辑Case为P0_001、P0_002、P1_001～P1_009、P1_011、P1_015、P1_016、P2_004。
+P1_011只覆盖两个内部线路参数，四个外部参数未选择；P0_003也未选择。上述15 PASS只表示本次选择范围，不代表外部参数通过。
+pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_173623_198104_ET6801_CAN测试报告.xlsx`；只读核对16行，其中15 PASS、1 NOT_SELECTED，结果和备注均非空。报告摘要与原始逐次Observation均保留；前次报告失败及配置失败的Run不改写。最终软件门禁1336 PASS、17 SKIP，任务`20260905_172847_ee51facd`；17项为缺少宿主C编译器的Native软件测试，不是CAN硬件SKIP。
 
 新增硬件事实：
 
 - P0_001：NBTP复位实际计数为(1,11,4,4)；关/开/再关CCE后的Prescaler分别4、8、8，复位恢复1；FD先开启后复位关闭。
 - P1_011：INT0/INT1两种分配、两次激励均PASS；ISR源归属准确，TX的W1C不清RX，随后RX独立清零。
 - P1_016：16KiB全部4096字通过固定/地址模式和March C-，重建布局后内部回环数据正确。不是ECC注入测试。
+- P2_004：CAN0/1/2按0/0x1000/0x2000起始各4KiB切片并存，倒序接收ID0x102/0x101/0x100及各实例序号正确；只改CAN2 Filter为0x500后新帧正确，全部布局及首尾Guard保持。证明此并存切片配置有效，不宣称做过全部地址的物理别名矩阵。
 
 ### 当前非PASS Case
 
@@ -503,12 +504,12 @@ pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_
 |---|---|---|---|---|---|---|---|
 | `CAN_P0_003` | FPGA | NOT_EXECUTED | CAN_F_003 / 正常外部总线 | 本轮未选中；前次FAIL为Pending=1、Completed=0、ACK Error、TEC=128 | 外部链路未打通，原因未确认，不能认定硬件缺陷 | 物理链路条件或定位结论变化后复测 | `artifacts/runs/20260905_135501_157677_local_et6801_fpga_atp_testing/`；独立诊断`artifacts/runs/20260905_142834_245093_can_link_diagnostic/` |
 
-最近全注册集合的历史外部FAIL仍保留。Silicon未实测。该Run之后另实现P2_004，尚未HIL；原13项中的其余9项仍未实现，不能把当前注册集合PASS扩大为全部42项目标已覆盖。
+最近全注册集合的历史外部FAIL仍保留。Silicon未实测。原13项中已有4项完成代码及片内HIL，其余9项仍未实现，不能把当前注册集合PASS扩大为全部42项目标已覆盖。
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 无需外部通信的剩余开发项
 
-2026-09-05 17:15 CST更新：原13项中P0_001、P1_011片内参数、P1_016已经取得FPGA PASS且报告通过；P2_004代码及软件正负向验证完成、尚未HIL；其余9项仍为IMPLEMENTATION_GAP而不是SKIP。
+2026-09-05 17:37 CST更新：原13项中P0_001、P1_011片内参数、P1_016及P2_004已经取得FPGA PASS且报告通过；其余9项仍为IMPLEMENTATION_GAP而不是SKIP。
 
 | Case ID | 片内测试内容 | 执行前仍需完成 |
 |---|---|---|
@@ -522,11 +523,11 @@ pytest及Pipeline均退出0。Excel：`artifacts/reports/20260905_165930_779717_
 | `CAN_P2_001` | DMA经DMU TX/RX搬运 | 补DMU接口、DMA端点/格式映射及跨IP Case |
 | `CAN_P2_002` | DMA搬运TX Event | 补Event虚拟端点及队列推进适配，CPU不能代搬 |
 | `CAN_P2_003` | ECC Force/Mask/Clear及ISR | 补ECC MISC、共享IRQ适配及Case；不冒充真实纠错测试 |
-| `CAN_P2_004` | 多实例Message RAM隔离 | 已实现；首测发现相同相对偏移覆盖，已修正并存切片映射；三实例同时占用、倒序取帧，末实例重配后比对全部配置及Guard，待复测 |
+| `CAN_P2_004` | 多实例Message RAM隔离 | 已实现并FPGA PASS；并存切片后三实例倒序取帧、末实例重配及全部配置/Guard检查通过 |
 | `CAN_P2_007` | DMU非法访问及IRQ | 补受限错误刺激和真实IRQ接口，再做各节点复位恢复 |
 | `CAN_P2_008` | DMA接收附加TSU时间戳 | 补TSU/DMU元素映射及DMA搬运Case，保存独立时间戳Oracle |
 
-这些实现缺口不能由重复运行现有88个片内参数节点消除；外部收发故障也不应阻挡它们的片内部分开发。
+这些实现缺口不能由重复运行现有89个片内参数节点消除；外部收发故障也不应阻挡它们的片内部分开发。
 
 ### 既有开发与测试记录（历史，不代表本轮执行）
 
