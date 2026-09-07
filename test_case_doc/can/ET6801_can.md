@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 16:58 CST
+更新时间：2026-09-07 17:26 CST
+
+2026-09-07 17:26 CST 验证追加：ECC Case与Driver专项67 PASS，完整软件门禁1677 PASS、17 Windows宿主编译器条件SKIP；日志为`artifacts/runs/20260907_can_planned_development/stages/ecc_case_vectors_verified.log`和`ecc_case_software_gate.log`。单/三实例两源固定响应、9类故障、等待超时与Fault、Canonical JSON及报告模型均验证；软件响应不作为硬件Evidence。首轮重复Observation报告绑定错误日志保留为`ecc_case_vectors.log`。15项目标达到9项Case软件闭合、剩余6项，不因尚未实现而停止；新增Case全部NOT_EXECUTED，烧录需人工门禁。
+
+2026-09-07 17:15 CST 开发追加：P2_003正式Case接入Corrected/Uncorrected两参数，按Capability全部实例轮转，所有实例同时捕获以检查共享IRQ串扰。每目标/源5 s，Force后100 ms全实例无ISR，放行检查实际实例/源及诊断，目标Clear保留另一Raw，再次投递计数精确增加；退出关闭、解绑、清Raw、复位事件并读回。PC增加只读有界wait_ecc_event，未改Firmware或Wire。独立反例测试和报告预检正在执行，初次软件报告暴露多观测同名不能直接作为唯一Observation报告字段，已保留原子观测并改为带实例/阶段的Measurement摘要；未修改报告器。未部署、未烧录、未运行新硬件Case。
 
 2026-09-07 16:58 CST 验证追加：ECC会话与9条Wire最终总门禁1630 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/ecc_session_software_gate_rollback.log`）；含绑定失败两种所有权情形、解绑重试、计数饱和、错误线路及三实例两源的最终Native编译执行通过（`ecc_session_rollback_native.log`）。Service只读检查自己在Manager公开固定表中是否留有绑定，不修改Manager存储或绕过其清理API。前两次总门禁分别发现CAN注释改写被识别为GPIO文档同步、两处Driver超时/失败注释不完整，恢复非目标注释并补全接口说明后通过；日志`ecc_session_software_gate.log`及`ecc_session_software_gate_verified.log`保留。没有放宽检查器；P2_003正式Case未完成，未新增硬件结果。
 
@@ -44,7 +48,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_010/P1_012/P1_013/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前79条命令、24项SPEC、15项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标及FPGA输入时钟bypass分频；15项已有PLAN正在逐项实现，已有8项软件验证完成、7项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_012/P1_013/P1_014/P1_020/P1_021/P2_003/P2_005/P3_001尚未FPGA执行。** 当前79条命令、25项SPEC、14项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标及FPGA输入时钟bypass分频；15项已有PLAN正在逐项实现，已有9项软件验证完成、6项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
@@ -393,7 +397,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_024 | SUPPORTED | DMU虚拟TX+0x200、RX0+0x280、RX1+0x300；DMU_DMA_CFG.RX_SEL[5:4] | IMPLEMENTATION_GAP | CAN_P2_001、CAN_P2_008 |
 | CAN_F_025 | SUPPORTED | DMU TX Event+0x380；接收选择与RX0/RX1互斥，不能同时当三个独立DMA请求 | IMPLEMENTATION_GAP | CAN_P2_002、CAN_P2_013 |
 | CAN_F_026 | SUPPORTED | DMUIR bit30/27/25/19/17/5/3/2/0及DMUIE；RX0错误字段缺失不擅自套用相邻位 | IMPLEMENTATION_GAP | CAN_P2_007 |
-| CAN_F_027 | SUPPORTED | MISC.ECC_INT_EN/MASK/FORCE/CLR/RAW/STATUS；Corrected bit0、Uncorrected bit1 | IMPLEMENTATION_GAP | CAN_P2_003 |
+| CAN_F_027 | SUPPORTED | MISC.ECC_INT_EN/MASK/FORCE/CLR/RAW/STATUS；Corrected bit0、Uncorrected bit1 | ADAPTED | CAN_P2_003 |
 | CAN_F_029 | SUPPORTED | CCCR.MON[5]/ASM[2]；不用Loopback模拟模式行为 | IMPLEMENTATION_GAP | CAN_P1_019 |
 | CAN_F_030 | SUPPORTED | DBTP.TDC、TDCR.TDCO/TDCF、PSR.TDCV；历史启用TDC通信存在，但不证明延迟极限 | IMPLEMENTATION_GAP | CAN_P1_021、CAN_P3_002 |
 | CAN_F_032 | SUPPORTED | CCCR.TXP[14]；需要位级EOF/SOF观测，不是PC发送间隔 | IMPLEMENTATION_GAP | CAN_P3_004 |
@@ -469,7 +473,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_021 | ADAPTED | 40MHz TDC时序Profile和2/5M双向64-byte Case已实现；ZLG USBCANFD-200U正常FD配置；FPGA尚未执行，不要求高级延迟设备 |
 | CAN_P2_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
 | CAN_P2_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
-| CAN_P2_003 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、misc_mapping_gap；资源R1，按公共PLAN实施 |
+| CAN_P2_003 | ADAPTED | 三实例ECC独立会话、共享线路实际归属、两源Force/Mask/Clear及重复投递Case已接通；NOT_EXECUTED，不代表RAM纠错 |
 | CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；按UT6及实测修正并存切片后，全实例数据、配置及Guard均FPGA PASS；原失败证据保留 |
 | CAN_P2_005 | ADAPTED | 正常ACK正对照、内部静默100ms、外部回环只听捕获两帧；沿用CAN0和USBCANFD-200U接线，软件专项及总门禁通过，新增Case尚未FPGA执行 |
 | CAN_P2_006 | NEEDS_VERIFICATION | 有注入位但注入作用于哪次RAM写/读、影响哪实例及单次/持续语义未闭合；ECC Force不是替代。 |

@@ -239,7 +239,7 @@ RAM布局顺序：`std_offset, std_count, ext_offset, ext_count, tx_offset, tx_b
 
 ECC使用独立事件命名空间：`CORRECTED=1`、`UNCORRECTED=2`，不复用控制器中断事件。Wrap的Enable/Mask只改变所选非空源掩码；Force只强制中断锁存，不注入RAM错误；Clear仅清目标源。Snapshot返回真实、非消费的raw/status/enabled/masked，独立寄存器观测不承诺原子快照；status不能由其他字段重算代替。非法源/Boolean/空指针在动作前拒绝，未知实例返回NOT_SUPPORTED。Wrap不操作全局ECC、不绑定物理IRQ、不清Service证据。
 
-ECC Service共享IRQ回调必须读取自身实例真实状态，只对实际活动目标源累计计数和锁存实际实例；首次raw/status保留，后续源累积。回调屏蔽活动源防止中断风暴，保留Raw供PC显式Clear，再次投递必须显式unmask；不是调用事件查询便增加计数。非目标实例的共享线路回调没有本地活动源时不产生证据。Fault沿用IO=1、Unexpected=2、Overflow=4，计数饱和保存溢出事实；PC必须检查这些诊断，不能只看Count。ECC会话与控制器IRQ会话独立。9条Wire已接通，P2_003正式Case仍待实现，不等同硬件PASS。
+ECC Service共享IRQ回调必须读取自身实例真实状态，只对实际活动目标源累计计数和锁存实际实例；首次raw/status保留，后续源累积。回调屏蔽活动源防止中断风暴，保留Raw供PC显式Clear，再次投递必须显式unmask；不是调用事件查询便增加计数。非目标实例的共享线路回调没有本地活动源时不产生证据。Fault沿用IO=1、Unexpected=2、Overflow=4，计数饱和保存溢出事实；PC必须检查这些诊断，不能只看Count。ECC会话与控制器IRQ会话独立。P2_003正式Case已接通9条Wire，不等同硬件PASS。`wait_ecc_event(after_count, timeout_s)`仅在一个Deadline内查询新回调或诊断故障，返回最后事件交Case判定；超时保留最近状态，不触发/清除/解除屏蔽，通信错误上抛。
 
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
 
@@ -333,7 +333,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | SPEC，见第3节 |
 | CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
-| CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | PLANNED，见第3节 |
+| CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | IMPLEMENTED，见第3节 |
 | CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | SPEC，见第3节 |
 | CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | SPEC，见第3节 |
 | CAN_P2_006 | CAN Message RAM真实ECC注入 | P2 | R1 | DESIGN_GAP，见第5节 |
@@ -1450,10 +1450,9 @@ gap: ["case_implementation_gap","dma_endpoint_mapping_gap"]
 
 ### CAN_P2_003 CAN ECC中断链强制触发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_003
 case_name: CAN ECC中断链强制触发
 report_feature: |-
@@ -1465,29 +1464,30 @@ method:
     - "源矩阵：Corrected/Uncorrected两个ECC中断源分别Force；本测试不注入真实RAM错误，不用其结果证明纠错能力。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "中断配置：隔离其他CAN的ECC源，清全部历史ECC Raw/ISR记录，关闭当前源投递。"
+    - "中断配置：全部参与实例清历史ECC Raw/ISR记录，同时Capture当前源但保持屏蔽；另一源关闭使能。"
     - "屏蔽触发：Force当前源并另保留一个关闭投递的非目标源，保存两者Raw有效且IRQ_EVENT计数未变；Force的自清位不是Raw。"
     - "开放投递：仅使能并解除屏蔽当前源，等待ECC ISR锁存具体实例和源，另一源保持屏蔽。"
     - "清除验证：停止Force，清目标Raw，读取Raw/Status为0，确认未清另一个人为保留的源。"
-    - "再次触发：重新Force当前源并确认再次捕获；逐源、逐目标实例执行。"
+    - "再次触发：重新Force并显式unmask当前源，确认同一代计数再加一；逐源、逐目标实例执行，最后关闭/解绑/清Raw/复位事件并读回无残留。"
   observations:
     - "ECC中断：ECC_IRQ.RAW/STATUS的屏蔽及清除关系符合配置，共享线路回调保存实例。"
     - "回调事实：IRQ_EVENT的Source与实例对应此次Force，计数有新增。"
   pass_criteria:
     - "独立投递：屏蔽时无ISR、开放后投递正确，清目标不清非目标。"
     - "证据边界：仅判定ECC中断链通过，真实ECC纠错另见独立待完善目标。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
-cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例；按Case需要增加片内DMA/CRG/SYSCTRL", bench: "不需要外部接线"}
+timeout: "每目标实例/源共用5 s Deadline；Force后全部实例无ISR的负向窗口100 ms"
+cleanup: ["屏蔽并关闭全部参与ECC源", "逐实例停止Capture、清Raw并复位CAN", "Resource Pool Reset；不启动DMA/DMU"]
+resources: {minimum_level: R1, full_coverage_level: R1, board: "Capability声明的全部CAN实例及其CRG复位；不访问Message RAM", bench: "不需要外部接线"}
 backend: [FPGA, Silicon]
 evidence: ["CAN ECC中断链强制触发：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"ecc","label":"ECC_IRQ.RAW/STATUS屏蔽与清除前后值","source":"dut","role":"actual","format":"text"}
+  - {"key":"ecc_raw","label":"ECC_IRQ.RAW屏蔽与清除前后值","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"ecc_status","label":"ECC_IRQ.STATUS实际投递状态","source":"dut","role":"actual","format":"hex32"}
   - {"key":"isr","label":"IRQ_EVENT实例/Source/Count","source":"measurement","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN ECC中断链强制触发的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","misc_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_004 CAN多实例Message RAM隔离
 
@@ -2130,6 +2130,12 @@ cases:
     summary: 每种格式执行DLC0～15及A/B数据共32帧，逐帧比较全部数据；下列为各格式进度与最近RX采样，完整帧在原始记录。
     fields:
       - {source: measurement, path: format_summary, label: 各格式实际收发, format: text, aggregate: all}
+  CAN_P2_003:
+    summary: 逐实例两类ECC源屏蔽不投递，放行归属正确，目标Clear保留对照源且能再次投递；不代表RAM纠错。
+    fields:
+      - {source: measurement, path: ecc_summary, label: 各实例ECC寄存器阶段读回汇总, format: text, aggregate: all}
+      - {source: measurement, path: isr, label: 各实例ISR源与计数, format: text, aggregate: all}
+      - {source: measurement, path: negative_windows, label: 屏蔽观察窗口, format: text, aggregate: all}
   CAN_P1_002:
     summary: 核对标准ID Range、Dual、Mask、首匹配、未匹配路由及High Priority状态。
     fields:
@@ -2186,7 +2192,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=20; IMPLEMENTATION_GAP=17 | ADAPTED=24; IMPLEMENTATION_GAP=15; NEEDS_VERIFICATION=3 | 24 SPEC、15 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=21; IMPLEMENTATION_GAP=16 | ADAPTED=25; IMPLEMENTATION_GAP=14; NEEDS_VERIFICATION=3 | 25 SPEC、14 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

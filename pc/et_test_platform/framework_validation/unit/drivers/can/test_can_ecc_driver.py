@@ -6,9 +6,48 @@
 from struct import pack
 
 import pytest
-from et_test_platform.core.errors import ProtocolError
+from et_test_platform.core.errors import ProtocolError, RequestTimeout
 from et_test_platform.drivers.can import CanDriver, CanEccSource, CanIrqSource
 from et_test_platform.framework_validation.unit.drivers.can.test_can_driver import TargetStub
+
+
+# 等待只查询实际事件；未增长计数不结束，Fault不被超时隐藏。
+@pytest.mark.parametrize("fault", (0, 1))
+def test_ecc_wait_uses_new_count_or_fault(fault) -> None:
+    target = TargetStub(
+        [
+            pack("<9I", 3, 1, 1, 1, 0, 0, 2, 0, 0),
+            pack("<9I", 3, 1, 1, 1 if fault else 2, 0, 0, 2, fault, 0),
+        ]
+    )
+    event = CanDriver(target, 0).wait_ecc_event(1, timeout_s=0.2)
+    assert event.event_count == (1 if fault else 2) and event.fault_flags == fault
+    assert [r["command"] for r in target.requests] == [77, 77]
+    assert target.requests[1]["timeout_s"] < target.requests[0]["timeout_s"]
+
+
+# 耗尽Deadline时保留最后ISR证据；不再Force、不隐式解除Mask。
+def test_ecc_wait_timeout_retains_last(monkeypatch) -> None:
+    from et_test_platform.drivers.can import driver as module
+
+    target = TargetStub([pack("<9I", 0, 0, 0, 0, 0, 0, 5, 0, 0xFFFFFFFF)])
+
+    def expire(*args) -> None:
+        raise RequestTimeout("expired")
+
+    monkeypatch.setattr(module.OperationDeadline, "sleep", expire)
+    with pytest.raises(RequestTimeout, match="generation=5"):
+        CanDriver(target, 0).wait_ecc_event(0, timeout_s=0.2)
+    assert [r["command"] for r in target.requests] == [77]
+
+
+# 饱和、负数、Boolean不构成有效的新事件等待基线。
+@pytest.mark.parametrize("count", (-1, True, 1.5, 0xFFFFFFFF))
+def test_ecc_wait_rejects_invalid_count(count) -> None:
+    target = TargetStub()
+    with pytest.raises(ValueError):
+        CanDriver(target, 0).wait_ecc_event(count, timeout_s=0.2)
+    assert not target.requests
 
 
 # 固定Wire响应故意不同于输入，避免配置回显冒充读回；验证读写重试属性。

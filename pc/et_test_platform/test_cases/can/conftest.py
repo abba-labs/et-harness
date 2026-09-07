@@ -62,7 +62,7 @@ def can_support(framework_communication, target_capabilities):
 
 # 全实例只读入口：核对Capability与Runtime交集，不配置硬件或截取代表实例。
 @pytest.fixture
-def can_instance_supports(can_support, framework_communication, target_capabilities):
+def can_all_supports(can_support, framework_communication, target_capabilities):
 
     # 全实例是本Case的Feature，不沿用普通Case的代表实例选择。
     services = {
@@ -86,9 +86,17 @@ def can_instance_supports(can_support, framework_communication, target_capabilit
             )
         )
 
-    if len(supports) < 2:
-        raise ConfigurationError("CAN isolation requires at least two declared instances")
+    if not supports:
+        raise ConfigurationError("CAN requires declared runtime instances")
     return tuple(supports)
+
+
+# RAM实例隔离仍要求至少两个实例；ECC源隔离可在单实例目标上执行。
+@pytest.fixture
+def can_instance_supports(can_all_supports):
+    if len(can_all_supports) < 2:
+        raise ConfigurationError("CAN isolation requires at least two declared instances")
+    return can_all_supports
 
 
 # 外部依赖只读选择：GPIO独立验证、盒子仅构造对象；不在Fixture中打开或配置设备。

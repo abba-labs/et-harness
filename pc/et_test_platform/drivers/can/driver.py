@@ -100,6 +100,24 @@ class CanDriver:
     def ecc_event_get(self, *, timeout_s: float | None = None) -> CanEccEvent:
         return codec.decode_ecc_event(self._request(CanCommand.ECC_EVENT_GET, timeout_s=timeout_s))
 
+    # 有界等待新ECC回调或诊断故障；不触发、清除或解除屏蔽，最终判定留在Case。
+    # 单一Deadline；超时保留最后事件，通信错误上抛，不重试刺激。
+    def wait_ecc_event(self, after_count: int, *, timeout_s: float) -> CanEccEvent:
+        if type(after_count) is not int or not 0 <= after_count < 0xFFFFFFFF:
+            raise ValueError("CAN ECC after_count must allow a subsequent uint32 event")
+        deadline = OperationDeadline.start(timeout_s, label=f"CAN ECC event {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.ecc_event_get(timeout_s=deadline.remaining_s())
+                if last.event_count > after_count or (
+                    last.fault_flags or last.unexpected_count or last.overflow_count
+                ):
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"CAN ECC count>{after_count}, last={last}") from error
+
     # 仅未绑定时复位证据，不清硬件Raw；失败上抛，不自动停止会话或重试。
     def ecc_event_reset(self, *, timeout_s: float | None = None) -> None:
         self._request(CanCommand.ECC_EVENT_RESET, timeout_s=timeout_s)

@@ -25,6 +25,7 @@ CAN_CASE_REGISTRY = (
     "can_p1_016",
     "can_p1_020",
     "can_p1_021",
+    "can_p2_003",
     "can_p2_004",
     "can_p2_005",
     "can_p3_001",
