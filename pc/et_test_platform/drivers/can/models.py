@@ -461,6 +461,31 @@ class CanHighPriorityStatus:
     filter_extended: bool
 
 
+# DMU逻辑虚拟元素；不是DMA通道、寄存器偏移或任意地址选择器。
+class CanDmuElement(IntEnum):
+    TX = 0
+    RX0 = 1
+    RX1 = 2
+    TX_EVENT = 3
+
+
+# 三种接收侧请求互斥；切换前由调用方停止相关DMA活动。
+class CanDmuRequest(IntEnum):
+    RX0 = 0
+    RX1 = 1
+    TX_EVENT = 2
+
+
+# 成功入队/出队累计值，不是当前FIFO占用量；modulus供调用方计算回绕差值。
+@dataclass(frozen=True, slots=True)
+class CanDmuCounters:
+    tx_enqueued: int
+    rx0_dequeued: int
+    rx1_dequeued: int
+    tx_event_dequeued: int
+    modulus: int
+
+
 # 一个过滤器的显式配置或实际读回，格式和列表索引由Driver方法参数指定。
 # 普通过滤buffer_index必须为0；BUFFER使用RANGE、id2=0，不隐式选择时间戳捕获。
 @dataclass(frozen=True, slots=True)

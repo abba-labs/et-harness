@@ -8,6 +8,8 @@ from . import contract
 from .models import (
     CanActivity,
     CanBusConfig,
+    CanDmuCounters,
+    CanDmuRequest,
     CanEccEvent,
     CanEccSnapshot,
     CanEccSource,
@@ -510,6 +512,26 @@ def decode_rx_frame(words: tuple[int, ...]) -> CanRxFrame:
     return CanRxFrame(
         identifier, flags, dlc, timestamp, filter_index, bool(nonmatching), index, data
     )
+
+
+# 选择值必须属于公共枚举，不能把保留编码当成默认RX0。
+def decode_dmu_request(words: tuple[int, ...]) -> CanDmuRequest:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_REQUEST_GET]:
+        raise ProtocolError("CAN DMU request response has invalid field count")
+    try:
+        return CanDmuRequest(words[0])
+    except ValueError as error:
+        raise ProtocolError("CAN DMU request response has reserved selection") from error
+
+
+# 模数必须可表示且大于1；每个计数严格小于模数，不进行差值或最终判定。
+def decode_dmu_counters(words: tuple[int, ...]) -> CanDmuCounters:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_COUNTERS_GET]:
+        raise ProtocolError("CAN DMU counter response has invalid field count")
+    *counts, modulus = words
+    if modulus < 2 or modulus & (modulus - 1) or any(count >= modulus for count in counts):
+        raise ProtocolError("CAN DMU counters violate the reported binary modulus")
+    return CanDmuCounters(*counts, modulus)
 
 
 # 状态Boolean必须为0/1；不能将未知数值当作True隐藏固件编码错误。

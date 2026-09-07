@@ -474,6 +474,38 @@ et_wrap_status_t et_can_wrap_get_tsu_flags(et_can_id_t id, uint32_t *new_flags,
 /** consume=0 reads the timebase; consume=1 reads TS0 once and clears its flags. */
 et_wrap_status_t et_can_wrap_read_tsu_value(et_can_id_t id, uint8_t consume, uint32_t *value);
 
+/** Named DMA virtual elements; no arbitrary peripheral address input is accepted. */
+typedef enum
+{
+    ET_CAN_DMU_TX = 0u,
+    ET_CAN_DMU_RX0 = 1u,
+    ET_CAN_DMU_RX1 = 2u,
+    ET_CAN_DMU_TX_EVENT = 3u,
+    ET_CAN_DMU_ELEMENT_COUNT
+} et_can_dmu_element_t;
+/** One mutually exclusive receive request selector, not independent DMA channels. */
+typedef enum
+{
+    ET_CAN_DMU_REQUEST_RX0 = 0u,
+    ET_CAN_DMU_REQUEST_RX1 = 1u,
+    ET_CAN_DMU_REQUEST_TX_EVENT = 2u,
+    ET_CAN_DMU_REQUEST_COUNT
+} et_can_dmu_request_t;
+/** Successful queue operation totals plus the hardware counter modulus. */
+typedef struct
+{
+    uint32_t tx_enqueued;
+    uint32_t rx0_dequeued;
+    uint32_t rx1_dequeued;
+    uint32_t tx_event_dequeued;
+    uint32_t modulus;
+} et_can_dmu_counters_t;
+et_wrap_status_t et_can_wrap_get_dmu_endpoint(et_can_id_t id, et_can_dmu_element_t element,
+                                              uint32_t *address);
+et_wrap_status_t et_can_wrap_set_dmu_request(et_can_id_t id, et_can_dmu_request_t request);
+et_wrap_status_t et_can_wrap_get_dmu_request(et_can_id_t id, et_can_dmu_request_t *request);
+et_wrap_status_t et_can_wrap_get_dmu_counters(et_can_id_t id, et_can_dmu_counters_t *counters);
+
 /** Separate ECC interrupt namespace; not the controller's BEC/BEU events. */
 typedef enum
 {

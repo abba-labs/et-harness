@@ -103,6 +103,10 @@ class CanCommand(IntEnum):
     ECC_CAPTURE_STOP = 76
     ECC_EVENT_GET = 77
     ECC_EVENT_RESET = 78
+    DMU_ENDPOINT_GET = 79
+    DMU_REQUEST_SET = 80
+    DMU_REQUEST_GET = 81
+    DMU_COUNTERS_GET = 82
 
 
 REQUEST_WORDS = (
@@ -178,6 +182,7 @@ REQUEST_WORDS = (
     0,
 )
 REQUEST_WORDS += (2, 2, 1, 1, 0, 1, 0, 0, 0)  # ECC controls/capture, IDs 70..78.
+REQUEST_WORDS += (1, 1, 0, 0)  # Named DMU endpoint, request selection and queue totals.
 RESPONSE_WORDS = (
     2,
     0,
@@ -251,6 +256,7 @@ RESPONSE_WORDS = (
     1,  # TSU_SLOT0_CONSUME: read once, clears this slot's New/Lost.
 )
 RESPONSE_WORDS += (0, 0, 0, 0, 4, 0, 0, 9, 0)  # ECC actual snapshot and ISR evidence.
+RESPONSE_WORDS += (1, 0, 1, 5)  # Counters include their modulus, not a chip-specific width.
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
     "last_error",
@@ -375,5 +381,8 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TSU_TIMEBASE_GET,
         CanCommand.ECC_SNAPSHOT_GET,
         CanCommand.ECC_EVENT_GET,
+        CanCommand.DMU_ENDPOINT_GET,
+        CanCommand.DMU_REQUEST_GET,
+        CanCommand.DMU_COUNTERS_GET,
     }
 )

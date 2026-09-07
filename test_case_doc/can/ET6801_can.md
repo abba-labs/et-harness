@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 17:48 CST
+更新时间：2026-09-07 18:03 CST
+
+2026-09-07 18:03 CST 验证追加：DMU公共原语最终完整软件门禁1690 PASS、17 Windows宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/dmu_api_software_gate_final.log`；PC专项150个节点全部通过，最终SDK/Wrap/Service三实例Native通过`dmu_api_native_final.log`。首轮门禁拒绝Chip Config一次性模数聚合宏，已改为Own Driver按CMSIS字段宽度随计数返回modulus，Wrap仅转译；未弱化规则。同步纠正公共开头仍滞后的SPEC/PLAN汇总为25/14，与机器块和P2_003状态一致，未新增Case。15项要求仍为9项Case软件完成；剩余6项中DMU链路继续开发，未烧录或执行新增硬件Case。
+
+2026-09-07 17:55 CST DMU公共原语接入：Wrap、Service和PC Driver追加79～82命令，分别查询命名虚拟端点、设置/读取RX请求、读取队列计数与模数。Chip Config按公共枚举顺序映射Own Driver选择器，计数模数来自DMUQC的8-bit字段；Wrap不访问寄存器或DMA，Service只解码和执行Own Wrap。该批只接原子接口，未增加DMUC写入、DMUIR清除、DMA搬运或正式Case，P2_001/002/007/008状态不升级。专项与总门禁待执行，未操作硬件。
 
 2026-09-07 17:48 CST 验证追加：DMU Chip Driver批次完整软件门禁1677 PASS、17 Windows宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/dmu_driver_software_gate.log`；同批Native Harness已由WSL GCC实际编译执行通过。这里只闭合Driver基础原语，不升级DMU正式Case状态，未烧录或执行硬件。
 

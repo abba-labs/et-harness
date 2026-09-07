@@ -1600,6 +1600,7 @@ typedef struct
     uint32_t rx0Dequeued;
     uint32_t rx1Dequeued;
     uint32_t txEventDequeued;
+    uint32_t modulus;
 } CAN_TestDmuCounters;
 /** Resolve a DMA virtual-window start address only; never access the window. */
 int32_t CAN_testGetDmuEndpoint(CAN_Type *CANx, CAN_TestDmuElement element, uint32_t *address);

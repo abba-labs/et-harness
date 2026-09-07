@@ -8,6 +8,9 @@ from .models import (
     CanActivity,
     CanBusConfig,
     CanBusLimits,
+    CanDmuCounters,
+    CanDmuElement,
+    CanDmuRequest,
     CanEccEvent,
     CanEccSnapshot,
     CanEccSource,
@@ -49,6 +52,9 @@ from .models import (
 )
 
 __all__ = [
+    "CanDmuCounters",
+    "CanDmuElement",
+    "CanDmuRequest",
     "CanEccEvent",
     "CanEccSnapshot",
     "CanEccSource",

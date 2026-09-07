@@ -69,6 +69,16 @@ typedef enum
     ET_CAN_TSU_FLAGS_WORDS
 } et_can_tsu_flags_word_t;
 #define ET_CAN_RX_FIFO_STATUS_WORDS 5u
+/** DMU queue totals followed by the hardware counter modulus. */
+typedef enum
+{
+    ET_CAN_DMU_TX_ENQUEUED = 0u,
+    ET_CAN_DMU_RX0_DEQUEUED,
+    ET_CAN_DMU_RX1_DEQUEUED,
+    ET_CAN_DMU_TX_EVENT_DEQUEUED,
+    ET_CAN_DMU_COUNTER_MODULUS,
+    ET_CAN_DMU_COUNTER_WORDS
+} et_can_dmu_counter_word_t;
 /** Counter reload response contains real reads rather than a configured TOP value. */
 typedef enum
 {
@@ -328,6 +338,10 @@ typedef enum
     ET_CAN_COMMAND_ECC_CAPTURE_STOP = 76u,
     ET_CAN_COMMAND_ECC_EVENT_GET = 77u,
     ET_CAN_COMMAND_ECC_EVENT_RESET = 78u,
+    ET_CAN_COMMAND_DMU_ENDPOINT_GET = 79u,
+    ET_CAN_COMMAND_DMU_REQUEST_SET = 80u,
+    ET_CAN_COMMAND_DMU_REQUEST_GET = 81u,
+    ET_CAN_COMMAND_DMU_COUNTERS_GET = 82u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

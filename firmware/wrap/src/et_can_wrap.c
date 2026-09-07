@@ -25,6 +25,8 @@ static const et_can_mapping_t mappings[] = ET_CHIP_CAN_MAP_TABLE;
 static const et_can_irq_mapping_t irq_mappings[] = ET_CHIP_CAN_IRQ_MAP_TABLE;
 static const et_can_timing_limits_t timing_limits = ET_CHIP_CAN_TIMING_LIMIT_MAP_TABLE;
 static const et_can_option_limits_t option_limits = ET_CHIP_CAN_OPTION_LIMIT_MAP_TABLE;
+static const CAN_TestDmuElement dmu_elements[] = ET_CHIP_CAN_DMU_ELEMENT_MAP_TABLE;
+static const CAN_DMURxRequest dmu_requests[] = ET_CHIP_CAN_DMU_REQUEST_MAP_TABLE;
 
 /**
  * @brief Resolve the requested logical controller from immutable chip facts.
@@ -58,6 +60,137 @@ static CAN_Type *find_instance(et_can_id_t id)
     const et_can_mapping_t *mapping = find_mapping(id);
 
     return mapping == NULL ? NULL : mapping->instance;
+}
+
+/**
+ * @brief Resolve one named DMA endpoint through the own CAN Driver.
+ * @param[in] id Logical controller.
+ * @param[in] element Public virtual element selector.
+ * @param[out] address DMA endpoint address, not a CPU access request.
+ * @return OK, invalid argument, unsupported instance or Driver error.
+ * @note No virtual-window access, queue advance or external DMA configuration.
+ */
+et_wrap_status_t et_can_wrap_get_dmu_endpoint(et_can_id_t id, et_can_dmu_element_t element,
+                                              uint32_t *address)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (address == NULL || (uint32_t)element >= ET_CAN_DMU_ELEMENT_COUNT)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testGetDmuEndpoint(instance, dmu_elements[element], address) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Select exactly one CAN receive-side DMA request source.
+ * @param[in] id Logical controller.
+ * @param[in] request Public RX0/RX1/TX Event selector.
+ * @return OK, invalid argument, unsupported instance or Driver error.
+ * @note Changes only the CAN-owned request mux; caller must quiesce DMA first.
+ */
+et_wrap_status_t et_can_wrap_set_dmu_request(et_can_id_t id, et_can_dmu_request_t request)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((uint32_t)request >= ET_CAN_DMU_REQUEST_COUNT)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testSetDmuRxRequest(instance, dmu_requests[request]) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read and translate the actual receive-side DMA request selection.
+ * @param[in] id Logical controller.
+ * @param[out] request Actual selection, unchanged on failure.
+ * @return OK, invalid argument, unsupported instance or invalid hardware state.
+ * @note Does not return a SET cache or alter the mux/DMA channel.
+ */
+et_wrap_status_t et_can_wrap_get_dmu_request(et_can_id_t id, et_can_dmu_request_t *request)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_DMURxRequest actual;
+    uint32_t index;
+
+    if (request == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_testGetDmuRxRequest(instance, &actual) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    for (index = 0u; index < ET_CAN_DMU_REQUEST_COUNT; ++index)
+    {
+        if (dmu_requests[index] == actual)
+        {
+            *request = (et_can_dmu_request_t)index;
+
+            return ET_WRAP_STATUS_OK;
+        }
+    }
+
+    return ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read actual successful queue operation totals from one Driver snapshot.
+ * @param[in] id Logical controller.
+ * @param[out] counters Enqueue/dequeue totals and counter modulus.
+ * @return OK, invalid argument, unsupported instance or Driver error.
+ * @note Does not reset counters, read IRQ flags or acknowledge queued elements.
+ */
+et_wrap_status_t et_can_wrap_get_dmu_counters(et_can_id_t id, et_can_dmu_counters_t *counters)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TestDmuCounters actual;
+
+    if (counters == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_testGetDmuCounters(instance, &actual) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    counters->tx_enqueued = actual.txEnqueued;
+    counters->rx0_dequeued = actual.rx0Dequeued;
+    counters->rx1_dequeued = actual.rx1Dequeued;
+    counters->tx_event_dequeued = actual.txEventDequeued;
+    counters->modulus = actual.modulus;
+
+    return ET_WRAP_STATUS_OK;
 }
 
 /**

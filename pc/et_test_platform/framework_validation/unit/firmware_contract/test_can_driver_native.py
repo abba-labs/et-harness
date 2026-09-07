@@ -631,9 +631,61 @@ static void test_dmu_primitives(void)
     memset(misc_blocks, 0, sizeof(misc_blocks));
 }
 
+/* Full Service chain: exact little-endian requests, bounded responses and no DMA access. */
+static void test_dmu_service(void)
+{
+    et_irq_manager_t manager={0};
+    et_can_service_t service;
+    uint8_t request[5]={0}, response[20];
+    uint16_t length;
+    uint32_t address;
+    for (unsigned i=0; i<3; ++i)
+    {
+        assert(et_can_service_init(&service, i, &manager, 1)==0);
+        const et_service_descriptor_t *desc=et_can_service_descriptor(&service);
+        request[0]=i;
+        for (unsigned element=0; element<4; ++element)
+        {
+            request[1]=element;
+            assert(desc->handle(desc->context,79,request,5,response,20,&length)==ET_STATUS_OK);
+            memcpy(&address,response,4);
+            assert(length==4 && address==(uintptr_t)&controllers[i]+0x200+0x80*element);
+        }
+        request[1]=4;
+        assert(desc->handle(desc->context,79,request,5,response,20,&length)==ET_STATUS_INVALID_PARAM);
+        assert(length==0);
+        request[1]=2;
+        assert(desc->handle(desc->context,80,request,5,NULL,0,&length)==ET_STATUS_OK && length==0);
+        assert(desc->handle(desc->context,81,request,1,response,20,&length)==ET_STATUS_OK);
+        assert(length==4 && memcmp(response,"\x02\0\0\0",4)==0);
+        request[1]=3;
+        assert(desc->handle(desc->context,80,request,5,NULL,0,&length)==ET_STATUS_INVALID_PARAM);
+        assert(((misc_blocks[i].DMU_DMA_CFG>>4)&3)==2);
+        controllers[i].DMUQC=0xFE807F01;
+        dmu_counter_reads=0;
+        assert(desc->handle(desc->context,82,request,1,response,19,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,82,request,2,response,20,&length)==ET_STATUS_INVALID_PARAM);
+        assert(dmu_counter_reads==0);
+        assert(desc->handle(desc->context,82,request,1,response,20,&length)==ET_STATUS_OK);
+        assert(dmu_counter_reads==1 && length==20);
+        assert(memcmp(response,"\x01\0\0\0\x7F\0\0\0\x80\0\0\0\xFE\0\0\0\0\x01\0\0",20)==0);
+        misc_blocks[i].DMU_DMA_CFG|=0x30;
+        assert(desc->handle(desc->context,81,request,1,response,20,&length)==ET_STATUS_INTERNAL_ERROR);
+        assert(length==0);
+    }
+    assert(et_can_wrap_get_dmu_endpoint(99,ET_CAN_DMU_TX,&address)==ET_WRAP_STATUS_NOT_SUPPORTED);
+    assert(et_can_wrap_get_dmu_endpoint(0,ET_CAN_DMU_TX,NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+    assert(et_can_wrap_set_dmu_request(99,ET_CAN_DMU_REQUEST_RX0)==ET_WRAP_STATUS_NOT_SUPPORTED);
+    assert(et_can_wrap_get_dmu_request(0,NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+    assert(et_can_wrap_get_dmu_counters(0,NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+    memset(controllers,0,sizeof(controllers));
+    memset(misc_blocks,0,sizeof(misc_blocks));
+}
+
 int main(void)
 {
     test_dmu_primitives();
+    test_dmu_service();
     test_tsu_contract();
     test_ecc_register_contract();
     test_ecc_session_contract();

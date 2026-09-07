@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-07 13:24 CST
+更新时间：2026-09-07 17:55 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；24项SPEC、15项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；25项SPEC、14项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、TSU原语、中断管理、ECC中断链及FD格式选择，共79条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、TSU原语、中断管理、ECC中断链、DMU端点/请求/计数及FD格式选择，共83条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -199,6 +199,12 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | ECC_CAPTURE_STOP | 76 | 无 | 先屏蔽和关闭所选源，再解绑；保留Raw/ISR证据，失败保留清理所有权 |
 | ECC_EVENT_GET | 77 | 无 | raw_status、masked_status、latched_events、event_count、unexpected_count、overflow_count、generation、fault_flags、instance_id；无回调时实例Wire值0xFFFFFFFF，PC为None |
 | ECC_EVENT_RESET | 78 | 无 | 未绑定时复位证据并递增generation；不清硬件Raw，代号饱和拒绝 |
+| DMU_ENDPOINT_GET | 79 | element：TX=0、RX0=1、RX1=2、TX_EVENT=3 | DMA端点u32地址；只查询，不访问数据窗口，不推进队列，不接受任意地址输入 |
+| DMU_REQUEST_SET | 80 | request：RX0=0、RX1=1、TX_EVENT=2 | 无；只切换一个互斥接收请求源，调用者必须先停止相关DMA活动；不重试、不隐式配置DMA |
+| DMU_REQUEST_GET | 81 | 无 | 当前实际公共request选择；保留硬件编码返回错误，不回显SET缓存 |
+| DMU_COUNTERS_GET | 82 | 无 | tx_enqueued、rx0_dequeued、rx1_dequeued、tx_event_dequeued、modulus；四个成功入队/出队累计值的一次快照，不是FIFO占用量；不清计数或IRQ |
+
+`CanDriver.dmu_endpoint_get(CanDmuElement)`只提供DMA目标/源端点；它不授权CPU任意MMIO。`dmu_request_set(CanDmuRequest)`、`dmu_request_get()`和`dmu_counters_get()`与上述命令一一对应。计数模数由目标报告，必须为u32可表示且大于1的二次幂，每个计数严格小于模数；差值及回绕窗口由Case判断。四项操作均受调用方timeout约束，协议/通信错误直接上抛；只有三个无副作用查询标为retry-safe，不自动编排重试。DMU元素长度、数据编码、外部DMA与请求复用仍由对应Mapping/IP提供；这些接口存在不表示DMU Case已完成。
 
 `TX_WRITE`与`TX_READ`的Marker按当前实际位宽校验/解释，不隐式改变事件格式。旧`TX_EVENT_READ`只接受具有内部时间戳字段的基本格式，宽Marker/TSU格式返回状态错误；新读取61以显式有效性防止伪时间戳。内部时间戳有效性只描述字段存在，不证明计数源已经启用。TSU指针只在实际捕获时有效，不是时间戳数值。
 

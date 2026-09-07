@@ -11,6 +11,9 @@ from .contract import CanCommand
 from .models import (
     CanBusConfig,
     CanBusLimits,
+    CanDmuCounters,
+    CanDmuElement,
+    CanDmuRequest,
     CanEccEvent,
     CanEccSnapshot,
     CanEccSource,
@@ -50,6 +53,31 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 查询命名DMA端点，不访问数据窗口；timeout内单次请求，错误直接上抛。
+    def dmu_endpoint_get(self, element: CanDmuElement, *, timeout_s: float | None = None) -> int:
+        if not isinstance(element, CanDmuElement):
+            raise ValueError("CAN DMU endpoint requires CanDmuElement")
+        words = self._request(CanCommand.DMU_ENDPOINT_GET, (int(element),), timeout_s=timeout_s)
+        return words[0]
+
+    # 显式切换接收请求，调用方须先停止DMA；timeout内请求一次，失败上抛且不重试。
+    def dmu_request_set(self, request: CanDmuRequest, *, timeout_s: float | None = None) -> None:
+        if not isinstance(request, CanDmuRequest):
+            raise ValueError("CAN DMU request requires CanDmuRequest")
+        self._request(CanCommand.DMU_REQUEST_SET, (int(request),), timeout_s=timeout_s)
+
+    # 读取实际选择而非SET缓存；单次timeout约束，非法响应或通信错误直接上抛。
+    def dmu_request_get(self, *, timeout_s: float | None = None) -> CanDmuRequest:
+        return codec.decode_dmu_request(
+            self._request(CanCommand.DMU_REQUEST_GET, timeout_s=timeout_s)
+        )
+
+    # 读取一次队列累计快照，不Ack、不复位；单次timeout约束，错误直接上抛。
+    def dmu_counters_get(self, *, timeout_s: float | None = None) -> CanDmuCounters:
+        return codec.decode_dmu_counters(
+            self._request(CanCommand.DMU_COUNTERS_GET, timeout_s=timeout_s)
+        )
 
     # 仅改变所选ECC源的使能；timeout内单次请求，失败上抛，不重试或启用全局RAM ECC。
     def ecc_enable_set(

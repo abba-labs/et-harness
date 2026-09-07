@@ -1954,6 +1954,87 @@ static et_wrap_status_t execute_tsu_command(et_can_id_t id, uint16_t command, co
 }
 
 /**
+ * @brief Decode one DMU primitive and encode only actual CAN facts.
+ * @param[in] id Logical CAN controller.
+ * @param[in] command Validated DMU command ID.
+ * @param[in] body Exact-length request words after the instance byte.
+ * @param[out] response Validated response capacity, nullable for SET.
+ * @return Own Wrap status without hidden recovery.
+ * @note Never accesses DMA, acknowledges a queue or consumes DMU IRQ flags.
+ */
+static et_wrap_status_t execute_dmu_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                            uint8_t *response)
+{
+    et_wrap_status_t status;
+    et_can_dmu_counters_t counters;
+    et_can_dmu_request_t request;
+    uint32_t address;
+
+    /* Phase 1: Execute an explicit selection or endpoint query. */
+    switch (command)
+    {
+        case ET_CAN_COMMAND_DMU_REQUEST_SET:
+        {
+            return et_can_wrap_set_dmu_request(id, (et_can_dmu_request_t)read_word(body));
+        }
+
+        case ET_CAN_COMMAND_DMU_ENDPOINT_GET:
+        {
+            status =
+                et_can_wrap_get_dmu_endpoint(id, (et_can_dmu_element_t)read_word(body), &address);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, address);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_DMU_REQUEST_GET:
+        {
+            status = et_can_wrap_get_dmu_request(id, &request);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, request);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_DMU_COUNTERS_GET:
+        {
+            break;
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_NOT_SUPPORTED;
+        }
+    }
+
+    /* Phase 2: Encode the single counter snapshot without sampling again. */
+    status = et_can_wrap_get_dmu_counters(id, &counters);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        write_word(&response[ET_CAN_DMU_TX_ENQUEUED * ET_CAN_WIRE_WORD_BYTES],
+                   counters.tx_enqueued);
+        write_word(&response[ET_CAN_DMU_RX0_DEQUEUED * ET_CAN_WIRE_WORD_BYTES],
+                   counters.rx0_dequeued);
+        write_word(&response[ET_CAN_DMU_RX1_DEQUEUED * ET_CAN_WIRE_WORD_BYTES],
+                   counters.rx1_dequeued);
+        write_word(&response[ET_CAN_DMU_TX_EVENT_DEQUEUED * ET_CAN_WIRE_WORD_BYTES],
+                   counters.tx_event_dequeued);
+        write_word(&response[ET_CAN_DMU_COUNTER_MODULUS * ET_CAN_WIRE_WORD_BYTES],
+                   counters.modulus);
+    }
+
+    return status;
+}
+
+/**
  * @brief Execute one validated CAN command through the own Wrap.
  * @param[in,out] service Selected CAN Service and managed IRQ state.
  * @param[in] command Public command number.
@@ -1974,6 +2055,11 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if (command >= ET_CAN_COMMAND_DMU_ENDPOINT_GET && command <= ET_CAN_COMMAND_DMU_COUNTERS_GET)
+    {
+        return execute_dmu_command(id, command, body, response);
+    }
 
     if (command >= ET_CAN_COMMAND_ECC_ENABLE_SET && command <= ET_CAN_COMMAND_ECC_EVENT_RESET)
     {
@@ -2259,6 +2345,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_OPTIONS_SET] = ET_CAN_OPTIONS_WORDS,
         [ET_CAN_COMMAND_RAM_LAYOUT_SET] = ET_CAN_RAM_LAYOUT_WORDS,
         [ET_CAN_COMMAND_BUS_CONFIG_SET] = ET_CAN_BUS_CONFIG_WORDS,
+        [ET_CAN_COMMAND_DMU_ENDPOINT_GET] = 1u,
+        [ET_CAN_COMMAND_DMU_REQUEST_SET] = 1u,
         [ET_CAN_COMMAND_LOOPBACK_SET] = 1u,
         [ET_CAN_COMMAND_TX_WRITE] = ET_CAN_TX_WRITE_WORDS,
         [ET_CAN_COMMAND_TX_REQUEST] = 1u,
@@ -2328,6 +2416,9 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TSU_TIMEBASE_GET] = 1u,
         [ET_CAN_COMMAND_TSU_SLOT0_CONSUME] = 1u,
         [ET_CAN_COMMAND_ECC_SNAPSHOT_GET] = ET_CAN_ECC_SNAPSHOT_WORDS,
+        [ET_CAN_COMMAND_DMU_ENDPOINT_GET] = 1u,
+        [ET_CAN_COMMAND_DMU_REQUEST_GET] = 1u,
+        [ET_CAN_COMMAND_DMU_COUNTERS_GET] = ET_CAN_DMU_COUNTER_WORDS,
         [ET_CAN_COMMAND_ECC_EVENT_GET] = ET_CAN_ECC_EVENT_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,

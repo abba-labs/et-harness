@@ -13,6 +13,9 @@ import pytest
 from et_test_platform.core.errors import ProtocolError, RequestTimeout
 from et_test_platform.drivers.can import (
     CanBusConfig,
+    CanDmuCounters,
+    CanDmuElement,
+    CanDmuRequest,
     CanDriver,
     CanFilter,
     CanFilterAction,
@@ -69,6 +72,54 @@ def test_non_iso_commands_golden() -> None:
     target.responses = [pack("<I", 2)]
     with pytest.raises(ProtocolError):
         driver.non_iso_get()
+
+
+# 测试Feature：四个DMU原语的公共Wire、实际读回和副作用边界。
+# 测试方法：逐字节Golden比较，响应与请求独立构造，检查读写重试属性。
+# 通过条件：不发送隐式DMA配置，端点/选择/计数如实解码，timeout传递不变。
+def test_dmu_commands_golden() -> None:
+    target = TargetStub(
+        [pack("<I", 0x12340280), b"", pack("<I", 0), pack("<5I", 1, 127, 128, 254, 256)]
+    )
+    driver = CanDriver(target, 2)
+    assert driver.dmu_endpoint_get(CanDmuElement.RX0, timeout_s=0.25) == 0x12340280
+    driver.dmu_request_set(CanDmuRequest.TX_EVENT)
+    assert driver.dmu_request_get() == CanDmuRequest.RX0
+    assert driver.dmu_counters_get() == CanDmuCounters(1, 127, 128, 254, 256)
+    assert [request["command"] for request in target.requests] == [79, 80, 81, 82]
+    assert [request["body"] for request in target.requests] == [
+        bytes.fromhex("02 01000000"),
+        bytes.fromhex("02 02000000"),
+        b"\x02",
+        b"\x02",
+    ]
+    assert [request["retry_safe"] for request in target.requests] == [True, False, True, True]
+    assert target.requests[0]["timeout_s"] == 0.25
+    for value in (True, -1, 0, 4, "RX0", CanDmuRequest.RX0):
+        with pytest.raises(ValueError):
+            driver.dmu_endpoint_get(value)
+    for value in (True, -1, 0, 3, "RX0", CanDmuElement.RX0):
+        with pytest.raises(ValueError):
+            driver.dmu_request_set(value)
+    assert len(target.requests) == 4
+
+
+# 测试Feature：DMU非法响应失败关闭。
+# 测试方法：注入保留选择、非法模数、越界计数和错误长度。
+# 通过条件：每项抛ProtocolError，不补默认值或返回请求缓存。
+@pytest.mark.parametrize("response", [pack("<I", 3), b"", b"\x00" * 8])
+def test_dmu_request_response_rejected(response: bytes) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([response]), 0).dmu_request_get()
+
+
+@pytest.mark.parametrize(
+    "words",
+    [(0, 0, 0, 0, 0), (0, 0, 0, 0, 1), (0, 0, 0, 0, 255), (256, 0, 0, 0, 256), (0, 0, 0, 0)],
+)
+def test_dmu_counter_response_rejected(words: tuple[int, ...]) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack(f"<{len(words)}I", *words)]), 0).dmu_counters_get()
 
 
 # 测试Feature：配置写权限与不隐式解锁的仲裁时序写命令。

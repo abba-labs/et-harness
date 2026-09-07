@@ -3017,6 +3017,7 @@ int32_t CAN_testGetDmuCounters(CAN_Type *CANx, CAN_TestDmuCounters *counters)
     counters->rx0Dequeued = (value & CAN0_DMUQC_RX0EDC_Msk) >> CAN0_DMUQC_RX0EDC_Pos;
     counters->rx1Dequeued = (value & CAN0_DMUQC_RX1EDC_Msk) >> CAN0_DMUQC_RX1EDC_Pos;
     counters->txEventDequeued = (value & CAN0_DMUQC_TXEEDC_Msk) >> CAN0_DMUQC_TXEEDC_Pos;
+    counters->modulus = (CAN0_DMUQC_TXEEC_Msk >> CAN0_DMUQC_TXEEC_Pos) + 1U;
     return DRV_OK;
 }
 /********************* TEST DRIVER EXTENSION END *********************/
