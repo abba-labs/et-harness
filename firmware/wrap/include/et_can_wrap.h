@@ -474,7 +474,27 @@ et_wrap_status_t et_can_wrap_get_tsu_flags(et_can_id_t id, uint32_t *new_flags,
 /** consume=0 reads the timebase; consume=1 reads TS0 once and clears its flags. */
 et_wrap_status_t et_can_wrap_read_tsu_value(et_can_id_t id, uint8_t consume, uint32_t *value);
 
-/** Stable CAN interrupt-source namespace; bit values are public events, not register bits. */
+/** Separate ECC interrupt namespace; not the controller's BEC/BEU events. */
+typedef enum
+{
+    ET_CAN_ECC_CORRECTED = (1u << 0),
+    ET_CAN_ECC_UNCORRECTED = (1u << 1)
+} et_can_ecc_source_t;
+#define ET_CAN_ECC_ALL (ET_CAN_ECC_CORRECTED | ET_CAN_ECC_UNCORRECTED)
+typedef struct
+{
+    uint32_t raw;
+    uint32_t status;
+    uint32_t enabled;
+    uint32_t masked;
+} et_can_ecc_snapshot_t;
+et_wrap_status_t et_can_wrap_set_ecc_enabled(et_can_id_t id, uint32_t sources, uint8_t enabled);
+et_wrap_status_t et_can_wrap_set_ecc_masked(et_can_id_t id, uint32_t sources, uint8_t masked);
+et_wrap_status_t et_can_wrap_force_ecc(et_can_id_t id, uint32_t sources);
+et_wrap_status_t et_can_wrap_clear_ecc(et_can_id_t id, uint32_t sources);
+et_wrap_status_t et_can_wrap_get_ecc_snapshot(et_can_id_t id, et_can_ecc_snapshot_t *snapshot);
+
+/** Stable controller interrupt-source namespace, independent of ECC above. */
 typedef enum
 {
     ET_CAN_IRQ_RX_FIFO0_NEW = (1u << 0),

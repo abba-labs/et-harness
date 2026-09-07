@@ -50,7 +50,9 @@ def write_can_driver_harness(directory: Path) -> Path:
         "#define SET_BIT(r,m) ((r)|=(m))\n#define CLEAR_BIT(r,m) ((r)&=~(m))\n"
         "#define REG32(a) (*(uint32_t *)(uintptr_t)(a))\n"
         "typedef struct { " + " ".join(f"uint32_t {field};" for field in fields) + " } CAN_Type;\n"
-        "typedef struct {uint32_t MISC_STATUS, MISC_CTRL, DMU_DMA_CFG;} CAN_MISC_Type;\n"
+        "typedef struct {uint32_t MISC_STATUS, MISC_CTRL, DMU_DMA_CFG; "
+        "uint32_t MTTCAN_INT_EN, MTTCAN_INT_MASK, MTTCAN_INT_FORCE, MTTCAN_INT_CLR; "
+        "uint32_t MTTCAN_INT_RSTATUS, MTTCAN_INT_MSTATUS;} CAN_MISC_Type;\n"
         "typedef struct {uint32_t ECCEN;} SYSC_Type;\n"
         # CAN0前保留16KiB真实宿主内存，验证SDK地址偏移和RAM编码；其他实例仅测寄存器隔离。
         "typedef struct {uint8_t ram[16384]; CAN_Type blocks[3];} CAN_TestMemory;\n"
@@ -202,6 +204,18 @@ void can_test_write(volatile uint32_t *address, uint32_t value)
 {
     for (unsigned i=0; i<3; ++i)
     {
+        if (address == &misc_blocks[i].MTTCAN_INT_FORCE)
+        {
+            misc_blocks[i].MTTCAN_INT_RSTATUS |= value;
+            *address = 0;
+            return;
+        }
+        if (address == &misc_blocks[i].MTTCAN_INT_CLR)
+        {
+            misc_blocks[i].MTTCAN_INT_RSTATUS &= ~value;
+            *address = 0;
+            return;
+        }
         if (timestamp_snapshot_model && address == &controllers[i].TSCV)
         {
             assert(value == 0);
@@ -245,6 +259,85 @@ uint32_t can_test_read(volatile uint32_t *address)
     }
     if (consume_enabled && address==&CAN0->PSR) { ++psr_reads; }
     return value;
+}
+
+/* Software register model only: no IRQ delivery or RAM correction is claimed. */
+static void test_ecc_register_contract(void)
+{
+    CAN_Type *instances[] = {CAN0, CAN1, CAN2};
+    CAN_TestEccSnapshot snapshot;
+    et_can_ecc_snapshot_t public_snapshot;
+    CAN_MISC_Type saved[3];
+    for (unsigned i=0; i<3; ++i)
+    {
+        for (uint32_t source=1; source<=2; ++source)
+        {
+            uint32_t other=3U ^ source;
+            memset(misc_blocks, 0, sizeof(misc_blocks));
+            misc_blocks[i].MTTCAN_INT_EN=0x80;
+            misc_blocks[i].MTTCAN_INT_MASK=0x43;
+            system_control.ECCEN=0x12345678;
+            assert(CAN_testForceEcc(instances[i], 3)==DRV_OK);
+            assert(misc_blocks[i].MTTCAN_INT_FORCE==0);
+            assert(CAN_testSetEccEnabled(instances[i], source, 1)==DRV_OK);
+            assert(CAN_testSetEccMasked(instances[i], source, 0)==DRV_OK);
+            assert(misc_blocks[i].MTTCAN_INT_EN==(0x80 | source));
+            assert(misc_blocks[i].MTTCAN_INT_MASK==(0x40 | other));
+            /* Deliberately independent MSTATUS proves the getter reads it, not recomputes it. */
+            misc_blocks[i].MTTCAN_INT_MSTATUS=other;
+            assert(CAN_testGetEccSnapshot(instances[i], &snapshot)==DRV_OK);
+            assert(snapshot.raw==3 && snapshot.status==other);
+            assert(snapshot.enabled==source && snapshot.masked==other);
+            assert(CAN_testClearEcc(instances[i], source)==DRV_OK);
+            assert(misc_blocks[i].MTTCAN_INT_CLR==0);
+            assert(misc_blocks[i].MTTCAN_INT_RSTATUS==other);
+            assert(CAN_testForceEcc(instances[i], source)==DRV_OK);
+            assert(misc_blocks[i].MTTCAN_INT_RSTATUS==3);
+            assert(CAN_testSetEccMasked(instances[i], source, 1)==DRV_OK);
+            assert(CAN_testSetEccEnabled(instances[i], source, 0)==DRV_OK);
+            assert(misc_blocks[i].MTTCAN_INT_EN==0x80);
+            assert(misc_blocks[i].MTTCAN_INT_MASK==0x43);
+            assert(system_control.ECCEN==0x12345678);
+            for (unsigned j=0; j<3; ++j)
+            {
+                if (j!=i) { CAN_MISC_Type zero={0}; assert(memcmp(&misc_blocks[j], &zero, sizeof(zero))==0); }
+            }
+            memcpy(saved, misc_blocks, sizeof(saved));
+            assert(CAN_testSetEccEnabled(instances[i], 0, 1)==DRV_ERROR);
+            assert(CAN_testSetEccEnabled(instances[i], source, 2)==DRV_ERROR);
+            assert(CAN_testSetEccMasked(instances[i], 4, 1)==DRV_ERROR);
+            assert(CAN_testSetEccMasked(instances[i], source, 2)==DRV_ERROR);
+            assert(CAN_testForceEcc(instances[i], 4)==DRV_ERROR);
+            assert(CAN_testClearEcc(instances[i], 0)==DRV_ERROR);
+            assert(CAN_testGetEccSnapshot(instances[i], NULL)==DRV_ERROR);
+            assert(memcmp(saved, misc_blocks, sizeof(saved))==0);
+            assert(et_can_wrap_clear_ecc(i, ET_CAN_ECC_ALL)==ET_WRAP_STATUS_OK);
+            assert(et_can_wrap_force_ecc(i, source)==ET_WRAP_STATUS_OK);
+            assert(et_can_wrap_set_ecc_enabled(i, source, 1)==ET_WRAP_STATUS_OK);
+            assert(et_can_wrap_set_ecc_masked(i, source, 0)==ET_WRAP_STATUS_OK);
+            assert(et_can_wrap_get_ecc_snapshot(i, &public_snapshot)==ET_WRAP_STATUS_OK);
+            assert(public_snapshot.raw==source && public_snapshot.status==other);
+            assert(public_snapshot.enabled==source && public_snapshot.masked==other);
+            memcpy(saved, misc_blocks, sizeof(saved));
+            assert(et_can_wrap_force_ecc(i, 4)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(et_can_wrap_clear_ecc(i, 0)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(et_can_wrap_set_ecc_enabled(i, 1, 2)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(et_can_wrap_set_ecc_masked(i, 4, 1)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(et_can_wrap_get_ecc_snapshot(i, NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(et_can_wrap_force_ecc(99, 1)==ET_WRAP_STATUS_NOT_SUPPORTED);
+            assert(et_can_wrap_clear_ecc(99, 1)==ET_WRAP_STATUS_NOT_SUPPORTED);
+            assert(et_can_wrap_set_ecc_enabled(99, 1, 1)==ET_WRAP_STATUS_NOT_SUPPORTED);
+            assert(et_can_wrap_set_ecc_masked(99, 1, 1)==ET_WRAP_STATUS_NOT_SUPPORTED);
+            assert(et_can_wrap_get_ecc_snapshot(99, &public_snapshot)==ET_WRAP_STATUS_NOT_SUPPORTED);
+            assert(memcmp(saved, misc_blocks, sizeof(saved))==0);
+        }
+    }
+    assert(CAN_testSetEccEnabled(NULL, 1, 1)==DRV_ERROR);
+    assert(CAN_testSetEccMasked(NULL, 1, 1)==DRV_ERROR);
+    assert(CAN_testForceEcc(NULL, 1)==DRV_ERROR);
+    assert(CAN_testClearEcc(NULL, 1)==DRV_ERROR);
+    assert(CAN_testGetEccSnapshot(NULL, &snapshot)==DRV_ERROR);
+    memset(misc_blocks, 0, sizeof(misc_blocks));
 }
 
 /* Independent register and Wire vectors; no CAN bus or external input is simulated. */
@@ -335,6 +428,7 @@ static void test_tsu_contract(void)
 int main(void)
 {
     test_tsu_contract();
+    test_ecc_register_contract();
     CAN_Type *instances[] = {CAN0, CAN1, CAN2};
     CAN_ConfigParams config = {0};
     CAN_ECCConfigParams ecc = {0};

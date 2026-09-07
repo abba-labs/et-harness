@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 15:59 CST
+更新时间：2026-09-07 16:33 CST
+
+2026-09-07 16:33 CST 验证追加：ECC Wrap/Chip Driver基础原语完整门禁1601 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/ecc_wrap_software_gate.log`）；真实SDK/Wrap/Service Native Harness重新生成、WSL GCC编译执行通过（`ecc_native_generation.log`、`ecc_native_wrap.log`），包含三实例两源、非目标Raw保留、MSTATUS独立读回、非法参数无副作用及全局ECC配置保留。尚未实现ECC Service会话、Wire命令和P2_003正式Case；未构建部署固件或执行硬件。
+
+2026-09-07 16:26 CST 开发追加：ECC Wrap/Chip Driver原语已实现，尚未增加Wire命令或IRQ会话，P2_003保持PLANNED/IMPLEMENTATION_GAP。CMSIS及已索引mttcan_misc SVD的MTTCAN_INT_EN/MASK/FORCE/CLR/RSTATUS/MSTATUS分别位于0x820～0x834；bit0为Corrected警告、bit1为Uncorrected错误，Force/Clear单写自清，Raw独立读取。选择同实例CAN_MISC0/1/2，不改SYSC.ECCEN、MORD或Message RAM，不把Force当真实纠错。Driver侧Native首轮被资源保护器因低系统内存终止，内存回升后原限制重试通过；加入Wrap后的完整验证待本批执行。日志位于`artifacts/runs/20260907_can_planned_development/stages/ecc_native_initial.log`和`ecc_native_retry.log`。未操作硬件。
 
 2026-09-07 15:59 CST 验证追加：TSU原语最终完整门禁1601 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/tsu_primitives_software_gate_formatted.log`）；最终源码重新生成并执行三实例Native Harness通过（`tsu_native_final.log`）。中间文档同步、接口注释与C格式检查失败日志均保留，未放宽检查器。新增命令属于接口实现进度，15项计划仍为8项Case软件闭合；TSU正式Case及外部输入映射未完成，尚未烧录或执行新增硬件Case。
 

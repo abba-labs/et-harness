@@ -60,6 +60,173 @@ static CAN_Type *find_instance(et_can_id_t id)
 }
 
 /**
+ * @brief Translate ECC events between public semantics and own Driver symbols.
+ * @param[in] sources Mask in the source namespace.
+ * @param[in] to_driver Nonzero selects public-to-Driver translation.
+ * @return Equivalent mask in the destination namespace.
+ * @note No register access; callers validate unknown public bits before translation.
+ */
+static uint32_t translate_ecc_sources(uint32_t sources, uint8_t to_driver)
+{
+    uint32_t corrected = to_driver != 0u ? ET_CAN_ECC_CORRECTED : CAN_TEST_ECC_CORRECTED;
+    uint32_t uncorrected = to_driver != 0u ? ET_CAN_ECC_UNCORRECTED : CAN_TEST_ECC_UNCORRECTED;
+    uint32_t result = 0u;
+
+    if ((sources & corrected) != 0u)
+    {
+        result |= to_driver != 0u ? CAN_TEST_ECC_CORRECTED : ET_CAN_ECC_CORRECTED;
+    }
+
+    if ((sources & uncorrected) != 0u)
+    {
+        result |= to_driver != 0u ? CAN_TEST_ECC_UNCORRECTED : ET_CAN_ECC_UNCORRECTED;
+    }
+
+    return result;
+}
+
+/**
+ * @brief Enable or disable selected ECC interrupt sources through the own Driver.
+ * @param[in] id Logical CAN controller.
+ * @param[in] sources Nonempty public ECC event mask.
+ * @param[in] enabled Boolean source enable.
+ * @return OK, invalid argument, unsupported instance or Driver failure.
+ * @note Does not change masking, consume raw events or enable global RAM ECC.
+ */
+et_wrap_status_t et_can_wrap_set_ecc_enabled(et_can_id_t id, uint32_t sources, uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u || enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testSetEccEnabled(instance, translate_ecc_sources(sources, 1u), enabled) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Mask or unmask selected ECC interrupt sources through the own Driver.
+ * @param[in] id Logical CAN controller.
+ * @param[in] sources Nonempty public ECC event mask.
+ * @param[in] masked Boolean interrupt masking.
+ * @return OK, invalid argument, unsupported instance or Driver failure.
+ * @note Masking preserves raw latches and does not bind or control a physical IRQ.
+ */
+et_wrap_status_t et_can_wrap_set_ecc_masked(et_can_id_t id, uint32_t sources, uint8_t masked)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u || masked > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testSetEccMasked(instance, translate_ecc_sources(sources, 1u), masked) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Force selected ECC interrupt latches through the own Driver.
+ * @param[in] id Logical CAN controller.
+ * @param[in] sources Nonempty public ECC event mask.
+ * @return OK, invalid argument, unsupported instance or Driver failure.
+ * @note Can trigger an enabled IRQ; does not inject a real RAM bit error.
+ */
+et_wrap_status_t et_can_wrap_force_ecc(et_can_id_t id, uint32_t sources)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testForceEcc(instance, translate_ecc_sources(sources, 1u)) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Clear selected ECC interrupt latches through the own Driver.
+ * @param[in] id Logical CAN controller.
+ * @param[in] sources Nonempty public ECC event mask.
+ * @return OK, invalid argument, unsupported instance or Driver failure.
+ * @note Preserves non-target raw sources and does not modify session evidence.
+ */
+et_wrap_status_t et_can_wrap_clear_ecc(et_can_id_t id, uint32_t sources)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testClearEcc(instance, translate_ecc_sources(sources, 1u)) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read current ECC raw, delivery status, enable and mask values.
+ * @param[in] id Logical CAN controller.
+ * @param[out] snapshot Actual values in the public ECC namespace.
+ * @return OK, invalid argument, unsupported instance or Driver failure.
+ * @note Independent non-consuming register observations, not an atomic ISR snapshot.
+ */
+et_wrap_status_t et_can_wrap_get_ecc_snapshot(et_can_id_t id, et_can_ecc_snapshot_t *snapshot)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TestEccSnapshot actual;
+
+    if (snapshot == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_testGetEccSnapshot(instance, &actual) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    snapshot->raw = translate_ecc_sources(actual.raw, 0u);
+    snapshot->status = translate_ecc_sources(actual.status, 0u);
+    snapshot->enabled = translate_ecc_sources(actual.enabled, 0u);
+    snapshot->masked = translate_ecc_sources(actual.masked, 0u);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
  * @brief Translate an event mask between public and Driver namespaces.
  * @param[in] mask Source namespace mask.
  * @param[in] to_driver Nonzero maps public events to Driver events.

@@ -2890,5 +2890,70 @@ uint32_t CAN_testConsumeTsuSlot0(CAN_Type *CANx)
     assert_param(IS_CAN_PERIPH(CANx));
     return READ_REG(CANx->TS0);
 }
+/** Change only the selected ECC enable bits in the matching MISC instance. */
+int32_t CAN_testSetEccEnabled(CAN_Type *CANx, uint32_t sources, uint32_t enabled)
+{
+    CAN_MISC_Type *misc;
+    if (!IS_CAN_PERIPH(CANx) || (sources == 0U) ||
+        ((sources & ~CAN_TEST_ECC_ALL) != 0U) || (enabled > 1U))
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    MODIFY_REG(misc->MTTCAN_INT_EN, sources, enabled != 0U ? sources : 0U);
+    return DRV_OK;
+}
+/** Mask/unmask selected ECC sources without consuming latched raw events. */
+int32_t CAN_testSetEccMasked(CAN_Type *CANx, uint32_t sources, uint32_t masked)
+{
+    CAN_MISC_Type *misc;
+    if (!IS_CAN_PERIPH(CANx) || (sources == 0U) ||
+        ((sources & ~CAN_TEST_ECC_ALL) != 0U) || (masked > 1U))
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    MODIFY_REG(misc->MTTCAN_INT_MASK, sources, masked != 0U ? sources : 0U);
+    return DRV_OK;
+}
+/** Force only the interrupt latch; this does not inject a Message RAM error. */
+int32_t CAN_testForceEcc(CAN_Type *CANx, uint32_t sources)
+{
+    CAN_MISC_Type *misc;
+    if (!IS_CAN_PERIPH(CANx) || (sources == 0U) || (sources & ~CAN_TEST_ECC_ALL) != 0U)
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    WRITE_REG(misc->MTTCAN_INT_FORCE, sources);
+    return DRV_OK;
+}
+/** Clear only the selected raw latch; preserve all non-target sources. */
+int32_t CAN_testClearEcc(CAN_Type *CANx, uint32_t sources)
+{
+    CAN_MISC_Type *misc;
+    if (!IS_CAN_PERIPH(CANx) || (sources == 0U) || (sources & ~CAN_TEST_ECC_ALL) != 0U)
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    WRITE_REG(misc->MTTCAN_INT_CLR, sources);
+    return DRV_OK;
+}
+/** Read each real ECC status/config register once, without clearing any event. */
+int32_t CAN_testGetEccSnapshot(CAN_Type *CANx, CAN_TestEccSnapshot *snapshot)
+{
+    CAN_MISC_Type *misc;
+    if (!IS_CAN_PERIPH(CANx) || snapshot == NULL)
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    snapshot->raw = READ_REG(misc->MTTCAN_INT_RSTATUS) & CAN_TEST_ECC_ALL;
+    snapshot->status = READ_REG(misc->MTTCAN_INT_MSTATUS) & CAN_TEST_ECC_ALL;
+    snapshot->enabled = READ_REG(misc->MTTCAN_INT_EN) & CAN_TEST_ECC_ALL;
+    snapshot->masked = READ_REG(misc->MTTCAN_INT_MASK) & CAN_TEST_ECC_ALL;
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

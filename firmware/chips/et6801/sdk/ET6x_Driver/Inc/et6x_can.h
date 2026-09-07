@@ -1565,6 +1565,25 @@ int32_t CAN_testGetTsuLimits(CAN_Type *CANx, uint32_t *slots, uint32_t *internal
 void CAN_testGetTsuFlags(CAN_Type *CANx, uint32_t *newFlags, uint32_t *lostFlags);
 uint32_t CAN_testGetTsuTimebase(CAN_Type *CANx);
 uint32_t CAN_testConsumeTsuSlot0(CAN_Type *CANx);
+/** MISC ECC source bits from ET6801 CMSIS/SVD, distinct from controller IR.BEC/BEU. */
+#define CAN_TEST_ECC_CORRECTED CAN_MISC0_MTTCAN_INT_EN_WARN_INT_EN_Msk
+#define CAN_TEST_ECC_UNCORRECTED CAN_MISC0_MTTCAN_INT_EN_ERR_INT_EN_Msk
+#define CAN_TEST_ECC_ALL (CAN_TEST_ECC_CORRECTED | CAN_TEST_ECC_UNCORRECTED)
+typedef struct
+{
+    uint32_t raw;
+    uint32_t status;
+    uint32_t enabled;
+    uint32_t masked;
+} CAN_TestEccSnapshot;
+/** Only change selected enable/mask bits; no clear, global ECC enable or RAM access. */
+int32_t CAN_testSetEccEnabled(CAN_Type *CANx, uint32_t sources, uint32_t enabled);
+int32_t CAN_testSetEccMasked(CAN_Type *CANx, uint32_t sources, uint32_t masked);
+/** One write to a self-clearing action register; never read-modify-write it. */
+int32_t CAN_testForceEcc(CAN_Type *CANx, uint32_t sources);
+int32_t CAN_testClearEcc(CAN_Type *CANx, uint32_t sources);
+/** Actual non-consuming register reads, not a synthesized status or Force echo. */
+int32_t CAN_testGetEccSnapshot(CAN_Type *CANx, CAN_TestEccSnapshot *snapshot);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

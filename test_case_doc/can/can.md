@@ -228,6 +228,8 @@ RAM布局顺序：`std_offset, std_count, ext_offset, ext_count, tx_offset, tx_b
 - Dedicated RX没有硬件数量寄存器，因此布局按RAM_LIMITS_GET发布的rx_buffer_count预留完整区域，不虚构数量读回。PC布局规划必须计算该区间；其他计数区域可设0。
 - SET仅配置布局，不清RAM、不Ack、不复位；数据准备与状态隔离仍是Case显式步骤。
 
+ECC Wrap基础接口使用独立事件命名空间：`CORRECTED=1`、`UNCORRECTED=2`，不复用控制器中断事件。`set_ecc_enabled`和`set_ecc_masked`只改变所选非空源掩码；`force_ecc`只强制中断锁存，不注入RAM错误；`clear_ecc`仅清目标源。`get_ecc_snapshot`返回真实、非消费的raw/status/enabled/masked，独立寄存器观测不承诺原子快照；status不能由其他字段重算代替。非法源/Boolean/空指针在动作前拒绝，未知实例返回NOT_SUPPORTED。这些原语不操作全局ECC、不绑定物理IRQ、不清Service证据；当前仅完成Wrap/Chip Driver，尚无对应Wire命令或可执行ECC Case。
+
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
 
 ### 0.8 PC基础接口
