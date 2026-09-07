@@ -634,8 +634,6 @@ def test_can_p2_002_dmu_tx_event(
                     "dmu": asdict(errors),
                 }
             )
-            record_property("events", str(events[-1]))
-            record_property("status", str(states[-1]))
             # 出队后的DMA、FIFO与DMU错误分别绑定自身来源。
             for key, value, endpoint_name in (
                 ("event_image", raw.hex(), "DMA.DESTINATION"),
@@ -676,7 +674,8 @@ def test_can_p2_002_dmu_tx_event(
                 CanFrameFlags.FD | CanFrameFlags.BRS,
                 15,
                 marker,
-                CanTxEventType.TRANSMITTED,
+                # automatic_retry=False：DAR模式成功发送的精确事件类型为2。
+                CanTxEventType.TRANSMITTED_AFTER_CANCEL,
             )
             assert actual.event.tsu_pointer is None and actual.transferred_timestamp is None
             assert (

@@ -1471,7 +1471,7 @@ p_level: P2
 feature_refs: [CAN_F_025]
 method:
   inputs:
-    - "事件输入：内部回环FD 64-byte两帧，Marker为0x12和0x34；启用TX Event，DMU RX选择TX Event，关闭TSU附加。"
+    - "事件输入：内部回环FD 64-byte两帧，Marker为0x12和0x34；关闭自动重发（DAR模式，成功事件类型严格为2），启用TX Event，DMU RX选择TX Event，关闭TSU附加。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "端点配置：配置CAN与Event FIFO，设置DMU选择Event，查询Event端点宽度、请求号和元素长度。"
@@ -1645,7 +1645,7 @@ method:
     - "复位恢复：保存证据后硬复位CAN并重建合法DMU配置，采用32-item burst且传输数限定为完整帧word数，经DMU发一帧回环并核对数据、入/出队完成，不能凭未知W1C规则盲写DMUIR。"
   observations:
     - "非法访问事件：每行刺激对应目标DMU.ERROR位由0变1；IRQ_EVENT记录目标源，区别于API INVALID_PARAM。"
-    - "恢复结果：复位后DMU错误回到0，合法帧真实完成并匹配8-byte；本Case声明硬复位恢复，不声称未验证的软件清除。"
+    - "恢复结果：复位后DMU错误回到0，合法帧真实完成并匹配8-byte；DMA状态摘要使用通道字符串键保存完整结构，本Case声明硬复位恢复，不声称未验证的软件清除。"
   pass_criteria:
     - "错误可重复：全部9个独立节点均产生目标硬件错误及中断；额外伴随位只记录，不随意要求整个寄存器等于单bit。"
     - "后续可用：各节点后的合法恢复帧准确，无残留活动DMA或未完成DMU服务。"

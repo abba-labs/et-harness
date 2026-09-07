@@ -364,7 +364,7 @@ def test_can_p2_007_dmu_illegal_irq(
                     "errors": asdict(errors),
                     "counters": asdict(counters),
                     "fifo": asdict(rx_after),
-                    "dma": {key: asdict(value) for key, value in dma_status.items()},
+                    "dma": {str(key): asdict(value) for key, value in dma_status.items()},
                     "tx": asdict(tx_after),
                 },
             )
