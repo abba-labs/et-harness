@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 13:24 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；23项SPEC、16项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；24项SPEC、15项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -302,7 +302,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | SPEC，见第3节 |
-| CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
+| CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | 已实现固定输入时钟速率矩阵，见第3节SPEC |
 | CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | 已实现，见第3节SPEC |
 | CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | SPEC，见第3节 |
@@ -920,10 +920,9 @@ gap: []
 
 ### CAN_P1_012 CAN位速率与时钟矩阵
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_012
 case_name: CAN位速率与时钟矩阵
 report_feature: |-
@@ -932,34 +931,34 @@ p_level: P1
 feature_refs: [CAN_F_006]
 method:
   inputs:
-    - "历史参数：输入时钟20/40/80 MHz；Classic速率125k/250k/500k/800k/1M，FD仲裁500k/1M、数据2M/5M；只对硬件实际可提供的时钟列声明结果，缺项必须保留适配缺口。"
+    - "速率矩阵：使用当前Chip/Lane Profile已确认的固定输入时钟；Classic速率125k/250k/500k/800k/1M，FD仲裁500k/1M、数据2M/5M，共九节点。本Case不切换输入时钟或测试CRG分频；硬件bypass的历史20/40/80 MHz切换列不执行、不统计PASS或SKIP，未确认的其他Lane时钟不得猜测。"
     - "独立时序：按输入时钟和合法BRP、TSEG1、TSEG2计算实际速率及采样点；选择可精确表示的配置，SJW不超过相关段长；每节点发两组不同64-byte或8-byte数据。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "时钟选择：通过独立CRG Driver设置参与CAN的输入时钟，确认Chip Mapping读回，不修改控制通信时钟。"
-    - "位时序推导：PC按公式求仲裁/数据参数，并给两端配置相同实际速率和合法采样点。"
+    - "时钟前提：保存Chip/Lane Profile输入频率及来源；它是已确认配置事实，不是寄存器读回或频率测量。保持输入时钟不变，不修改控制通信时钟。"
+    - "位时序推导：PC按公式求仲裁/数据参数，并给两端配置相同实际速率和合法采样点；800k用25 TQ、5M用8 TQ，其余用20 TQ，采样点取不超过80%的最近TQ。FD开启TDC，Offset=(1+数据TSEG1)×BRP，Filter=0。"
     - "配置核对：被测CAN的BIT_TIMING读回与PC计算值比较；Peer配置同一线上速率，但不用共享DUT输入时钟或寄存器布局；两端正常模式、关闭回环。"
     - "帧传输：两端轮流各发送两帧，FD设置BRS，使真实总线经历数据速率切换。"
-    - "参数判定：比较对端帧、TX完成和错误状态，保存每节点时钟及实际速率；不可达项说明硬件依据而非静默丢弃。"
+    - "参数判定：比较对端完整帧、TX完成和错误状态，保存每节点Profile时钟、计算速率、采样点以及BIT_TIMING实际读回；要求最终Pending/Fill为0、无Lost或Bus Off。"
   observations:
-    - "时序读回：CONFIG.INPUT_CLOCK_HZ及BIT_TIMING等于预定组合，实际速率由独立公式计算。"
+    - "时序读回：BIT_TIMING等于预定组合；输入频率明确来自Profile，速率及采样点由独立公式计算，不标注为DUT频率读回。"
     - "外部通信：DUT接收元素和Peer实际捕获逐Byte正确，DUT无Bus Off，双方发送完成；证明组合可通信，不代表示波器频率精度。"
   pass_criteria:
-    - "参数完整：所有本芯片硬件允许的历史组合都有结论，不支持的时钟须有硬件依据。"
+    - "参数完整：当前固定Profile时钟下九组速率均执行；不将bypass分频及未适配输入时钟列声称已覆盖。"
     - "双向完整：每节点四帧均正确完成，速率/采样点和实际时钟明确留证。"
-timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
+timeout: "单参数节点5 s"
 cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
 resources: {minimum_level: R2, full_coverage_level: R4, board: "被测CAN经收发器连接Peer；实例和GPIO来自连接文件", bench: "另一CAN节点或支持所列速率/帧格式的CAN盒子，无示波器要求"}
 backend: [FPGA, Silicon]
 evidence: ["CAN位速率与时钟矩阵：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"timing","label":"CONFIG.INPUT_CLOCK_HZ与BIT_TIMING实际参数","source":"dut","role":"actual","format":"text"}
+  - {"key":"timing","label":"Profile输入频率、计算采样点与BIT_TIMING实际参数","source":"measurement","role":"actual","format":"text"}
   - {"key":"frame","label":"被测CAN RX.FRAME及PROTOCOL.BUS_OFF","source":"dut","role":"actual","format":"text"}
   - {"key":"peer_frames","label":"Peer实际捕获帧及发送结果","source":"peer","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN位速率与时钟矩阵的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","clock_profile_gap","board_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_013 CAN内部16-bit时间戳
 
@@ -2001,6 +2000,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_012:
+    summary: 固定Profile输入时钟的九组速率矩阵，DUT时序实读，双向各两帧完整比较；不测试输入时钟分频。
+    fields:
+      - {source: measurement, path: timing, label: 计算时序和硬件读回, format: text, aggregate: all}
+      - {source: observation, path: frame, label: DUT实际接收帧, format: text, aggregate: all}
+      - {source: observation, path: peer_frames, label: Peer实际捕获帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: Profile时钟及输入矩阵, format: text}
   CAN_P1_013:
     summary: 关闭全零，内部锁存落在受限计数窗口，自然回卷及W1C有效，清零排除自然回卷和无动作。
     fields:
@@ -2161,7 +2167,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=19; IMPLEMENTATION_GAP=18 | ADAPTED=23; IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | 23 SPEC、16 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=20; IMPLEMENTATION_GAP=17 | ADAPTED=24; IMPLEMENTATION_GAP=15; NEEDS_VERIFICATION=3 | 24 SPEC、15 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

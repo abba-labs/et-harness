@@ -52,14 +52,19 @@ def chip_mapping(chip_id: str) -> ModuleType:
         raise
 
 
-# 纯计数换算：每bit固定20 TQ，80%采样；实际输入时钟由Mapping提供。
+# 纯计数换算：默认20 TQ/80%采样；其他TQ取不超过80%的最近采样点。
 # 不读设备、不改时钟；无法精确表达时失败，不通过取整悄悄改变标称速率。
-def phase_timing(clock_hz: int, bitrate: int, limits: CanPhaseTiming) -> CanPhaseTiming:
+def phase_timing(
+    clock_hz: int, bitrate: int, limits: CanPhaseTiming, *, quanta: int = 20
+) -> CanPhaseTiming:
 
-    quanta = 20
-    if bitrate <= 0 or clock_hz % (bitrate * quanta):
-        raise ConfigurationError("CAN requested bitrate is not exactly representable with 20 TQ")
-    phase = CanPhaseTiming(clock_hz // (bitrate * quanta), 15, 4, 4)
+    if quanta < 5 or bitrate <= 0 or clock_hz % (bitrate * quanta):
+        raise ConfigurationError(
+            "CAN requested bitrate is not exactly representable with chosen TQ"
+        )
+    segment1 = quanta * 4 // 5 - 1
+    segment2 = quanta - 1 - segment1
+    phase = CanPhaseTiming(clock_hz // (bitrate * quanta), segment1, segment2, min(4, segment2))
     if any(
         not 0 < getattr(phase, field) <= getattr(limits, field)
         for field in ("prescaler", "segment1", "segment2", "sjw")

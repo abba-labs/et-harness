@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 14:54 CST
+更新时间：2026-09-07 15:09 CST
+
+2026-09-07 15:09 CST 验证追加：固定时钟速率矩阵63项独立Wire/Peer专项及完整门禁通过，1575 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/rate_case_software_gate.log`）。15项计划已有8项实现与软件验证完成；输入分频bypass按人工要求不测，不计SKIP或PASS。未执行新增Case硬件，未修改CRG实现或固件。
+
+2026-09-07 15:04 CST 人工确认与开发：用户明确FPGA输入时钟分频不生效、走bypass，不用测试。P1_012因此按固定40MHz实现九组速率，不扩展CRG接口，不切20/80MHz、不把固定频率标成DUT读回。NBTP/DBTP实读、双向四帧和终态检查仍保留；800k/5M分别25/8 TQ，FD开启TDC。63项独立Wire/Peer回归通过，完整软件门禁待验证；未执行硬件。
 
 2026-09-07 14:54 CST 验证追加：P1_013的33项固定Wire正常/坏值回归及完整软件门禁通过，1512 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timestamp_case_software_gate_verified.log`）。首次门禁只发现适配汇总数量未同步，原日志`timestamp_case_software_gate.log`保留。15项计划已有7项完成实现与软件验证；未烧录，新Case FPGA仍NOT_EXECUTED。
 
@@ -28,7 +32,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_010/P1_013/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前64条命令、23项SPEC、16项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有7项软件验证完成、8项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_012/P1_013/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前64条命令、24项SPEC、15项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标及FPGA输入时钟bypass分频；15项已有PLAN正在逐项实现，已有8项软件验证完成、7项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
@@ -356,7 +360,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_003 | SUPPORTED | 3个实例，GPIO复用与收发器连接尚未选定；正常模式不能直接TX/RX短接 | IMPLEMENTATION_GAP | CAN_P0_003、CAN_P2_005 |
 | CAN_F_004 | SUPPORTED | Message RAM元素ID/XTD/RTR/DLC；SDK data为uint16_t[64]，每项低8-bit有效 | IMPLEMENTATION_GAP | CAN_P0_002、CAN_P0_003、CAN_P1_001 |
 | CAN_F_005 | SUPPORTED | CCCR.FDOE[8]/BRSE[9]、DBTP；FD长度最大64-byte，BRS须读实际接收元数据 | ADAPTED | CAN_P1_001、CAN_P3_001 |
-| CAN_F_006 | SUPPORTED | NBTP/DBTP；CRG.PLLCLK_CFG3[26:20]，FPGA实际时钟不能仅信SDK硬编码40MHz | IMPLEMENTATION_GAP | CAN_P1_012、CAN_P2_012 |
+| CAN_F_006 | SUPPORTED | NBTP/DBTP；人工确认FPGA输入时钟分频bypass，沿用40MHz配置，不测CRG分频；该频率不是DUT实测，Silicon源/分频仍未适配 | ADAPTED | CAN_P1_012、CAN_P2_012 |
 | CAN_F_007 | SUPPORTED | GFC/SIDFC、标准Filter元素；HPM/HPMS；Filter列表项数与区域预算分别验证 | ADAPTED | CAN_P1_002 |
 | CAN_F_008 | SUPPORTED | XIDFC/XIDAM/扩展Filter；P1_003已补XIDAM全1/屏蔽低4位、EFT=3绕过及29-bit高位对照 | ADAPTED | CAN_P1_003 |
 | CAN_F_009 | SUPPORTED | GFC.RRFS[1]/RRFE[0]；Classic RTR与FD必须分开 | ADAPTED | CAN_P1_004 |
@@ -441,7 +445,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS |
 | CAN_P1_010 | ADAPTED | 8/16-bit各两条完整Marker、A/B回环RX、事件有效性及100ms排空检查；公共命令59～61，须部署新固件后执行FPGA，当前NOT_EXECUTED |
 | CAN_P1_011 | ADAPTED | 2026-09-07 11:13内部/外部回环/Normal各两参数全部PASS；外部Peer正常ACK，DUT模式读回、完整帧、实际ISR双线路与独立W1C均核对。旧只听超时不因此计为解决 |
-| CAN_P1_012 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、clock_profile_gap、board_mapping_gap；资源R2，按公共PLAN实施 |
+| CAN_P1_012 | ADAPTED | 人工确认FPGA输入分频bypass，固定40MHz的五Classic/四FD组合已实现；NBTP/DBTP实读及双向四帧；无CRG分频测试，无新增接线，FPGA NOT_EXECUTED |
 | CAN_P1_013 | ADAPTED | 40MHz输入，125k仲裁分频1/2/16；命令63内部源清零实读与100ms包围预算、锁存及回卷Case已实现；待新固件部署，FPGA NOT_EXECUTED |
 | CAN_P1_014 | ADAPTED | TOP1000、分频1、500k；连续重装命令62、FIFO互斥刺激、IRQ Manager真实回调与禁用后非空对照已实现；无外部接线，待新固件部署，FPGA NOT_EXECUTED |
 | CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS |

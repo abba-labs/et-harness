@@ -14,6 +14,7 @@ CAN_RESET_FD_ENABLED = False
 CAN_ENDIAN_SIGNATURE = 0x87654321
 
 # 当前FPGA Driver及历史硅前配置采用40MHz；实际总线速率由外部收发另行验证。
+# 2026-09-07人工确认：FPGA输入时钟分频bypass，不测试CRG分频或20/80MHz切换。
 # Silicon时钟源/分频实现尚有文档D04冲突，没有给它伪造一个可用频率。
 CAN_CLOCK_HZ = MappingProxyType({"fpga": 40_000_000})
 
