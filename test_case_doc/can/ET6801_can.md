@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 13:32 CST
+更新时间：2026-09-07 13:43 CST
+
+2026-09-07 13:43 CST 验证追加：P3_001完成20轮双向各32帧的真实Case编排、32项FIFO布局和报告绑定。9项软件回归包含完整1280帧调用链及末轮最后序号损坏；完整门禁1432 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/batch_case_software_gate.log`）。15项计划已完成5项实现与软件验证；未执行这些新增Case的FPGA测试，未新增烧录或接线动作。
 
 2026-09-07 13:32 CST 验证追加：P1_010正式Marker Case、注册表和报告绑定完成，16项独立Wire向量全部通过；全门禁1423 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/marker_case_software_gate_complete.log`）。两种位宽各两帧、完整RX数据和事件类型、时间戳有效性、100ms排空负向检查均已编码；新增Case硬件仍NOT_EXECUTED。15项计划已有4项完成实现与软件验证，尚不能称完成FPGA验证。
 
@@ -12,7 +14,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_010/P1_020/P1_021/P2_005尚未FPGA执行。** 当前62条命令、20项SPEC、19项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有3项软件验证完成，第4项Marker Case正在验证。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前62条命令、21项SPEC、18项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有4项软件验证完成，第5项连续收发Case正在验证。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
@@ -339,7 +341,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_002 | SUPPORTED | CCCR.TEST[7]/MON[5]与TEST.LBCK[4]；必须区分内部和外部回环 | IMPLEMENTATION_GAP | CAN_P0_002、CAN_P2_005 |
 | CAN_F_003 | SUPPORTED | 3个实例，GPIO复用与收发器连接尚未选定；正常模式不能直接TX/RX短接 | IMPLEMENTATION_GAP | CAN_P0_003、CAN_P2_005 |
 | CAN_F_004 | SUPPORTED | Message RAM元素ID/XTD/RTR/DLC；SDK data为uint16_t[64]，每项低8-bit有效 | IMPLEMENTATION_GAP | CAN_P0_002、CAN_P0_003、CAN_P1_001 |
-| CAN_F_005 | SUPPORTED | CCCR.FDOE[8]/BRSE[9]、DBTP；FD长度最大64-byte，BRS须读实际接收元数据 | IMPLEMENTATION_GAP | CAN_P1_001、CAN_P3_001 |
+| CAN_F_005 | SUPPORTED | CCCR.FDOE[8]/BRSE[9]、DBTP；FD长度最大64-byte，BRS须读实际接收元数据 | ADAPTED | CAN_P1_001、CAN_P3_001 |
 | CAN_F_006 | SUPPORTED | NBTP/DBTP；CRG.PLLCLK_CFG3[26:20]，FPGA实际时钟不能仅信SDK硬编码40MHz | IMPLEMENTATION_GAP | CAN_P1_012、CAN_P2_012 |
 | CAN_F_007 | SUPPORTED | GFC/SIDFC、标准Filter元素；HPM/HPMS；Filter列表项数与区域预算分别验证 | ADAPTED | CAN_P1_002 |
 | CAN_F_008 | SUPPORTED | XIDFC/XIDAM/扩展Filter；P1_003已补XIDAM全1/屏蔽低4位、EFT=3绕过及29-bit高位对照 | ADAPTED | CAN_P1_003 |
@@ -368,7 +370,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_033 | SUPPORTED | PSR.LEC/DLEC/BO、ECR.TEC/REC、IR.PEA/PED/EW/EP/BO；首次错误锁存 | IMPLEMENTATION_GAP | CAN_P2_009 |
 | CAN_F_034 | SUPPORTED | TTOCF/TTRMC/TTTMC/TTMLM/TURCF/TTOCN/TTOST/TTIR和Trigger RAM；不声明覆盖全部TT扩展 | IMPLEMENTATION_GAP | CAN_P2_011 |
 | CAN_F_035 | SUPPORTED | RWD.WDC[7:0]/WDV[15:8]、IR.WDI[26]；FPGA延迟钩子未配置，不假称CPU延迟可代替 | IMPLEMENTATION_GAP | CAN_P2_010 |
-| CAN_F_036 | SUPPORTED | 压力代码200万帧仅作历史意图，本计划20轮×双向32帧，不能声称同等时长或极限压力 | IMPLEMENTATION_GAP | CAN_P3_001 |
+| CAN_F_036 | SUPPORTED | 压力代码200万帧仅作历史意图，本计划20轮×双向32帧，不能声称同等时长或极限压力 | ADAPTED | CAN_P3_001 |
 | CAN_F_037 | SUPPORTED | CCCR.NISO[15]、FDOE[8]/BRSE[9]；Peer须真实支持两种格式 | ADAPTED | CAN_P1_020 |
 | CAN_F_038 | SUPPORTED | CCCR.TEST[7]、TEST.TX[6:5]/RX[7]；必须隔离收发器，非GPIO短接 | IMPLEMENTATION_GAP | CAN_P3_005 |
 | CAN_F_039 | SUPPORTED | CRG.PLLCLK_CFG3 CAN源可选择AUX；S04和AUX PAD/FPGA接入未闭合，不代表当前FPGA已可执行 | IMPLEMENTATION_GAP | CAN_P2_012 |
@@ -448,7 +450,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P2_011 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P2_012 | IMPLEMENTATION_GAP | 已有PLAN；AUX源/分频Driver、PAD/电平/FPGA路径和外部源映射待补；未接线不阻止保留历史需求 |
 | CAN_P2_013 | NEEDS_VERIFICATION | 原P2_008的TX Event附加部分独立保留；TTS有效字数、timestamp位置及结束地址尚缺准确格式，见公共5.2。 |
-| CAN_P3_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R2，按公共PLAN实施 |
+| CAN_P3_001 | ADAPTED | 40MHz Profile对应1M/5M，TDC offset=6/filter=0；TX/RX FIFO各32项64-byte元素，20轮各方向640帧已实现，首次失败不重跑；无新增Wire，FPGA当前NOT_EXECUTED |
 | CAN_P3_002 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P3_003 | NEEDS_VERIFICATION | 已设计脉冲发生器/AWG加双通道示波器，1/3 tq×过滤开关四节点；仍须确认TEST采样点与硬同步的唯一对应，仪器目标预算0.1 tq，见公共5.3。 |
 | CAN_P3_004 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |

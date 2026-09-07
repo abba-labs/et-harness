@@ -114,6 +114,31 @@ def loopback_ram(support: CanSupport, *, payload_bytes: int = 8) -> CanRamLayout
     )
 
 
+# 纯布局计算：连续收发使用等深度TX/RX FIFO，不执行任何设备动作。
+def batch_fifo_ram(support: CanSupport, *, count: int, payload_bytes: int) -> CanRamLayout:
+
+    limits = support.ram_limits
+    if not 1 <= count <= min(limits.tx_count, limits.rx_fifo_count):
+        raise ConfigurationError("CAN batch depth exceeds TX/RX FIFO capacity")
+    layout = loopback_ram(support, payload_bytes=payload_bytes)
+    stride = support.mapping.CAN_RAM_HEADER_BYTES + payload_bytes
+    rx_offset = layout.tx_offset + count * stride
+    buffer_offset = rx_offset + count * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN batch FIFO layout exceeds Message RAM")
+    return replace(
+        layout,
+        tx_buffer_count=0,
+        tx_fifo_count=count,
+        tx_queue=False,
+        event_offset=rx_offset,
+        rx0_offset=rx_offset,
+        rx0_count=count,
+        rx1_offset=buffer_offset,
+        rx_buffer_offset=buffer_offset,
+    )
+
+
 # 纯布局计算：三项TX加四项RX0，三种组织使用同一数据容量和接收布局。
 def tx_order_ram(support: CanSupport, *, mode: str) -> CanRamLayout:
 

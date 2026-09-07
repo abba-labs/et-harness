@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 13:24 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；20项SPEC、19项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；21项SPEC、18项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -319,7 +319,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P2_011 | TTCAN触发表与时间窗 | P2 | R4 | PLANNED，见第3节 |
 | CAN_P2_012 | CAN AUX时钟下总线收发 | P2 | R4 | PLANNED，见第3节 |
 | CAN_P2_013 | CAN DMU TX Event附加TSU时间戳 | P2 | R1 | DESIGN_GAP，见第5节 |
-| CAN_P3_001 | CAN有界连续收发 | P3 | R2 | PLANNED，见第3节 |
+| CAN_P3_001 | CAN有界连续收发 | P3 | R2 | 已实现；实测结果见芯片文档 |
 | CAN_P3_002 | CAN TDC发送延迟补偿 | P3 | R4 | PLANNED，见第3节 |
 | CAN_P3_003 | CAN接入边沿过滤 | P3 | R4 | DESIGN_GAP，见第5节 |
 | CAN_P3_004 | CAN发送Pause间隔 | P3 | R4 | PLANNED，见第3节 |
@@ -1818,10 +1818,9 @@ gap: [case_implementation_gap, aux_clock_mapping_gap, aux_source_connection_gap]
 
 ### CAN_P3_001 CAN有界连续收发
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P3_001
 case_name: CAN有界连续收发
 report_feature: |-
@@ -1835,10 +1834,11 @@ method:
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "链路配置：固定双节点总线、Normal模式和匹配过滤；确认实际速率，清软计数和历史丢失标志。"
-    - "正向连续：被测端按FIFO可用槽连续排队32帧，对端有界接收，记录实际ID、序号和数据。"
-    - "反向连续：原接线交换发送方向执行32帧，不逐帧复位，使用新的序号区间。"
+    - "正向连续：确认32项FIFO全空，预装32帧后一次请求全部；等待TX完成全位图，再由Peer有界捕获全部32帧，记录实际ID、序号和数据。"
+    - "反向连续：原接线Peer连发32帧，DUT等待RX FIFO实际累计32条后逐条读取与Ack；不逐帧复位，使用新的序号区间。"
     - "轮次累计：共20轮，每轮保留TX/RX数量及Lost、Error、Bus Off，遇错保留首次事实不自动重跑覆盖。"
     - "全量校验：两方向各640帧，逐Byte、逐序号比较，确认无重复、漏帧和未完成TX。"
+    - "尾部静默：末轮同一Deadline内，Peer完整100ms无额外捕获且通道无错误；提前返回的超时或多余帧均失败。"
   observations:
     - "连续数据：两方向RX序号各完整640个且payload逐Byte等于输入。"
     - "硬件状态：TX无挂起、RX.LOST=0、TX_EVENT.LOST在启用时为0、PROTOCOL.BUS_OFF=0。"
@@ -1854,11 +1854,11 @@ failure_observations:
   - {"key":"frames","label":"被测CAN RX序号首个丢失/重复/不匹配和实际数据","source":"dut","role":"actual","format":"text"}
   - {"key":"peer_frames","label":"Peer实际捕获序号及数据","source":"peer","role":"actual","format":"text"}
   - {"key":"counts","label":"各轮TX/RX累计实收帧数","source":"measurement","role":"actual","format":"text"}
-  - {"key":"status","label":"TX.PENDING、RX.LOST及PROTOCOL.BUS_OFF","source":"dut","role":"actual","format":"text"}
+  - {"key":"status_summary","label":"每轮TX/RX/协议状态及Peer错误读回","source":"measurement","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN有界连续收发的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P3_002 CAN TDC发送延迟补偿
 
@@ -1996,6 +1996,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P3_001:
+    summary: 20轮32帧双向批量FD/BRS；各640帧逐Byte逐序号核对，轮内不复位，末尾无额外捕获。
+    fields:
+      - {source: measurement, path: counts, label: 每轮累计实际接收数量, format: text, aggregate: all}
+      - {source: measurement, path: status_summary, label: 各轮硬件与Peer错误状态, format: text, aggregate: all}
+      - {source: observation, path: peer_frames, label: 全部Peer实际捕获帧, format: text, aggregate: all}
+      - {source: observation, path: frames, label: 全部DUT实际接收帧, format: text, aggregate: all}
   CAN_P1_010:
     summary: 两种位宽各两条独立Marker；完整RX匹配，宽格式无时间戳，Ack后100ms无额外事件。
     fields:
@@ -2135,7 +2142,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=15; IMPLEMENTATION_GAP=22 | ADAPTED=20; IMPLEMENTATION_GAP=19; NEEDS_VERIFICATION=3 | 20 SPEC、19 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=17; IMPLEMENTATION_GAP=20 | ADAPTED=21; IMPLEMENTATION_GAP=18; NEEDS_VERIFICATION=3 | 21 SPEC、18 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
