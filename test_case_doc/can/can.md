@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 13:24 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；21项SPEC、18项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；22项SPEC、17项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -301,7 +301,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | SPEC，见第3节 |
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
 | CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | PLANNED，见第3节 |
-| CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_017 | CAN取消请求与重发 | P1 | R4 | PLANNED，见第3节 |
@@ -1001,10 +1001,9 @@ gap: ["case_implementation_gap","atomic_timestamp_snapshot_gap"]
 
 ### CAN_P1_014 CAN Timeout四种计数源
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_014
 case_name: CAN Timeout四种计数源
 report_feature: |-
@@ -1017,10 +1016,10 @@ method:
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "计数配置：内部回环，配置当前超时源；先禁用计数，确认无Timeout事件。"
-    - "装载启动：连续模式写入重装动作启动；FIFO模式先确认空时计数保持TOP，再发一帧使目标FIFO非空启动。"
+    - "装载启动：连续模式写入重装动作启动；FIFO模式先确认空时计数为TOP，再发一帧仅使目标FIFO非空启动；TX Event模式拒收自发帧，RX0/1模式不保存TX Event，另外两源FIFO须为空。"
     - "到期观察：不消费当前源FIFO，等待TIMEOUT.IRQ有效，保存COUNTER到期值和ISR锁存。"
-    - "重装验证：连续模式写重装，FIFO模式读取并Ack到空，检查COUNTER重新为TOP或从TOP开始下降。"
-    - "禁止对照：关闭计数，清IRQ并保持同样条件，等待至少两倍理论周期确认无新Timeout。"
+    - "重装验证：连续模式单命令返回实际重装前后值，要求前值0、后值在1..TOP；FIFO模式核对实际数据并Ack到空，检查COUNTER重新为TOP。"
+    - "禁止对照：显式进入INIT关闭计数后再退出，不复位CAN或RAM；清IRQ，FIFO模式重新产生仅目标非空条件，至少两倍理论周期内确认计数保持、无新Timeout或ISR，随后读取并Ack目标条目。"
   observations:
     - "计数来源：FIFO空/非空与TIMEOUT.COUNTER启动/重装关系一致，连续模式按写重装生效。"
     - "到期中断：TIMEOUT.IRQ及IRQ_EVENT出现，关闭计数后无新事件。"
@@ -1036,9 +1035,9 @@ failure_observations:
   - {"key":"counter","label":"TIMEOUT.COUNTER装载/到期/重装值","source":"dut","role":"actual","format":"text"}
   - {"key":"irq","label":"TIMEOUT.IRQ及对应IRQ_EVENT","source":"measurement","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN Timeout四种计数源的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_015 CAN Clock Stop请求与恢复
 
@@ -1999,6 +1998,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_014:
+    summary: 连续与三个互斥FIFO源分别自然到期及ISR，重装真实读回，禁用后保持同样刺激仍无事件。
+    fields:
+      - {source: measurement, path: counter, label: 空/到期/重装/禁止计数实读, format: text, aggregate: all}
+      - {source: measurement, path: irq, label: 自然Raw和ISR证据, format: text, aggregate: all}
+      - {source: observation, path: source_fill, label: 各阶段三个FIFO实际数量, format: text, aggregate: all}
+      - {source: measurement, path: negative_windows, label: 禁止窗口实际时长, format: text, aggregate: all}
   CAN_P3_001:
     summary: 20轮32帧双向批量FD/BRS；各640帧逐Byte逐序号核对，轮内不复位，末尾无额外捕获。
     fields:
@@ -2145,7 +2151,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=17; IMPLEMENTATION_GAP=20 | ADAPTED=21; IMPLEMENTATION_GAP=18; NEEDS_VERIFICATION=3 | 21 SPEC、18 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=18; IMPLEMENTATION_GAP=19 | ADAPTED=22; IMPLEMENTATION_GAP=17; NEEDS_VERIFICATION=3 | 22 SPEC、17 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

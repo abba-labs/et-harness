@@ -379,6 +379,30 @@ def tx_event_loopback_ram(support: CanSupport, *, watermark: int) -> CanRamLayou
     )
 
 
+# 纯几何：两个RX FIFO及TX Event均深度四，供Timeout逐源独立刺激。
+def timeout_fifo_ram(support: CanSupport) -> CanRamLayout:
+
+    layout = filter_loopback_ram(support, standard_count=1, extended_count=0)
+    event_count = 4
+    if support.ram_limits.event_count < event_count:
+        raise ConfigurationError("CAN timeout requires four TX Event entries")
+    event_bytes = event_count * support.mapping.CAN_EVENT_BYTES
+    buffer_offset = layout.rx_buffer_offset + event_bytes
+    end = buffer_offset + support.ram_limits.rx_buffer_count * (
+        support.mapping.CAN_RAM_HEADER_BYTES + layout.rx_buffer_payload_bytes
+    )
+    if end > support.ram_limits.ram_bytes:
+        raise ConfigurationError("CAN timeout layout exceeds Message RAM")
+    return replace(
+        layout,
+        event_offset=layout.rx0_offset,
+        event_count=event_count,
+        rx0_offset=layout.rx0_offset + event_bytes,
+        rx1_offset=layout.rx1_offset + event_bytes,
+        rx_buffer_offset=buffer_offset,
+    )
+
+
 # 选择Dedicated RX首尾和32-bit位图分组边界；较小实现仅保留实际存在的节点。
 # 返回值只依赖目标公开容量，Case仍逐项验证真实数据和位图。
 def rx_buffer_boundary_indices(limits: CanRamLimits) -> tuple[int, ...]:

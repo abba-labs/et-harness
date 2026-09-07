@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 13:52 CST
+更新时间：2026-09-07 14:23 CST
+
+2026-09-07 14:23 CST 验证追加：P1_014四源Case及35项独立Wire反例验证完成，完整门禁1473 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timeout_case_software_gate_external_temp.log`）。此前一次门禁遇Windows公共TEMP中的目录消失，随后把TMP放在仓库内又触发布局/路径归属三项检查，原日志分别保留为`timeout_case_software_gate.log`、`timeout_case_software_gate_verified.log`；未改框架测试。改用仓库外专属临时目录后6项相关路径自测和全门禁均通过。15项计划已完成6项实现与软件验证；新增硬件测试仍NOT_EXECUTED。
 
 2026-09-07 14:00 CST 验证追加：Timeout重装基础接口通过5项独立Wire向量、WSL GCC真实SDK/Wrap/Service Harness编译与执行（`timeout_native_compile.log`、`timeout_native_execution.log`）；三个实例返回独立前值及模拟递减后的实读值，FIFO源拒绝且无多余写操作，Service精确长度拒绝保持。完整软件门禁1438 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timeout_reload_software_gate.log`）。P1_014正式Case继续开发，未部署或执行硬件。
 
@@ -18,7 +20,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_010/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前62条命令、21项SPEC、18项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有4项软件验证完成，第5项连续收发Case正在验证。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前63条命令、22项SPEC、17项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有5项软件验证完成，第6项Timeout Case正在验证。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
@@ -359,7 +361,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_016 | SUPPORTED | CCCR.WMM[11]/UTSU[10]；WMM=1时TX Event 16-bit Timestamp位置改为Marker | ADAPTED | CAN_P1_010 |
 | CAN_F_017 | SUPPORTED | IR/IE/ILS/ILE；每实例INT0/INT1独立，ECC只有一条共享向量 | ADAPTED | CAN_P1_011 |
 | CAN_F_018 | SUPPORTED | TSCC.TCP[19:16]/TSS[1:0]、TSCV.TSC[15:0]、IR.TSW[16]；分频1～16 | IMPLEMENTATION_GAP | CAN_P1_013 |
-| CAN_F_019 | SUPPORTED | TOCC.TOP[31:16]/TOS[2:1]/ETOC[0]、TOCV.TOC、IR.TOO[18] | IMPLEMENTATION_GAP | CAN_P1_014 |
+| CAN_F_019 | SUPPORTED | TOCC.TOP[31:16]/TOS[2:1]/ETOC[0]、TOCV.TOC、IR.TOO[18] | ADAPTED | CAN_P1_014 |
 | CAN_F_020 | SUPPORTED | CCCR.UTSU[10]、TSCFG/TSS1/TSS2/TS0/ATB；使用TS0避免推测缺失槽地址，外部总线接入仍待映射 | IMPLEMENTATION_GAP | CAN_P1_018、CAN_P2_008、CAN_P2_013 |
 | CAN_F_021 | SUPPORTED | CCCR.CSR[4]/CSA[3]/INIT[0]；与MISC的CLKSTOP_REQ/ACK关系需区别 | ADAPTED | CAN_P1_015 |
 | CAN_F_022 | SUPPORTED | 驱动CANx-0x4000、FPGA UT5测试16KiB；地址范围是驱动依据，不等于已经硅证全容量 | ADAPTED | CAN_P1_016 |
@@ -433,7 +435,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_011 | ADAPTED | 2026-09-07 11:13内部/外部回环/Normal各两参数全部PASS；外部Peer正常ACK，DUT模式读回、完整帧、实际ISR双线路与独立W1C均核对。旧只听超时不因此计为解决 |
 | CAN_P1_012 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、clock_profile_gap、board_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P1_013 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、atomic_timestamp_snapshot_gap；资源R1，按公共PLAN实施 |
-| CAN_P1_014 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
+| CAN_P1_014 | ADAPTED | TOP1000、分频1、500k；连续重装命令62、FIFO互斥刺激、IRQ Manager真实回调与禁用后非空对照已实现；无外部接线，待新固件部署，FPGA NOT_EXECUTED |
 | CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS |
 | CAN_P1_016 | ADAPTED | 单实例16KiB完整模式/March C-及重建回环FPGA PASS；CPU窗口不能解释为多实例独占容量 |
 | CAN_P1_017 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
