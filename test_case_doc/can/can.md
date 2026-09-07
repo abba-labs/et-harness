@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 11:08 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；17项SPEC、22项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；18项SPEC、21项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -271,7 +271,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前17个SPEC、22个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
+当前18个SPEC、21个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
@@ -303,7 +303,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | SPEC，见第3节 |
-| CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | PLANNED，见第3节 |
+| CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | SPEC，见第3节 |
 | CAN_P2_006 | CAN Message RAM真实ECC注入 | P2 | R1 | DESIGN_GAP，见第5节 |
 | CAN_P2_007 | CAN DMU非法访问与中断 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_008 | CAN DMU接收TSU时间戳 | P2 | R1 | PLANNED，见第3节 |
@@ -1503,10 +1503,9 @@ gap: []
 
 ### CAN_P2_005 CAN内部与外部回环引脚对照
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_005
 case_name: CAN内部与外部回环引脚对照
 report_feature: |-
@@ -1539,9 +1538,9 @@ failure_observations:
   - {"key":"capture","label":"OBSERVER.CAPTURE正对照/内部/外部窗口帧序列","source":"peer","role":"actual","format":"text"}
   - {"key":"loop","label":"两种回环TX.COMPLETED及本机RX.FRAME","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN内部与外部回环引脚对照的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","board_mapping_gap","observer_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_007 CAN DMU非法访问与中断
 
@@ -1991,6 +1990,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P2_005:
+    summary: Normal捕获正对照有效，内部回环本机收发但100ms无外发，外部回环只听捕获两帧。
+    fields:
+      - {source: measurement, path: capture_summary, label: Observer三阶段实际捕获及有效窗口, format: text, aggregate: all}
+      - {source: measurement, path: loop_summary, label: 回环本机实际接收帧, format: text, aggregate: all}
+      - {source: observation, path: tx_complete, label: 各帧TX完成位图, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 独立序号和引脚输出Expected, format: text, aggregate: all}
   CAN_P1_021:
     summary: 核对TDC开启配置和2/5M数据速率下的双向64-byte FD BRS通信，不测补偿极限。
     fields:
@@ -2109,7 +2115,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=17; IMPLEMENTATION_GAP=22; NEEDS_VERIFICATION=3 | 17 SPEC、22 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=18; IMPLEMENTATION_GAP=21; NEEDS_VERIFICATION=3 | 18 SPEC、21 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
