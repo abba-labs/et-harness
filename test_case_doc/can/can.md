@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 13:24 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；22项SPEC、17项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；23项SPEC、16项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -303,7 +303,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | SPEC，见第3节 |
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
-| CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | 已实现，见第3节SPEC |
 | CAN_P1_014 | CAN Timeout四种计数源 | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | SPEC，见第3节 |
@@ -963,10 +963,9 @@ gap: ["case_implementation_gap","clock_profile_gap","board_mapping_gap"]
 
 ### CAN_P1_013 CAN内部16-bit时间戳
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_013
 case_name: CAN内部16-bit时间戳
 report_feature: |-
@@ -975,14 +974,14 @@ p_level: P1
 feature_refs: [CAN_F_018]
 method:
   inputs:
-    - "计数矩阵：时间戳关闭/内部计数，分频1/2/16；Classic内部回环，仲裁1 Mbit/s；消息时间戳只在8-bit Marker且TSU关闭时解码。"
+    - "计数矩阵：时间戳关闭/内部计数，分频1/2/16；Classic内部回环，固定仲裁125 kbit/s以适配控制采样窗口；消息时间戳只在8-bit Marker且TSU关闭时解码；清零RPC包围上界L预先固定100 ms。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "关闭对照：关闭时间戳后发一帧，读取COUNTER及RX.TIMESTAMP，要求均为0。"
     - "分频配置：重新复位，选择内部时间戳与当前分频，清时间戳计数及Wrap IRQ。"
     - "锁存检查：发送两帧，每帧在发送前读取COUNTER、完成后读取COUNTER和RX.TIMESTAMP；用PC monotonic包围整个命令序列得到保守时间上界，必须小于半个回绕周期，随后按模65536核对锁存区间。PC时间只限制采样窗口，不充当计数精度Oracle。"
-    - "回绕观察：持续轮询至Wrap IRQ，保存回绕前后COUNTER；相邻读值的monotonic上界也须小于半周期。若控制链路不能满足该预算，应先降低本Case仲裁速率并重新固定配置，不靠重复重跑找一次碰巧合格的样本。"
-    - "清零检查：停止帧刺激，以一次受限Driver动作写计数清零后立即读回；实现前按实际总线访问最坏周期固定该动作耗时上界L，Expected上限为ceil(L×仲裁速率/分频)+1。记录L及原值，三个分频节点独立执行。"
+    - "回绕观察：清旧Wrap Raw后持续轮询，要求相邻COUNTER下降时Wrap Raw置位并保存前后计数；相邻读值的monotonic上界须小于半周期；再W1C并实读Raw清除。无效窗口失败，不靠重复重跑挑合格样本，不使用Force IRQ。"
+    - "清零检查：停止帧刺激，等待COUNTER位于32768..49152，再单命令读取原值、清零、立即读回；PC monotonic包围RPC，实测耗时须≤预声明L=100 ms，MCU动作包含于此上界。U=ceil(L×仲裁速率/分频)+1，要求原值>U且原值+U<65536、后值≤U，排除无效清零和自然回绕；三个分频节点独立执行。"
   observations:
     - "锁存来源：RX.TIMESTAMP位于本次发送前后COUNTER的模区间内，不用PC串口耗时作精密时间基。"
     - "回绕事实：TIMESTAMP.WRAP_IRQ置位且COUNTER从高值回到低值；清零后的值小于读回延迟预算。"
@@ -996,11 +995,12 @@ backend: [FPGA, Silicon]
 evidence: ["CAN内部16-bit时间戳：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
   - {"key":"timestamp","label":"TIMESTAMP.COUNTER前后值与RX.TIMESTAMP","source":"dut","role":"actual","format":"text"}
-  - {"key":"wrap","label":"TIMESTAMP.WRAP_IRQ及清零前后值","source":"dut","role":"actual","format":"text"}
+  - {"key":"wrap","label":"TIMESTAMP.WRAP_IRQ及回绕前后值","source":"dut","role":"actual","format":"text"}
+  - {"key":"reset_snapshot","label":"清零实际前后计数及包围时长","source":"measurement","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN内部16-bit时间戳的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","atomic_timestamp_snapshot_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_014 CAN Timeout四种计数源
 
@@ -2001,6 +2001,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_013:
+    summary: 关闭全零，内部锁存落在受限计数窗口，自然回卷及W1C有效，清零排除自然回卷和无动作。
+    fields:
+      - {source: measurement, path: timestamp, label: 逐帧计数与锁存窗口, format: text, aggregate: all}
+      - {source: measurement, path: wrap, label: 自然回卷及Raw序列, format: text, aggregate: all}
+      - {source: measurement, path: reset_snapshot, label: 清零前后实读与窗口, format: text}
+      - {source: measurement, path: expected, label: 预先固定的时间上界, format: text}
   CAN_P1_014:
     summary: 连续与三个互斥FIFO源分别自然到期及ISR，重装真实读回，禁用后保持同样刺激仍无事件。
     fields:
@@ -2154,7 +2161,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=18; IMPLEMENTATION_GAP=19 | ADAPTED=22; IMPLEMENTATION_GAP=17; NEEDS_VERIFICATION=3 | 22 SPEC、17 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=19; IMPLEMENTATION_GAP=18 | ADAPTED=23; IMPLEMENTATION_GAP=16; NEEDS_VERIFICATION=3 | 23 SPEC、16 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
