@@ -17,6 +17,13 @@ CAN_ENDIAN_SIGNATURE = 0x87654321
 # Silicon时钟源/分频实现尚有文档D04冲突，没有给它伪造一个可用频率。
 CAN_CLOCK_HZ = MappingProxyType({"fpga": 40_000_000})
 
+# 40MHz下精确FD时序：(BRP, TSEG1, TSEG2, SJW)，字段用实际计数。
+# TDCO取数据采样位置(1+TSEG1)*BRP；两值均在SDK声明的0..127范围内。
+# 这是合法输入配置，不是已经通过外部总线验证的速率或线路延迟结论。
+CAN_TDC_TIMING_PROFILES = MappingProxyType(
+    {40_000_000: MappingProxyType({2_000_000: ((1, 15, 4, 4), 16), 5_000_000: ((1, 5, 2, 2), 6)})}
+)
+
 # 两个帧头word、标准过滤一个word、扩展过滤和TX Event各两个word。
 CAN_RAM_HEADER_BYTES = 8
 CAN_STD_FILTER_BYTES = 4

@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 11:08 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；16项SPEC、23项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；17项SPEC、22项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -271,7 +271,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 
 ## 2. Case Catalog
 
-当前16个SPEC、23个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
+当前17个SPEC、22个PLAN及3个DESIGN_GAP（P2_006、P2_013、P3_003），不是通过数；缺口已列具体确认步骤及转PLAN条件，不冒充实现就绪。参数执行数不计入Case数量。实测状态只在芯片文档记录，不在公共设计表重复保存。
 
 | Case ID | 测试目的 | 等级 | 资源 | 设计状态 |
 |---|---|---|---|---|
@@ -298,7 +298,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | PLANNED，见第3节 |
 | CAN_P1_019 | CAN Monitor与Restricted模式 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_020 | CAN FD ISO与Non-ISO格式 | P1 | R2～R4 | PLANNED，见第3节 |
-| CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | PLANNED，见第3节 |
+| CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | SPEC，见第3节 |
 | CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | PLANNED，见第3节 |
@@ -1292,10 +1292,9 @@ gap: ["case_implementation_gap"]
 
 参考历史“开启TDC后发送FD帧”的实际路径，单独保留基础覆盖；不要求为本Case增加可编程延迟器。补偿失效边界仍由P3_002负责，不能把本Case通过写成延迟极限通过。
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_021
 case_name: CAN TDC启用后的FD总线收发
 report_feature: |-
@@ -1327,14 +1326,16 @@ resources: {minimum_level: R2, full_coverage_level: R4, board: "固定CAN总线�
 backend: [FPGA, Silicon]
 evidence: ["逐速率TDC配置、硬件第二采样点位置、双向原始帧、PC Expected及首个差异；保留Peer真实身份"]
 failure_observations:
-  - {key: tdc_config, label: "TDC.ENABLE/OFFSET/FILTER读回", source: dut, role: actual, format: text}
+  - {key: tdc_enabled, label: "TDC.ENABLE读回", source: dut, role: actual, format: text}
+  - {key: tdc_offset_cycles, label: "TDC.OFFSET读回", source: dut, role: actual, format: text}
+  - {key: tdc_filter_cycles, label: "TDC.FILTER读回", source: dut, role: actual, format: text}
   - {key: tdc_sample_point, label: "TDC.SAMPLE_POINT实际值", source: dut, role: actual, format: text}
   - {key: peer_frames, label: "Peer.CAPTURE实际FD帧", source: peer, role: actual, format: text}
   - {key: dut_frames, label: "CAN RX.FRAME及TX.COMPLETED", source: dut, role: actual, format: text}
   - {key: expected, label: "PC输入FD帧及TDC配置", source: oracle, role: expected, format: text}
-gap: [case_implementation_gap, tdc_timing_profile_gap, peer_capability_mapping_gap]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_001 CAN DMA经DMU发送与接收
 
@@ -1990,6 +1991,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_021:
+    summary: 核对TDC开启配置和2/5M数据速率下的双向64-byte FD BRS通信，不测补偿极限。
+    fields:
+      - {source: measurement, path: tdc_summary, label: TDC配置及时序读回与实际第二采样点, format: text, aggregate: all}
+      - {source: observation, path: peer_frames, label: Peer实际接收FD帧, format: text, aggregate: all}
+      - {source: observation, path: dut_frames, label: DUT实际接收FD帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 独立输入与时序, format: text, aggregate: all}
   CAN_P2_004:
     summary: 核对全部实例并存收发，以及仅重配最后实例后的配置和RAM首尾保持。
     fields:
@@ -2101,7 +2109,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=16; IMPLEMENTATION_GAP=23; NEEDS_VERIFICATION=3 | 16 SPEC、23 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=17; IMPLEMENTATION_GAP=22; NEEDS_VERIFICATION=3 | 17 SPEC、22 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
