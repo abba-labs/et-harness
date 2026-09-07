@@ -43,7 +43,8 @@ def write_can_driver_harness(directory: Path) -> Path:
         "#pragma once\n#include <stdint.h>\n#include <stddef.h>\n#include <assert.h>\n"
         "#define assert_param(v) assert(v)\n#define DRV_OK 0\n#define DRV_ERROR (-1)\n"
         "uint32_t can_test_read(volatile uint32_t *address);\n"
-        "#define READ_REG(r) can_test_read(&(r))\n#define WRITE_REG(r,v) ((r)=(v))\n"
+        "void can_test_write(volatile uint32_t *address, uint32_t value);\n"
+        "#define READ_REG(r) can_test_read(&(r))\n#define WRITE_REG(r,v) can_test_write(&(r),(v))\n"
         "#define READ_BIT(r,m) (READ_REG(r)&(m))\n"
         "#define MODIFY_REG(r,m,v) ((r)=((r)&~(m))|(v))\n"
         "#define SET_BIT(r,m) ((r)|=(m))\n#define CLEAR_BIT(r,m) ((r)&=~(m))\n"
@@ -194,6 +195,22 @@ int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
 static unsigned consume_enabled, ecr_reads, psr_reads, txbc_reads;
 static unsigned ram_trace_enabled, ram_trace_count;
 static uintptr_t ram_trace[4];
+static unsigned timeout_write_count;
+void can_test_write(volatile uint32_t *address, uint32_t value)
+{
+    for (unsigned i=0; i<3; ++i)
+    {
+        if (address == &controllers[i].TOCV)
+        {
+            assert(value == 0);
+            ++timeout_write_count;
+            /* One simulated tick after reload proves the response is a read, not TOP echo. */
+            *address = (controllers[i].TOCC >> 16) - 1U;
+            return;
+        }
+    }
+    *address = value;
+}
 uint32_t can_test_read(volatile uint32_t *address)
 {
     uint32_t value=*address;
@@ -968,6 +985,36 @@ int main(void)
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_BUFFER_IRQ_SET,
                                   request, 9, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
         assert(CAN0->TXBTIE==1);
+    }
+
+    /* One continuous reload changes no configuration/IRQ; FIFO mode rejects without writes. */
+    {
+        uint32_t before=0, after=0;
+        timeout_write_count=0;
+        for (unsigned i=0; i<3; ++i)
+        {
+            instances[i]->TOCC=((1000U+i)<<16)|1U;
+            instances[i]->TOCV=7U+i;
+            instances[i]->IR=0x20000U;
+            uint32_t cccr=instances[i]->CCCR;
+            assert(et_can_wrap_reload_timeout(i,&before,&after)==ET_WRAP_STATUS_OK);
+            assert(before==7U+i && after==999U+i);
+            assert(instances[i]->TOCC==(((1000U+i)<<16)|1U));
+            assert(instances[i]->IR==0x20000U && instances[i]->CCCR==cccr);
+            instances[i]->TOCC|=2U;
+            assert(et_can_wrap_reload_timeout(i,&before,&after)==ET_WRAP_STATUS_STATE_ERROR);
+        }
+        assert(timeout_write_count==3);
+        assert(et_can_wrap_reload_timeout(0,NULL,&after)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_reload_timeout(9,&before,&after)==ET_WRAP_STATUS_NOT_SUPPORTED);
+        assert(timeout_write_count==3);
+        CAN0->TOCC=1000U<<16; CAN0->TOCV=9U;
+        request[0]=0;
+        assert(descriptor->handle(descriptor->context,62,request,1,response,8,&response_length)==ET_STATUS_OK);
+        assert(response_length==8 && response[0]==9 && response[4]==0xE7 && response[5]==3);
+        assert(descriptor->handle(descriptor->context,62,request,1,response,7,&response_length)==ET_STATUS_INVALID_PARAM);
+        assert(descriptor->handle(descriptor->context,62,request,2,response,8,&response_length)==ET_STATUS_INVALID_PARAM);
+        assert(timeout_write_count==4);
     }
 
     /* Bounded RAM primitive preserves per-word descending order and validates before mutation. */

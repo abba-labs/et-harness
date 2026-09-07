@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 13:43 CST
+更新时间：2026-09-07 13:52 CST
+
+2026-09-07 14:00 CST 验证追加：Timeout重装基础接口通过5项独立Wire向量、WSL GCC真实SDK/Wrap/Service Harness编译与执行（`timeout_native_compile.log`、`timeout_native_execution.log`）；三个实例返回独立前值及模拟递减后的实读值，FIFO源拒绝且无多余写操作，Service精确长度拒绝保持。完整软件门禁1438 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timeout_reload_software_gate.log`）。P1_014正式Case继续开发，未部署或执行硬件。
+
+2026-09-07 13:52 CST 开发追加：Timeout重装命令62返回写TOCV前后两个真实计数，公共命令累计63条。6801 SVD的TOCC.TOS描述明确连续模式写TOCV重装为TOP后继续递减、FIFO空时保持TOP；TOCV.TOC描述到0置IR.TOO并停止。Chip Driver按TOS拒绝FIFO源，单写TOCV后读回，不改TOCC/INIT/IRQ；不能以静态TOP回显冒充读回。SVD access枚举仍泛化为read-only，与其明确写动作描述冲突沿用既有记录，不据此屏蔽此功能。P1_014 Case尚未转SPEC，无硬件执行。
 
 2026-09-07 13:43 CST 验证追加：P3_001完成20轮双向各32帧的真实Case编排、32项FIFO布局和报告绑定。9项软件回归包含完整1280帧调用链及末轮最后序号损坏；完整门禁1432 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/batch_case_software_gate.log`）。15项计划已完成5项实现与软件验证；未执行这些新增Case的FPGA测试，未新增烧录或接线动作。
 

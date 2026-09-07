@@ -443,6 +443,8 @@ et_wrap_status_t et_can_wrap_consume_protocol_status(et_can_id_t id,
 et_wrap_status_t et_can_wrap_get_timestamp(et_can_id_t id, uint32_t *count);
 et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id);
 et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *count);
+/** One continuous-counter reload; actual reads on both sides, no IRQ clear or mode change. */
+et_wrap_status_t et_can_wrap_reload_timeout(et_can_id_t id, uint32_t *before, uint32_t *after);
 et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested);
 et_wrap_status_t et_can_wrap_get_clock_stop_ack(et_can_id_t id, uint32_t *acknowledged);
 

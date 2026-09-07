@@ -1551,6 +1551,8 @@ int32_t CAN_testWriteTxElement(CAN_Type *CANx, uint32_t index, const CAN_TxBufEl
 /** Decode E1A/E1B using actual format; invalid internal timestamp/pointer fields are zero. */
 void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
                          CAN_TestEventMetadata *metadata);
+/** Continuous timeout only: read old count, write TOCV once, immediately read actual count. */
+int32_t CAN_testReloadTimeout(CAN_Type *CANx, uint32_t *before, uint32_t *after);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

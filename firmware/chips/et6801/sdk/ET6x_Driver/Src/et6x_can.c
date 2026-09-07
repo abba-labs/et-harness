@@ -2771,5 +2771,26 @@ void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
         element->txts = 0U;
     }
 }
+/**
+ * @brief Reload the continuous timeout with one TOCV write and adjacent readback.
+ * @param CANx Valid controller pointer.
+ * @param before Storage for the actual count before the write.
+ * @param after Storage for the actual count after the write, not a TOP echo.
+ * @return DRV_OK or DRV_ERROR for invalid storage or a FIFO-controlled source.
+ * @note Does not clear IR, change TOCC/INIT, poll or suppress interrupts.
+ */
+int32_t CAN_testReloadTimeout(CAN_Type *CANx, uint32_t *before, uint32_t *after)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    if ((before == NULL) || (after == NULL) ||
+        (CAN_RD_FIELD32(CANx->TOCC, CAN0_TOCC_TOS) != CAN_TIMEOUT_CONTINUOUS))
+    {
+        return DRV_ERROR;
+    }
+    *before = CAN_getTOCounterVal(CANx);
+    WRITE_REG(CANx->TOCV, 0U);
+    *after = CAN_getTOCounterVal(CANx);
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

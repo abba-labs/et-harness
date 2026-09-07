@@ -47,6 +47,13 @@ typedef enum
     ET_CAN_EVENT_FORMAT_WORDS
 } et_can_event_format_word_t;
 #define ET_CAN_RX_FIFO_STATUS_WORDS 5u
+/** Counter reload response contains real reads rather than a configured TOP value. */
+typedef enum
+{
+    ET_CAN_COUNTER_RELOAD_BEFORE = 0u,
+    ET_CAN_COUNTER_RELOAD_AFTER,
+    ET_CAN_COUNTER_RELOAD_WORDS
+} et_can_counter_reload_word_t;
 #define ET_CAN_RX_SELECT_WORDS 2u
 #define ET_CAN_RX_BITMAP_WORDS 2u
 #define ET_CAN_RX_SELECT_SOURCE 0u
@@ -282,6 +289,7 @@ typedef enum
     ET_CAN_COMMAND_EVENT_FORMAT_SET = 59u,
     ET_CAN_COMMAND_EVENT_FORMAT_GET = 60u,
     ET_CAN_COMMAND_TX_EVENT_DETAILS_READ = 61u,
+    ET_CAN_COMMAND_TIMEOUT_RELOAD = 62u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

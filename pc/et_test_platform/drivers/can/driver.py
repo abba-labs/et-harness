@@ -87,6 +87,14 @@ class CanDriver:
             self._request(CanCommand.TX_EVENT_DETAILS_READ, timeout_s=timeout_s)
         )
 
+    # 连续模式下重装一次并返回相邻的实际前后计数；不清IRQ，不改变配置。
+    # 一次请求受timeout_s约束，失败上抛且不重试；不含PC等待或假定读回等于TOP。
+    def timeout_reload(self, *, timeout_s: float | None = None) -> tuple[int, int]:
+        before, after = self._request(CanCommand.TIMEOUT_RELOAD, timeout_s=timeout_s)
+        if before > 0xFFFF or after > 0xFFFF:
+            raise ProtocolError("CAN timeout reload returned an invalid 16-bit count")
+        return before, after
+
     # 在已进入INIT的控制器上选择FD编码；不进入INIT，不隐式重发。
     # timeout_s约束一次命令，失败直接上抛；模式生效须独立读回。
     def non_iso_set(self, enabled: bool, *, timeout_s: float | None = None) -> None:

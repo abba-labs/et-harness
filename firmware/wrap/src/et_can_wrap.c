@@ -2318,6 +2318,32 @@ et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *value
 }
 
 /**
+ * @brief Reload one continuous timeout and return adjacent actual count reads.
+ * @param[in] id Logical controller.
+ * @param[out] before Actual count before reload.
+ * @param[out] after Actual count immediately after the Driver write.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED or STATE_ERROR for a FIFO source.
+ * @note No polling, IRQ clearing, implicit INIT transition or retry occurs.
+ */
+et_wrap_status_t et_can_wrap_reload_timeout(et_can_id_t id, uint32_t *before, uint32_t *after)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((before == NULL) || (after == NULL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testReloadTimeout(instance, before, after) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                    : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
  * @brief Read clock-stop acknowledgement; do not claim that the external clock stopped.
  * @param[in] id Logical controller.
  * @param[out] value Actual single Driver readback.

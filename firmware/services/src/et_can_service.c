@@ -1309,8 +1309,22 @@ static et_wrap_status_t execute_status_command(et_can_id_t id, uint16_t command,
     et_wrap_status_t status;
     et_can_protocol_status_t protocol;
     uint32_t value;
+    uint32_t after;
 
     /* Phase 1: State-changing and read-clear operations are performed once. */
+    if (command == ET_CAN_COMMAND_TIMEOUT_RELOAD)
+    {
+        status = et_can_wrap_reload_timeout(id, &value, &after);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(&response[ET_CAN_COUNTER_RELOAD_BEFORE * ET_CAN_WIRE_WORD_BYTES], value);
+            write_word(&response[ET_CAN_COUNTER_RELOAD_AFTER * ET_CAN_WIRE_WORD_BYTES], after);
+        }
+
+        return status;
+    }
+
     if (command == ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME)
     {
         status = et_can_wrap_consume_protocol_status(id, &protocol);
@@ -1496,8 +1510,9 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
         return execute_irq_command(service, command, body, response);
     }
 
-    if ((command >= ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME) &&
-        (command <= ET_CAN_COMMAND_CLOCK_STOP_ACK_GET))
+    if (((command >= ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME) &&
+         (command <= ET_CAN_COMMAND_CLOCK_STOP_ACK_GET)) ||
+        (command == ET_CAN_COMMAND_TIMEOUT_RELOAD))
     {
         return execute_status_command(id, command, body, response);
     }
@@ -1810,6 +1825,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_NON_ISO_GET] = 1u,
         [ET_CAN_COMMAND_EVENT_FORMAT_GET] = ET_CAN_EVENT_FORMAT_WORDS,
         [ET_CAN_COMMAND_TX_EVENT_DETAILS_READ] = ET_CAN_EVENT_DETAILS_WORDS,
+        [ET_CAN_COMMAND_TIMEOUT_RELOAD] = ET_CAN_COUNTER_RELOAD_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
