@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 17:26 CST
+更新时间：2026-09-07 17:30 CST
+
+2026-09-07 17:30 CST 历史Watchdog定向复核：按用户要求重新检查1.3索引中的ET6801/6003/3101 CAN测试及ET6801 CAN Example。ET6801 `DFP/Test/UnitTest/test_can.c:74～99`和`FPGATest/can_fpga_test.c:83～104`清零initParams且注释明确Message RAM Watchdog disabled；两参考芯片UnitTest/FPGATest同类入口也只命中disabled说明。ET6801 `Doc/examples/CAN/CAN_init_transmit_priority_watermark/Source/main.c:213`及receive版本219行设置wdcPreload=0xFF，但TX示例234/294/296行只处理/选择/使能TX Event FIFO Watermark，没有WDI触发或判据。`DFP/Drivers/ET6x_Driver/Src/et6x_can.c:288～289`只是将wdcPreload写入RWD.WDC；3101 FPGATest的FDCAN_ConfigRamWatchdog同样只有配置。限定CAN源文件中未找到RAM应答延迟或WDI断言；两份can.json未命中Watchdog。结论限定于上述检索范围，不推断全部历史均未测。P2_010的16限制/8与32延迟矩阵属于后补设计，不是ET旧测试已有路径；当前未确认可控RAM应答接口，不能用配置读回或CPU延时代替。查询证据`artifacts/runs/20260907_can_planned_development/stages/watchdog_reference_query.json`；结构化查询只定位到复制Driver配置API，随后按精确测试根用rg复核。不修改P2_010判据、不操作硬件，继续DMU实现。
 
 2026-09-07 17:26 CST 验证追加：ECC Case与Driver专项67 PASS，完整软件门禁1677 PASS、17 Windows宿主编译器条件SKIP；日志为`artifacts/runs/20260907_can_planned_development/stages/ecc_case_vectors_verified.log`和`ecc_case_software_gate.log`。单/三实例两源固定响应、9类故障、等待超时与Fault、Canonical JSON及报告模型均验证；软件响应不作为硬件Evidence。首轮重复Observation报告绑定错误日志保留为`ecc_case_vectors.log`。15项目标达到9项Case软件闭合、剩余6项，不因尚未实现而停止；新增Case全部NOT_EXECUTED，烧录需人工门禁。
 
