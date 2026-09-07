@@ -303,6 +303,7 @@ def test_can_p1_016_message_ram_march(can_support, resource_driver, record_prope
 #
 # 测试方法：
 # 1. 每节点复位CAN和资源池，配置内部/外部回环或Normal双节点，打开TX槽完成事件。
+#    两种外部路径的Peer均参与ACK；本Case不验证无ACK或只听捕获能力。
 # 2. 禁用中断投递后完成一笔收发，检查两个Raw置位且ISR计数为零。
 # 3. 保留Raw绑定并开放IRQ，核对真实ISR线路和Source，再逐源W1C检查另一源不受影响。
 # 4. Ack接收数据、停止捕获，再产生第二笔新数据；交换Line参数节点重复完整过程。
@@ -342,7 +343,7 @@ def test_can_p1_011_irq_lines_and_clear(
         support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
         resource_driver.reset()
 
-        # 外部节点：显式配置GPIO；外部回环的盒子只监听，Normal盒子参与ACK。
+        # 外部节点：Peer参与ACK以取得完整帧；DUT仍按参数保持回环或Normal。
         if box:
             _, gpio, pins, _ = can_irq_peer
 
@@ -351,7 +352,7 @@ def test_can_p1_011_irq_lines_and_clear(
                 gpio.configure_signal(number, function, can.instance_id)
 
             box.open()
-            box.configure(PeerBusConfig(listen_only=mode == "external"))
+            box.configure(PeerBusConfig(listen_only=False))
             box.clear()
 
         # 配置：Classic单TX/RX0，Filter允许正反向ID；全部控制项在Case内明确给出。

@@ -24,6 +24,7 @@ from et_test_platform.drivers.can import (
     CanTiming,
 )
 from et_test_platform.framework_validation.unit.drivers.can.test_can_driver import TargetStub
+from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
 from et_test_platform.test_cases.can._support import CanSupport, loopback_ram, phase_timing
 from et_test_platform.test_cases.can.test_can_p0 import (
     test_can_p0_001_reset_and_configuration_protection as run_protection_case,
@@ -128,21 +129,44 @@ def test_ram_case_march_order_and_independent_expected(corrupt) -> None:
 
 
 # 测试Feature：真实IRQ Case必须比较实际线路、屏蔽Raw及逐源清除。
-# 测试方法：独立Wire序列覆盖两种线路分配；故意交换回调线路，确认Case拒绝。
-# 通过条件：正常两笔刺激完成；错误线路导致断言失败，仍停止捕获并复位资源。
+# 测试方法：三种DUT模式与两种线路分配；外部Peer必须ACK，故意交换线路确认Case拒绝。
+# 通过条件：完整帧及线路断言不弱化；外部回环不回发，Normal必须回发；失败仍清理。
+@pytest.mark.parametrize("mode", ("internal", "external", "normal"))
 @pytest.mark.parametrize("tx_line", (0, 1))
 @pytest.mark.parametrize("wrong_line", (False, True))
-def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line, tmp_path) -> None:
+def test_irq_case_checks_actual_line_attribution(mode, tx_line, wrong_line, tmp_path) -> None:
 
     support, resource, target, calls = dependencies()
     target.responses = [b"", b"", pack("<I", 1)] + [b""] * 8 + [pack("<I", 0)]
-    target.responses.extend([pack("<I", 1), pack("<11I", 1, 0, 1, 0, 0, 0, 0, 1, 1, 2, 2)])
+    target.responses.extend(
+        [
+            pack("<I", {"internal": 1, "external": 2, "normal": 0}[mode]),
+            pack("<11I", int(mode == "internal"), 0, 1, 0, 0, 0, 0, 1, 1, 2, 2),
+        ]
+    )
     line1 = 512 if tx_line else 1
+    payloads = (bytes.fromhex("31 42 53 64 75 86 97 A8"), bytes.fromhex("CE BD AC 9B 8A 79 68 57"))
+    peer_config = []
+    sent = []
+    peer_frames = iter(
+        CanReceivedFrame(CanFrame(0x123, payload), index, is_echo=False)
+        for index, payload in enumerate(payloads)
+    )
+    box = SimpleNamespace(
+        identity="software-box:CAN1",
+        open=lambda: None,
+        configure=peer_config.append,
+        clear=lambda: None,
+        receive=lambda **_kwargs: next(peer_frames),
+        send=lambda frame, **_kwargs: sent.append(frame),
+        error_get=lambda: 0,
+        close=lambda: calls.append(("box_close",)),
+    )
+    gpio = SimpleNamespace(configure_signal=lambda *args: calls.append(("gpio", *args)))
+    peer = None if mode == "internal" else (support, gpio, ((2, 7), (3, 8)), box)
 
     # 软件夹具只提供预定采样，不读取Case发送的数据来制造Expected。
-    for index, data in enumerate(
-        (bytes.fromhex("31 42 53 64 75 86 97 A8"), bytes.fromhex("CE BD AC 9B 8A 79 68 57"))
-    ):
+    for index, data in enumerate(payloads):
         lines = (513 ^ line1, line1)
         if wrong_line:
             lines = tuple(reversed(lines))
@@ -155,7 +179,9 @@ def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line, tmp_path) 
                 b"",
                 pack("<7I", 0, 1, 0, 1, 0, 0, 0),
                 pack("<5I", 1, index, index + 1, 0, 0),
-                pack("<8I", 0x123, 0, 8, 0, 0, 0, 8, index) + data + bytes(56),
+                pack("<8I", 0x321 if mode == "normal" else 0x123, 0, 8, 0, 0, 0, 8, index)
+                + data
+                + bytes(56),
                 pack("<4I", 513, 0, 0, 0),
                 pack("<8I", 0, 0, 0, 0, 0, 0, index * 2 + 1, 0),
                 b"",
@@ -176,16 +202,26 @@ def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line, tmp_path) 
     if wrong_line:
         with pytest.raises(AssertionError):
             run_irq_case(
-                support, None, resource, lambda k, v: properties.append((k, v)), "internal", tx_line
+                support, peer, resource, lambda k, v: properties.append((k, v)), mode, tx_line
             )
     else:
-        run_irq_case(
-            support, None, resource, lambda k, v: properties.append((k, v)), "internal", tx_line
-        )
+        run_irq_case(support, peer, resource, lambda k, v: properties.append((k, v)), mode, tx_line)
         assert not target.responses
 
     assert target.requests[-1]["command"] == 40
     assert calls[-1] == ("resource",)
+    loopback_requests = [item for item in target.requests if item["command"] == 14]
+    assert [item["body"][1:] for item in loopback_requests] == [
+        pack("<I", {"internal": 1, "external": 2, "normal": 0}[mode])
+    ]
+    if peer:
+        assert len(peer_config) == 1 and peer_config[0].listen_only is False
+        expected_sent = payloads[:1] if wrong_line else payloads
+        assert sent == (
+            [CanFrame(0x321, payload) for payload in expected_sent] if mode == "normal" else []
+        )
+    else:
+        assert not peer_config and not sent
     assert_case_report(properties, "CAN_P1_011", "FAIL" if wrong_line else "PASS", tmp_path)
 
 
