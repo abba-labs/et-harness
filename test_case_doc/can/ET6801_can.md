@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 13:18 CST
+更新时间：2026-09-07 13:32 CST
+
+2026-09-07 13:32 CST 验证追加：P1_010正式Marker Case、注册表和报告绑定完成，16项独立Wire向量全部通过；全门禁1423 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/marker_case_software_gate_complete.log`）。两种位宽各两帧、完整RX数据和事件类型、时间戳有效性、100ms排空负向检查均已编码；新增Case硬件仍NOT_EXECUTED。15项计划已有4项完成实现与软件验证，尚不能称完成FPGA验证。
 
 2026-09-07 13:18 CST 验证追加：Marker基础接口完整软件门禁1407 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/marker_primitives_software_gate_verified.log`）。另用WSL GCC实际编译并运行真实CAN SDK/Wrap/Service Native Harness成功（同目录`marker_native_compile.log`、`marker_native_execution.log`），覆盖先前Non-ISO及新增宽Marker/TSU格式、Service长度和实例隔离；修正Harness的READ_BIT未经过读取计数钩子的问题，保留原四次TXBC读取断言。该软件寄存器桩不模拟总线；未构建部署镜像、未形成新FPGA结果。
 
@@ -10,7 +12,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_020/P1_021/P2_005尚未FPGA执行。** 当前59条命令、19项SPEC、20项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有3项软件验证完成。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_020/P1_021/P2_005尚未FPGA执行。** 当前62条命令、20项SPEC、19项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有3项软件验证完成，第4项Marker Case正在验证。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
@@ -348,7 +350,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_013 | SUPPORTED | TXBC.TFQM[30]/TFQS/NDTB；TXBAR请求位；原子多项请求接口待补 | ADAPTED | CAN_P1_008 |
 | CAN_F_014 | SUPPORTED | CCCR.DAR[6]、TXBRP/TXBCR/TXBTO/TXBCF；无ACK排除完成/取消竞态 | IMPLEMENTATION_GAP | CAN_P1_017 |
 | CAN_F_015 | SUPPORTED | TXEFC/TXEFS/TXEFA；已实现状态、当前头读取、显式Ack及深度4/水位2 Case | ADAPTED | CAN_P1_009 |
-| CAN_F_016 | SUPPORTED | CCCR.WMM[11]/UTSU[10]；WMM=1时TX Event 16-bit Timestamp位置改为Marker | IMPLEMENTATION_GAP | CAN_P1_010 |
+| CAN_F_016 | SUPPORTED | CCCR.WMM[11]/UTSU[10]；WMM=1时TX Event 16-bit Timestamp位置改为Marker | ADAPTED | CAN_P1_010 |
 | CAN_F_017 | SUPPORTED | IR/IE/ILS/ILE；每实例INT0/INT1独立，ECC只有一条共享向量 | ADAPTED | CAN_P1_011 |
 | CAN_F_018 | SUPPORTED | TSCC.TCP[19:16]/TSS[1:0]、TSCV.TSC[15:0]、IR.TSW[16]；分频1～16 | IMPLEMENTATION_GAP | CAN_P1_013 |
 | CAN_F_019 | SUPPORTED | TOCC.TOP[31:16]/TOS[2:1]/ETOC[0]、TOCV.TOC、IR.TOO[18] | IMPLEMENTATION_GAP | CAN_P1_014 |
@@ -421,7 +423,7 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_007 | ADAPTED | Buffer 0/31/32/63边界数据、NDAT分组清除和再次置位；FPGA PASS |
 | CAN_P1_008 | ADAPTED | 三种TX组织预装读回、单次TXBAR、RX顺序/完整payload/最终状态；按SVD修正Queue TFFL后FPGA PASS |
 | CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS |
-| CAN_P1_010 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap；资源R1，按公共PLAN实施 |
+| CAN_P1_010 | ADAPTED | 8/16-bit各两条完整Marker、A/B回环RX、事件有效性及100ms排空检查；公共命令59～61，须部署新固件后执行FPGA，当前NOT_EXECUTED |
 | CAN_P1_011 | ADAPTED | 2026-09-07 11:13内部/外部回环/Normal各两参数全部PASS；外部Peer正常ACK，DUT模式读回、完整帧、实际ISR双线路与独立W1C均核对。旧只听超时不因此计为解决 |
 | CAN_P1_012 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、clock_profile_gap、board_mapping_gap；资源R2，按公共PLAN实施 |
 | CAN_P1_013 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、atomic_timestamp_snapshot_gap；资源R1，按公共PLAN实施 |

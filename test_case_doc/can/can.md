@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-07 12:31 CST
+更新时间：2026-09-07 13:24 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；19项SPEC、20项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；20项SPEC、19项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -294,7 +294,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_007 | CAN专用RX Buffer及New Data边界 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_008 | CAN TX FIFO与Queue优先级 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_009 | CAN TX Event FIFO水位与丢失 | P1 | R1 | SPEC，见第3节 |
-| CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | PLANNED，见第3节 |
+| CAN_P1_010 | CAN 8-bit与16-bit Message Marker | P1 | R1 | 已实现；实测结果见芯片文档 |
 | CAN_P1_011 | CAN中断Line路由与独立清除 | P1 | R1～R2 | SPEC，见第3节 |
 | CAN_P1_012 | CAN位速率与时钟矩阵 | P1 | R2 | PLANNED，见第3节 |
 | CAN_P1_013 | CAN内部16-bit时间戳 | P1 | R1 | PLANNED，见第3节 |
@@ -832,10 +832,9 @@ gap: []
 
 ### CAN_P1_010 CAN 8-bit与16-bit Message Marker
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_010
 case_name: CAN 8-bit与16-bit Message Marker
 report_feature: |-
@@ -849,9 +848,10 @@ method:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "Marker配置：配置当前Marker位宽，16-bit模式明确占用事件中原16-bit时间戳位置。"
     - "帧构造：写两帧不同Marker，先保存Marker Expected，确认配置读回。"
-    - "发送完成：逐帧等TX.COMPLETED及TX_EVENT.FILL增加，不用RX时间戳推导Marker。"
+    - "发送完成：逐帧等TX.COMPLETED，比较完整RX ID/Flags/DLC/Data并Ack RX，再检查TX_EVENT.FILL增加且Lost为0，不用RX时间戳推导Marker。"
     - "事件读取：读取完整原始TX Event，按当前模式解码Marker并Ack。"
     - "位宽判断：比较两条Marker完整有效位；16-bit模式不同时声称验证16-bit TX时间戳。"
+    - "排空窗口：Ack两条事件后连续100ms核对RX和Event的Fill均为0、Lost均为0，防止重复事件。"
   observations:
     - "标记端点：TX_EVENT.MARKER与两组Expected完全一致，高字节不能截断。"
     - "格式事实：CONFIG.MARKER_WIDTH与解码模式一致，TX完成且事件数量为2。"
@@ -864,12 +864,12 @@ resources: {minimum_level: R1, full_coverage_level: R1, board: "代表CAN实例�
 backend: [FPGA, Silicon]
 evidence: ["CAN 8-bit与16-bit Message Marker：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:
-  - {"key":"marker","label":"TX_EVENT.MARKER实际8/16-bit值","source":"dut","role":"actual","format":"text"}
-  - {"key":"mode","label":"CONFIG.MARKER_WIDTH及TX.COMPLETED","source":"dut","role":"actual","format":"text"}
+  - {"key":"event_marker","label":"TX_EVENT.MARKER实际8/16-bit值","source":"dut","role":"actual","format":"hex32"}
+  - {"key":"marker_bits","label":"CONFIG.MARKER_WIDTH","source":"dut","role":"actual","format":"decimal"}
   - {"key":"expected","label":"CAN 8-bit与16-bit Message Marker的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_011 CAN中断Line路由与独立清除
 
@@ -1996,6 +1996,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_010:
+    summary: 两种位宽各两条独立Marker；完整RX匹配，宽格式无时间戳，Ack后100ms无额外事件。
+    fields:
+      - {source: observation, path: marker_bits, label: 硬件Marker位宽, format: decimal, aggregate: all}
+      - {source: measurement, path: event_summary, label: 实际事件Marker和时间戳有效性, format: text, aggregate: all}
+      - {source: observation, path: empty_event_fill, label: 排空窗口事件数量, format: decimal, aggregate: all}
+      - {source: measurement, path: expected, label: 独立Marker输入, format: text, aggregate: all}
   CAN_P1_020:
     summary: 四格式组合乘两长度；匹配双向完整帧，失配需首个协议错误和零RX，最后ISO双向恢复。
     fields:
@@ -2128,7 +2135,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=14; IMPLEMENTATION_GAP=23 | ADAPTED=19; IMPLEMENTATION_GAP=20; NEEDS_VERIFICATION=3 | 19 SPEC、20 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=15; IMPLEMENTATION_GAP=22 | ADAPTED=20; IMPLEMENTATION_GAP=19; NEEDS_VERIFICATION=3 | 20 SPEC、19 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
