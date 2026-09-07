@@ -11,7 +11,10 @@ import pytest
 from et_test_platform.core.errors import RequestTimeout
 from et_test_platform.drivers.can import CanDriver, CanFrameFlags, CanIrqSource
 from et_test_platform.drivers.dma import DmaIrqEvent, DmaTransferType
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.test_cases.can import test_can_p2_watchdog as case_module
 
 
@@ -208,7 +211,7 @@ class ResourceStub:
         return bytes(72)
 
 
-# 计数器使用固定独立样本，停止后仍可读，不从PC时间派生硬件读数。
+# 计数器使用固定独立样本；停止清零，不从PC时间派生硬件读数。
 class TimerStub:
     def __init__(self, fault):
         self.samples = iter((100, 50 if fault == "timer" else 200) * 3)
@@ -227,6 +230,8 @@ class TimerStub:
         self.stopped = True
 
     def live_count_get(self):
+        if self.stopped:
+            return 0
         return next(self.samples)
 
 
@@ -247,7 +252,7 @@ class TimerStub:
         "timer",
     ],
 )
-def test_watchdog_case_strict_matrix(fault, monkeypatch):
+def test_watchdog_case_strict_matrix(fault, monkeypatch, tmp_path):
     support, _, _, calls = dependencies()
     target = WatchdogTarget(fault)
     mapping = support.mapping
@@ -285,4 +290,12 @@ def test_watchdog_case_strict_matrix(fault, monkeypatch):
         assert target.commands.count(38) == 3
         assert dict(properties)["recovery"]["stage"] == "recovery"
     assert dma.cleaned == [0, 1] and timer.stopped and resource.count == 0
+    # WDI观察前的配置/搬运失败应保留RUN_ERROR，不能伪装成Watchdog硬件FAIL。
+    assert_case_report(
+        properties,
+        "CAN_P2_010",
+        "FAIL" if fault else "PASS",
+        tmp_path,
+        report_status="RUN_ERROR" if fault in ("config", "payload", "dma") else None,
+    )
     assert calls[-1] == ("can", 0)

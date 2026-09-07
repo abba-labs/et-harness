@@ -358,8 +358,9 @@ def test_can_p2_010_ram_watchdog(
                 if monotonic() - started_at >= 0.1 and (limit == 0 or event.event_count > 0):
                     break
                 deadline.sleep(0.001)
-            timer.stop()
+            # 先实读末值再停止；停止动作不保证保留LIVE计数。
             last_tick = timer.live_count_get()
+            timer.stop()
             configured, value = can.ram_watchdog_get()
             record_property(
                 "wd",

@@ -1777,7 +1777,7 @@ method:
     - "看门狗配置：配置当前WDC并读回WATCHDOG.CONFIG/VALUE；仅注册WDI捕获，确认Raw为零、Service计数为零且目标源已使能。"
     - "观察启动：配置并启动STIMER，保存首次计数及PC窗口起点；分配TX镜像和RX目标资源，启用DMA及请求路由。"
     - "搬运刺激：逐帧先启动RX DMA再启动TX DMA；等两个通道FREE、CAN发送完成，读取实际RX镜像并逐项比较ID、flags、DLC、64-byte数据，解除两个通道配置后再进入下一帧。"
-    - "开关观测：至少观察100 ms；WDC=1必须实测WDI及一次正确ISR，WDC=0必须无WDI/ISR；记录STIMER末值且要求未回绕、计数确实递增。"
+    - "开关观测：至少观察100 ms；WDC=1必须实测WDI及一次正确ISR，WDC=0必须无WDI/ISR；停止STIMER之前读取并记录末值，要求未回绕、计数确实递增，不依赖停止后的计数保持。"
     - "清除核对：所有搬运结束后保存RWD与WDI/ISR，停止捕获并显式W1C；要求WDI清零、IRQ禁用、RX排空、DMU无错误且入出队各等于已搬运帧数。"
     - "恢复验证：前两阶段之后独立复位并关闭Watchdog，按同一路径完成一帧及100 ms无WDI观察；失败清理先停DMA与IRQ，再释放路由和复位资源。"
   observations:
