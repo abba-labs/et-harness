@@ -153,6 +153,23 @@ class CanDriver:
             self._request(CanCommand.IRQ_SNAPSHOT_GET, timeout_s=timeout_s)
         )
 
+    # 在单个Deadline内等待任一指定Raw源；不读清PSR，不使能或清除IRQ。
+    # 超时包含最近快照；调用者可在返回后立即保存首次协议错误码。
+    def wait_irq_pending(self, sources: CanIrqSource, *, timeout_s: float) -> CanIrqSnapshot:
+        mask = codec.irq_sources(sources)
+        if not mask:
+            raise ValueError("CAN pending wait requires nonzero sources")
+        deadline = OperationDeadline.start(timeout_s, label=f"CAN IRQ pending {self.instance_id}")
+        last = None
+        try:
+            while True:
+                last = self.irq_snapshot_get(timeout_s=deadline.remaining_s())
+                if last.raw_status & mask:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+        except RequestTimeout as error:
+            raise RequestTimeout(f"CAN IRQ expected any={mask:#x}, last={last}") from error
+
     # 显式W1C清除所选CAN源；不清Service已经锁存的回调证据。
     # Level条件未解除时硬件可再次置位，Case必须独立观测该事实。
     # 仅等待本次清除响应；超时或设备失败直接上抛，不重复W1C。

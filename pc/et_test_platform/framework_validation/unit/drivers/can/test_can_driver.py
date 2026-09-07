@@ -196,6 +196,49 @@ def test_clock_stop_wait_uses_one_deadline(monkeypatch, expected) -> None:
     assert [item["timeout_s"] for item in target.requests] == [0.8, 0.4]
 
 
+# 测试Feature：任一Raw源有界等待，不消费协议错误寄存器。
+# 测试方法：注入两次独立快照及递减时间预算，检查只发送IRQ查询。
+# 通过条件：无隐式清除、使能、PSR读取或重发，零源请求失败关闭。
+def test_irq_pending_wait_one_deadline(monkeypatch) -> None:
+    from et_test_platform.drivers.can import driver as module
+
+    remaining = iter((0.08, 0.04))
+    deadline = SimpleNamespace(remaining_s=lambda: next(remaining), sleep=lambda seconds: None)
+    monkeypatch.setattr(
+        module, "OperationDeadline", SimpleNamespace(start=lambda *a, **k: deadline)
+    )
+    target = TargetStub([bytes(16), pack("<4I", 1 << 28, 0, 0, 0)])
+    driver = CanDriver(target, 0)
+    actual = driver.wait_irq_pending(
+        CanIrqSource.PROTOCOL_ARBITRATION | CanIrqSource.PROTOCOL_DATA, timeout_s=0.1
+    )
+    assert actual.raw_status == CanIrqSource.PROTOCOL_DATA
+    assert [item["command"] for item in target.requests] == [37, 37]
+    assert [item["timeout_s"] for item in target.requests] == [0.08, 0.04]
+    with pytest.raises(ValueError):
+        driver.wait_irq_pending(CanIrqSource.NONE, timeout_s=0.1)
+    assert len(target.requests) == 2
+
+
+# 测试Feature：Raw等待失败保存末次硬件快照，不假定超时即协议错误。
+# 测试方法：首个快照为空，在第一次等待后触发确定性Deadline超时。
+# 通过条件：异常保留last，只有一次IRQ查询，未消费PSR。
+def test_irq_pending_wait_timeout_keeps_snapshot(monkeypatch) -> None:
+    from et_test_platform.drivers.can import driver as module
+
+    def expire(seconds):
+        raise RequestTimeout("expired")
+
+    deadline = SimpleNamespace(remaining_s=lambda: 0.1, sleep=expire)
+    monkeypatch.setattr(
+        module, "OperationDeadline", SimpleNamespace(start=lambda *a, **k: deadline)
+    )
+    target = TargetStub([bytes(16)])
+    with pytest.raises(RequestTimeout, match="last=CanIrqSnapshot"):
+        CanDriver(target, 0).wait_irq_pending(CanIrqSource.PROTOCOL_DATA, timeout_s=0.1)
+    assert [item["command"] for item in target.requests] == [37]
+
+
 # 最后一笔ACK仍为0时超时，不插入复位、重新请求或假应答。
 def test_clock_stop_wait_timeout_keeps_last_ack(monkeypatch) -> None:
     from et_test_platform.drivers.can import driver as module

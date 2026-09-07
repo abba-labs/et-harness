@@ -2,7 +2,7 @@
 
 更新时间：2026-09-07 12:31 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；18项SPEC、21项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；19项SPEC、20项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -299,7 +299,7 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_017 | CAN取消请求与重发 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | PLANNED，见第3节 |
 | CAN_P1_019 | CAN Monitor与Restricted模式 | P1 | R4 | PLANNED，见第3节 |
-| CAN_P1_020 | CAN FD ISO与Non-ISO格式 | P1 | R2～R4 | PLANNED，见第3节 |
+| CAN_P1_020 | CAN FD ISO与Non-ISO格式 | P1 | R2～R4 | IMPLEMENTED，见第3节；硬件结果单独登记 |
 | CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | SPEC，见第3节 |
 | CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | PLANNED，见第3节 |
 | CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
@@ -1248,10 +1248,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P1_020 CAN FD ISO与Non-ISO格式
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_020
 case_name: CAN FD ISO与Non-ISO格式
 report_feature: |-
@@ -1266,9 +1265,9 @@ method:
     - "独立基线：每种格式组合及长度前复位参与IP、Service和资源池，清Peer捕获与DUT首次错误锁存。"
     - "格式配置：配置DUT模式并读回，Peer通过自身设备设置对应格式；两端关闭回环，禁用自动重发防止错误风暴。"
     - "匹配收发：同格式节点双向各发送一帧，等待完成并比较真实接收帧、DLC、BRS及payload。"
-    - "失配刺激：交叉格式节点由Peer只发一次；DUT作为接收者锁存第一次协议错误和RX占用，禁止发送后续成功帧覆盖首次错误。"
+    - "失配刺激：交叉格式节点由Peer只发一次；Driver在100ms预算内等待真实协议错误Raw，立即消费首个PROTOCOL错误码并保留，观察窗补足100ms后读取RX占用，禁止发送后续成功帧覆盖首次错误。"
     - "负向判定：交叉格式不得进入有效RX元素，DUT必须留有真实协议错误事件及错误码，Peer记录实际发出的格式；不固定一种实现相关的首错误类型。"
-    - "恢复验证：重新基线，两端设同一ISO格式，再双向各发一帧；核对恢复成功及全部8个格式/长度节点的预期。"
+    - "恢复验证：先通过独立W1C清错误并读回Raw，再重新基线，两端设同一ISO格式，双向各发一帧；核对恢复成功及全部8个格式/长度节点的预期。"
   observations:
     - "匹配结果：同格式DUT RX.FRAME/Peer.CAPTURE等于原始输入，TX.COMPLETED有效。"
     - "失配结果：DUT有效RX新增数为0，首次PROTOCOL.LAST_ERROR或DATA_LAST_ERROR属于真实协议错误而非无变化值，IRQ协议错误源有效。"
@@ -1281,14 +1280,14 @@ resources: {minimum_level: R2, full_coverage_level: R4, board: "代表CAN及本C
 backend: [FPGA, Silicon]
 evidence: ["CAN FD ISO与Non-ISO格式：逐参数保存输入配置、首次决定性硬件状态、独立Expected和实际刺激证据；PASS/FAIL均记录，不用API成功代替硬件结果"]
 failure_observations:
-  - {"key":"format","label":"CAN FD格式配置读回","source":"dut","role":"actual","format":"text"}
-  - {"key":"rx","label":"CAN RX新增量与实际帧","source":"dut","role":"actual","format":"text"}
-  - {"key":"error","label":"首次PROTOCOL错误码和IRQ源","source":"dut","role":"actual","format":"text"}
-  - {"key":"peer","label":"Peer格式及实际发送/捕获记录","source":"peer","role":"actual","format":"text"}
-  - {"key":"expected","label":"CAN FD ISO与Non-ISO格式预先确定的输入和判据","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+  - {key: non_iso, label: "CAN FD格式硬件读回", source: dut, role: actual, format: text}
+  - {key: rx_fill, label: "RX0实际占用", source: dut, role: actual, format: text}
+  - {key: peer_frames, label: "Peer实际捕获及ISO恢复帧", source: peer, role: actual, format: text}
+  - {key: cleared_irq, label: "W1C后IRQ Raw", source: dut, role: actual, format: hex32}
+  - {key: expected, label: "独立格式矩阵及帧输入", source: oracle, role: expected, format: text}
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_021 CAN TDC启用后的FD总线收发
 
@@ -1992,6 +1991,13 @@ gap: ["case_implementation_gap"]
 ```yaml
 schema: et.case-report-note.v1
 cases:
+  CAN_P1_020:
+    summary: 四格式组合乘两长度；匹配双向完整帧，失配需首个协议错误和零RX，最后ISO双向恢复。
+    fields:
+      - {source: measurement, path: format_summary, label: 各阶段实际格式及选项, format: text, aggregate: all}
+      - {source: measurement, path: result_summary, label: 主阶段与ISO恢复协议状态和帧, format: text, aggregate: all}
+      - {source: observation, path: peer_frames, label: Peer实际捕获帧, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 格式矩阵及独立输入, format: text, aggregate: all}
   CAN_P2_005:
     summary: Normal捕获正对照有效，内部回环本机收发但100ms无外发，外部回环只听捕获两帧。
     fields:
@@ -2117,7 +2123,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=13; IMPLEMENTATION_GAP=24 | ADAPTED=18; IMPLEMENTATION_GAP=21; NEEDS_VERIFICATION=3 | 18 SPEC、21 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=14; IMPLEMENTATION_GAP=23 | ADAPTED=19; IMPLEMENTATION_GAP=20; NEEDS_VERIFICATION=3 | 19 SPEC、20 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
