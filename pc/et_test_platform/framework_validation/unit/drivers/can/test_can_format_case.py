@@ -7,7 +7,10 @@ from struct import pack
 from types import SimpleNamespace
 
 import pytest
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
 from et_test_platform.test_cases.can.test_can_p1_format import (
     test_can_p1_020_fd_format_matrix as run_format_case,
@@ -34,7 +37,7 @@ from et_test_platform.test_cases.can.test_can_p1_format import (
         (True, False, "recovery_tail"),
     ),
 )
-def test_format_case_independent_vectors(length, dut, peer, fault):
+def test_format_case_independent_vectors(length, dut, peer, fault, tmp_path):
     support, resource, target, calls = dependencies()
     payload = bytes((49 + 17 * i) % 256 for i in range(length))
     dlc = 10 if length == 16 else 15
@@ -122,3 +125,4 @@ def test_format_case_independent_vectors(length, dut, peer, fault):
         assert any(key == "format_summary" for key, _ in properties)
         assert any(key == "result_summary" for key, _ in properties)
     assert calls[-3:] == [("peer_close",), ("can", 0), ("resource",)]
+    assert_case_report(properties, "CAN_P1_020", "FAIL" if fault else "PASS", tmp_path)

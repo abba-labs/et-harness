@@ -96,6 +96,7 @@ def test_can_p2_008_dmu_rx_timestamp(
     record_property("atb_before", "NOT_OBSERVED")
     record_property("atb_after", "NOT_OBSERVED")
     record_property("overwrite_error", "NOT_OBSERVED")
+    record_property("decoded", "NOT_OBSERVED")
     with case_cleanup_scope(
         lambda: (
             ("RX DMA stop", lambda: dma.stop(channel)),
@@ -351,7 +352,6 @@ def test_can_p2_008_dmu_rx_timestamp(
             copied = resource_driver.read(destination)
             raw = copied[word_bytes:-word_bytes]
             ts0 = can.tsu_slot0_consume(timeout_s=deadline.remaining_s())
-            actual = can.dmu_rx_image_decode(fifo, raw, timeout_s=deadline.remaining_s())
             errors = can.dmu_status_consume(timeout_s=deadline.remaining_s())
             counters = can.dmu_counters_get(timeout_s=deadline.remaining_s())
             fifo_after = can.rx_fifo_status_get(fifo, timeout_s=deadline.remaining_s())
@@ -403,7 +403,7 @@ def test_can_p2_008_dmu_rx_timestamp(
             record_observation(
                 record_property, key="ts0", value=ts0, source="dut", endpoint="TSU.TS0"
             )
-            record_property("decoded", str(actual))
+            record_property("ts0", ts0)
             record_observation(
                 record_property,
                 key="overwrite_error",
@@ -411,6 +411,7 @@ def test_can_p2_008_dmu_rx_timestamp(
                 source="dut",
                 endpoint="DMU.ERROR",
             )
+            record_property("overwrite_error", int(errors.errors))
             record_observation(
                 record_property,
                 key="dmu_counters",
@@ -453,6 +454,9 @@ def test_can_p2_008_dmu_rx_timestamp(
                 source="dut",
                 endpoint="DMA.DESTINATION.LAST_WORD",
             )
+            record_property("timestamp_word", timestamp_word)
+            actual = can.dmu_rx_image_decode(fifo, raw, timeout_s=deadline.remaining_s())
+            record_property("decoded", str(actual))
             assert completion.is_free and completion.fifo_empty
             assert not completion.interrupt_events & DmaIrqEvent.ERROR
             assert addresses.source_address == endpoint + element_bytes

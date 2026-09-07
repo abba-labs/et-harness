@@ -294,8 +294,8 @@ def test_can_p2_001_dmu_tx_rx(
             errors = can.dmu_status_consume(timeout_s=deadline.remaining_s())
             states.append(
                 {
-                    "dma": {key: asdict(value) for key, value in actual_dma.items()},
-                    "snapshots": {key: asdict(value) for key, value in snapshots.items()},
+                    "dma": {str(key): asdict(value) for key, value in actual_dma.items()},
+                    "snapshots": {str(key): asdict(value) for key, value in snapshots.items()},
                     "tx": asdict(actual_tx),
                 }
             )

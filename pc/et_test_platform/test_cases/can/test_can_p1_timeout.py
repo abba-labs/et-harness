@@ -70,9 +70,11 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
         phase_timing(support.clock_hz, 2_000_000, support.timing_limits.data),
     )
     counter_trace, irq_trace, negative_windows = [], [], []
+    fill_trace = []
     record_property("counter", counter_trace)
     record_property("irq", irq_trace)
     record_property("negative_windows", negative_windows)
+    record_property("source_fill_summary", fill_trace)
     record_property(
         "expected",
         {
@@ -182,6 +184,7 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
                 ("RX1", rx1, int(stimulated and not event_source and fifo == 1)),
                 ("EVENT", events, int(stimulated and event_source)),
             ):
+                fill_trace.append({"stage": stage, "source": name, "fill": status.fill})
                 record_observation(
                     record_property,
                     key="source_fill",

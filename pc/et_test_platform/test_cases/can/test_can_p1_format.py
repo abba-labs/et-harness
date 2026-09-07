@@ -71,6 +71,8 @@ def test_can_p1_020_fd_format_matrix(
     format_summary, result_summary = [], []
     record_property("format_summary", format_summary)
     record_property("result_summary", result_summary)
+    captures = []
+    record_property("peer_capture_summary", "NOT_OBSERVED")
     record_property(
         "expected",
         {
@@ -230,6 +232,8 @@ def test_can_p1_020_fd_format_matrix(
                 )
                 assert tx.completed & 1
                 received = box.receive(timeout_s=deadline.remaining_s())
+                captures.append({"stage": stage, "frame": str(received)})
+                record_property("peer_capture_summary", captures)
                 record_observation(
                     record_property,
                     key="peer_frames",

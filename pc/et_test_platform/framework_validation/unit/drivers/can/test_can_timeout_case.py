@@ -8,7 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 from et_test_platform.drivers.can import CanTimeoutSource
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.test_cases.can import test_can_p1_timeout as timeout_case
 
 
@@ -36,7 +39,7 @@ from et_test_platform.test_cases.can import test_can_p1_timeout as timeout_case
         for source in (CanTimeoutSource.TX_EVENT, CanTimeoutSource.RX0, CanTimeoutSource.RX1)
     ],
 )
-def test_timeout_case_vectors(source, fault, monkeypatch):
+def test_timeout_case_vectors(source, fault, monkeypatch, tmp_path):
     support, resource, target, calls = dependencies()
     support.mapping.CAN_EXT_FILTER_BYTES = 8
     target.responses = [b"", pack("<I", 1)] + [b""] * 6
@@ -148,3 +151,4 @@ def test_timeout_case_vectors(source, fault, monkeypatch):
                 assert int.from_bytes(r["body"][9:13], "little") == (32 if source == 1 else 0)
         assert dict(properties)["irq"][1]["event_count"] == 1
     assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    assert_case_report(properties, "CAN_P1_014", "FAIL" if fault else "PASS", tmp_path)

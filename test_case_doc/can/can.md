@@ -2091,7 +2091,7 @@ cases:
     fields:
       - {source: measurement, path: counter, label: 空/到期/重装/禁止计数实读, format: text, aggregate: all}
       - {source: measurement, path: irq, label: 自然Raw和ISR证据, format: text, aggregate: all}
-      - {source: observation, path: source_fill, label: 各阶段三个FIFO实际数量, format: text, aggregate: all}
+      - {source: measurement, path: source_fill_summary, label: 各阶段各源FIFO实读摘要, format: text, aggregate: all}
       - {source: measurement, path: negative_windows, label: 禁止窗口实际时长, format: text, aggregate: all}
   CAN_P2_010:
     summary: 低门限实测WDI及ISR，关闭后同样DMA搬运无WDI，显式清除并复位恢复；不覆盖精确应答周期。
@@ -2119,9 +2119,9 @@ cases:
   CAN_P2_008:
     summary: RX时间戳附加开关与RX1末word覆盖分别实测，TS0独立读值和DMA最后word核对，复位后恢复。
     fields:
-      - {source: observation, path: ts0, label: TS0实际捕获, format: hex32, aggregate: all}
-      - {source: observation, path: timestamp_word, label: DMA末word实读, format: hex32, aggregate: all}
-      - {source: observation, path: overwrite_error, label: DMU错误实读, format: hex32, aggregate: all}
+      - {source: measurement, path: ts0, label: TS0实读或未到达状态, format: text, aggregate: all}
+      - {source: measurement, path: timestamp_word, label: DMA末word实读或未到达状态, format: text, aggregate: all}
+      - {source: measurement, path: overwrite_error, label: DMU错误实读或未到达状态, format: text, aggregate: all}
       - {source: measurement, path: decoded, label: 实际接收字段摘要, format: text, aggregate: all}
   CAN_P3_001:
     summary: 20轮32帧双向批量FD/BRS；各640帧逐Byte逐序号核对，轮内不复位，末尾无额外捕获。
@@ -2142,7 +2142,7 @@ cases:
     fields:
       - {source: measurement, path: format_summary, label: 各阶段实际格式及选项, format: text, aggregate: all}
       - {source: measurement, path: result_summary, label: 主阶段与ISO恢复协议状态和帧, format: text, aggregate: all}
-      - {source: observation, path: peer_frames, label: Peer实际捕获帧, format: text, aggregate: all}
+      - {source: measurement, path: peer_capture_summary, label: 已完成阶段Peer捕获摘要, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 格式矩阵及独立输入, format: text, aggregate: all}
   CAN_P2_005:
     summary: Normal捕获正对照有效，内部回环本机收发但100ms无外发，外部回环只听捕获两帧。
