@@ -83,6 +83,9 @@ class CanCommand(IntEnum):
     NOMINAL_TIMING_WRITE = 56
     NON_ISO_SET = 57
     NON_ISO_GET = 58
+    EVENT_FORMAT_SET = 59
+    EVENT_FORMAT_GET = 60
+    TX_EVENT_DETAILS_READ = 61
 
 
 REQUEST_WORDS = (
@@ -145,6 +148,9 @@ REQUEST_WORDS = (
     4,
     1,  # NON_ISO_SET: explicit Boolean format selection.
     0,
+    2,  # EVENT_FORMAT_SET: marker bits and explicit TSU use.
+    0,
+    0,
 )
 RESPONSE_WORDS = (
     2,
@@ -206,6 +212,9 @@ RESPONSE_WORDS = (
     0,
     0,
     1,  # NON_ISO_GET: actual hardware format selection.
+    0,
+    2,
+    10,  # TX_EVENT_DETAILS_READ: old fields plus timestamp-valid, TSU-captured, pointer.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -323,5 +332,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.RAM_WORDS_READ,
         CanCommand.CONFIGURATION_WRITE_GET,
         CanCommand.NON_ISO_GET,
+        CanCommand.EVENT_FORMAT_GET,
+        CanCommand.TX_EVENT_DETAILS_READ,
     }
 )

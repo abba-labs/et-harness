@@ -1005,10 +1005,38 @@ static et_wrap_status_t execute_tx_event_command(et_can_id_t id, uint16_t comman
 {
     et_can_tx_event_status_t status;
     et_can_tx_event_t event;
+    et_can_tx_event_details_t details;
+    et_can_event_format_t format;
     et_wrap_status_t result;
 
+    /* Phase 1: Select one explicit format, event read or acknowledge operation. */
     switch (command)
     {
+        case ET_CAN_COMMAND_EVENT_FORMAT_SET:
+        {
+            format.marker_bits =
+                read_word(&body[ET_CAN_EVENT_FORMAT_MARKER_BITS * ET_CAN_WIRE_WORD_BYTES]);
+            format.tsu_enabled =
+                read_word(&body[ET_CAN_EVENT_FORMAT_TSU_ENABLED * ET_CAN_WIRE_WORD_BYTES]);
+
+            return et_can_wrap_set_event_format(id, &format);
+        }
+
+        case ET_CAN_COMMAND_EVENT_FORMAT_GET:
+        {
+            result = et_can_wrap_get_event_format(id, &format);
+
+            if (result == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_EVENT_FORMAT_MARKER_BITS * ET_CAN_WIRE_WORD_BYTES],
+                           format.marker_bits);
+                write_word(&response[ET_CAN_EVENT_FORMAT_TSU_ENABLED * ET_CAN_WIRE_WORD_BYTES],
+                           format.tsu_enabled);
+            }
+
+            return result;
+        }
+
         case ET_CAN_COMMAND_TX_EVENT_STATUS_GET:
         {
             result = et_can_wrap_get_tx_event_status(id, &status);
@@ -1031,9 +1059,23 @@ static et_wrap_status_t execute_tx_event_command(et_can_id_t id, uint16_t comman
         }
 
         case ET_CAN_COMMAND_TX_EVENT_READ:
+        case ET_CAN_COMMAND_TX_EVENT_DETAILS_READ:
         {
-            result = et_can_wrap_read_tx_event(id, &event);
+            if (command == ET_CAN_COMMAND_TX_EVENT_DETAILS_READ)
+            {
+                result = et_can_wrap_read_tx_event_details(id, &details);
 
+                if (result == ET_WRAP_STATUS_OK)
+                {
+                    event = details.event;
+                }
+            }
+            else
+            {
+                result = et_can_wrap_read_tx_event(id, &event);
+            }
+
+            /* Phase 2: Encode actual fields; invalid internal timestamp is explicitly marked. */
             if (result == ET_WRAP_STATUS_OK)
             {
                 write_word(&response[ET_CAN_TX_EVENT_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES],
@@ -1047,6 +1089,17 @@ static et_wrap_status_t execute_tx_event_command(et_can_id_t id, uint16_t comman
                 write_word(&response[ET_CAN_TX_EVENT_MARKER * ET_CAN_WIRE_WORD_BYTES],
                            event.marker);
                 write_word(&response[ET_CAN_TX_EVENT_INDEX * ET_CAN_WIRE_WORD_BYTES], event.index);
+
+                if (command == ET_CAN_COMMAND_TX_EVENT_DETAILS_READ)
+                {
+                    write_word(
+                        &response[ET_CAN_EVENT_INTERNAL_TIMESTAMP_VALID * ET_CAN_WIRE_WORD_BYTES],
+                        details.internal_timestamp_valid);
+                    write_word(&response[ET_CAN_EVENT_TSU_CAPTURED * ET_CAN_WIRE_WORD_BYTES],
+                               details.tsu_captured);
+                    write_word(&response[ET_CAN_EVENT_TSU_POINTER * ET_CAN_WIRE_WORD_BYTES],
+                               details.tsu_pointer);
+                }
             }
 
             return result;
@@ -1455,7 +1508,10 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
         return execute_filter_command(id, command, body, response);
     }
 
-    if ((command >= ET_CAN_COMMAND_TX_EVENT_STATUS_GET) && (command <= ET_CAN_COMMAND_TX_EVENT_ACK))
+    if (((command >= ET_CAN_COMMAND_TX_EVENT_STATUS_GET) &&
+         (command <= ET_CAN_COMMAND_TX_EVENT_ACK)) ||
+        ((command >= ET_CAN_COMMAND_EVENT_FORMAT_SET) &&
+         (command <= ET_CAN_COMMAND_TX_EVENT_DETAILS_READ)))
     {
         return execute_tx_event_command(id, command, body, response);
     }
@@ -1723,6 +1779,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WRITE_WORDS,
         [ET_CAN_COMMAND_CONFIGURATION_WRITE_SET] = 1u,
         [ET_CAN_COMMAND_NON_ISO_SET] = 1u,
+        [ET_CAN_COMMAND_EVENT_FORMAT_SET] = ET_CAN_EVENT_FORMAT_WORDS,
         [ET_CAN_COMMAND_NOMINAL_TIMING_WRITE] = ET_CAN_PHASE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
@@ -1751,6 +1808,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RAM_WORDS_READ] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_CONFIGURATION_WRITE_GET] = 1u,
         [ET_CAN_COMMAND_NON_ISO_GET] = 1u,
+        [ET_CAN_COMMAND_EVENT_FORMAT_GET] = ET_CAN_EVENT_FORMAT_WORDS,
+        [ET_CAN_COMMAND_TX_EVENT_DETAILS_READ] = ET_CAN_EVENT_DETAILS_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,

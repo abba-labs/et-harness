@@ -9,6 +9,7 @@ from .models import (
     CanBusConfig,
     CanBusLimits,
     CanError,
+    CanEventFormat,
     CanFilter,
     CanFilterAction,
     CanFilterType,
@@ -34,6 +35,7 @@ from .models import (
     CanTimestampSource,
     CanTiming,
     CanTxEvent,
+    CanTxEventDetails,
     CanTxEventStatus,
     CanTxEventType,
     CanTxFrame,
@@ -42,6 +44,8 @@ from .models import (
 )
 
 __all__ = [
+    "CanEventFormat",
+    "CanTxEventDetails",
     "CanActivity",
     "CanError",
     "CanProtocolStatus",

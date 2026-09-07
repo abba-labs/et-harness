@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 12:49 CST
+更新时间：2026-09-07 13:18 CST
+
+2026-09-07 13:18 CST 验证追加：Marker基础接口完整软件门禁1407 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/marker_primitives_software_gate_verified.log`）。另用WSL GCC实际编译并运行真实CAN SDK/Wrap/Service Native Harness成功（同目录`marker_native_compile.log`、`marker_native_execution.log`），覆盖先前Non-ISO及新增宽Marker/TSU格式、Service长度和实例隔离；修正Harness的READ_BIT未经过读取计数钩子的问题，保留原四次TXBC读取断言。该软件寄存器桩不模拟总线；未构建部署镜像、未形成新FPGA结果。
 
 2026-09-07 12:31 CST 开发追加：新增FD编码选择命令57/58，公共命令累计59条。ET6801 Chip Driver Test Extension使用生成头`CAN0_CCCR_NISO_Msk`，写入要求INIT并临时开启、随后恢复CCE，保留其他字段；Wrap/Service不访问寄存器。PC严格Boolean、无隐式INIT或写重试，GET读取硬件。当前只完成P1_020所需基础接口，Case仍为PLAN；未烧录、未形成新硬件结果。芯片查询证据`artifacts/runs/20260907_can_planned_development/stages/noniso_chip_query.json`。
 
@@ -15,6 +17,8 @@
 2026-09-07 12:20 CST 验证追加：P2_005专项7 PASS，总软件门禁1363 PASS、17宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/loopback_software_gate_verified.log`。Case保留Normal ACK正对照和回环只听要求，内部100ms静默必须真实超时且Observer无错误，不接受短窗口或意外帧。真实Driver/Wire夹具另覆盖三阶段坏帧；软件结果不关闭旧只听硬件问题。未修改Firmware或执行硬件；新增P1_021/P2_005均NOT_EXECUTED。
 
 ## 第一章 IP分析
+
+2026-09-07 13:06 CST 开发追加：Marker格式基础命令59/60及有效性事件读取61已接通，累计62条，P1_010正式Case尚未完成。CCCR.WMM或UTSU选择宽模式；Bosch M_TTCAN 3.3.0 §2.4.3/2.4.4的T1/E1B低Marker字节位于31:24，高字节位于15:8，E1B不含内部16-bit时间戳；TSU捕获标志/指针分别位于bit4/3:0。Chip Driver测试扩展负责宽Marker编码和解码；公共层仅操作有效性及逻辑Marker。旧读命令宽模式拒绝，避免时间戳误报。源PDF已由toolbox summary及PDF页面83～85核对，SHA保持本文件1.4记录值；新字段和三实例Native向量待本批验证，不是硬件结果。
 
 2026-09-07 12:49 CST 验证追加：P1_020正式四格式×两长度节点及ISO恢复已贯通，22个独立Case软件向量覆盖配置不符、Peer/DUT末字节、无变化错误码、负向误收、IRQ残留和恢复坏帧。Driver等待仅查IRQ Raw，首次PSR由Case消费；另2项验证Deadline及超时末次快照。完整门禁1390 PASS、17宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/noniso_case_software_gate_verified.log`）。没有新Wire变化或新固件构建/部署，本Case硬件NOT_EXECUTED。
 

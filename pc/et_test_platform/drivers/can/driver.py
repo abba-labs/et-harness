@@ -11,6 +11,7 @@ from .contract import CanCommand
 from .models import (
     CanBusConfig,
     CanBusLimits,
+    CanEventFormat,
     CanFilter,
     CanHighPriorityStatus,
     CanIdentity,
@@ -30,6 +31,7 @@ from .models import (
     CanRxSource,
     CanTiming,
     CanTxEvent,
+    CanTxEventDetails,
     CanTxEventStatus,
     CanTxFrame,
     CanTxStatus,
@@ -64,6 +66,26 @@ class CanDriver:
     ) -> None:
         words = codec.timing_words(CanTiming(timing, timing))[: len(contract.PHASE_FIELDS)]
         self._request(CanCommand.NOMINAL_TIMING_WRITE, words, timeout_s=timeout_s)
+
+    # 显式选择Marker位宽与TSU使用；不进入INIT或配置TSU计数源。
+    # 写入只执行一次，timeout_s传递到底层；失败不重试，配置须独立读回。
+    def event_format_set(self, config: CanEventFormat, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.EVENT_FORMAT_SET, codec.event_format_words(config), timeout_s=timeout_s
+        )
+
+    # 读取实际有效格式；一次请求失败上抛，不返回缓存或消耗事件。
+    def event_format_get(self, *, timeout_s: float | None = None) -> CanEventFormat:
+        return codec.decode_event_format(
+            self._request(CanCommand.EVENT_FORMAT_GET, timeout_s=timeout_s)
+        )
+
+    # 读取当前事件及有效性；宽Marker不伪造内部时间戳，TSU槽仅表示指针。
+    # 一次请求受timeout_s约束，失败上抛；不Ack、不轮询、不读取TSU捕获寄存器。
+    def tx_event_details_read(self, *, timeout_s: float | None = None) -> CanTxEventDetails:
+        return codec.decode_tx_event_details(
+            self._request(CanCommand.TX_EVENT_DETAILS_READ, timeout_s=timeout_s)
+        )
 
     # 在已进入INIT的控制器上选择FD编码；不进入INIT，不隐式重发。
     # timeout_s约束一次命令，失败直接上抛；模式生效须独立读回。

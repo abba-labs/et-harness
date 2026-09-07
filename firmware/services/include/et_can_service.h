@@ -32,6 +32,20 @@
 #define ET_CAN_TX_STATUS_WORDS 7u
 #define ET_CAN_TX_EVENT_STATUS_WORDS 5u
 #define ET_CAN_TX_EVENT_WORDS 7u
+/** Explicit event interpretation appends validity and TSU metadata to the old seven words. */
+typedef enum
+{
+    ET_CAN_EVENT_INTERNAL_TIMESTAMP_VALID = ET_CAN_TX_EVENT_WORDS,
+    ET_CAN_EVENT_TSU_CAPTURED,
+    ET_CAN_EVENT_TSU_POINTER,
+    ET_CAN_EVENT_DETAILS_WORDS
+} et_can_event_details_word_t;
+typedef enum
+{
+    ET_CAN_EVENT_FORMAT_MARKER_BITS = 0u,
+    ET_CAN_EVENT_FORMAT_TSU_ENABLED,
+    ET_CAN_EVENT_FORMAT_WORDS
+} et_can_event_format_word_t;
 #define ET_CAN_RX_FIFO_STATUS_WORDS 5u
 #define ET_CAN_RX_SELECT_WORDS 2u
 #define ET_CAN_RX_BITMAP_WORDS 2u
@@ -265,6 +279,9 @@ typedef enum
     ET_CAN_COMMAND_NOMINAL_TIMING_WRITE = 56u,
     ET_CAN_COMMAND_NON_ISO_SET = 57u,
     ET_CAN_COMMAND_NON_ISO_GET = 58u,
+    ET_CAN_COMMAND_EVENT_FORMAT_SET = 59u,
+    ET_CAN_COMMAND_EVENT_FORMAT_GET = 60u,
+    ET_CAN_COMMAND_TX_EVENT_DETAILS_READ = 61u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 

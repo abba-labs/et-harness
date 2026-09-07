@@ -1529,6 +1529,28 @@ int32_t CAN_testConfigurationAccess(CAN_Type *CANx, uint32_t enable, uint32_t *a
 int32_t CAN_testWriteNominalTiming(CAN_Type *CANx, const CAN_BitTimingParams *timing);
 /** Select CCCR.NISO in INIT while preserving CCE; non-NULL actual selects read only. */
 int32_t CAN_testNonIsoAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual);
+/** M_TTCAN 3.3.0 sections 2.4.3/2.4.4: T1/E1B bits 15:8 carry MM[15:8]. */
+#define CAN_TEST_MARKER_HIGH_MASK (0x0000FF00U)
+#define CAN_TEST_MARKER_BITS_BASIC (8U)
+#define CAN_TEST_MARKER_BITS_WIDE (16U)
+/** E1B bit 4 reports captured TSU timestamp; bits 3:0 select TS0..15. */
+#define CAN_TEST_EVENT_TSC_MASK (0x10U)
+#define CAN_TEST_EVENT_POINTER_MASK (0x0FU)
+typedef struct
+{
+    uint32_t internalTimestampValid;
+    uint32_t tsuCaptured;
+    uint32_t tsuPointer;
+} CAN_TestEventMetadata;
+/** Effective marker width is wide when either WMM or UTSU is set. */
+void CAN_testGetEventFormat(CAN_Type *CANx, uint32_t *markerBits, uint32_t *tsuEnabled);
+/** Require INIT, preserve CCE, and explicitly configure both WMM and UTSU. */
+int32_t CAN_testSetEventFormat(CAN_Type *CANx, uint32_t markerBits, uint32_t tsuEnabled);
+/** Write one non-pending allocated TX slot, preserving the complete wide marker. */
+int32_t CAN_testWriteTxElement(CAN_Type *CANx, uint32_t index, const CAN_TxBufElement *element);
+/** Decode E1A/E1B using actual format; invalid internal timestamp/pointer fields are zero. */
+void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
+                         CAN_TestEventMetadata *metadata);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制、中断管理及FD格式选择，共59条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、中断管理及FD格式选择，共62条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -179,6 +179,11 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | NOMINAL_TIMING_WRITE | 56 | brp、segment1、segment2、sjw：实际正整数 | 无；INIT下发出一次仲裁位时序写，不隐式解锁；成功返回不表示硬件接受，应独立读回 |
 | NON_ISO_SET | 57 | enabled：严格Boolean，0为ISO、1为Non-ISO | 无；要求已处于INIT，仅选择FD编码，保留配置写权限及其他选项，不发送帧；须独立读回 |
 | NON_ISO_GET | 58 | 无 | enabled：实际硬件Boolean，无读清副作用；不返回上次请求缓存 |
+| EVENT_FORMAT_SET | 59 | marker_bits=8/16、tsu_enabled=严格Boolean；TSU启用要求16 | 无；INIT下显式配置两项，保留其他配置及原写权限，不配置TSU计数器 |
+| EVENT_FORMAT_GET | 60 | 无 | marker_bits、tsu_enabled：实际有效格式；不消费事件 |
+| TX_EVENT_DETAILS_READ | 61 | 无 | 原TX_EVENT_READ七word后追加internal_timestamp_valid、tsu_captured、tsu_pointer；无效时间戳/指针Wire字段为0，PC返回None；不Ack或读取TSU时间戳 |
+
+`TX_WRITE`与`TX_READ`的Marker按当前实际位宽校验/解释，不隐式改变事件格式。旧`TX_EVENT_READ`只接受具有内部时间戳字段的基本格式，宽Marker/TSU格式返回状态错误；新读取61以显式有效性防止伪时间戳。内部时间戳有效性只描述字段存在，不证明计数源已经启用。TSU指针只在实际捕获时有效，不是时间戳数值。
 
 RAM访问限制：offset以Byte计且4-byte对齐，count为1～64；全部范围必须落在当前实例声明的Message RAM容量内。descending严格为0/1，只改变访问顺序。固件不生成测试模式、不比较Expected、不计算PASS；PC负责算法、完整读值比较和首错定位。
 

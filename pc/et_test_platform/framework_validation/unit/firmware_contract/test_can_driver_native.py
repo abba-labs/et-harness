@@ -44,7 +44,7 @@ def write_can_driver_harness(directory: Path) -> Path:
         "#define assert_param(v) assert(v)\n#define DRV_OK 0\n#define DRV_ERROR (-1)\n"
         "uint32_t can_test_read(volatile uint32_t *address);\n"
         "#define READ_REG(r) can_test_read(&(r))\n#define WRITE_REG(r,v) ((r)=(v))\n"
-        "#define READ_BIT(r,m) ((r)&(m))\n"
+        "#define READ_BIT(r,m) (READ_REG(r)&(m))\n"
         "#define MODIFY_REG(r,m,v) ((r)=((r)&~(m))|(v))\n"
         "#define SET_BIT(r,m) ((r)|=(m))\n#define CLEAR_BIT(r,m) ((r)&=~(m))\n"
         "#define REG32(a) (*(uint32_t *)(uintptr_t)(a))\n"
@@ -272,6 +272,21 @@ int main(void)
         assert(et_can_wrap_set_initializing(index, 1) == ET_WRAP_STATUS_OK);
         assert(et_can_wrap_get_initializing(index, &initializing) == ET_WRAP_STATUS_OK);
         assert(initializing == 1);
+        /* Explicit format selection preserves unrelated controls and CCE. */
+        et_can_event_format_t format = {16, 0}, format_actual;
+        uint32_t format_before = instances[index]->CCCR;
+        assert(et_can_wrap_set_event_format(index, &format) == ET_WRAP_STATUS_OK);
+        assert(instances[index]->CCCR == (format_before | CAN0_CCCR_WMM_Msk));
+        assert(et_can_wrap_get_event_format(index, &format_actual) == ET_WRAP_STATUS_OK);
+        assert(format_actual.marker_bits == 16 && format_actual.tsu_enabled == 0);
+        format.tsu_enabled=1;
+        assert(et_can_wrap_set_event_format(index, &format) == ET_WRAP_STATUS_OK);
+        assert(instances[index]->CCCR == (format_before | CAN0_CCCR_WMM_Msk | CAN0_CCCR_UTSU_Msk));
+        format.marker_bits=8;
+        assert(et_can_wrap_set_event_format(index, &format) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        format.tsu_enabled=0;
+        assert(et_can_wrap_set_event_format(index, &format) == ET_WRAP_STATUS_OK);
+        assert(instances[index]->CCCR == format_before);
         /* Non-ISO selection changes only NISO, preserving CCE and other instances. */
         for (unsigned permission = 0; permission < 2; ++permission)
         {
@@ -657,6 +672,17 @@ int main(void)
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_READ,
                                   request, 5, response, 84, &response_length) == ET_STATUS_OK);
         assert(response_length==84 && memcmp(response, request+1, 84)==0);
+        CAN0->CCCR |= CAN0_CCCR_WMM_Msk;
+        request[17]=0xCD; request[18]=0xAB;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_WRITE,
+                                  request, 85, NULL, 0, &response_length) == ET_STATUS_OK);
+        assert(*(uint32_t *)(test_memory.ram+28)==0xCD3FAB00U);
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_READ,
+                                  request, 5, response, 84, &response_length) == ET_STATUS_OK);
+        assert(response_length==84 && memcmp(response, request+1, 84)==0);
+        CAN0->CCCR &= ~CAN0_CCCR_WMM_Msk;
+        assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_WRITE,
+                                  request, 85, NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
         CAN0->TXBRP=1;
         assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_TX_READ,
                                   request, 5, response, 84, &response_length) == ET_STATUS_BUSY);
@@ -835,6 +861,26 @@ int main(void)
         assert(txbc_reads==4);
         assert(event.identifier==0x369 && event.marker==0x10 && event.index==0);
         assert(event.timestamp==0x3456 && event.dlc==8);
+        et_can_tx_event_details_t details;
+        assert(et_can_wrap_read_tx_event_details(0,&details)==ET_WRAP_STATUS_OK);
+        assert(details.internal_timestamp_valid==1 && details.event.timestamp==0x3456);
+        CAN0->CCCR |= CAN0_CCCR_WMM_Msk;
+        entry[1]=0xCD48AB00U;
+        assert(et_can_wrap_read_tx_event(0,&event)==ET_WRAP_STATUS_STATE_ERROR);
+        assert(et_can_wrap_read_tx_event_details(0,&details)==ET_WRAP_STATUS_OK);
+        assert(details.event.marker==0xABCD && details.internal_timestamp_valid==0);
+        assert(details.event.timestamp==0 && details.tsu_captured==0 && details.tsu_pointer==0);
+        CAN0->CCCR |= CAN0_CCCR_UTSU_Msk;
+        entry[1]=0x3448121FU;
+        assert(et_can_wrap_read_tx_event_details(0,&details)==ET_WRAP_STATUS_OK);
+        assert(details.event.marker==0x1234 && details.internal_timestamp_valid==0);
+        assert(details.event.timestamp==0 && details.tsu_captured==1 && details.tsu_pointer==15);
+        memset(request,0,sizeof(request));
+        assert(descriptor->handle(descriptor->context,61,request,1,response,40,&response_length)==ET_STATUS_OK);
+        assert(response_length==40 && response[20]==0x34 && response[21]==0x12);
+        assert(response[28]==0 && response[32]==1 && response[36]==15);
+        assert(descriptor->handle(descriptor->context,61,request,1,response,39,&response_length)==ET_STATUS_INVALID_PARAM);
+        CAN0->CCCR &= ~(CAN0_CCCR_WMM_Msk | CAN0_CCCR_UTSU_Msk);
         CAN0->TXEFS=0;
         assert(et_can_wrap_read_tx_event(0,&event)==ET_WRAP_STATUS_BUSY);
         CAN0->TXEFS=3;

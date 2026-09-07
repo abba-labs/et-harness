@@ -253,6 +253,22 @@ typedef struct
     uint32_t index;
 } et_can_tx_event_t;
 
+/** Actual element interpretation; wide markers replace internal TX timestamps. */
+typedef struct
+{
+    uint32_t marker_bits;
+    uint32_t tsu_enabled;
+} et_can_event_format_t;
+
+/** Extended event includes explicit validity; invalid timestamp/pointer values are zero. */
+typedef struct
+{
+    et_can_tx_event_t event;
+    uint32_t internal_timestamp_valid;
+    uint32_t tsu_captured;
+    uint32_t tsu_pointer;
+} et_can_tx_event_details_t;
+
 /** Actual receive FIFO state; querying does not acknowledge or clear lost status. */
 typedef struct
 {
@@ -299,6 +315,10 @@ et_wrap_status_t et_can_wrap_read_tx(et_can_id_t id, uint32_t index, et_can_tx_f
 et_wrap_status_t et_can_wrap_get_tx_status(et_can_id_t id, et_can_tx_status_t *status);
 et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event_status_t *status);
 et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event);
+et_wrap_status_t et_can_wrap_read_tx_event_details(et_can_id_t id,
+                                                   et_can_tx_event_details_t *details);
+et_wrap_status_t et_can_wrap_set_event_format(et_can_id_t id, const et_can_event_format_t *format);
+et_wrap_status_t et_can_wrap_get_event_format(et_can_id_t id, et_can_event_format_t *format);
 et_wrap_status_t et_can_wrap_ack_tx_event(et_can_id_t id, uint32_t index);
 et_wrap_status_t et_can_wrap_get_rx_fifo_status(et_can_id_t id, uint32_t fifo,
                                                 et_can_rx_fifo_status_t *status);

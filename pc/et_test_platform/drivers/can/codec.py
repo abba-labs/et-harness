@@ -9,6 +9,7 @@ from .models import (
     CanActivity,
     CanBusConfig,
     CanError,
+    CanEventFormat,
     CanFilter,
     CanFilterAction,
     CanFilterType,
@@ -27,6 +28,7 @@ from .models import (
     CanTimestampSource,
     CanTiming,
     CanTxEvent,
+    CanTxEventDetails,
     CanTxEventType,
     CanTxFrame,
     CanUnmatchedPolicy,
@@ -124,6 +126,57 @@ def decode_high_priority_status(words: tuple[int, ...]) -> CanHighPriorityStatus
     except ValueError as error:
         raise ProtocolError(f"CAN High Priority storage is invalid: {words[1]}") from error
     return CanHighPriorityStatus(words[0], storage, words[2], bool(words[3]))
+
+
+# 编码显式事件格式；TSU不支持八位Marker组合，非法值不得下发。
+def event_format_words(config: CanEventFormat) -> tuple[int, ...]:
+    if not isinstance(config, CanEventFormat):
+        raise ValueError("CAN event format requires CanEventFormat")
+    uint32(config.marker_bits)
+    enabled = boolean(config.tsu_enabled)
+    if config.marker_bits not in (8, 16) or (enabled and config.marker_bits != 16):
+        raise ValueError("CAN event marker width must be 8/16, with 16 required for TSU")
+    return (config.marker_bits, enabled)
+
+
+# 实际配置必须是严格宽度/Boolean组合，不把未知硬件状态换成默认值。
+def decode_event_format(words: tuple[int, ...]) -> CanEventFormat:
+    if len(words) != 2:
+        raise ProtocolError("CAN event format response length is invalid")
+    config = CanEventFormat(words[0], status_boolean(words[1]))
+    try:
+        event_format_words(config)
+    except ValueError as error:
+        raise ProtocolError("CAN event format response is invalid") from error
+    return config
+
+
+# 解码有效性独立的事件，拒绝无效字段携带伪时间戳或伪TSU指针。
+def decode_tx_event_details(words: tuple[int, ...]) -> CanTxEventDetails:
+    if len(words) != 10:
+        raise ProtocolError("CAN extended event response length is invalid")
+    event = decode_tx_event(words[:7])
+    valid, captured = status_boolean(words[7]), status_boolean(words[8])
+    pointer = words[9]
+    if (
+        event.marker > (0xFF if valid else 0xFFFF)
+        or event.timestamp > 0xFFFF
+        or (not valid and event.timestamp != 0)
+        or (valid and captured)
+        or pointer > 15
+        or (not captured and pointer != 0)
+    ):
+        raise ProtocolError("CAN extended event validity fields are inconsistent")
+    return CanTxEventDetails(
+        event.identifier,
+        event.flags,
+        event.dlc,
+        event.timestamp if valid else None,
+        event.event_type,
+        event.marker,
+        event.index,
+        pointer if captured else None,
+    )
 
 
 # 解码TX Event FIFO头；只接受基本帧标志、合法DLC和已定义事件类型。

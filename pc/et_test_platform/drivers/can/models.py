@@ -327,6 +327,27 @@ class CanTxEvent:
     index: int
 
 
+# 实际事件格式；TSU启用时硬件使用16-bit Marker。
+@dataclass(frozen=True, slots=True)
+class CanEventFormat:
+    marker_bits: int
+    tsu_enabled: bool
+
+
+# 显式有效性的事件读回，None代表该格式没有内部时间戳或未捕获TSU时间戳。
+# TSU pointer只是寄存器槽编号，不是TSU时间戳值或消息顺序号。
+@dataclass(frozen=True, slots=True)
+class CanTxEventDetails:
+    identifier: int
+    flags: CanFrameFlags
+    dlc: int
+    timestamp: int | None
+    event_type: CanTxEventType
+    marker: int
+    index: int
+    tsu_pointer: int | None
+
+
 # 接收FIFO非破坏性观测；查询不Ack、不清lost，也不将fill自动转换成测试结果。
 @dataclass(frozen=True, slots=True)
 class CanRxFifoStatus:

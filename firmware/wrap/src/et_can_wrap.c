@@ -1079,11 +1079,13 @@ static const et_can_frame_mapping_t frame_mapping = ET_CHIP_CAN_FRAME_MAP_TABLE;
 /**
  * @brief Validate protocol fields before converting to the existing SDK TX element.
  * @param[in] frame Public unshifted frame and explicit control flags.
+ * @param[in] marker_bits Effective hardware marker width.
  * @param[out] element Driver-format header and payload on success.
  * @return One for a supported basic element; zero without hardware access otherwise.
  * @note Wide-marker mode is not implied by an oversized basic marker.
  */
-static int encode_tx_element(const et_can_tx_frame_t *frame, CAN_TxBufElement *element)
+static int encode_tx_element(const et_can_tx_frame_t *frame, uint32_t marker_bits,
+                             CAN_TxBufElement *element)
 {
     const uint32_t allowed_flags = ET_CAN_FRAME_EXTENDED | ET_CAN_FRAME_REMOTE | ET_CAN_FRAME_FD |
                                    ET_CAN_FRAME_BRS | ET_CAN_FRAME_ESI | ET_CAN_FRAME_STORE_EVENT |
@@ -1091,7 +1093,8 @@ static int encode_tx_element(const et_can_tx_frame_t *frame, CAN_TxBufElement *e
     size_t index;
 
     if ((frame == NULL) || (frame->flags & ~allowed_flags) || (frame->dlc > ET_CAN_FRAME_DLC_MAX) ||
-        (frame->marker > frame_mapping.basic_marker_max))
+        (frame->marker >
+         (marker_bits == CAN_TEST_MARKER_BITS_WIDE ? UINT16_MAX : frame_mapping.basic_marker_max)))
     {
         return 0;
     }
@@ -1142,6 +1145,8 @@ et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
     CAN_TxBufElement element;
     uint32_t capacity;
     uint32_t total;
+    uint32_t marker_bits;
+    uint32_t tsu_enabled;
 
     /* Phase 1: Validate the public frame and independently read the allocated slot. */
     if (instance == NULL)
@@ -1149,7 +1154,9 @@ et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
         return ET_WRAP_STATUS_NOT_SUPPORTED;
     }
 
-    if (!encode_tx_element(frame, &element))
+    CAN_testGetEventFormat(instance, &marker_bits, &tsu_enabled);
+
+    if (!encode_tx_element(frame, marker_bits, &element))
     {
         return ET_WRAP_STATUS_INVALID_ARGUMENT;
     }
@@ -1197,9 +1204,8 @@ et_wrap_status_t et_can_wrap_write_tx(et_can_id_t id, uint32_t index,
         return ET_WRAP_STATUS_STATE_ERROR;
     }
 
-    CAN_writeMsgRam(instance, CAN_MEM_TYPE_BUF, index, &element);
-
-    return ET_WRAP_STATUS_OK;
+    return CAN_testWriteTxElement(instance, index, &element) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                       : ET_WRAP_STATUS_IO_ERROR;
 }
 
 /**
@@ -1398,13 +1404,15 @@ et_wrap_status_t et_can_wrap_get_tx_event_status(et_can_id_t id, et_can_tx_event
 }
 
 /**
- * @brief Read the current TX Event FIFO head through the existing CAN Driver.
+ * @brief Read the current TX Event FIFO head and its hardware format metadata.
  * @param[in] id Logical controller.
  * @param[out] event Actual event metadata and current hardware Get Index.
+ * @param[out] metadata Actual timestamp validity and TSU pointer; NULL requires basic format.
  * @return OK or an argument, empty FIFO, bad layout or unsupported-instance error.
  * @note The event remains owned by hardware until et_can_wrap_ack_tx_event is called.
  */
-et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event)
+static et_wrap_status_t read_tx_event(et_can_id_t id, et_can_tx_event_t *event,
+                                      CAN_TestEventMetadata *metadata)
 {
     CAN_Type *instance = find_instance(id);
     CAN_MsgRAMConfigParams config;
@@ -1413,6 +1421,7 @@ et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *ev
     et_can_ram_region_t region;
     et_wrap_status_t result;
     uint32_t count;
+    CAN_TestEventMetadata actual_metadata;
 
     if (event == NULL)
     {
@@ -1448,7 +1457,12 @@ et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *ev
 
     /* Phase 2: Read exactly the current head; no hidden acknowledge or polling follows. */
     (void)memset(&actual, 0, sizeof(actual));
-    CAN_readTxEventFIFO(instance, &actual);
+    CAN_testReadTxEvent(instance, &actual, &actual_metadata);
+
+    if ((metadata == NULL) && (actual_metadata.internalTimestampValid == 0u))
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
 
     if ((actual.xtd > 1u) || (actual.rtr > 1u) || (actual.esi > 1u) || (actual.brs > 1u) ||
         (actual.fdf > 1u) || (actual.dlc > ET_CAN_FRAME_DLC_MAX) ||
@@ -1472,6 +1486,109 @@ et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *ev
     event->event_type = actual.et;
     event->marker = actual.mm;
     event->index = status.get_index;
+
+    if (metadata != NULL)
+    {
+        *metadata = actual_metadata;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read an event using the original internal-timestamp contract.
+ * @param[in] id Logical controller.
+ * @param[out] event Actual event data.
+ * @return OK or a read/format error.
+ * @note Wide-marker/TSU format is rejected instead of fabricating a timestamp.
+ */
+et_wrap_status_t et_can_wrap_read_tx_event(et_can_id_t id, et_can_tx_event_t *event)
+{
+    return read_tx_event(id, event, NULL);
+}
+
+/**
+ * @brief Read an event with explicit internal timestamp and TSU validity.
+ * @param[in] id Logical controller.
+ * @param[out] details Actual decoded event and validity metadata.
+ * @return OK or an argument/read error.
+ * @note Does not acknowledge the event or read a TSU timestamp register.
+ */
+et_wrap_status_t et_can_wrap_read_tx_event_details(et_can_id_t id,
+                                                   et_can_tx_event_details_t *details)
+{
+    CAN_TestEventMetadata metadata;
+    et_wrap_status_t status;
+
+    if (details == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = read_tx_event(id, &details->event, &metadata);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        details->internal_timestamp_valid = metadata.internalTimestampValid;
+        details->tsu_captured = metadata.tsuCaptured;
+        details->tsu_pointer = metadata.tsuPointer;
+    }
+
+    return status;
+}
+
+/**
+ * @brief Select explicit marker width and TSU use through the own Driver.
+ * @param[in] id Logical controller.
+ * @param[in] format Width in bits and Boolean TSU use.
+ * @return OK, invalid argument, unsupported instance or state error.
+ * @note Requires INIT, preserves other options and does not configure the TSU itself.
+ */
+et_wrap_status_t et_can_wrap_set_event_format(et_can_id_t id, const et_can_event_format_t *format)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((format == NULL) ||
+        ((format->marker_bits != CAN_TEST_MARKER_BITS_BASIC) &&
+         (format->marker_bits != CAN_TEST_MARKER_BITS_WIDE)) ||
+        (format->tsu_enabled > 1u) ||
+        ((format->tsu_enabled != 0u) && (format->marker_bits != CAN_TEST_MARKER_BITS_WIDE)))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testSetEventFormat(instance, format->marker_bits, format->tsu_enabled) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read the effective element format without changing controller state.
+ * @param[in] id Logical controller.
+ * @param[out] format Actual effective marker width and TSU enable.
+ * @return OK, invalid argument or unsupported instance.
+ * @note Reads configuration only; no event or timestamp is consumed.
+ */
+et_wrap_status_t et_can_wrap_get_event_format(et_can_id_t id, et_can_event_format_t *format)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (format == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetEventFormat(instance, &format->marker_bits, &format->tsu_enabled);
 
     return ET_WRAP_STATUS_OK;
 }

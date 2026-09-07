@@ -2544,6 +2544,10 @@ int32_t CAN_testReadTxBuffer(CAN_Type *CANx, uint32_t index, CAN_TxBufElement *e
     element->tx_tsce = (second & CAN_TX_BUFFER_ELEM_TSCE_MASK) >> CAN_TX_BUFFER_ELEM_TSCE_SHIFT;
     element->efc = (second & CAN_TX_BUFFER_ELEM_EFC_MASK) >> CAN_TX_BUFFER_ELEM_EFC_SHIFT;
     element->mm = (second & CAN_TX_BUFFER_ELEM_MM_MASK) >> CAN_TX_BUFFER_ELEM_MM_SHIFT;
+    if (READ_BIT(CANx->CCCR, CAN0_CCCR_WMM_Msk | CAN0_CCCR_UTSU_Msk) != 0U)
+    {
+        element->mm |= second & CAN_TEST_MARKER_HIGH_MASK;
+    }
     length = CAN_getDataSize(element->dlc, element->fdf, element->rtr);
     if (length > size - CAN_TEST_TX_HEADER_WORDS * sizeof(uint32_t))
     {
@@ -2675,6 +2679,97 @@ int32_t CAN_testNonIsoAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual)
         CLEAR_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
     }
     return DRV_OK;
+}
+/** Read the effective element format from one CCCR observation. */
+void CAN_testGetEventFormat(CAN_Type *CANx, uint32_t *markerBits, uint32_t *tsuEnabled)
+{
+    uint32_t control;
+    assert_param(IS_CAN_PERIPH(CANx));
+    control = READ_REG(CANx->CCCR);
+    *tsuEnabled = (control & CAN0_CCCR_UTSU_Msk) != 0U;
+    *markerBits = (control & (CAN0_CCCR_WMM_Msk | CAN0_CCCR_UTSU_Msk)) != 0U
+        ? CAN_TEST_MARKER_BITS_WIDE : CAN_TEST_MARKER_BITS_BASIC;
+}
+
+/** Configure only WMM/UTSU in INIT, restoring the previous configuration permission. */
+int32_t CAN_testSetEventFormat(CAN_Type *CANx, uint32_t markerBits, uint32_t tsuEnabled)
+{
+    uint32_t permission;
+    assert_param(IS_CAN_PERIPH(CANx));
+    if (((markerBits != CAN_TEST_MARKER_BITS_BASIC) && (markerBits != CAN_TEST_MARKER_BITS_WIDE)) ||
+        (tsuEnabled > 1U) || ((tsuEnabled != 0U) && (markerBits != CAN_TEST_MARKER_BITS_WIDE)) ||
+        (CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT))
+    {
+        return DRV_ERROR;
+    }
+    permission = READ_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    SET_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_WMM, markerBits == CAN_TEST_MARKER_BITS_WIDE);
+    CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_UTSU, tsuEnabled);
+    if (permission == 0U)
+    {
+        CLEAR_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    }
+    return DRV_OK;
+}
+
+/** Write a validated slot without TXBAR; MM high byte is added only in E1B format. */
+int32_t CAN_testWriteTxElement(CAN_Type *CANx, uint32_t index, const CAN_TxBufElement *element)
+{
+    CAN_MsgRAMConfigParams config;
+    CAN_TxBufElement basic;
+    uint32_t markerBits, tsuEnabled, stride, address, total;
+    assert_param(IS_CAN_PERIPH(CANx));
+    if (element == NULL)
+    {
+        return DRV_ERROR;
+    }
+    CAN_testGetEventFormat(CANx, &markerBits, &tsuEnabled);
+    CAN_testGetMsgRAMConfig(CANx, &config);
+    total = config.txBufNum + config.txFIFOSize;
+    stride = CAN_getMsgObjSize(config.txBufElemSize) * sizeof(uint32_t);
+    if ((index >= total) || (total > CAN_TX_BUFFER_MAX) || (stride == 0U) ||
+        (config.txStartAddr % sizeof(uint32_t) != 0U) ||
+        (config.txStartAddr >= CAN_TEST_MSG_RAM_BYTES) ||
+        (total > (CAN_TEST_MSG_RAM_BYTES - config.txStartAddr) / stride) ||
+        ((CAN_getTxBufReqPend(CANx) & (1U << index)) != 0U) ||
+        (element->mm > (markerBits == CAN_TEST_MARKER_BITS_WIDE ? UINT16_MAX : UINT8_MAX)))
+    {
+        return DRV_ERROR;
+    }
+    basic = *element;
+    basic.mm &= CAN_TEST_BASIC_MARKER_MAX;
+    CAN_writeMsgRam(CANx, CAN_MEM_TYPE_BUF, index, &basic);
+    if (markerBits == CAN_TEST_MARKER_BITS_WIDE)
+    {
+        address = (uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + config.txStartAddr +
+            index * stride + sizeof(uint32_t);
+        MODIFY_REG(REG32(address), CAN_TEST_MARKER_HIGH_MASK, element->mm & CAN_TEST_MARKER_HIGH_MASK);
+    }
+    return DRV_OK;
+}
+
+/** Decode one E1A/E1B event; never present Marker or TSU metadata as an internal timestamp. */
+void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
+                         CAN_TestEventMetadata *metadata)
+{
+    uint32_t markerBits, tsuEnabled;
+    assert_param(IS_CAN_PERIPH(CANx));
+    CAN_testGetEventFormat(CANx, &markerBits, &tsuEnabled);
+    CAN_readTxEventFIFO(CANx, element);
+    metadata->internalTimestampValid = markerBits == CAN_TEST_MARKER_BITS_BASIC;
+    metadata->tsuCaptured = 0U;
+    metadata->tsuPointer = 0U;
+    if (markerBits == CAN_TEST_MARKER_BITS_WIDE)
+    {
+        element->mm |= element->txts & CAN_TEST_MARKER_HIGH_MASK;
+        metadata->tsuCaptured = tsuEnabled != 0U && (element->txts & CAN_TEST_EVENT_TSC_MASK) != 0U;
+        if (metadata->tsuCaptured != 0U)
+        {
+            metadata->tsuPointer = element->txts & CAN_TEST_EVENT_POINTER_MASK;
+        }
+        element->txts = 0U;
+    }
 }
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
