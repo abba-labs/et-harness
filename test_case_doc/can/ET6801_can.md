@@ -1,6 +1,24 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 18:03 CST
+更新时间：2026-09-07 22:55 CST
+
+2026-09-07 22:55 CST 软件验证追加：本轮15项计划均已有Case/SPEC/注册和软件验证；累计98条命令、31 SPEC/8 PLAN/3 DESIGN_GAP。完整软件门禁1835 PASS、17 Windows宿主编译器条件SKIP，Formal CAN收集148个Execution、14类报告导出通过，见`artifacts/runs/20260907_can_planned_development/stages/software_gate_2250.log`。真实SDK/Wrap/Service的WSL GCC Native另行编译执行通过，见`can_all_native_2237.log`。修正DMAMUX控制器允许值、CanDmuError.NONE缺失及测试夹具问题，没有弱化Checker。此处仅证明软件契约；新增15项尚未Keil构建部署或FPGA执行。EXTS到ATB连接、DMUC.TTS写入与DMU错误/计数读副作用仍须板级验证；Watchdog精确8/32周期边界仍未覆盖。
+
+2026-09-07 22:26 CST 用户批准范围调整：P2_010先实现WDC=1的8帧CAN/DMU-DMA回环、WDC=0同样刺激的负向对照、W1C及复位后一帧恢复；每阶段5 s内包含至少100 ms观察，STIMER只记录非零且未回绕的窗口。必须真实触发WDI及正确ISR；不触发不得SKIP，不把DMA完成推断为确定的RAM仲裁延迟。原WDC=16/实际8和32周期应答矩阵保持未覆盖，仍需真实CAN主机握手注入/观测。Case与坏值软件回归已写入，尚未执行；未进行硬件操作。
+
+2026-09-07 21:29 CST 开发追加：P1_018内部节点增加STIMER实时计数包围ATB读取，分别以4/16分频执行8次TX窗口，用交叉乘法比较分频归一速率区间；预先固定25%最大顺序读取不确定度并拒绝参考回卷/到期。该方法不依赖STIMER直接连接CAN，不把PC延时或同源计数当绝对时钟Oracle。97号RAM_WATCHDOG_GET实际读取RWD.WDC/WDV同一快照，累计98条命令；WDV不代表握手延迟。PC/Native与TSU Case坏值回归仍未执行；P2_010基础行为矩阵调整已请求人工确认，精确周期覆盖未被删除。
+
+2026-09-07 21:21 CST 连续开发：追加95/96号外部向量读写，仅访问本CAN对应的CAN_MISC.MTTCAN_EXTS（CMSIS声明32-bit RW），写入要求INIT；不修改TSCFG，不开放任意地址。P1_018新增正式Case，先验证EXTS实读及ATB与输入逐bit相等，再验证TS0/New/Lost；ATB不匹配必须FAIL，不能把尚未证明的EXTS→tsu_tbin连接当已确认事实。除了两个固定向量，Case显式复用STIMER公开Start/Stop/Clear/COUNT.LIVE接口取得稳定计数样本后由软件转交，不声称硬连线、DMA转发或绝对计时精度。SOF按TSS2实际支持枚举。当前30 SPEC/9 PLAN/3 DESIGN_GAP、97条命令；15项目标中9项此前软件验证、5项新写待验证、P2_010精确RAM延迟矩阵仍未实现。新增Wire/Native回归代码尚未运行，未提交、Keil、烧录或硬件测试。
+
+2026-09-07 20:06 CST 开发追加及资料修正：91～94接通TTS受保护配置、单Filter SYNC设置/实读、非消费RX头时间戳元数据。AN004 Table 2（PDF第11页）将DMUC列为RP，配套`m_can_DMU_AppNote/app_notes/app_note_004_dmu_RX_dequeue_with_time_stamp_handling.c`明确设置OFFSET_CAN_DMU_CONFIGURATION=1；与ET SVD的read-only标记冲突，按原厂受保护配置和当前SDK写入路径实现，保留CCE/UTSU且由Case独立读回，不声称当前FPGA接受写入已获证明。配套`m_can/m_can_regdef.h`给出SSYNC bit15及ESYNC bit29，AN004第17～18页核对RX捕获语义。P2_008包括RX0/RX1乘TTS开关四节点和RX1满payload覆盖/复位恢复节点；TS0只在DMA之后消费。修正19:40的宽孔径说法：实际受限访问仅允许TX/RX的18word和Event的3word，已排除保留孔洞及DMU控制寄存器。新增PC、Native和DMAMUX映射回归代码未运行；仅进行了格式化，没有运行门禁或新增硬件测试。
+
+当前15项中9项沿用此前软件验证，另4项P2_001/002/007/008已写入Case/SPEC/注册但尚待统一验证；公共命令95条，整体29 SPEC/10 PLAN/3 DESIGN_GAP。P1_018外部TSU和P2_010真实RAM应答延迟仍未闭合。定向检查`mttcan_misc.svd`确认DMU_DMA_WAIT_TCNT是DMA req/ack后等待到下一请求的间隔，不是CAN主机RAM响应延迟，不可冒用。MTTCAN_EXTS有32-bit外部时间向量描述，但当前资料未证明它直连TSU.tsu_tbin；已向用户请求确认测试接口/RTL路径，不把候选寄存器当已确认注入路线。未提交、未推送、未运行Keil/烧录/HIL。
+
+2026-09-07 19:40 CST 开发追加：87～90命令接通命名DMU单word刺激及独立IRQ会话。Chip Config按CMSIS将三实例DMU路由到CAN0/1/2_DMU_IRQn（41/44/47）；ISR先读DMUIE再单次消费DMUIR并保留首个Raw，随后关闭已触发源，不写DMUIR。窗口索引受0x80-byte命名孔径约束，不开放任意地址。P2_001、002、007代码及SPEC已写入，007包括九类最短刺激与每节点硬复位后DMA恢复。新增PC/Native回归代码尚未运行；按用户最新指令，开发期间不再运行任何门禁，全部代码完成后统一验证。未提交、未执行Keil/烧录/HIL；SPEC登记不是测试PASS。
+
+2026-09-07 18:45 CST 开发追加：84～86命令在Own Chip Driver转换有界CPU镜像，TX复用SDK T0/T1编码并保留宽Marker，RX按实际FIFO元素尺寸校验、按UTSU区分内部时间戳和R1B.TSC/RXTSP，Event按实际UTSU/TTS检查两或三word长度；不读写虚拟窗口，不消费TS0。AN004 Figure 6的RX TSC=bit4、RXTSP=bits3:0已视觉核对，截图在`artifacts/runs/20260907_can_planned_development/stages/dmu_rx_tsu_page18.png`。若时间戳覆盖有效数据末word，RX只返回未覆盖payload并保留原DLC，不冒充无损64-byte。修正18:03前的非消费计数假定：AN004表2标DMUQC为RC，而ET6801 SVD仅标read-only且未给readAction；82号命令因此保守禁止安全重试，不承诺读取无副作用，Case将采用零基线、有界传输、单次读取而非轮询累计差值。硬件读清行为仍待验证。此批正在开发，未跑总门禁、未提交或操作硬件。
+
+2026-09-07 18:15 CST 继续开发：追加83号DMU状态单次消费命令，先读DMUIR一次，再读DMUI.ENA与DMUC.TTS；不写清除、不自动重试。18项公共错误映射到CMSIS已定义位，Debug/成功事件不误报，RX0缺失字段仍未推断；TTS只读，不据旧SDK写法增加配置。代码及反例正在随剩余功能统一开发，尚未验证此批。按用户最新要求取消小批次总门禁和中间提交，全部本轮开发完成后再统一跑总门禁；期间只执行必要的语法和定向验证，不降低最终质量要求。未操作硬件。
 
 2026-09-07 18:03 CST 验证追加：DMU公共原语最终完整软件门禁1690 PASS、17 Windows宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/dmu_api_software_gate_final.log`；PC专项150个节点全部通过，最终SDK/Wrap/Service三实例Native通过`dmu_api_native_final.log`。首轮门禁拒绝Chip Config一次性模数聚合宏，已改为Own Driver按CMSIS字段宽度随计数返回modulus，Wrap仅转译；未弱化规则。同步纠正公共开头仍滞后的SPEC/PLAN汇总为25/14，与机器块和P2_003状态一致，未新增Case。15项要求仍为9项Case软件完成；剩余6项中DMU链路继续开发，未烧录或执行新增硬件Case。
 
@@ -413,7 +431,7 @@ P1_018已用TS0、New/Lost及ATB区间构造内部测试；外部时间基需要
 | CAN_F_032 | SUPPORTED | CCCR.TXP[14]；需要位级EOF/SOF观测，不是PC发送间隔 | IMPLEMENTATION_GAP | CAN_P3_004 |
 | CAN_F_033 | SUPPORTED | PSR.LEC/DLEC/BO、ECR.TEC/REC、IR.PEA/PED/EW/EP/BO；首次错误锁存 | IMPLEMENTATION_GAP | CAN_P2_009 |
 | CAN_F_034 | SUPPORTED | TTOCF/TTRMC/TTTMC/TTMLM/TURCF/TTOCN/TTOST/TTIR和Trigger RAM；不声明覆盖全部TT扩展 | IMPLEMENTATION_GAP | CAN_P2_011 |
-| CAN_F_035 | SUPPORTED | RWD.WDC[7:0]/WDV[15:8]、IR.WDI[26]；FPGA延迟钩子未配置，不假称CPU延迟可代替 | IMPLEMENTATION_GAP | CAN_P2_010 |
+| CAN_F_035 | SUPPORTED | RWD.WDC[7:0]/WDV[15:8]、IR.WDI[26]；基础行为Case已写，精确16限制/8与32应答周期仍未覆盖 | IMPLEMENTATION_GAP | CAN_P2_010 |
 | CAN_F_036 | SUPPORTED | 压力代码200万帧仅作历史意图，本计划20轮×双向32帧，不能声称同等时长或极限压力 | ADAPTED | CAN_P3_001 |
 | CAN_F_037 | SUPPORTED | CCCR.NISO[15]、FDOE[8]/BRSE[9]；Peer须真实支持两种格式 | ADAPTED | CAN_P1_020 |
 | CAN_F_038 | SUPPORTED | CCCR.TEST[7]、TEST.TX[6:5]/RX[7]；必须隔离收发器，非GPIO短接 | IMPLEMENTATION_GAP | CAN_P3_005 |
@@ -477,20 +495,20 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS |
 | CAN_P1_016 | ADAPTED | 单实例16KiB完整模式/March C-及重建回环FPGA PASS；CPU窗口不能解释为多实例独占容量 |
 | CAN_P1_017 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P1_018 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R1～R3；尚需Driver/Mapping/台架能力适配，未执行 |
+| CAN_P1_018 | NEEDS_VERIFICATION | 已有Case与97条API链；EXTS→ATB→TS0由真实逐bit比较验证，连接未实测；内部及STIMER样本节点均未执行，不将候选连接标为ADAPTED |
 | CAN_P1_019 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P1_020 | ADAPTED | 四格式组合×16/64-byte及ISO恢复已实现；命令57/58选择并读取CCCR.NISO，Peer显式canfd_standard设置失败即退出；待新固件部署与FPGA验证 |
 | CAN_P1_021 | ADAPTED | 40MHz TDC时序Profile和2/5M双向64-byte Case已实现；ZLG USBCANFD-200U正常FD配置；FPGA尚未执行，不要求高级延迟设备 |
-| CAN_P2_001 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
-| CAN_P2_002 | IMPLEMENTATION_GAP | 未开发；case_implementation_gap、dma_endpoint_mapping_gap；资源R1，按公共PLAN实施 |
+| CAN_P2_001 | NEEDS_VERIFICATION | DMA收发Case、端点与请求映射已实现并通过软件门禁；真实DMU搬运和队列计数副作用待FPGA验证。 |
+| CAN_P2_002 | NEEDS_VERIFICATION | TX Event DMA Case及元素解码已实现并通过软件门禁；真实队列推进与计数行为待FPGA验证。 |
 | CAN_P2_003 | ADAPTED | 三实例ECC独立会话、共享线路实际归属、两源Force/Mask/Clear及重复投递Case已接通；NOT_EXECUTED，不代表RAM纠错 |
 | CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；按UT6及实测修正并存切片后，全实例数据、配置及Guard均FPGA PASS；原失败证据保留 |
 | CAN_P2_005 | ADAPTED | 正常ACK正对照、内部静默100ms、外部回环只听捕获两帧；沿用CAN0和USBCANFD-200U接线，软件专项及总门禁通过，新增Case尚未FPGA执行 |
 | CAN_P2_006 | NEEDS_VERIFICATION | 有注入位但注入作用于哪次RAM写/读、影响哪实例及单次/持续语义未闭合；ECC Force不是替代。 |
-| CAN_P2_007 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R1；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P2_008 | IMPLEMENTATION_GAP | RX0/RX1接收TSU附加已PLAN；DMA前不读TS0，完成后比较TS0及独立ATB区间；RX1满payload覆盖错误单列负向参数。 |
+| CAN_P2_007 | NEEDS_VERIFICATION | 九类受限错误刺激、独立DMU IRQ及复位恢复已实现并通过软件门禁；真实错误产生和消费语义待FPGA验证。 |
+| CAN_P2_008 | NEEDS_VERIFICATION | RX0/RX1与TTS开关及满payload覆盖恢复Case已实现并通过软件门禁；DMUC.TTS受保护写入和附加时间戳格式仍待FPGA验证。 |
 | CAN_P2_009 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P2_010 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R3；尚需Driver/Mapping/台架能力适配，未执行 |
+| CAN_P2_010 | NEEDS_VERIFICATION | 经人工批准的低门限触发/关闭/W1C/恢复SPEC已写；资源R2，复用CAN DMU/DMA/STIMER；WDI是否可在当前目标稳定触发尚未实测，精确应答周期仍未覆盖 |
 | CAN_P2_011 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P2_012 | IMPLEMENTATION_GAP | 已有PLAN；AUX源/分频Driver、PAD/电平/FPGA路径和外部源映射待补；未接线不阻止保留历史需求 |
 | CAN_P2_013 | NEEDS_VERIFICATION | 原P2_008的TX Event附加部分独立保留；TTS有效字数、timestamp位置及结束地址尚缺准确格式，见公共5.2。 |
@@ -534,7 +552,9 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-07 11:34 CST`
+状态更新时间：`2026-09-07 22:55 CST`
+
+最新开发状态：注册表已增至31项；下述11:27运行仅覆盖原16项。新增15项软件验证完成但FPGA为NOT_EXECUTED，不能继承旧Run的PASS。尚未执行新固件编译及完整三阶段部署，需本次人工门禁与探针身份确认。
 
 ### 最近一次运行身份
 
@@ -550,7 +570,7 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 16 | 16 | 16 | 0 | 0 | 0 | 94 |
+| FPGA | 31 | 16 | 16 | 0 | 0 | 15 | 94 |
 
 94个参数Execution全部PASS，全部Evidence完整；选中94、未选0。pytest耗时209.18 s，pytest及Pipeline均退出0；报告正常生成：`artifacts/reports/20260907_113128_012912_ET6801_CAN测试报告.xlsx`。
 本轮没有修改Case、Driver、Firmware、Registry或配置；移除前次进程级PYTEST_ADDOPTS筛选，直接运行正式CAN注册全集。软件预检复用同一实现源码的总门禁1344 PASS、17条件SKIP（任务`20260907_111003_b21ad743`）；381045d6至本Run PC SHA仅芯片结果文档变化。17项宿主C编译器条件SKIP不是本次CAN硬件SKIP。
@@ -570,11 +590,25 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| — | FPGA | NONE | 当前16条注册Case | 全部PASS | 无 | — | 本Run的session.json及94个result.json |
+| `CAN_P1_010` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_012` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_013` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_014` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_018` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_020` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_021` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_001` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_002` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_003` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_005` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_007` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_008` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P2_010` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P3_001` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
 
 ### 未注册目标与本轮排除范围
 
-以下26项目标不在当前16条可执行注册Case中，不纳入上表PASS/SKIP计数，均为NOT_EXECUTED：
+以下为11:27运行时的26项未注册目标历史快照（不是当前注册数量）；其中15项已于22:55完成软件实现，现纳入上表NOT_EXECUTED。其余11项仍未注册：
 
 | 目标 | 数量 | 当前边界 |
 |---|---:|---|
@@ -583,7 +617,7 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 | P2_001、P2_002、P2_003、P2_005、P2_007、P2_008、P2_010、P3_001 | 8 | 仍缺DMU/DMA、ECC IRQ、外部回环对照、TSU、RAM延迟刺激或连续收发实现；不因盒子通信成功而闭合 |
 | P2_006、P2_013 | 2 | DESIGN_GAP：真实ECC注入时点/作用范围、TX Event附加TSU布局尚未确认 |
 
-剩余17个非示波器目标中15个为PLAN、2个为DESIGN_GAP；其中部分还需要非示波器专用刺激或Peer能力，并非都只缺测试函数。本轮没有新增实现。
+11:27历史结论为17个非示波器目标中15个PLAN、2个DESIGN_GAP；22:55修正：该15项已实现，硬件仍未执行，另外2项DESIGN_GAP继续保留。
 
 旧ACK失败、只听超时及旧报告失败Run均保留不改写；无ACK/只听捕获未宣称修复。经批准的P1_011外部回环仍保持DUT EXTERNAL，Peer允许ACK；内部自接收不代替实际RX引脚路径。当前已完成全部已注册CAN FPGA回归，但没有执行外部FD/BRS、Silicon或全部42项目标，不能扩大为CAN全功能通过。6.1及其后带旧日期的开发统计是历史快照；当前结果以本状态区为准。
 <!-- ET_CHIP_TEST_STATUS_END -->

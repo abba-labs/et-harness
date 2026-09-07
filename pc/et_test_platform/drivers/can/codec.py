@@ -9,7 +9,12 @@ from .models import (
     CanActivity,
     CanBusConfig,
     CanDmuCounters,
+    CanDmuError,
+    CanDmuEvent,
+    CanDmuEventImage,
     CanDmuRequest,
+    CanDmuRxImage,
+    CanDmuStatus,
     CanEccEvent,
     CanEccSnapshot,
     CanEccSource,
@@ -29,6 +34,7 @@ from .models import (
     CanProtocolStatus,
     CanRamLayout,
     CanRxFrame,
+    CanRxTimestamp,
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
@@ -40,6 +46,48 @@ from .models import (
     CanTxFrame,
     CanUnmatchedPolicy,
 )
+
+
+# DMU错误命名空间只接受已发布语义位，不接受其他IP的IntFlag。
+def dmu_sources(value: CanDmuError) -> int:
+    if not isinstance(value, CanDmuError) or not 0 < int(value) < (1 << 18):
+        raise ValueError("CAN DMU requires a nonempty public error mask")
+    return int(value)
+
+
+# 格式/指针有效性来自目标真实头部，不从当前输入参数推导。
+def decode_rx_timestamp(words: tuple[int, ...]) -> CanRxTimestamp:
+    if len(words) != 5:
+        raise ProtocolError("CAN RX timestamp metadata has wrong length")
+    internal, timestamp, captured, pointer, index = words
+    valid = status_boolean(internal)
+    has_capture = status_boolean(captured)
+    if (
+        timestamp > 0xFFFF
+        or pointer > 15
+        or (not valid and timestamp)
+        or (not has_capture and pointer)
+    ):
+        raise ProtocolError("CAN RX timestamp metadata has invalid fields")
+    if valid and has_capture:
+        raise ProtocolError("CAN RX timestamp formats are mutually exclusive")
+    return CanRxTimestamp(timestamp if valid else None, pointer if has_capture else None, index)
+
+
+# 读取Service首个ISR快照，不用当前DMUIR或Driver实例补造历史事实。
+def decode_dmu_event(words: tuple[int, ...]) -> CanDmuEvent:
+    if len(words) != 9 or any(value & ~((1 << 18) - 1) for value in words[:3]):
+        raise ProtocolError("CAN DMU event contains reserved sources or wrong length")
+    instance = words[8]
+    if instance > 255 and instance != 0xFFFFFFFF:
+        raise ProtocolError("CAN DMU callback instance is invalid")
+    if words[7] & ~7:
+        raise ProtocolError("CAN DMU event contains reserved fault flags")
+    return CanDmuEvent(
+        *(CanDmuError(value) for value in words[:3]),
+        *words[3:8],
+        None if instance == 0xFFFFFFFF else instance,
+    )
 
 
 # ECC请求只接受专用非空源枚举，禁止控制器中断位图混用。
@@ -514,6 +562,78 @@ def decode_rx_frame(words: tuple[int, ...]) -> CanRxFrame:
     )
 
 
+# 只封装复制的DMA字节，不解析任何芯片元素位域。
+def dmu_image_words(image: bytes) -> tuple[int, ...]:
+    if (
+        type(image) is not bytes
+        or not image
+        or len(image) > contract.DMU_IMAGE_BYTES
+        or len(image) % contract.WORD.size
+    ):
+        raise ValueError("CAN DMA image must be nonempty aligned bytes within the envelope budget")
+    padded = image.ljust(contract.DMU_IMAGE_BYTES, b"\x00")
+    return (len(image), *(word[0] for word in contract.WORD.iter_unpack(padded)))
+
+
+# 解码目标生成的镜像长度，拒绝非法长度及非零填充。
+def decode_dmu_tx_image(words: tuple[int, ...]) -> bytes:
+    if len(words) != 1 + contract.DMU_IMAGE_WORDS:
+        raise ProtocolError("CAN DMA image response length is invalid")
+    length = words[0]
+    image = b"".join(contract.WORD.pack(word) for word in words[1:])
+    if (
+        not 0 < length <= contract.DMU_IMAGE_BYTES
+        or length % contract.WORD.size
+        or any(image[length:])
+    ):
+        raise ProtocolError("CAN DMA image count or padding is invalid")
+    return image[:length]
+
+
+# 镜像没有FIFO索引；保留DLC与有效payload长度的区别，并严格校验TSU有效性。
+def decode_dmu_rx_image(words: tuple[int, ...]) -> CanDmuRxImage:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_RX_IMAGE_DECODE]:
+        raise ProtocolError("CAN DMA RX response length is invalid")
+    frame = decode_rx_frame(words[:24])
+    valid = status_boolean(words[24])
+    captured = status_boolean(words[25])
+    pointer = words[26]
+    transferred = status_boolean(words[27])
+    timestamp = words[28]
+    payload = b"".join(contract.WORD.pack(word) for word in words[contract.RX_HEADER_WORDS : 24])
+    if (
+        frame.index != 0xFFFFFFFF
+        or frame.timestamp > 0xFFFF
+        or (not valid and frame.timestamp != 0)
+        or (valid and captured)
+        or pointer > 15
+        or (not captured and pointer != 0)
+        or (transferred and not captured)
+        or (not transferred and timestamp != 0)
+        or any(payload[len(frame.data) :])
+    ):
+        raise ProtocolError("CAN DMA RX validity fields are inconsistent")
+    return CanDmuRxImage(
+        frame, valid, pointer if captured else None, timestamp if transferred else None
+    )
+
+
+# 复用公共事件解码，再验证DMU附加时间戳；不把缺失的索引补成当前FIFO头。
+def decode_dmu_event_image(words: tuple[int, ...]) -> CanDmuEventImage:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_EVENT_IMAGE_DECODE]:
+        raise ProtocolError("CAN DMA event response length is invalid")
+    event = decode_tx_event_details(words[:10])
+    transferred = status_boolean(words[10])
+    timestamp = words[11]
+    if (
+        event.index != 0xFFFFFFFF
+        or (transferred and event.tsu_pointer is None)
+        or (not transferred and timestamp != 0)
+    ):
+        raise ProtocolError("CAN DMA event validity fields are inconsistent")
+    return CanDmuEventImage(event, timestamp if transferred else None)
+
+
 # 选择值必须属于公共枚举，不能把保留编码当成默认RX0。
 def decode_dmu_request(words: tuple[int, ...]) -> CanDmuRequest:
     if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_REQUEST_GET]:
@@ -532,6 +652,16 @@ def decode_dmu_counters(words: tuple[int, ...]) -> CanDmuCounters:
     if modulus < 2 or modulus & (modulus - 1) or any(count >= modulus for count in counts):
         raise ProtocolError("CAN DMU counters violate the reported binary modulus")
     return CanDmuCounters(*counts, modulus)
+
+
+# 只接受已发布错误位及严格Boolean；不把保留编码静默丢弃。
+def decode_dmu_status(words: tuple[int, ...]) -> CanDmuStatus:
+    if len(words) != contract.RESPONSE_WORDS[contract.CanCommand.DMU_STATUS_CONSUME]:
+        raise ProtocolError("CAN DMU status response has invalid field count")
+    errors, enabled, timestamp = words
+    if errors & ~sum(CanDmuError):
+        raise ProtocolError("CAN DMU status contains unknown error sources")
+    return CanDmuStatus(CanDmuError(errors), status_boolean(enabled), status_boolean(timestamp))
 
 
 # 状态Boolean必须为0/1；不能将未知数值当作True隐藏固件编码错误。

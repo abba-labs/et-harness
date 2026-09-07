@@ -15,6 +15,7 @@ from et_test_platform.drivers.can import (
     CanBusConfig,
     CanDmuCounters,
     CanDmuElement,
+    CanDmuError,
     CanDmuRequest,
     CanDriver,
     CanFilter,
@@ -44,6 +45,106 @@ from et_test_platform.drivers.gpio import GpioDriver, GpioFunction
 
 TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
+
+
+# 测试Feature：DMU单word访问和独立ISR证据Wire；与控制器/ECC无命令混用。
+# 测试方法：逐字节验证四个命令、实例归属、首次Raw及retry策略。
+# 通过条件：访问/启停不重试，事件查询可重试且不额外请求DMUIR。
+def test_dmu_access_capture_golden() -> None:
+    error = CanDmuError.TX_READ
+    target = TargetStub(
+        [
+            pack("<I", 0x12345678),
+            b"",
+            pack("<9I", int(error), int(error), int(error), 1, 0, 0, 7, 0, 2),
+            b"",
+        ]
+    )
+    driver = CanDriver(target, 2)
+    assert driver.dmu_word_access(CanDmuElement.TX, 0, timeout_s=0.2) == 0x12345678
+    driver.dmu_capture_start(error)
+    event = driver.dmu_event_get()
+    driver.dmu_capture_stop()
+    assert event.raw_status == event.masked_status == event.latched_events == error
+    assert event.instance_id == 2 and event.event_count == 1 and event.generation == 7
+    assert [request["command"] for request in target.requests] == [87, 88, 90, 89]
+    assert target.requests[0]["body"] == bytes.fromhex("02 00000000 00000000 00000000 00000000")
+    assert target.requests[1]["body"] == pack("<BI", 2, int(error))
+    assert [request["retry_safe"] for request in target.requests] == [False, False, True, False]
+    assert target.requests[0]["timeout_s"] == 0.2
+
+
+# 测试Feature：TTS与Filter SYNC写入、独立读回及RX头时间戳有效性。
+# 测试方法：Golden检查91～94命令及两种互斥时间戳格式。
+# 通过条件：配置写不重试，非消费查询可重试，TSU指针不误当内部时间戳。
+def test_dmu_timestamp_control_golden() -> None:
+    target = TargetStub(
+        [b"", b"", pack("<I", 1), pack("<5I", 0, 0, 1, 3, 2), pack("<5I", 1, 0xABCD, 0, 0, 1)]
+    )
+    driver = CanDriver(target, 1)
+    driver.dmu_timestamp_set(True)
+    driver.filter_sync_set(4, True, extended=True)
+    assert driver.filter_sync_get(4, extended=True)
+    tsu = driver.rx_timestamp_get(0)
+    internal = driver.rx_timestamp_get(1)
+    assert tsu.internal_timestamp is None and tsu.tsu_pointer == 3 and tsu.index == 2
+    assert internal.internal_timestamp == 0xABCD and internal.tsu_pointer is None
+    assert [request["command"] for request in target.requests] == [91, 92, 93, 94, 94]
+    assert target.requests[1]["body"] == pack("<B3I", 1, 1, 4, 1)
+    assert target.requests[2]["body"] == pack("<B2I", 1, 1, 4)
+    assert [request["retry_safe"] for request in target.requests] == [
+        False,
+        False,
+        True,
+        True,
+        True,
+    ]
+
+
+# 非法Boolean、指针和矛盾有效性必须失败，避免Header位被当作时间戳。
+@pytest.mark.parametrize(
+    "words",
+    (
+        (2, 0, 0, 0, 0),
+        (0, 1, 0, 0, 0),
+        (1, 0, 1, 0, 0),
+        (0, 0, 1, 16, 0),
+        (0, 0, 0, 1, 0),
+        (1, 65536, 0, 0, 0),
+    ),
+)
+def test_rx_timestamp_invalid_response(words) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<5I", *words)]), 0).rx_timestamp_get(0)
+
+
+# 非法请求必须在传输前拒绝；单次写的返回值不当作硬件错误发生的证据。
+def test_dmu_access_capture_input_validation() -> None:
+    target = TargetStub()
+    driver = CanDriver(target, 0)
+    for sources in (CanDmuError.NONE, CanDmuError(1 << 18), CanIrqSource.TX_COMPLETE):
+        with pytest.raises(ValueError):
+            driver.dmu_capture_start(sources)
+    for kwargs in (
+        {"word_index": -1},
+        {"word_index": True},
+        {"word_index": 0, "write": 1},
+        {"word_index": 0, "value": 1},
+    ):
+        with pytest.raises(ValueError):
+            driver.dmu_word_access(CanDmuElement.TX, **kwargs)
+    assert target.requests == []
+
+
+# 非法事件位、保留Fault或实例编码不得解释为有效IRQ证据。
+@pytest.mark.parametrize(
+    "index,value", ((0, 1 << 18), (1, 1 << 18), (2, 1 << 18), (7, 8), (8, 256))
+)
+def test_dmu_event_response_rejects_reserved(index, value) -> None:
+    words = [0] * 9
+    words[index] = value
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack("<9I", *words)]), 0).dmu_event_get()
 
 
 # 测试Feature：独立Non-ISO选择命令及实际Boolean读回。
@@ -93,7 +194,7 @@ def test_dmu_commands_golden() -> None:
         b"\x02",
         b"\x02",
     ]
-    assert [request["retry_safe"] for request in target.requests] == [True, False, True, True]
+    assert [request["retry_safe"] for request in target.requests] == [True, False, True, False]
     assert target.requests[0]["timeout_s"] == 0.25
     for value in (True, -1, 0, 4, "RX0", CanDmuRequest.RX0):
         with pytest.raises(ValueError):
@@ -102,6 +203,117 @@ def test_dmu_commands_golden() -> None:
         with pytest.raises(ValueError):
             driver.dmu_request_set(value)
     assert len(target.requests) == 4
+
+
+# 测试Feature：DMU CPU镜像命令及明确的时间戳有效性。
+# 测试方法：独立构造原始镜像与公共响应，逐字节核对请求而非在PC解释芯片位域。
+# 通过条件：三个命令无DMA副作用，index保留未知哨兵，时间戳缺失返回None。
+def test_dmu_image_commands_golden() -> None:
+    raw = bytes.fromhex("00 00 84 0c 00 00 b8 12 00 01 02 03 04 05 06 07")
+    rx_words = (
+        0x321,
+        12,
+        8,
+        0,
+        0,
+        0,
+        8,
+        0xFFFFFFFF,
+        0x03020100,
+        0x07060504,
+        *([0] * 14),
+        0,
+        1,
+        3,
+        1,
+        0x87654321,
+    )
+    event_words = (0x321, 12, 8, 0, 1, 0xAB12, 0xFFFFFFFF, 0, 1, 3, 1, 0xDEADBEEF)
+    target = TargetStub(
+        [
+            pack("<I", len(raw)) + raw.ljust(80, b"\0"),
+            pack("<29I", *rx_words),
+            pack("<12I", *event_words),
+        ]
+    )
+    driver = CanDriver(target, 2)
+    frame = CanTxFrame(
+        0x321,
+        CanFrameFlags.FD | CanFrameFlags.BRS | CanFrameFlags.STORE_EVENT,
+        8,
+        0x12,
+        bytes(range(8)),
+    )
+    assert driver.dmu_tx_image_encode(frame, timeout_s=0.2) == raw
+    received = driver.dmu_rx_image_decode(1, raw)
+    assert received.frame.data == bytes(range(8)) and received.frame.index == 0xFFFFFFFF
+    assert not received.internal_timestamp_valid and received.tsu_pointer == 3
+    assert received.transferred_timestamp == 0x87654321
+    event = driver.dmu_event_image_decode(raw)
+    assert event.event.marker == 0xAB12 and event.event.timestamp is None
+    assert event.event.tsu_pointer == 3 and event.transferred_timestamp == 0xDEADBEEF
+    assert [request["command"] for request in target.requests] == [84, 85, 86]
+    assert target.requests[0]["body"] == b"\x02" + pack("<5I", 0, 0x321, 44, 8, 0x12) + bytes(
+        range(8)
+    ).ljust(64, b"\0")
+    assert target.requests[1]["body"] == b"\x02" + pack("<2I", 1, 16) + raw.ljust(80, b"\0")
+    assert target.requests[2]["body"] == b"\x02" + pack("<I", 16) + raw.ljust(80, b"\0")
+    assert all(request["retry_safe"] for request in target.requests)
+    assert target.requests[0]["timeout_s"] == 0.2
+
+
+# 测试Feature：DMU镜像请求的边界与类型校验。
+# 测试方法：空、未对齐、超长以及非bytes输入。
+# 通过条件：请求发送前拒绝，不截断、不默认填充输入数据。
+@pytest.mark.parametrize("image", [b"", b"x", b"x" * 84, bytearray(8), None])
+def test_dmu_image_input_rejected(image) -> None:
+    target = TargetStub([])
+    driver = CanDriver(target, 0)
+    with pytest.raises(ValueError):
+        driver.dmu_rx_image_decode(0, image)
+    with pytest.raises(ValueError):
+        driver.dmu_event_image_decode(image)
+    assert not target.requests
+
+
+# 测试Feature：DMU响应不伪造时间戳、索引或有效负载。
+# 测试方法：单字段破坏有效性、填充和长度，并检查ProtocolError。
+# 通过条件：拒绝所有矛盾的公共响应，不返回看似完整的CAN帧。
+def test_dmu_image_response_rejected() -> None:
+    for length in (0, 1, 81, 84):
+        with pytest.raises(ProtocolError):
+            codec.decode_dmu_tx_image((length, *([0] * 20)))
+    with pytest.raises(ProtocolError):
+        codec.decode_dmu_tx_image((8, 0, 0, 1, *([0] * 17)))
+    good = [
+        0x321,
+        12,
+        8,
+        0,
+        0,
+        0,
+        8,
+        0xFFFFFFFF,
+        0x03020100,
+        0x07060504,
+        *([0] * 14),
+        0,
+        1,
+        3,
+        1,
+        9,
+    ]
+    for index, value in ((7, 0), (24, 1), (25, 0), (26, 16), (27, 0), (3, 1), (10, 1)):
+        bad = list(good)
+        bad[index] = value
+        with pytest.raises(ProtocolError):
+            codec.decode_dmu_rx_image(tuple(bad))
+    event = [0x321, 12, 8, 0, 1, 0xAB12, 0xFFFFFFFF, 0, 1, 3, 1, 9]
+    for index, value in ((6, 0), (7, 1), (8, 0), (9, 16), (10, 0)):
+        bad = list(event)
+        bad[index] = value
+        with pytest.raises(ProtocolError):
+            codec.decode_dmu_event_image(tuple(bad))
 
 
 # 测试Feature：DMU非法响应失败关闭。
@@ -120,6 +332,27 @@ def test_dmu_request_response_rejected(response: bytes) -> None:
 def test_dmu_counter_response_rejected(words: tuple[int, ...]) -> None:
     with pytest.raises(ProtocolError):
         CanDriver(TargetStub([pack(f"<{len(words)}I", *words)]), 0).dmu_counters_get()
+
+
+# 测试Feature：DMU首次错误证据不能被自动重试覆盖。
+# 测试方法：独立注入每个错误位、错误Boolean和保留位，核对单次请求属性。
+# 通过条件：准确还原公共错误语义，非法响应失败关闭且不额外请求。
+@pytest.mark.parametrize("bit", range(18))
+def test_dmu_status_golden(bit: int) -> None:
+    target = TargetStub([pack("<3I", 1 << bit, 1, 0)])
+    status = CanDriver(target, 2).dmu_status_consume(timeout_s=0.2)
+    assert status.errors == CanDmuError(1 << bit)
+    assert status.enabled and not status.transfer_timestamp
+    assert len(target.requests) == 1
+    assert target.requests[0]["command"] == 83 and target.requests[0]["body"] == b"\x02"
+    assert target.requests[0]["retry_safe"] is False
+    assert target.requests[0]["timeout_s"] == 0.2
+
+
+@pytest.mark.parametrize("words", [(1 << 18, 1, 0), (0, 2, 0), (0, 1, 2), (0, 1)])
+def test_dmu_status_rejects_malformed(words: tuple[int, ...]) -> None:
+    with pytest.raises(ProtocolError):
+        CanDriver(TargetStub([pack(f"<{len(words)}I", *words)]), 0).dmu_status_consume()
 
 
 # 测试Feature：配置写权限与不隐式解锁的仲裁时序写命令。

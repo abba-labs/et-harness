@@ -1,8 +1,8 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-07 17:55 CST
+更新时间：2026-09-07 21:21 CST
 
-开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；25项SPEC、14项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
+开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；31项SPEC、8项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
 ## 0. Stable IP Contract
 
@@ -92,13 +92,13 @@ CAN盒子优先用于帧收发，但不是设备上限。需要仪器的Case必�
 | P3_004 | DUT预装连续帧，Peer只ACK | 示波器/CAN硬件解码测3对EOF结束至SOF间隔 | 正常固定CAN总线并接探头，无需延迟器 |
 | P3_005 | 安全数字电平源给RX，DUT TEST控制TX | 示波器确认TX电平/采样周期；TEST.RX与实际引脚对照 | 电控隔离收发器、恢复后同一总线回归 |
 
-TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应答延迟；普通示波器不能制造这两种片内刺激。前者需目标提供真实外部时间基入口，后者需目标FPGA/测试接口提供受控延迟，不能用PC慢访问代替。
+TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应答延迟；普通示波器不能制造这两种片内刺激。前者可以由片内可写向量入口驱动，但必须用活动时间基和捕获值独立验证连接；STIMER真实计数样本可作为软件转交的固定输入，不能声称连续硬件连接。后者的精确周期矩阵仍需受控延迟及握手证据，不能用PC慢访问代替。
 
 仪器型号暂不写死；执行前按当前配置校验所需触发、输出电平、解码和时间精度。设备不足时保留完整方法及缺少的动作；只有真实物理资源不满足时才能给出对应运行SKIP，本轮没有执行，不能预填SKIP结果。
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、TSU原语、中断管理、ECC中断链、DMU端点/请求/计数及FD格式选择，共83条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、TSU原语/外部向量、RAM Watchdog快照、中断管理、ECC中断链、DMU端点/请求/计数/错误状态/CPU镜像及FD格式选择，共98条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -202,9 +202,19 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | DMU_ENDPOINT_GET | 79 | element：TX=0、RX0=1、RX1=2、TX_EVENT=3 | DMA端点u32地址；只查询，不访问数据窗口，不推进队列，不接受任意地址输入 |
 | DMU_REQUEST_SET | 80 | request：RX0=0、RX1=1、TX_EVENT=2 | 无；只切换一个互斥接收请求源，调用者必须先停止相关DMA活动；不重试、不隐式配置DMA |
 | DMU_REQUEST_GET | 81 | 无 | 当前实际公共request选择；保留硬件编码返回错误，不回显SET缓存 |
-| DMU_COUNTERS_GET | 82 | 无 | tx_enqueued、rx0_dequeued、rx1_dequeued、tx_event_dequeued、modulus；四个成功入队/出队累计值的一次快照，不是FIFO占用量；不清计数或IRQ |
+| DMU_COUNTERS_GET | 82 | 无 | tx_enqueued、rx0_dequeued、rx1_dequeued、tx_event_dequeued、modulus；四个成功入队/出队计数的一次读取，不是FIFO占用量；读取可能消费计数，不写清除或读IRQ |
+| DMU_STATUS_CONSUME | 83 | 无 | errors、enabled、transfer_timestamp；错误先读一次再读取状态，不是同时快照，不发清除写入，不自动重试 |
+| DMU_TX_IMAGE_ENCODE | 84 | TX_WRITE的21word，首word保留为0 | byte_count + 80-byte固定镜像信封，共21word；只生成CPU字节，不写DMU或请求TX |
+| DMU_RX_IMAGE_DECODE | 85 | fifo(0/1)、byte_count、80-byte镜像，共22word | RX_READ的24word后追加internal_timestamp_valid、tsu_captured、tsu_pointer、transferred_timestamp_valid、transferred_timestamp，共29word |
+| DMU_EVENT_IMAGE_DECODE | 86 | byte_count、80-byte镜像，共21word | TX_EVENT_DETAILS_READ的10word后追加transferred_timestamp_valid、transferred_timestamp，共12word |
 
-`CanDriver.dmu_endpoint_get(CanDmuElement)`只提供DMA目标/源端点；它不授权CPU任意MMIO。`dmu_request_set(CanDmuRequest)`、`dmu_request_get()`和`dmu_counters_get()`与上述命令一一对应。计数模数由目标报告，必须为u32可表示且大于1的二次幂，每个计数严格小于模数；差值及回绕窗口由Case判断。四项操作均受调用方timeout约束，协议/通信错误直接上抛；只有三个无副作用查询标为retry-safe，不自动编排重试。DMU元素长度、数据编码、外部DMA与请求复用仍由对应Mapping/IP提供；这些接口存在不表示DMU Case已完成。
+`dmu_tx_image_encode(frame)`、`dmu_rx_image_decode(fifo, image)`、`dmu_event_image_decode(image)`只在目标Own Chip Driver转换CPU镜像；PC Codec只封装字节，不解释芯片位域。image为非空、4-byte对齐且不超过80-byte的bytes，信封未用字节必须为0；80是软件预算，不是目标元素长度。RX长度由目标当前FIFO配置严格检查，TX长度由目标格式决定。操作期间Case必须保持对应配置不变；转换不消费FIFO/TSU、不启动DMA，也不请求TX，三个命令可安全重试。DMA完成状态、错误和队列行为必须由Case另行验证。
+
+RX/event镜像不携带FIFO索引，响应index固定0xFFFFFFFF表示未知，不查询实时FIFO头来补造。RX有效负载由data_length界定；被附加时间戳覆盖的末字节不包含在返回data中，原DLC保留；填充必须为0。内部时间戳无效时Wire timestamp为0，tsu_captured为0时pointer为0，未附加有效时间戳时transferred_timestamp为0。PC的`CanDmuRxImage`包含frame、internal_timestamp_valid、可空tsu_pointer和transferred_timestamp；`CanDmuEventImage`包含既有事件详情及可空transferred_timestamp。TSU指针只在捕获时有效，附加时间戳只在有效捕获且目标启用传输时有效；解码本身不证明时间戳物理精度。
+
+`CanDriver.dmu_status_consume()`返回`CanDmuStatus`，两个状态字段必须为严格Boolean。`CanDmuError` bit0～17依次为CONFIGURATION_ACCESS、EVENT_WRITE、EVENT_SEQUENCE、EVENT_DEQUEUE、EVENT_START、RX1_TIMESTAMP_OVERWRITE、RX1_WRITE、RX1_SEQUENCE、RX1_DEQUEUE、RX1_START、MEMORY_UNCORRECTED、MEMORY_CORRECTED、TX_READ、TX_AFTER_TRIGGER、TX_DLC、TX_SEQUENCE、TX_ENQUEUE、TX_START；错误命名空间与控制器IRQ/ECC分离，不包含成功搬运或Debug事件。接口保留首次读数，按可能消费状态的操作管理，不承诺所有目标具有相同读清行为。零错误只覆盖目标已映射的错误源，不能推导未声明的检测能力。
+
+`CanDriver.dmu_endpoint_get(CanDmuElement)`只提供DMA目标/源端点；它不授权CPU任意MMIO。`dmu_request_set(CanDmuRequest)`、`dmu_request_get()`和`dmu_counters_get()`与上述命令一一对应。计数模数由目标报告，必须为u32可表示且大于1的二次幂，每个计数严格小于模数；计数可能读清，Case必须在已确认零基线后执行有界传输并只读取一次结果，不轮询计数或无条件相减。四项操作均受调用方timeout约束，协议/通信错误直接上抛；只有端点和请求选择查询标为retry-safe，计数读取不安全重试。DMU元素长度、数据编码、外部DMA与请求复用仍由对应Mapping/IP提供；这些接口存在不表示DMU Case已完成。
 
 `TX_WRITE`与`TX_READ`的Marker按当前实际位宽校验/解释，不隐式改变事件格式。旧`TX_EVENT_READ`只接受具有内部时间戳字段的基本格式，宽Marker/TSU格式返回状态错误；新读取61以显式有效性防止伪时间戳。内部时间戳有效性只描述字段存在，不证明计数源已经启用。TSU指针只在实际捕获时有效，不是时间戳数值。
 
@@ -248,6 +258,40 @@ ECC使用独立事件命名空间：`CORRECTED=1`、`UNCORRECTED=2`，不复用�
 ECC Service共享IRQ回调必须读取自身实例真实状态，只对实际活动目标源累计计数和锁存实际实例；首次raw/status保留，后续源累积。回调屏蔽活动源防止中断风暴，保留Raw供PC显式Clear，再次投递必须显式unmask；不是调用事件查询便增加计数。非目标实例的共享线路回调没有本地活动源时不产生证据。Fault沿用IO=1、Unexpected=2、Overflow=4，计数饱和保存溢出事实；PC必须检查这些诊断，不能只看Count。ECC会话与控制器IRQ会话独立。P2_003正式Case已接通9条Wire，不等同硬件PASS。`wait_ecc_event(after_count, timeout_s)`仅在一个Deadline内查询新回调或诊断故障，返回最后事件交Case判定；超时保留最近状态，不触发/清除/解除屏蔽，通信错误上抛。
 
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
+
+DMU负向刺激及IRQ追加命令：
+
+| Command | ID | 请求 | 响应 |
+|---|---|---|---|
+| DMU_WORD_ACCESS | 87 | element、word_index、write、value；4word | 单次命名窗口实际读值或写值；read时value为0，write严格Boolean；不重试 |
+| DMU_CAPTURE_START | 88 | sources：非空DMU错误掩码 | 新generation及专用IRQ绑定；要求使能为0且一次旧错误读值为0，旧错返回BUSY，不猜W1C |
+| DMU_CAPTURE_STOP | 89 | 无 | 先关闭所选源再解绑；失败保留所有权，保留ISR证据 |
+| DMU_EVENT_GET | 90 | 无 | raw_status、masked_status、latched_events、event_count、unexpected_count、overflow_count、generation、fault_flags、instance_id；共9word；无回调实例为0xFFFFFFFF |
+
+`dmu_word_access`只接受命名元素和Own Driver约束的word索引，不接受任意地址。它刻意允许硬件非法方向、顺序和CCE状态，让负向刺激抵达窗口；不自动补齐序列或判定读取数据有效。`dmu_capture_start/stop`使用独立DMU位图、会话和路由。ISR先读使能再单次消费DMUIR，保留首个公共错误Raw、当时已使能错误、目标锁存及真实实例，随后关闭触发源；不写DMUIR、不自动恢复。持有会话期间83号命令返回BUSY，防止抢走ISR证据。90号命令只读Service快照，可重试，不再访问DMUIR。失败保留清理所有权；计数饱和报Fault，generation饱和拒绝新会话。
+
+TSU与接收头关联追加命令：
+
+| Command | ID | 请求 | 响应 |
+|---|---|---|---|
+| DMU_TIMESTAMP_SET | 91 | enabled严格Boolean | 仅配置TTS，要求INIT；启用还要求已选UTSU。保留CCE及其他配置，不读TS0，不重试 |
+| FILTER_SYNC_SET | 92 | extended、index、enabled；3word | 仅改变已分配Filter的捕获选择；要求INIT，保留ID/Action，不重试 |
+| FILTER_SYNC_GET | 93 | extended、index；2word | 实际捕获选择Boolean，不回显SET缓存 |
+| RX_TIMESTAMP_GET | 94 | fifo；1word | internal_valid、timestamp、captured、pointer、index；5word；非消费读取当前非空FIFO头 |
+
+`filter_sync_set/get`与旧Filter接口独立：旧FILTER_SET仍完整替换过滤器，调用方必须在它之后显式设置SYNC。`rx_timestamp_get`返回`CanRxTimestamp(internal_timestamp, tsu_pointer, index)`；内部时间戳和TSU指针各自无效时为None，不能同时有效。Wire无效值为0，内部时间戳为16-bit，指针为0～15。当前头必须由调用方保持稳定，空FIFO返回BUSY；不会读取TSU槽、DMA窗口或Ack。新的两个GET可重试，SET不重试；存在接口不代表硬件行为已经验证。
+
+外部向量原语与TSU源选择独立：
+
+| 命令 | ID | 请求word | 响应/边界 |
+|---|---:|---|---|
+| EXTERNAL_VECTOR_SET | 95 | 32-bit value | INIT下只写目标外部向量端点，不配置TSU、不重试 |
+| EXTERNAL_VECTOR_GET | 96 | 无 | 实际32-bit向量，不读ATB/TS0，可安全重试 |
+| RAM_WATCHDOG_GET | 97 | 无 | 同一次硬件快照的配置周期、当前计数；不重装、不清IRQ，可安全重试 |
+
+`external_vector_set/get`只表达向量端点访问，不保证它已接到TSU。Case必须另读活动时间基并逐bit比较，再产生TX捕获并比较TS0；没有达到预期时失败关闭。STIMER样本由Case显式启动、采样、停止后读取，再经此接口软件转交；CAN Driver/Service/Wrap不调用STIMER，不构建跨IP隐式路由。
+
+`ram_watchdog_get()`返回`(configured_cycles, current_count)`两个实际字段；配置为0表示关闭，当前计数不能解释成已经测量的RAM应答延迟。配置仍通过已有`options_set()`显式下发，新增GET不改变既有选项接口。
 
 ### 0.8 PC基础接口
 
@@ -333,20 +377,20 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_015 | CAN Clock Stop请求与恢复 | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_016 | CAN Message RAM模式与March C- | P1 | R1 | SPEC，见第3节 |
 | CAN_P1_017 | CAN取消请求与重发 | P1 | R4 | PLANNED，见第3节 |
-| CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | PLANNED，见第3节 |
+| CAN_P1_018 | CAN TSU内外时间基与丢失 | P1 | R1～R3 | SPEC，见第3节 |
 | CAN_P1_019 | CAN Monitor与Restricted模式 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_020 | CAN FD ISO与Non-ISO格式 | P1 | R2～R4 | IMPLEMENTED，见第3节；硬件结果单独登记 |
 | CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | SPEC，见第3节 |
-| CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | PLANNED，见第3节 |
-| CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | PLANNED，见第3节 |
+| CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | 已实现，硬件未执行 |
+| CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | 已实现，硬件未执行 |
 | CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | IMPLEMENTED，见第3节 |
 | CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | SPEC，见第3节 |
 | CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | SPEC，见第3节 |
 | CAN_P2_006 | CAN Message RAM真实ECC注入 | P2 | R1 | DESIGN_GAP，见第5节 |
-| CAN_P2_007 | CAN DMU非法访问与中断 | P2 | R1 | PLANNED，见第3节 |
-| CAN_P2_008 | CAN DMU接收TSU时间戳 | P2 | R1 | PLANNED，见第3节 |
+| CAN_P2_007 | CAN DMU非法访问与中断 | P2 | R1 | SPEC，见第3节 |
+| CAN_P2_008 | CAN DMU接收TSU时间戳 | P2 | R1 | SPEC，见第3节 |
 | CAN_P2_009 | CAN协议错误与Bus Off恢复 | P2 | R4 | PLANNED，见第3节 |
-| CAN_P2_010 | CAN Message RAM访问Watchdog | P2 | R3 | PLANNED，见第3节 |
+| CAN_P2_010 | CAN Message RAM访问Watchdog | P2 | R2 | 已注册SPEC；精确延迟边界另保留缺口 |
 | CAN_P2_011 | TTCAN触发表与时间窗 | P2 | R4 | PLANNED，见第3节 |
 | CAN_P2_012 | CAN AUX时钟下总线收发 | P2 | R4 | PLANNED，见第3节 |
 | CAN_P2_013 | CAN DMU TX Event附加TSU时间戳 | P2 | R1 | DESIGN_GAP，见第5节 |
@@ -1195,10 +1239,9 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P1_018 CAN TSU内外时间基与丢失
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P1_018
 case_name: CAN TSU内外时间基与丢失
 report_feature: |-
@@ -1207,24 +1250,27 @@ p_level: P1
 feature_refs: [CAN_F_020]
 method:
   inputs:
-    - "时间基矩阵：内部计数分频4、外部固定值0x12345678/0x89ABCDEF；从硬件读取时间戳槽数N，合法N为4/8/16，SOF/EOF只枚举硬件声明支持的捕获位置。"
+    - "时间基矩阵：内部计数分频4、外部固定值0x12345678/0x89ABCDEF及STIMER停止后的真实计数样本；从硬件读取时间戳槽数N，合法N为4/8/16，SOF/EOF只枚举硬件声明支持的捕获位置。"
     - "单一捕获源：内部回环Classic 8-byte，TX Timestamp Capture开启，RX过滤不启用SYNC，避免一帧TX和RX各捕获一次；只直接读取已映射的TS0。"
   steps:
-    - "独立基线：复位CAN、Service和资源池，配置内部回环、TSU使能及当前时间基；外部模式先稳定输入值并用ACTIVE_TIMEBASE读回确认。"
+    - "独立基线：先复位参与STIMER，再复位CAN、Service和资源池；样本节点显式配置长周期One-Shot并启动、采样、停止、实读，验证计数推进且未到期；配置内部回环、TSU使能及当前时间基，外部模式写入向量并分别读取向量端点与ACTIVE_TIMEBASE，两者必须等于独立输入。"
     - "新值捕获：记录ATB_before，逐帧发一个TX捕获，最多N帧，直到TSU.NEW[0]=1；期间只读New/Lost和发送状态，不读取时间戳槽。"
     - "读清核对：记录ATB_after及TSU.NEW/LOST，读取TS0一次，再读New/Lost；TS0对应New/Lost必须清零，其他槽位不受此次读取影响。"
     - "覆盖刺激：在2N次捕获开始前记录ATB_before，不再读取任何时间戳槽，连续完成2N个TX捕获后记录ATB_after；保存TSU.NEW[0]和LOST[0]，两者均须为1。"
-    - "覆盖读清：停止新的捕获后读取TS0，按上一步区间核对数值，再检查New/Lost均清零；外部模式逐次更换两组常量，所有比较均保留捕获前后的独立输入。"
+    - "覆盖读清：停止新的捕获后读取TS0，按上一步区间核对数值，再检查New/Lost的目标槽清零且无关槽不变；外部模式分别执行两组常量和STIMER样本，所有比较均保留捕获前后的独立输入。"
     - "值与状态判定：外部TS0必须等于送入的32-bit常量；内部TS0按32-bit模运算落入相应前后时间基区间，区间小于半量程；每组均验证New置位、覆盖Lost置位和读清。"
+    - "片内分频对照：内部节点另用STIMER长周期One-Shot运行，分别设置TSU分频4/16；以STIMER包围每次ATB读取，中间完成8次TX形成窗口；记录四个参考计数和两个ATB值，用参考内/外区间约束顺序读取误差，比较分频归一后的相对速率区间是否相交。"
   observations:
     - "捕获内容：TSU.TS0等于外部固定输入，或位于内部ATB_before到ATB_after之间；TX.COMPLETED证明捕获刺激真实完成。"
     - "状态变化：TSU.NEW[0]捕获后为1，2N次未读捕获后LOST[0]=1，读TS0后两位为0且无关槽位不被清除。"
+    - "相对速率：STIMER.COUNT.LIVE四点严格包围ATB起止采样，参考计数无回卷/到期；实际TSU增量非零且小于半量程，分别保留分频及参考内外区间。"
   pass_criteria:
-    - "独立数值：外部两组常量逐bit一致；内部捕获有计数区间Oracle，不以非零判通过。"
+    - "独立数值：外部两组常量和STIMER样本逐bit一致；内部捕获有计数区间Oracle，不以非零判通过；软件转交样本不证明实时跨IP连接或绝对时间精度。"
     - "状态完整：每个合法时间基/捕获位置节点都形成New、Lost及读清前后证据；没有外部时间基资源时不得用内部结果代替。"
+    - "分频正确：内部4/16分频归一后的TSU/STIMER速率区间相交；参考外区间不得超过内区间的1.25倍，计数停止、回卷或过宽采样区间均不能通过，不假定两个IP时钟同频。"
 timeout: "每个参数节点5 s；负向主动发送观察100 ms；位级时间测量按method独立预算执行"
 cleanup: ["先停止Peer发送和外部注入，恢复高阻/透传", "屏蔽相关IRQ并停止DMA/DMU", "停止并复位参与CAN及Service", "Resource Pool Reset"]
-resources: {minimum_level: R1, full_coverage_level: R3, board: "代表CAN及本Case明确参与的片内IP，实例/引脚来自连接映射", bench: "内部时间基不接线；外部时间基需能给TSU输入稳定32-bit数值的FPGA测试接口，不是CAN盒子的接收时间"}
+resources: {minimum_level: R1, full_coverage_level: R3, board: "代表CAN和Capability/Runtime共有的代表STIMER，实例来自映射", bench: "外部输入需要片内可写向量入口或等效配测接口，必须用ATB和TS0实证；不是CAN盒子接收时间"}
 backend: [FPGA, Silicon]
 evidence: ["CAN TSU内外时间基与丢失：逐参数保存输入配置、首次决定性硬件状态、独立Expected和实际刺激证据；PASS/FAIL均记录，不用API成功代替硬件结果"]
 failure_observations:
@@ -1233,9 +1279,9 @@ failure_observations:
   - {"key":"timebase","label":"TSU.ACTIVE_TIMEBASE采样区间","source":"dut","role":"actual","format":"text"}
   - {"key":"capture_source","label":"本参数时间基选择及独立输入/时间区间","source":"oracle","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN TSU内外时间基与丢失预先确定的输入和判据","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P1_019 CAN Monitor与Restricted模式
 
@@ -1374,10 +1420,9 @@ gap: []
 
 ### CAN_P2_001 CAN DMA经DMU发送与接收
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_001
 case_name: CAN DMA经DMU发送与接收
 report_feature: |-
@@ -1409,16 +1454,15 @@ failure_observations:
   - {"key":"dma","label":"DMA.TX/RX.STATUS与实际搬运长度","source":"dut","role":"actual","format":"text"}
   - {"key":"frame","label":"DMA.DESTINATION_FRAME及DMU.ERROR","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN DMA经DMU发送与接收的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","dma_endpoint_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_002 CAN DMA搬运TX Event
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_002
 case_name: CAN DMA搬运TX Event
 report_feature: |-
@@ -1450,9 +1494,9 @@ failure_observations:
   - {"key":"events","label":"DMA.DESTINATION_EVENT实际ID和Marker","source":"dut","role":"actual","format":"text"}
   - {"key":"status","label":"DMA.STATUS、TX_EVENT.FILL和DMU.ERROR","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN DMA搬运TX Event的输入与独立Expected","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap","dma_endpoint_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_003 CAN ECC中断链强制触发
 
@@ -1579,10 +1623,9 @@ gap: []
 
 ### CAN_P2_007 CAN DMU非法访问与中断
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_007
 case_name: CAN DMU非法访问与中断
 report_feature: |-
@@ -1591,12 +1634,12 @@ p_level: P2
 feature_refs: [CAN_F_026]
 method:
   inputs:
-    - "单故障矩阵：读TX只写窗口、写RX1只读窗口、写TX Event只读窗口、空RX1出队、空Event出队、8-byte TX容量写FD DLC=15、CCE=1访问窗口、TX从非起始word开始、TX先写word0再跳过word1写word2，共9个独立节点。"
+    - "单故障矩阵：读TX只写窗口、写RX1只读窗口、写TX Event只读窗口、空RX1读取首word出队、空Event读取首word出队、8-byte TX容量写FD DLC=15、CCE=1访问窗口、TX从非起始word开始、TX先写word0再跳过word1写word2，共9个独立节点。"
     - "基线参数：TX FIFO与RX FIFO深度2、payload容量8-byte，合法恢复帧Classic ID 0x123、8-byte PATTERN_A；无活动DMA。"
   steps:
     - "独立基线：每个错误节点先复位CAN、Service和资源池，配置回环与DMU，确认DMU错误状态为0且没有活动服务。"
     - "前提核对：空出队确认对应FIFO空且无请求；TX节点确认有可用元素、容量8-byte且DMU空闲；CCE节点保持INIT/CCE，其余退出CCE；采用TX FIFO而非专用Buffer。"
-    - "中断布置：只使能目标DMU错误源并注册真实IRQ记录；ISR首次锁存后屏蔽该源，避免未知清除语义造成中断风暴；原始状态读取副作用按Chip Mapping执行，首个值必须保留。"
+    - "中断布置：只使能目标DMU错误源并注册真实IRQ记录；ISR首次锁存后关闭该源，避免未知清除语义造成中断风暴；原始状态读取副作用按Chip Mapping执行，首个值必须保留。"
     - "最短违规刺激：通过受限测试接口执行该行明确的读/写序列；非法DLC顺序写两个头word，跳号节点只写word0和word2，其余一次访问；不让软件参数校验提前拒绝而未触达硬件。"
     - "错误判定：读取并保留目标DMU.ERROR位及ISR源/次数，目标位必须置1且ISR实际执行；非法读取返回数据不参与功能判定。"
     - "复位恢复：保存证据后硬复位CAN并重建合法DMU配置，经DMU发一帧回环并核对数据、入/出队完成，不能凭未知W1C规则盲写DMUIR。"
@@ -1616,16 +1659,15 @@ failure_observations:
   - {"key":"irq","label":"DMU IRQ实际Source/Count","source":"measurement","role":"actual","format":"text"}
   - {"key":"recovery","label":"DMU入出队计数与恢复RX.FRAME","source":"dut","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN DMU非法访问与中断预先确定的输入和判据","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_008 CAN DMU接收TSU时间戳
 
-<!-- ET_CASE_PLAN_BEGIN -->
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_008
 case_name: CAN DMU接收TSU时间戳
 report_feature: |-
@@ -1664,9 +1706,9 @@ failure_observations:
   - {key: atb_after, label: "ATB接收后读值", source: dut, role: actual, format: hex32}
   - {key: overwrite_error, label: "DMU接收元素时间戳覆盖错误", source: dut, role: actual, format: hex32}
   - {key: expected_payload, label: "PC生成的有效payload", source: oracle, role: expected, format: text}
-gap: ["case_implementation_gap", "dma_endpoint_mapping_gap", "rx_timestamp_element_mapping_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_009 CAN协议错误与Bus Off恢复
 
@@ -1714,10 +1756,11 @@ gap: ["case_implementation_gap"]
 
 ### CAN_P2_010 CAN Message RAM访问Watchdog
 
-<!-- ET_CASE_PLAN_BEGIN -->
+范围修订（2026-09-07）：用户明确批准先完成低门限触发、关闭对照、清除及恢复的基础严格行为测试。旧PLAN的WDC=16、应答延迟8/32周期矩阵未实施，仍是未覆盖的精确边界；STIMER不能替代CAN主机RAM请求/应答握手计数，也不据DMA完成推断实际竞争周期。
+
+<!-- ET_CASE_SPEC_BEGIN -->
 ```yaml
-schema: et.case-plan.v1
-implementation_status: PLANNED
+schema: et.case.v1
 case_id: CAN_P2_010
 case_name: CAN Message RAM访问Watchdog
 report_feature: |-
@@ -1726,34 +1769,38 @@ p_level: P2
 feature_refs: [CAN_F_035]
 method:
   inputs:
-    - "延迟矩阵：Watchdog限制16个CAN系统时钟周期；CAN主机RAM请求被接受后，分别延迟8和32周期返回应答；另设Watchdog关闭且延迟32周期的对照。"
-    - "单次访问：CAN预装Classic 8-byte TX帧，通过一次TX请求触发CAN主机取数；其余RAM访问正常，不阻塞CPU控制通道。"
+    - "开关矩阵：依次执行WDC=1、WDC=0两个阶段，各搬运8帧；第三阶段复位后WDC=0搬运一帧作为恢复。"
+    - "片内刺激：CAN内部回环FD/BRS、ID=0x123、DLC=15，64-byte PATTERN_A/B交替；DMA先启动RX0，再通过DMU TX窗口搬运目标生成的完整帧镜像，使用32-item burst。"
+    - "时间参考：STIMER最大单次周期及最大预分频，前后实读计数；PC观察窗口至少100 ms，不宣称测得单次RAM应答延迟。"
   steps:
-    - "独立基线：复位CAN、Service和资源池，暂停其他RAM使用者；配置回环单帧，注入器默认透传。"
-    - "看门狗配置：配置当前限制16或关闭，读回WATCHDOG.CONFIG，清WDI历史事件并注册中断记录。"
-    - "握手触发：预装一帧并提交TX，注入器仅拦截首个CAN主机RAM请求，以真实请求/应答握手计数实现当前8或32周期延迟。"
-    - "超时观测：记录实际延迟周期、WDI和ISR；16限制/8延迟不应报警，16限制/32延迟应报警，关闭/32延迟不应报警。"
-    - "路径恢复：释放注入并停止被中断的传输，保存事实后复位重建CAN，发送无延迟的合法帧。"
-    - "结果核对：三个延迟/开关节点均符合矩阵，恢复帧完全匹配；如未证实请求被延迟不得把未触发WDI认定为硬件失败。"
+    - "独立基线：每阶段停止IRQ捕获，先复位DMA/STIMER再复位CAN及资源池；显式建立FD内部回环、RX0过滤及DMU请求路由。"
+    - "看门狗配置：配置当前WDC并读回WATCHDOG.CONFIG/VALUE；仅注册WDI捕获，确认Raw为零、Service计数为零且目标源已使能。"
+    - "观察启动：配置并启动STIMER，保存首次计数及PC窗口起点；分配TX镜像和RX目标资源，启用DMA及请求路由。"
+    - "搬运刺激：逐帧先启动RX DMA再启动TX DMA；等两个通道释放、CAN发送完成，读取实际RX镜像并逐项比较ID、flags、DLC、64-byte数据。"
+    - "开关观测：至少观察100 ms；WDC=1必须实测WDI及一次正确ISR，WDC=0必须无WDI/ISR；记录STIMER末值且要求未回绕、计数确实递增。"
+    - "清除核对：所有搬运结束后保存RWD与WDI/ISR，停止捕获并显式W1C；要求WDI清零、IRQ禁用、RX排空、DMU无错误且入出队各等于已搬运帧数。"
+    - "恢复验证：前两阶段之后独立复位并关闭Watchdog，按同一路径完成一帧及100 ms无WDI观察；失败清理先停DMA与IRQ，再释放路由和复位资源。"
   observations:
-    - "真实RAM延迟：注入器记录CAN主机请求身份及请求到应答的8/32周期，排除CPU轮询慢或其他端口阻塞。"
-    - "超时状态：仅开启且实际延迟超过限制时IRQ.WDI有效并投递ISR；正常/关闭对照无WDI，恢复数据正确。"
+    - "硬件状态：WATCHDOG.CONFIG/VALUE、IRQ.RAW.WDI、DMA通道FREE/FIFO_EMPTY/ERROR、RX实际镜像及FIFO、DMU错误和入出队计数分别记录。"
+    - "独立事实：STIMER前后实读计数和PC窗口；ISR Raw与Service计数/代次分开，不把Service派生值当寄存器反馈。"
   pass_criteria:
-    - "阈值对照：三个节点均按独立握手计数满足超时预期，不能用TOCC代替RAM Watchdog。"
-    - "恢复可用：去除延迟后单帧回环通过，控制通信未被阻塞。"
-timeout: "每个参数节点5 s；负向主动发送观察100 ms；位级时间测量按method独立预算执行"
-cleanup: ["先停止Peer发送和外部注入，恢复高阻/透传", "屏蔽相关IRQ并停止DMA/DMU", "停止并复位参与CAN及Service", "Resource Pool Reset"]
-resources: {minimum_level: R3, full_coverage_level: R3, board: "代表CAN及本Case明确参与的片内IP，实例/引脚来自连接映射", bench: "可控Message RAM应答延迟及握手观察，必须作用于CAN主机访问而非CPU或DMA等待"}
+    - "基础矩阵：开启实测WDI及正确ISR，关闭后同样搬运无WDI，显式清除前后为1到0；低门限未触发必须失败并保留现场，不能改成SKIP或宣称精确延迟边界通过。"
+    - "数据与恢复：17帧全部匹配、DMA完成无错误、DMU计数正确且FIFO排空，恢复阶段无残留WDI，三个STIMER窗口均未回绕且递增。"
+timeout: "每阶段统一5 s；包含至少100 ms的主动搬运及后续观察，不使用固定Sleep代替状态判断"
+cleanup: ["停止CAN IRQ捕获", "停止并释放DMA通道及请求路由", "停止STIMER，依次复位DMA/STIMER/CAN", "Resource Pool Reset"]
+resources: {minimum_level: R2, full_coverage_level: R2, board: "代表CAN和片内DMA/STIMER，逻辑实例由能力与映射选择", bench: "无外部延迟注入器；精确8/32周期边界不在本轮已批准基础范围内"}
 backend: [FPGA, Silicon]
 evidence: ["CAN Message RAM访问Watchdog：逐参数保存输入配置、首次决定性硬件状态、独立Expected和实际刺激证据；PASS/FAIL均记录，不用API成功代替硬件结果"]
 failure_observations:
-  - {"key":"wd","label":"WATCHDOG.CONFIG/VALUE及IRQ.WDI","source":"dut","role":"actual","format":"text"}
-  - {"key":"handshake","label":"CAN主机RAM请求/应答周期捕获","source":"instrument","role":"actual","format":"text"}
+  - {"key":"wd","label":"Watchdog各阶段读回摘要","source":"measurement","role":"actual","format":"text"}
+  - {"key":"wdi","label":"各阶段硬件WDI","source":"dut","role":"actual","format":"text"}
+  - {"key":"window","label":"STIMER及PC观察窗口摘要","source":"measurement","role":"actual","format":"text"}
   - {"key":"irq","label":"WDI ISR Source/Count","source":"measurement","role":"actual","format":"text"}
+  - {"key":"recovery","label":"清除及恢复摘要","source":"measurement","role":"actual","format":"text"}
   - {"key":"expected","label":"CAN Message RAM访问Watchdog预先确定的输入和判据","source":"oracle","role":"expected","format":"text"}
-gap: ["case_implementation_gap"]
+gap: []
 ```
-<!-- ET_CASE_PLAN_END -->
+<!-- ET_CASE_SPEC_END -->
 
 ### CAN_P2_011 TTCAN触发表与时间窗
 
@@ -2046,6 +2093,36 @@ cases:
       - {source: measurement, path: irq, label: 自然Raw和ISR证据, format: text, aggregate: all}
       - {source: observation, path: source_fill, label: 各阶段三个FIFO实际数量, format: text, aggregate: all}
       - {source: measurement, path: negative_windows, label: 禁止窗口实际时长, format: text, aggregate: all}
+  CAN_P2_010:
+    summary: 低门限实测WDI及ISR，关闭后同样DMA搬运无WDI，显式清除并复位恢复；不覆盖精确应答周期。
+    fields:
+      - {source: measurement, path: wd, label: Watchdog阶段读回摘要, format: text, aggregate: all}
+      - {source: measurement, path: irq, label: ISR源与计数, format: text, aggregate: all}
+      - {source: measurement, path: window, label: STIMER及PC观察窗口, format: text, aggregate: all}
+      - {source: measurement, path: recovery, label: 清除及恢复摘要, format: text, aggregate: all}
+  CAN_P2_001:
+    summary: 两个RX FIFO各两帧由DMA经DMU完整搬运，数据、通道地址、入出队计数及错误独立核对。
+    fields:
+      - {source: measurement, path: frame, label: 完整RX与独立Expected, format: text, aggregate: all}
+      - {source: measurement, path: dma, label: DMA地址与CAN计数状态摘要, format: text, aggregate: all}
+  CAN_P2_002:
+    summary: TX Event由DMA出队，Marker与实际事件匹配，通道地址和DMU计数正确。
+    fields:
+      - {source: measurement, path: events, label: 实际事件和Expected, format: text, aggregate: all}
+      - {source: measurement, path: status, label: DMA与DMU搬运状态摘要, format: text, aggregate: all}
+  CAN_P2_007:
+    summary: 九类独立非法访问触发实际DMU错误与ISR，复位后合法DMA收发恢复。
+    fields:
+      - {source: observation, path: error, label: 实际DMU错误, format: hex32, aggregate: all}
+      - {source: measurement, path: irq, label: DMU ISR锁存与计数, format: text, aggregate: all}
+      - {source: measurement, path: recovery, label: 合法DMA恢复摘要, format: text, aggregate: all}
+  CAN_P2_008:
+    summary: RX时间戳附加开关与RX1末word覆盖分别实测，TS0独立读值和DMA最后word核对，复位后恢复。
+    fields:
+      - {source: observation, path: ts0, label: TS0实际捕获, format: hex32, aggregate: all}
+      - {source: observation, path: timestamp_word, label: DMA末word实读, format: hex32, aggregate: all}
+      - {source: observation, path: overwrite_error, label: DMU错误实读, format: hex32, aggregate: all}
+      - {source: measurement, path: decoded, label: 实际接收字段摘要, format: text, aggregate: all}
   CAN_P3_001:
     summary: 20轮32帧双向批量FD/BRS；各640帧逐Byte逐序号核对，轮内不复位，末尾无额外捕获。
     fields:
@@ -2092,6 +2169,13 @@ cases:
       - {source: measurement, path: protected_timing_summary, label: 关闭/开启/再次关闭权限后的仲裁时序摘要, format: text, aggregate: all}
       - {source: observation, path: restored_timing, label: 复位后的仲裁时序, format: text, aggregate: all}
       - {source: observation, path: restored_fd, label: 复位后的FD使能, format: bool, aggregate: same}
+  CAN_P1_018:
+    summary: TSU内外输入分别通过捕获值及New/Lost读清核对，不代表绝对时间精度。
+    fields:
+      - {source: measurement, path: capture_source, label: 时间基输入, format: text, aggregate: all}
+      - {source: measurement, path: ts0, label: TS0捕获阶段摘要, format: text, aggregate: all}
+      - {source: measurement, path: flags, label: New/Lost读清阶段摘要, format: text, aggregate: all}
+      - {source: measurement, path: timebase, label: ATB包围区间, format: text, aggregate: all}
   CAN_P1_016:
     summary: 按映射区域完整执行固定/地址模式及March C-，再重建布局核对回环；不代表ECC注入测试。
     fields:
@@ -2198,7 +2282,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=21; IMPLEMENTATION_GAP=16 | ADAPTED=25; IMPLEMENTATION_GAP=14; NEEDS_VERIFICATION=3 | 25 SPEC、14 PLAN、3项确认流程；实测结论见芯片文档，不以局部Case实现宣称Feature全覆盖 | `ET6801_can.md` |
+| ET6801 | ADAPTED=21; IMPLEMENTATION_GAP=16 | ADAPTED=25; IMPLEMENTATION_GAP=8; NEEDS_VERIFICATION=9 | 31 SPEC、8 PLAN、3项确认流程；新增Case软件门禁通过，DMU和TSU等真实执行语义仍待验证，适配状态不因注册自动升级；实测结论见芯片文档 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 

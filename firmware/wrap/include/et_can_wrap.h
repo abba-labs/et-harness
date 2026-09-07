@@ -301,6 +301,42 @@ typedef struct
     uint8_t data[ET_CAN_FRAME_DATA_BYTES];
 } et_can_rx_frame_t;
 
+/** Software envelope budget, not a target element size or a memory-mapped address. */
+#define ET_CAN_DMU_IMAGE_BYTES 80u
+#define ET_CAN_DMU_IMAGE_WORDS (ET_CAN_DMU_IMAGE_BYTES / sizeof(uint32_t))
+typedef struct
+{
+    uint32_t byte_count;
+    uint32_t words[ET_CAN_DMU_IMAGE_WORDS];
+} et_can_dmu_image_t;
+
+/** Copied RX image; frame.index is UINT32_MAX because no FIFO slot is encoded in an image. */
+typedef struct
+{
+    et_can_rx_frame_t frame;
+    uint32_t internal_timestamp_valid;
+    uint32_t tsu_captured;
+    uint32_t tsu_pointer;
+    uint32_t transferred_timestamp_valid;
+    uint32_t transferred_timestamp;
+} et_can_dmu_rx_image_t;
+
+/** Copied event image; event.index is UINT32_MAX, never a live FIFO head query. */
+typedef struct
+{
+    et_can_tx_event_details_t details;
+    uint32_t transferred_timestamp_valid;
+    uint32_t transferred_timestamp;
+} et_can_dmu_event_image_t;
+
+et_wrap_status_t et_can_wrap_encode_dmu_tx(et_can_id_t id, const et_can_tx_frame_t *frame,
+                                           et_can_dmu_image_t *image);
+et_wrap_status_t et_can_wrap_decode_dmu_rx(et_can_id_t id, uint32_t fifo,
+                                           const et_can_dmu_image_t *image,
+                                           et_can_dmu_rx_image_t *decoded);
+et_wrap_status_t et_can_wrap_decode_dmu_event(et_can_id_t id, const et_can_dmu_image_t *image,
+                                              et_can_dmu_event_image_t *decoded);
+
 /** Independent new-data bitmaps for dedicated RX buffers, not PC observation state. */
 typedef struct
 {
@@ -505,6 +541,55 @@ et_wrap_status_t et_can_wrap_get_dmu_endpoint(et_can_id_t id, et_can_dmu_element
 et_wrap_status_t et_can_wrap_set_dmu_request(et_can_id_t id, et_can_dmu_request_t request);
 et_wrap_status_t et_can_wrap_get_dmu_request(et_can_id_t id, et_can_dmu_request_t *request);
 et_wrap_status_t et_can_wrap_get_dmu_counters(et_can_id_t id, et_can_dmu_counters_t *counters);
+/** DMU error namespace, independent of controller and ECC source encodings. */
+typedef enum
+{
+    ET_CAN_DMU_ERROR_CONFIGURATION_ACCESS = (1u << 0),
+    ET_CAN_DMU_ERROR_EVENT_WRITE = (1u << 1),
+    ET_CAN_DMU_ERROR_EVENT_SEQUENCE = (1u << 2),
+    ET_CAN_DMU_ERROR_EVENT_DEQUEUE = (1u << 3),
+    ET_CAN_DMU_ERROR_EVENT_START = (1u << 4),
+    ET_CAN_DMU_ERROR_RX1_TIMESTAMP_OVERWRITE = (1u << 5),
+    ET_CAN_DMU_ERROR_RX1_WRITE = (1u << 6),
+    ET_CAN_DMU_ERROR_RX1_SEQUENCE = (1u << 7),
+    ET_CAN_DMU_ERROR_RX1_DEQUEUE = (1u << 8),
+    ET_CAN_DMU_ERROR_RX1_START = (1u << 9),
+    ET_CAN_DMU_ERROR_MEMORY_UNCORRECTED = (1u << 10),
+    ET_CAN_DMU_ERROR_MEMORY_CORRECTED = (1u << 11),
+    ET_CAN_DMU_ERROR_TX_READ = (1u << 12),
+    ET_CAN_DMU_ERROR_TX_AFTER_TRIGGER = (1u << 13),
+    ET_CAN_DMU_ERROR_TX_DLC = (1u << 14),
+    ET_CAN_DMU_ERROR_TX_SEQUENCE = (1u << 15),
+    ET_CAN_DMU_ERROR_TX_ENQUEUE = (1u << 16),
+    ET_CAN_DMU_ERROR_TX_START = (1u << 17)
+} et_can_dmu_error_t;
+typedef struct
+{
+    uint32_t errors;
+    uint32_t enabled;
+    uint32_t transfer_timestamp;
+} et_can_dmu_status_t;
+et_wrap_status_t et_can_wrap_consume_dmu_status(et_can_id_t id, et_can_dmu_status_t *status);
+/** Public DMU errors are a contiguous semantic mask, unrelated to DMUIR positions. */
+#define ET_CAN_DMU_ERROR_ALL ((ET_CAN_DMU_ERROR_TX_START << 1u) - 1u)
+et_wrap_status_t et_can_wrap_access_dmu_word(et_can_id_t id, et_can_dmu_element_t element,
+                                             uint32_t word_index, uint8_t write, uint32_t *value);
+et_wrap_status_t et_can_wrap_get_dmu_route(et_can_id_t id, uint32_t sources, et_irq_route_t *route);
+et_wrap_status_t et_can_wrap_set_dmu_irq(et_can_id_t id, uint32_t sources, uint8_t enabled);
+et_wrap_status_t et_can_wrap_get_dmu_irq(et_can_id_t id, uint32_t *sources);
+et_wrap_status_t et_can_wrap_set_dmu_timestamp(et_can_id_t id, uint8_t enabled);
+et_wrap_status_t et_can_wrap_access_filter_sync(et_can_id_t id, uint8_t extended, uint32_t index,
+                                                uint8_t write, uint32_t *enabled);
+typedef struct
+{
+    uint32_t internal_valid;
+    uint32_t timestamp;
+    uint32_t captured;
+    uint32_t pointer;
+    uint32_t index;
+} et_can_rx_timestamp_t;
+et_wrap_status_t et_can_wrap_get_rx_timestamp(et_can_id_t id, uint32_t fifo,
+                                              et_can_rx_timestamp_t *metadata);
 
 /** Separate ECC interrupt namespace; not the controller's BEC/BEU events. */
 typedef enum
@@ -601,6 +686,10 @@ et_wrap_status_t et_can_wrap_non_iso_access(et_can_id_t id, uint8_t enabled, uin
 /** Attempt nominal timing write without changing configuration permission. */
 et_wrap_status_t et_can_wrap_write_nominal_timing(et_can_id_t id,
                                                   const et_can_bit_timing_t *timing);
+/** Read/write one external vector through the own driver; write requires INIT. */
+et_wrap_status_t et_can_wrap_access_external_vector(et_can_id_t id, uint8_t write, uint32_t *value);
+/** Return configured RAM watchdog limit and current hardware counter from one snapshot. */
+et_wrap_status_t et_can_wrap_get_ram_watchdog(et_can_id_t id, uint32_t *limit, uint32_t *value);
 et_wrap_status_t et_can_wrap_access_ram(et_can_id_t id, uint32_t offset, uint32_t count,
                                         const uint32_t *input, uint32_t *output,
                                         uint8_t descending);

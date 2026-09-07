@@ -13,7 +13,12 @@ from .models import (
     CanBusLimits,
     CanDmuCounters,
     CanDmuElement,
+    CanDmuError,
+    CanDmuEvent,
+    CanDmuEventImage,
     CanDmuRequest,
+    CanDmuRxImage,
+    CanDmuStatus,
     CanEccEvent,
     CanEccSnapshot,
     CanEccSource,
@@ -35,6 +40,7 @@ from .models import (
     CanRxFifoStatus,
     CanRxFrame,
     CanRxSource,
+    CanRxTimestamp,
     CanTiming,
     CanTsuConfig,
     CanTsuLimits,
@@ -53,6 +59,86 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 受限单word刺激；不重试、不补齐序列，地址边界由目标Own Driver验证。
+    # 仅等待当前命令响应，超时或目标访问失败直接上抛。
+    def dmu_word_access(
+        self,
+        element: CanDmuElement,
+        word_index: int,
+        *,
+        write: bool = False,
+        value: int = 0,
+        timeout_s: float | None = None,
+    ) -> int:
+        if not isinstance(element, CanDmuElement):
+            raise ValueError("CAN DMU access requires CanDmuElement")
+        words = (int(element), codec.uint32(word_index), codec.boolean(write), codec.uint32(value))
+        if not write and value != 0:
+            raise ValueError("CAN DMU read requires zero reserved value")
+        return self._request(CanCommand.DMU_WORD_ACCESS, words, timeout_s=timeout_s)[0]
+
+    # 开始独立DMU捕获；硬件旧错误/活动会话返回BUSY，timeout和服务错误直接上抛。
+    def dmu_capture_start(self, sources: CanDmuError, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.DMU_CAPTURE_START, (codec.dmu_sources(sources),), timeout_s=timeout_s
+        )
+
+    # 先关闭源再解绑，失败保留目标所有权以便显式重试；timeout或服务错误上抛。
+    def dmu_capture_stop(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.DMU_CAPTURE_STOP, timeout_s=timeout_s)
+
+    # 只读ISR存储而不再消费硬件；超时或非法Wire直接上抛。
+    def dmu_event_get(self, *, timeout_s: float | None = None) -> CanDmuEvent:
+        return codec.decode_dmu_event(self._request(CanCommand.DMU_EVENT_GET, timeout_s=timeout_s))
+
+    # 统一Deadline内等待新实际IRQ次数，超时保留最后一次观测供诊断。
+    def wait_dmu_event(self, after_count: int, *, timeout_s: float) -> CanDmuEvent:
+        deadline = OperationDeadline.start(timeout_s, label="CAN DMU IRQ")
+        last = None
+        while True:
+            try:
+                last = self.dmu_event_get(timeout_s=deadline.remaining_s())
+                if last.event_count > after_count or last.fault_flags:
+                    return last
+                deadline.sleep(contract.POLL_INTERVAL_S)
+            except RequestTimeout as exc:
+                raise RequestTimeout(f"CAN DMU IRQ timeout; last={last}") from exc
+
+    # 仅设置TTS，不改变UTSU/TSU/CCE；INIT前提，单次timeout与错误直接上抛。
+    def dmu_timestamp_set(self, enabled: bool, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.DMU_TIMESTAMP_SET, (codec.boolean(enabled),), timeout_s=timeout_s)
+
+    # 设置单个已分配Filter的捕获开关；要求INIT，不改ID/Action，单次请求不重试。
+    # 仅等待配置响应，超时及目标状态错误直接上抛。
+    def filter_sync_set(
+        self, index: int, enabled: bool, *, extended: bool = False, timeout_s: float | None = None
+    ) -> None:
+        self._request(
+            CanCommand.FILTER_SYNC_SET,
+            (codec.boolean(extended), codec.uint32(index), codec.boolean(enabled)),
+            timeout_s=timeout_s,
+        )
+
+    # 实际读回Filter SYNC，不回显SET缓存；超时或非法响应直接上抛。
+    def filter_sync_get(
+        self, index: int, *, extended: bool = False, timeout_s: float | None = None
+    ) -> bool:
+        return codec.status_boolean(
+            self._request(
+                CanCommand.FILTER_SYNC_GET,
+                (codec.boolean(extended), codec.uint32(index)),
+                timeout_s=timeout_s,
+            )[0]
+        )
+
+    # 读取非空FIFO头部及实际索引，不出队或读取TS0；调用者停止竞争消费，失败上抛。
+    def rx_timestamp_get(self, fifo: int, *, timeout_s: float | None = None) -> CanRxTimestamp:
+        if codec.uint32(fifo) > 1:
+            raise ValueError("CAN RX FIFO must be zero or one")
+        return codec.decode_rx_timestamp(
+            self._request(CanCommand.RX_TIMESTAMP_GET, (fifo,), timeout_s=timeout_s)
+        )
 
     # 查询命名DMA端点，不访问数据窗口；timeout内单次请求，错误直接上抛。
     def dmu_endpoint_get(self, element: CanDmuElement, *, timeout_s: float | None = None) -> int:
@@ -73,10 +159,48 @@ class CanDriver:
             self._request(CanCommand.DMU_REQUEST_GET, timeout_s=timeout_s)
         )
 
-    # 读取一次队列累计快照，不Ack、不复位；单次timeout约束，错误直接上抛。
+    # 计数只读一次，可能消费目标计数；不Ack、不写复位、不重试，timeout或协议错误上抛。
     def dmu_counters_get(self, *, timeout_s: float | None = None) -> CanDmuCounters:
         return codec.decode_dmu_counters(
             self._request(CanCommand.DMU_COUNTERS_GET, timeout_s=timeout_s)
+        )
+
+    # 错误标志只读一次且不重试；随后读取使能/附加状态，timeout或协议错误直接上抛。
+    def dmu_status_consume(self, *, timeout_s: float | None = None) -> CanDmuStatus:
+        return codec.decode_dmu_status(
+            self._request(CanCommand.DMU_STATUS_CONSUME, timeout_s=timeout_s)
+        )
+
+    # 目标只生成CPU镜像，不启动DMA/TX；timeout内单次请求，格式或通信错误直接上抛。
+    def dmu_tx_image_encode(self, frame: CanTxFrame, *, timeout_s: float | None = None) -> bytes:
+        return codec.decode_dmu_tx_image(
+            self._request(
+                CanCommand.DMU_TX_IMAGE_ENCODE, codec.tx_frame_words(0, frame), timeout_s=timeout_s
+            )
+        )
+
+    # 解码已复制RX字节，不读FIFO或TSU槽；调用期间配置须保持稳定，timeout或协议错误上抛。
+    def dmu_rx_image_decode(
+        self, fifo: int, image: bytes, *, timeout_s: float | None = None
+    ) -> CanDmuRxImage:
+        if codec.uint32(fifo) > 1:
+            raise ValueError("CAN RX FIFO must be zero or one")
+        return codec.decode_dmu_rx_image(
+            self._request(
+                CanCommand.DMU_RX_IMAGE_DECODE,
+                (fifo, *codec.dmu_image_words(image)),
+                timeout_s=timeout_s,
+            )
+        )
+
+    # 解码已复制事件，不消费实时事件；timeout由调用方指定，错误直接上抛。
+    def dmu_event_image_decode(
+        self, image: bytes, *, timeout_s: float | None = None
+    ) -> CanDmuEventImage:
+        return codec.decode_dmu_event_image(
+            self._request(
+                CanCommand.DMU_EVENT_IMAGE_DECODE, codec.dmu_image_words(image), timeout_s=timeout_s
+            )
         )
 
     # 仅改变所选ECC源的使能；timeout内单次请求，失败上抛，不重试或启用全局RAM ECC。
@@ -219,6 +343,20 @@ class CanDriver:
     # 单次读取32-bit活动时间基，不推断源频率或外部输入；timeout_s约束通信，失败直接上抛。
     def tsu_timebase_get(self, *, timeout_s: float | None = None) -> int:
         return self._request(CanCommand.TSU_TIMEBASE_GET, timeout_s=timeout_s)[0]
+
+    # 单次读取RAM Watchdog配置周期和当前计数，不重装、不清中断；通信失败上抛。
+    # 计数不是单次RAM请求应答延迟，timeout_s只约束本次通信。
+    def ram_watchdog_get(self, *, timeout_s: float | None = None) -> tuple[int, int]:
+        limit, value = self._request(CanCommand.RAM_WATCHDOG_GET, timeout_s=timeout_s)
+        return limit, value
+
+    # INIT下写一次32-bit外部向量；不选择TSU源，不证明内部连接，不重试，通信失败上抛。
+    def external_vector_set(self, value: int, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.EXTERNAL_VECTOR_SET, (value,), timeout_s=timeout_s)
+
+    # 单次读回外部向量端点；timeout_s约束通信，失败上抛，不缓存或读取活动时间基。
+    def external_vector_get(self, *, timeout_s: float | None = None) -> int:
+        return self._request(CanCommand.EXTERNAL_VECTOR_GET, timeout_s=timeout_s)[0]
 
     # 只读TS0一次并消费其New/Lost；timeout_s约束通信，失败上抛，不重试或读取未映射槽。
     def tsu_slot0_consume(self, *, timeout_s: float | None = None) -> int:

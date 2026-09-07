@@ -2884,6 +2884,47 @@ uint32_t CAN_testGetTsuTimebase(CAN_Type *CANx)
     assert_param(IS_CAN_PERIPH(CANx));
     return READ_REG(CANx->ATB);
 }
+/** CMSIS CAN_MISC.MTTCAN_EXTS is a 32-bit RW vector. ATB must independently
+ * prove its connection to the selected TSU external input on the target. */
+int32_t CAN_testAccessExternalVector(CAN_Type *CANx, uint32_t write, uint32_t *value)
+{
+    CAN_MISC_Type *misc;
+
+    if (!IS_CAN_PERIPH(CANx) || write > 1U || value == NULL)
+    {
+        return DRV_ERROR;
+    }
+    if (write && !READ_BIT(CANx->CCCR, CAN0_CCCR_INIT_Msk))
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    if (write)
+    {
+        WRITE_REG(misc->MTTCAN_EXTS, *value);
+    }
+    else
+    {
+        *value = READ_REG(misc->MTTCAN_EXTS);
+    }
+    return DRV_OK;
+}
+
+/** Decode both public watchdog facts from the same non-consuming RWD read. */
+int32_t CAN_testGetRamWatchdog(CAN_Type *CANx, uint32_t *limit, uint32_t *value)
+{
+    uint32_t snapshot;
+
+    if (!IS_CAN_PERIPH(CANx) || limit == NULL || value == NULL)
+    {
+        return DRV_ERROR;
+    }
+    snapshot = READ_REG(CANx->RWD);
+    *limit = (snapshot & CAN0_RWD_WDC_Msk) >> CAN0_RWD_WDC_Pos;
+    *value = (snapshot & CAN0_RWD_WDV_Msk) >> CAN0_RWD_WDV_Pos;
+    return DRV_OK;
+}
+
 /** Consume only the explicitly mapped TS0; hardware clears its New/Lost bits. */
 uint32_t CAN_testConsumeTsuSlot0(CAN_Type *CANx)
 {
@@ -2977,6 +3018,136 @@ int32_t CAN_testGetDmuEndpoint(CAN_Type *CANx, CAN_TestDmuElement element, uint3
     return DRV_OK;
 }
 /** Reject invalid selection before the existing paired-MISC write primitive. */
+int32_t CAN_testAccessDmuWord(CAN_Type *CANx, CAN_TestDmuElement element,
+                            uint32_t wordIndex, uint32_t write, uint32_t *value)
+{
+    uint32_t address;
+    /* AN004 table 2: TX/RX have 18 words, Event has 3 including optional timestamp.
+     * Do not expose reserved holes or DMU control registers after the Event window. */
+    const uint32_t apertureWords = element == CAN_TEST_DMU_TX_EVENT
+                                      ? CAN_TEST_TX_HEADER_WORDS + 1U
+                                      : CAN_TEST_DMU_IMAGE_WORDS;
+    if (value == NULL || wordIndex >= apertureWords || write > 1U ||
+        CAN_testGetDmuEndpoint(CANx, element, &address) != DRV_OK)
+    {
+        return DRV_ERROR;
+    }
+    address += wordIndex * sizeof(uint32_t);
+    if (write != 0U)
+    {
+        WRITE_REG(*(volatile uint32_t *)(uintptr_t)address, *value);
+    }
+    else
+    {
+        *value = READ_REG(*(volatile uint32_t *)(uintptr_t)address);
+    }
+    return DRV_OK;
+}
+
+/** Only documented DMUIE bits are writable; callers own source shutdown and IRQ binding. */
+int32_t CAN_testSetDmuIrq(CAN_Type *CANx, uint32_t mask, uint32_t enabled)
+{
+    if (!IS_CAN_PERIPH(CANx) || enabled > 1U || (mask & ~CAN_DMU_INTR_MASK_ALL) != 0U)
+    {
+        return DRV_ERROR;
+    }
+    CAN_enableDMUIntr(CANx, mask, enabled);
+    return DRV_OK;
+}
+
+/** Read enable state without consuming DMUIR. */
+uint32_t CAN_testGetDmuIrq(CAN_Type *CANx)
+{
+    return READ_REG(CANx->DMUIE);
+}
+
+/** AN004 table 2 marks DMUC RP and its RX example sets it while CCE is enabled.
+ * The ET SVD read-only annotation conflicts with the vendor example and own SDK. */
+int32_t CAN_testSetDmuTimestamp(CAN_Type *CANx, uint32_t enabled)
+{
+    uint32_t permission;
+    if (!IS_CAN_PERIPH(CANx) || enabled > 1U ||
+        CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT ||
+        (enabled && !CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_UTSU)))
+    {
+        return DRV_ERROR;
+    }
+    permission = READ_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    SET_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    CAN_WR_FIELD32(CANx->DMUC, CAN0_DMUC_TTS, enabled);
+    if (permission == 0U)
+    {
+        CLEAR_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    }
+    return DRV_OK;
+}
+
+/** Bosch M_CAN RAM definitions: standard S0.SSYNC bit 15, extended F1.ESYNC bit 29. */
+int32_t CAN_testAccessFilterSync(CAN_Type *CANx, uint32_t extended, uint32_t index,
+                               uint32_t write, uint32_t *enabled)
+{
+    const uint32_t standardSync = 1UL << 15U;
+    const uint32_t extendedSync = 1UL << 29U;
+    uint32_t count, offset, mask, value;
+    if (!IS_CAN_PERIPH(CANx) || extended > 1U || write > 1U || enabled == NULL ||
+        (write && (*enabled > 1U || CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT)))
+    {
+        return DRV_ERROR;
+    }
+    if (extended)
+    {
+        count = CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_LSE);
+        offset = CAN_RD_FIELD32(CANx->XIDFC, CAN0_XIDFC_FLESA) * sizeof(uint32_t);
+        if (index >= count || count > CAN_TEST_EXT_FILTER_MAX) { return DRV_ERROR; }
+        offset += (index * CAN_EXT_ID_FILTER_SIZE_WORDS + 1U) * sizeof(uint32_t);
+        mask = extendedSync;
+    }
+    else
+    {
+        count = CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_LSS);
+        offset = CAN_RD_FIELD32(CANx->SIDFC, CAN0_SIDFC_FLSSA) * sizeof(uint32_t);
+        if (index >= count || count > CAN_TEST_STD_FILTER_MAX) { return DRV_ERROR; }
+        offset += index * CAN_STD_ID_FILTER_SIZE_WORDS * sizeof(uint32_t);
+        mask = standardSync;
+    }
+    if (offset > CAN_TEST_MSG_RAM_BYTES - sizeof(uint32_t)) { return DRV_ERROR; }
+    offset += (uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES;
+    value = READ_REG(REG32(offset));
+    if (write)
+    {
+        WRITE_REG(REG32(offset), (value & ~mask) | (*enabled ? mask : 0U));
+    }
+    else
+    {
+        *enabled = (value & mask) != 0U;
+    }
+    return DRV_OK;
+}
+
+/** The selected FIFO head must remain stable; this reads R1 only, never TS0 or DMU. */
+int32_t CAN_testGetRxTimestamp(CAN_Type *CANx, CAN_RxFIFONum fifo, uint32_t index,
+                              CAN_TestRxTimestamp *metadata)
+{
+    CAN_MsgRAMConfigParams config;
+    uint32_t count, offset, stride, header, tsu;
+    if (!IS_CAN_PERIPH(CANx) || metadata == NULL ||
+        (fifo != CAN_RX_FIFO_NUM_0 && fifo != CAN_RX_FIFO_NUM_1)) { return DRV_ERROR; }
+    CAN_testGetMsgRAMConfig(CANx, &config);
+    count = fifo == CAN_RX_FIFO_NUM_0 ? config.rxFIFO0size : config.rxFIFO1size;
+    offset = fifo == CAN_RX_FIFO_NUM_0 ? config.rxFIFO0startAddr : config.rxFIFO1startAddr;
+    stride = CAN_getMsgObjSize(fifo == CAN_RX_FIFO_NUM_0 ? config.rxFIFO0ElemSize : config.rxFIFO1ElemSize) * sizeof(uint32_t);
+    if (count > CAN_TEST_RX_FIFO_MAX || index >= count) { return DRV_ERROR; }
+    offset += index * stride;
+    if (offset > CAN_TEST_MSG_RAM_BYTES - stride) { return DRV_ERROR; }
+    header = READ_REG(REG32((uint32_t)CANx - CAN_TEST_MSG_RAM_BYTES + offset + sizeof(uint32_t)));
+    tsu = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_UTSU);
+    metadata->internalValid = tsu == 0U;
+    metadata->timestamp = tsu ? 0U : header & UINT16_MAX;
+    metadata->captured = tsu && (header & CAN_TEST_RX_TSC_MASK);
+    metadata->pointer = metadata->captured ? header & CAN_TEST_RX_POINTER_MASK : 0U;
+    return DRV_OK;
+}
+
 int32_t CAN_testSetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest request)
 {
     if (!IS_CAN_PERIPH(CANx) || ((uint32_t)request > CAN_DMU_REQ_TXER))
@@ -3018,6 +3189,171 @@ int32_t CAN_testGetDmuCounters(CAN_Type *CANx, CAN_TestDmuCounters *counters)
     counters->rx1Dequeued = (value & CAN0_DMUQC_RX1EDC_Msk) >> CAN0_DMUQC_RX1EDC_Pos;
     counters->txEventDequeued = (value & CAN0_DMUQC_TXEEDC_Msk) >> CAN0_DMUQC_TXEEDC_Pos;
     counters->modulus = (CAN0_DMUQC_TXEEC_Msk >> CAN0_DMUQC_TXEEC_Pos) + 1U;
+    return DRV_OK;
+}
+/** Capture flags first, once; preserve first evidence even if reads consume it on a target. */
+int32_t CAN_testConsumeDmuStatus(CAN_Type *CANx, CAN_TestDmuStatus *status)
+{
+    if (!IS_CAN_PERIPH(CANx) || status == NULL)
+    {
+        return DRV_ERROR;
+    }
+    status->flags = READ_REG(CANx->DMUIR);
+    status->enabled = CAN_RD_FIELD32(CANx->DMUI, CAN0_DMUI_ENA);
+    status->transferTimestamp = CAN_RD_FIELD32(CANx->DMUC, CAN0_DMUC_TTS);
+    return DRV_OK;
+}
+/** Serialize a bounded CPU image, with the same T0/T1 encoding as the SDK RAM writer. */
+int32_t CAN_testEncodeDmuTx(CAN_Type *CANx, const CAN_TxBufElement *element,
+                            uint32_t *words, uint32_t capacity, uint32_t *wordCount)
+{
+    CAN_TxBufElement basic;
+    uint32_t markerBits, tsuEnabled, count, bytes, index;
+    uint32_t image[CAN_TEST_DMU_IMAGE_WORDS] = {0U};
+    if (!IS_CAN_PERIPH(CANx) || element == NULL || words == NULL || wordCount == NULL ||
+        element->dlc > 15U || element->xtd > 1U || element->rtr > 1U || element->fdf > 1U ||
+        element->brs > 1U || element->esi > 1U || element->efc > 1U || element->tx_tsce > 1U ||
+        element->id > CAN_TX_BUFFER_ELEM_ID_MASK || (element->fdf && element->rtr) ||
+        (!element->fdf && (element->brs || element->esi)))
+    {
+        return DRV_ERROR;
+    }
+    CAN_testGetEventFormat(CANx, &markerBits, &tsuEnabled);
+    if (element->mm > (markerBits == CAN_TEST_MARKER_BITS_WIDE ? UINT16_MAX : UINT8_MAX))
+    {
+        return DRV_ERROR;
+    }
+    bytes = CAN_getDataSize(element->dlc, element->fdf, element->rtr);
+    count = CAN_TEST_TX_HEADER_WORDS + (bytes + sizeof(uint32_t) - 1U) / sizeof(uint32_t);
+    if (capacity < count)
+    {
+        return DRV_ERROR;
+    }
+    basic = *element;
+    basic.mm &= CAN_TEST_BASIC_MARKER_MAX;
+    /* The SDK copies a complete final word; canonical padding must not leak caller bytes. */
+    for (index = bytes; index < CAN_MAX_PAYLOAD_BYTES; ++index)
+    {
+        basic.data[index] = 0U;
+    }
+    CAN_copyMsgToBuffer(&basic, image);
+    if (markerBits == CAN_TEST_MARKER_BITS_WIDE)
+    {
+        image[1] |= element->mm & CAN_TEST_MARKER_HIGH_MASK;
+    }
+    for (index = 0U; index < count; ++index)
+    {
+        words[index] = image[index];
+    }
+    *wordCount = count;
+    return DRV_OK;
+}
+/** Decode a copied image; reads configuration but never touches virtual windows or TS0. */
+int32_t CAN_testDecodeDmuRx(CAN_Type *CANx, CAN_RxFIFONum fifo,
+                            const uint32_t *words, uint32_t wordCount,
+                            CAN_RxBufElement *element, CAN_TestDmuRxMetadata *metadata)
+{
+    CAN_MsgRAMConfigParams config;
+    CAN_RxBufElement decoded = {0U};
+    CAN_TestDmuRxMetadata actual = {0U};
+    uint32_t image[CAN_TEST_DMU_IMAGE_WORDS] = {0U};
+    uint32_t expected, bytes, capacity, dlc, fd, remote, index, tsu;
+    if (!IS_CAN_PERIPH(CANx) || (fifo != CAN_RX_FIFO_NUM_0 && fifo != CAN_RX_FIFO_NUM_1) ||
+        words == NULL || element == NULL || metadata == NULL ||
+        wordCount < CAN_TEST_TX_HEADER_WORDS || wordCount > CAN_TEST_DMU_IMAGE_WORDS)
+    {
+        return DRV_ERROR;
+    }
+    CAN_testGetMsgRAMConfig(CANx, &config);
+    expected = CAN_getMsgObjSize(fifo == CAN_RX_FIFO_NUM_0 ? config.rxFIFO0ElemSize : config.rxFIFO1ElemSize);
+    if (wordCount != expected)
+    {
+        return DRV_ERROR;
+    }
+    dlc = (words[1] & CAN_RX_BUFFER_ELEM_DLC_MASK) >> CAN_RX_BUFFER_ELEM_DLC_SHIFT;
+    fd = (words[1] & CAN_RX_BUFFER_ELEM_FDF_MASK) >> CAN_RX_BUFFER_ELEM_FDF_SHIFT;
+    remote = (words[0] & CAN_RX_BUFFER_ELEM_RTR_MASK) >> CAN_RX_BUFFER_ELEM_RTR_SHIFT;
+    bytes = CAN_getDataSize(dlc, fd, remote);
+    capacity = (wordCount - CAN_TEST_TX_HEADER_WORDS) * sizeof(uint32_t);
+    if (bytes > capacity || (fd && remote))
+    {
+        return DRV_ERROR;
+    }
+    for (index = 0U; index < wordCount; ++index)
+    {
+        image[index] = words[index];
+    }
+    CAN_copyBufferToMsg(image, &decoded);
+    tsu = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_UTSU);
+    actual.internalTimestampValid = tsu == 0U;
+    actual.validPayloadBytes = bytes;
+    if (tsu != 0U)
+    {
+        actual.tsuCaptured = (words[1] & CAN_TEST_RX_TSC_MASK) != 0U;
+        actual.tsuPointer = actual.tsuCaptured ? words[1] & CAN_TEST_RX_POINTER_MASK : 0U;
+        decoded.rxts = 0U;
+        if (actual.tsuCaptured && CAN_RD_FIELD32(CANx->DMUC, CAN0_DMUC_TTS))
+        {
+            actual.transferredTimestampValid = 1U;
+            actual.transferredTimestamp = words[wordCount - 1U];
+            if (bytes > capacity - sizeof(uint32_t))
+            {
+                actual.validPayloadBytes = capacity - sizeof(uint32_t);
+            }
+        }
+    }
+    /* Never publish overwritten timestamp bytes as valid received payload. */
+    for (index = actual.validPayloadBytes; index < CAN_MAX_PAYLOAD_BYTES; ++index)
+    {
+        decoded.data[index] = 0U;
+    }
+    *element = decoded;
+    *metadata = actual;
+    return DRV_OK;
+}
+/** Parse an already copied event without touching Message RAM, FIFO state or TS0. */
+int32_t CAN_testDecodeDmuEvent(CAN_Type *CANx, const uint32_t *words, uint32_t wordCount,
+                               CAN_TxEventFIFOElement *element, CAN_TestEventMetadata *metadata,
+                               uint32_t *transferredValid, uint32_t *transferredTimestamp)
+{
+    CAN_TxEventFIFOElement decoded = {0U};
+    CAN_TestEventMetadata actual = {0U};
+    uint32_t markerBits, tsuEnabled, transfer, header;
+    if (!IS_CAN_PERIPH(CANx) || words == NULL || element == NULL || metadata == NULL ||
+        transferredValid == NULL || transferredTimestamp == NULL)
+    {
+        return DRV_ERROR;
+    }
+    CAN_testGetEventFormat(CANx, &markerBits, &tsuEnabled);
+    transfer = tsuEnabled && CAN_RD_FIELD32(CANx->DMUC, CAN0_DMUC_TTS);
+    if (wordCount != CAN_TX_EVENT_FIFO_SIZE_WORDS + transfer)
+    {
+        return DRV_ERROR;
+    }
+    header = words[0];
+    decoded.id = (header & CAN_TX_EVENT_FIFO_ELEM_ID_MASK) >> CAN_TX_EVENT_FIFO_ELEM_ID_SHIFT;
+    decoded.rtr = (header & CAN_TX_EVENT_FIFO_ELEM_RTR_MASK) >> CAN_TX_EVENT_FIFO_ELEM_RTR_SHIFT;
+    decoded.xtd = (header & CAN_TX_EVENT_FIFO_ELEM_XTD_MASK) >> CAN_TX_EVENT_FIFO_ELEM_XTD_SHIFT;
+    decoded.esi = (header & CAN_TX_EVENT_FIFO_ELEM_ESI_MASK) >> CAN_TX_EVENT_FIFO_ELEM_ESI_SHIFT;
+    header = words[1];
+    decoded.txts = (header & CAN_TX_EVENT_FIFO_ELEM_TXTS_MASK) >> CAN_TX_EVENT_FIFO_ELEM_TXTS_SHIFT;
+    decoded.dlc = (header & CAN_TX_EVENT_FIFO_ELEM_DLC_MASK) >> CAN_TX_EVENT_FIFO_ELEM_DLC_SHIFT;
+    decoded.brs = (header & CAN_TX_EVENT_FIFO_ELEM_BRS_MASK) >> CAN_TX_EVENT_FIFO_ELEM_BRS_SHIFT;
+    decoded.fdf = (header & CAN_TX_EVENT_FIFO_ELEM_FDF_MASK) >> CAN_TX_EVENT_FIFO_ELEM_FDF_SHIFT;
+    decoded.et = (header & CAN_TX_EVENT_FIFO_ELEM_ET_MASK) >> CAN_TX_EVENT_FIFO_ELEM_ET_SHIFT;
+    decoded.mm = (header & CAN_TX_EVENT_FIFO_ELEM_MM_MASK) >> CAN_TX_EVENT_FIFO_ELEM_MM_SHIFT;
+    actual.internalTimestampValid = markerBits == CAN_TEST_MARKER_BITS_BASIC;
+    if (markerBits == CAN_TEST_MARKER_BITS_WIDE)
+    {
+        decoded.mm |= decoded.txts & CAN_TEST_MARKER_HIGH_MASK;
+        actual.tsuCaptured = tsuEnabled && (decoded.txts & CAN_TEST_EVENT_TSC_MASK) != 0U;
+        actual.tsuPointer = actual.tsuCaptured ? decoded.txts & CAN_TEST_EVENT_POINTER_MASK : 0U;
+        decoded.txts = 0U;
+    }
+    *transferredValid = transfer && actual.tsuCaptured;
+    *transferredTimestamp = *transferredValid ? words[CAN_TX_EVENT_FIFO_SIZE_WORDS] : 0U;
+    *element = decoded;
+    *metadata = actual;
     return DRV_OK;
 }
 /********************* TEST DRIVER EXTENSION END *********************/

@@ -80,6 +80,332 @@ static void write_word(uint8_t *data, uint32_t value)
 /********************************** IRQ Capture Management **********************************/
 
 /**
+ * @brief Copy or reset the independent DMU evidence generation.
+ * @param[in,out] service DMU session owner.
+ * @param[in] reset Nonzero resets evidence only while unbound.
+ * @param[out] words Nine-word output, unused for reset.
+ * @return OK, BUSY or generation overflow failure.
+ * @note Bounded critical section protects ISR-owned fields; no peripheral writes.
+ */
+static et_wrap_status_t dmu_event_access(et_can_service_t *service, uint8_t reset, uint32_t *words)
+{
+    uint32_t key = et_irq_manager_enter_critical();
+    uint32_t index;
+
+    if (reset != 0u)
+    {
+        if (service->dmu_bound != 0u ||
+            service->dmu_event[ET_CAN_IRQ_EVENT_GENERATION] == UINT32_MAX)
+        {
+            et_irq_manager_exit_critical(key);
+
+            return service->dmu_bound != 0u ? ET_WRAP_STATUS_BUSY : ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        ++service->dmu_event[ET_CAN_IRQ_EVENT_GENERATION];
+
+        for (index = 0u; index < ET_CAN_DMU_EVENT_WORDS; ++index)
+        {
+            if (index != ET_CAN_IRQ_EVENT_GENERATION)
+            {
+                service->dmu_event[index] = 0u;
+            }
+        }
+
+        service->dmu_event[ET_CAN_DMU_EVENT_INSTANCE] = UINT32_MAX;
+    }
+    else
+    {
+        for (index = 0u; index < ET_CAN_DMU_EVENT_WORDS; ++index)
+        {
+            words[index] = service->dmu_event[index];
+        }
+    }
+
+    et_irq_manager_exit_critical(key);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Saturate an DMU counter and retain overflow diagnostics.
+ * @param[in,out] service DMU evidence owner.
+ * @param[in] field Counter index in the fixed evidence array.
+ * @note Called only in bounded IRQ context; does not affect controller IRQ evidence.
+ */
+static void increment_dmu_counter(et_can_service_t *service, uint32_t field)
+{
+    if (service->dmu_event[field] != UINT32_MAX)
+    {
+        ++service->dmu_event[field];
+
+        return;
+    }
+
+    service->dmu_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_OVERFLOW;
+
+    if (service->dmu_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT] != UINT32_MAX)
+    {
+        ++service->dmu_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT];
+    }
+}
+
+/**
+ * @brief Preserve the first read-clearing DMU error observation on the real DMU IRQ.
+ * @param[in,out] context Owning CAN Service.
+ * @param[in] irq_line Actual dispatched line.
+ * @param[in] route_events Registered public error sources.
+ * @note Reads enables before consuming DMUIR once, then disables delivered sources.
+ */
+static void can_dmu_callback(void *context, et_irq_line_t irq_line, uint32_t route_events)
+{
+    et_can_service_t *service = (et_can_service_t *)context;
+    et_can_dmu_status_t snapshot;
+    uint32_t enabled, active, watched;
+
+    if (service == NULL || service->dmu_bound == 0u)
+    {
+        return;
+    }
+
+    if (et_can_wrap_get_dmu_irq(service->can_id, &enabled) != ET_WRAP_STATUS_OK ||
+        et_can_wrap_consume_dmu_status(service->can_id, &snapshot) != ET_WRAP_STATUS_OK)
+    {
+        service->dmu_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+        (void)et_can_wrap_set_dmu_irq(service->can_id, ET_CAN_DMU_ERROR_ALL, 0u);
+
+        return;
+    }
+
+    active = snapshot.errors & enabled;
+
+    if (active == 0u)
+    {
+        return;
+    }
+
+    watched = active & route_events & service->dmu_watched;
+
+    if (irq_line != service->dmu_route.irq_line || active != watched)
+    {
+        increment_dmu_counter(service, ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT);
+        service->dmu_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_UNEXPECTED;
+    }
+
+    if (watched != 0u && irq_line == service->dmu_route.irq_line)
+    {
+        if (service->dmu_event[ET_CAN_IRQ_EVENT_COUNT] == 0u)
+        {
+            service->dmu_event[ET_CAN_IRQ_EVENT_RAW_STATUS] = snapshot.errors;
+            service->dmu_event[ET_CAN_IRQ_EVENT_MASKED_STATUS] = active;
+        }
+
+        service->dmu_event[ET_CAN_IRQ_EVENT_LATCHED_EVENTS] |= watched;
+        service->dmu_event[ET_CAN_DMU_EVENT_INSTANCE] = service->can_id;
+        increment_dmu_counter(service, ET_CAN_IRQ_EVENT_COUNT);
+    }
+
+    if (et_can_wrap_set_dmu_irq(service->can_id, active, 0u) != ET_WRAP_STATUS_OK)
+    {
+        service->dmu_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+    }
+}
+
+/**
+ * @brief Observe whether a failed bind retained this exact DMU ownership record.
+ * @param[in] service DMU session whose bind returned an error.
+ * @return Nonzero only when Manager still owns this callback, context and line.
+ * @note Read-only bounded inspection of public Manager storage under its critical section;
+ *       never edits bindings or performs physical IRQ cleanup outside Manager.
+ */
+static uint8_t dmu_binding_retained(const et_can_service_t *service)
+{
+    uint32_t key = et_irq_manager_enter_critical();
+    uint32_t index;
+    uint8_t retained = 0u;
+
+    for (index = 0u; index < ET_FRAMEWORK_MAX_IRQ_BINDINGS; ++index)
+    {
+        const et_irq_binding_t *binding = &service->irq_manager->bindings[index];
+
+        if (binding->in_use != 0u && binding->callback == can_dmu_callback &&
+            binding->context == service && binding->irq_line == service->dmu_route.irq_line)
+        {
+            retained = 1u;
+            break;
+        }
+    }
+
+    et_irq_manager_exit_critical(key);
+
+    return retained;
+}
+
+/**
+ * @brief Disable owned DMU sources before releasing the independent IRQ route.
+ * @param[in,out] service Session owner.
+ * @return OK or shutdown failure; failed cleanup retains ownership for retry.
+ * @note Does not consume raw errors or erase captured evidence.
+ */
+static et_wrap_status_t stop_dmu_capture(et_can_service_t *service)
+{
+    if (service->dmu_watched == 0u)
+    {
+        return ET_WRAP_STATUS_OK;
+    }
+
+    if (et_can_wrap_set_dmu_irq(service->can_id, service->dmu_watched, 0u) != ET_WRAP_STATUS_OK ||
+        (service->dmu_bound != 0u &&
+         et_irq_manager_unbind(service->irq_manager, service->dmu_route.irq_line, can_dmu_callback,
+                               service) != 0))
+    {
+        service->dmu_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    service->dmu_bound = 0u;
+    service->dmu_watched = 0u;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Start one fresh DMU error capture, rejecting stale raw errors.
+ * @param[in,out] service Session owner.
+ * @param[in] sources Nonempty public error mask.
+ * @return OK, invalid mask, stale/busy state or setup failure.
+ * @note No speculative W1C: one pre-bind consuming read must show zero errors.
+ */
+static et_wrap_status_t start_dmu_capture(et_can_service_t *service, uint32_t sources)
+{
+    et_wrap_status_t status;
+    et_can_dmu_status_t raw;
+    uint32_t enabled;
+
+    if (service->dmu_bound != 0u || service->dmu_watched != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    status = et_can_wrap_get_dmu_route(service->can_id, sources, &service->dmu_route);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = et_can_wrap_get_dmu_irq(service->can_id, &enabled);
+
+    if (status != ET_WRAP_STATUS_OK || enabled != 0u)
+    {
+        return status != ET_WRAP_STATUS_OK ? status : ET_WRAP_STATUS_BUSY;
+    }
+
+    status = et_can_wrap_consume_dmu_status(service->can_id, &raw);
+
+    if (status != ET_WRAP_STATUS_OK || raw.errors != 0u)
+    {
+        return status != ET_WRAP_STATUS_OK ? status : ET_WRAP_STATUS_BUSY;
+    }
+
+    status = dmu_event_access(service, 1u, NULL);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    service->dmu_watched = sources;
+    service->dmu_bound = 1u;
+
+    if (et_irq_manager_bind(service->irq_manager, &service->dmu_route, service->irq_priority,
+                            can_dmu_callback, service) != 0)
+    {
+        service->dmu_bound = dmu_binding_retained(service);
+        status = ET_WRAP_STATUS_IO_ERROR;
+    }
+    else
+    {
+        status = et_can_wrap_set_dmu_irq(service->can_id, sources, 1u);
+    }
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        (void)stop_dmu_capture(service);
+    }
+
+    return status;
+}
+
+/**
+ * @brief Execute one bounded DMU test access or independent IRQ session action.
+ * @param[in,out] service Selected controller session.
+ * @param[in] command Validated command ID.
+ * @param[in] body Exact-length request.
+ * @param[out] response Capacity-checked response.
+ * @return Own Wrap or session status.
+ * @note ISR evidence reads never re-read DMUIR, preserving its first decisive value.
+ */
+static et_wrap_status_t execute_dmu_test_command(et_can_service_t *service, uint16_t command,
+                                                 const uint8_t *body, uint8_t *response)
+{
+    uint32_t words[ET_CAN_DMU_EVENT_WORDS], value, write, index;
+    et_wrap_status_t status;
+
+    switch (command)
+    {
+        case ET_CAN_COMMAND_DMU_WORD_ACCESS:
+        {
+            write = read_word(&body[ET_CAN_DMU_ACCESS_WRITE * ET_CAN_WIRE_WORD_BYTES]);
+            value = read_word(&body[ET_CAN_DMU_ACCESS_VALUE * ET_CAN_WIRE_WORD_BYTES]);
+
+            if (write > 1u || (write == 0u && value != 0u))
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            status = et_can_wrap_access_dmu_word(
+                service->can_id, (et_can_dmu_element_t)read_word(body),
+                read_word(&body[ET_CAN_DMU_ACCESS_WORD_INDEX * ET_CAN_WIRE_WORD_BYTES]),
+                (uint8_t)write, &value);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, value);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_DMU_CAPTURE_START:
+        {
+            return start_dmu_capture(service, read_word(body));
+        }
+
+        case ET_CAN_COMMAND_DMU_CAPTURE_STOP:
+        {
+            return stop_dmu_capture(service);
+        }
+
+        default:
+        {
+            status = dmu_event_access(service, 0u, words);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                for (index = 0u; index < ET_CAN_DMU_EVENT_WORDS; ++index)
+                {
+                    write_word(&response[index * ET_CAN_WIRE_WORD_BYTES], words[index]);
+                }
+            }
+
+            return status;
+        }
+    }
+}
+
+/**
  * @brief Copy or reset the independent ECC evidence generation.
  * @param[in,out] service ECC session owner.
  * @param[in] reset Nonzero resets evidence only while unbound.
@@ -1690,6 +2016,20 @@ static et_wrap_status_t execute_status_command(et_can_id_t id, uint16_t command,
     uint32_t value;
     uint32_t after;
 
+    /* Read both watchdog fields together without touching its counter or interrupt. */
+    if (command == ET_CAN_COMMAND_RAM_WATCHDOG_GET)
+    {
+        status = et_can_wrap_get_ram_watchdog(id, &value, &after);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(&response[ET_CAN_RAM_WATCHDOG_LIMIT * ET_CAN_WIRE_WORD_BYTES], value);
+            write_word(&response[ET_CAN_RAM_WATCHDOG_VALUE * ET_CAN_WIRE_WORD_BYTES], after);
+        }
+
+        return status;
+    }
+
     /* Phase 1: State-changing and read-clear operations are performed once. */
     if ((command == ET_CAN_COMMAND_TIMEOUT_RELOAD) ||
         (command == ET_CAN_COMMAND_TIMESTAMP_RESET_SNAPSHOT))
@@ -1871,12 +2211,82 @@ static et_wrap_status_t execute_tsu_command(et_can_id_t id, uint16_t command, co
 {
     et_can_tsu_config_t config;
     et_can_tsu_limits_t limits;
+    et_can_rx_timestamp_t metadata;
     et_wrap_status_t status;
-    uint32_t new_flags, lost_flags, value;
+    uint32_t new_flags, lost_flags, value, extended;
 
     /* Phase 1: Select exactly one own-IP operation from the validated command. */
     switch (command)
     {
+        case ET_CAN_COMMAND_EXTERNAL_VECTOR_SET:
+        case ET_CAN_COMMAND_EXTERNAL_VECTOR_GET:
+        {
+            value = command == ET_CAN_COMMAND_EXTERNAL_VECTOR_SET ? read_word(body) : 0u;
+            status = et_can_wrap_access_external_vector(
+                id, command == ET_CAN_COMMAND_EXTERNAL_VECTOR_SET, &value);
+
+            if (status == ET_WRAP_STATUS_OK && command == ET_CAN_COMMAND_EXTERNAL_VECTOR_GET)
+            {
+                write_word(response, value);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_DMU_TIMESTAMP_SET:
+        {
+            value = read_word(body);
+
+            return value > 1u ? ET_WRAP_STATUS_INVALID_ARGUMENT
+                              : et_can_wrap_set_dmu_timestamp(id, (uint8_t)value);
+        }
+
+        case ET_CAN_COMMAND_FILTER_SYNC_SET:
+        case ET_CAN_COMMAND_FILTER_SYNC_GET:
+        {
+            extended = read_word(body);
+            value = command == ET_CAN_COMMAND_FILTER_SYNC_SET
+                        ? read_word(&body[ET_CAN_FILTER_SELECT_WORDS * ET_CAN_WIRE_WORD_BYTES])
+                        : 0u;
+
+            if (extended > 1u || value > 1u)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            status = et_can_wrap_access_filter_sync(
+                id, (uint8_t)extended, read_word(&body[ET_CAN_WIRE_WORD_BYTES]),
+                command == ET_CAN_COMMAND_FILTER_SYNC_SET, &value);
+
+            if (status == ET_WRAP_STATUS_OK && command == ET_CAN_COMMAND_FILTER_SYNC_GET)
+            {
+                write_word(response, value);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_RX_TIMESTAMP_GET:
+        {
+            status = et_can_wrap_get_rx_timestamp(id, read_word(body), &metadata);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_RX_TIMESTAMP_INTERNAL_VALID * ET_CAN_WIRE_WORD_BYTES],
+                           metadata.internal_valid);
+                write_word(&response[ET_CAN_RX_TIMESTAMP_VALUE * ET_CAN_WIRE_WORD_BYTES],
+                           metadata.timestamp);
+                write_word(&response[ET_CAN_RX_TIMESTAMP_CAPTURED * ET_CAN_WIRE_WORD_BYTES],
+                           metadata.captured);
+                write_word(&response[ET_CAN_RX_TIMESTAMP_POINTER * ET_CAN_WIRE_WORD_BYTES],
+                           metadata.pointer);
+                write_word(&response[ET_CAN_RX_TIMESTAMP_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                           metadata.index);
+            }
+
+            return status;
+        }
+
         case ET_CAN_COMMAND_TSU_CONFIG_SET:
         {
             config.enabled = read_word(&body[ET_CAN_TSU_ENABLED * ET_CAN_WIRE_WORD_BYTES]);
@@ -1967,6 +2377,7 @@ static et_wrap_status_t execute_dmu_command(et_can_id_t id, uint16_t command, co
 {
     et_wrap_status_t status;
     et_can_dmu_counters_t counters;
+    et_can_dmu_status_t dmu_status;
     et_can_dmu_request_t request;
     uint32_t address;
 
@@ -2008,6 +2419,23 @@ static et_wrap_status_t execute_dmu_command(et_can_id_t id, uint16_t command, co
             break;
         }
 
+        case ET_CAN_COMMAND_DMU_STATUS_CONSUME:
+        {
+            status = et_can_wrap_consume_dmu_status(id, &dmu_status);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_DMU_STATUS_ERRORS * ET_CAN_WIRE_WORD_BYTES],
+                           dmu_status.errors);
+                write_word(&response[ET_CAN_DMU_STATUS_ENABLED * ET_CAN_WIRE_WORD_BYTES],
+                           dmu_status.enabled);
+                write_word(&response[ET_CAN_DMU_STATUS_TRANSFER_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                           dmu_status.transfer_timestamp);
+            }
+
+            return status;
+        }
+
         default:
         {
             return ET_WRAP_STATUS_NOT_SUPPORTED;
@@ -2035,6 +2463,118 @@ static et_wrap_status_t execute_dmu_command(et_can_id_t id, uint16_t command, co
 }
 
 /**
+ * @brief Execute one bounded CPU image conversion through the own Wrap.
+ * @param[in] id Logical controller supplying actual format facts.
+ * @param[in] command Validated image operation.
+ * @param[in] body Exact-size request after the instance prefix.
+ * @param[out] response Exact-size response storage validated before execution.
+ * @return Own Wrap status, or invalid argument for a reserved TX index.
+ * @note No Resource handle, DMA action, virtual window or TSU slot is accessed here.
+ */
+static et_wrap_status_t execute_dmu_image_command(et_can_id_t id, uint16_t command,
+                                                  const uint8_t *body, uint8_t *response)
+{
+    et_can_dmu_image_t image;
+    et_can_tx_frame_t frame;
+    et_can_dmu_rx_image_t rx;
+    et_can_dmu_event_image_t event;
+    et_wrap_status_t status;
+    uint32_t index;
+    const uint8_t *envelope = body;
+
+    /* Phase 1: Encoding reuses the public TX envelope, with its unused index reserved zero. */
+    if (command == ET_CAN_COMMAND_DMU_TX_IMAGE_ENCODE)
+    {
+        if (read_word(body) != 0u)
+        {
+            return ET_WRAP_STATUS_INVALID_ARGUMENT;
+        }
+
+        decode_tx_frame(body, &frame);
+        status = et_can_wrap_encode_dmu_tx(id, &frame, &image);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(response, image.byte_count);
+
+            for (index = 0u; index < ET_CAN_DMU_IMAGE_WORDS; ++index)
+            {
+                write_word(&response[(index + 1u) * ET_CAN_WIRE_WORD_BYTES], image.words[index]);
+            }
+        }
+
+        return status;
+    }
+
+    /* Phase 2: Copy raw words into aligned CPU storage; the Wrap validates count and padding. */
+    if (command == ET_CAN_COMMAND_DMU_RX_IMAGE_DECODE)
+    {
+        envelope += ET_CAN_WIRE_WORD_BYTES;
+    }
+
+    image.byte_count = read_word(envelope);
+
+    for (index = 0u; index < ET_CAN_DMU_IMAGE_WORDS; ++index)
+    {
+        image.words[index] = read_word(&envelope[(index + 1u) * ET_CAN_WIRE_WORD_BYTES]);
+    }
+
+    if (command == ET_CAN_COMMAND_DMU_RX_IMAGE_DECODE)
+    {
+        status = et_can_wrap_decode_dmu_rx(id, read_word(body), &image, &rx);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            encode_rx_frame(response, &rx.frame);
+            write_word(&response[ET_CAN_DMU_RX_INTERNAL_VALID * ET_CAN_WIRE_WORD_BYTES],
+                       rx.internal_timestamp_valid);
+            write_word(&response[ET_CAN_DMU_RX_TSU_CAPTURED * ET_CAN_WIRE_WORD_BYTES],
+                       rx.tsu_captured);
+            write_word(&response[ET_CAN_DMU_RX_TSU_POINTER * ET_CAN_WIRE_WORD_BYTES],
+                       rx.tsu_pointer);
+            write_word(&response[ET_CAN_DMU_RX_TRANSFERRED_VALID * ET_CAN_WIRE_WORD_BYTES],
+                       rx.transferred_timestamp_valid);
+            write_word(&response[ET_CAN_DMU_RX_TRANSFERRED_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                       rx.transferred_timestamp);
+        }
+
+        return status;
+    }
+
+    status = et_can_wrap_decode_dmu_event(id, &image, &event);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        write_word(&response[ET_CAN_TX_EVENT_IDENTIFIER * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.identifier);
+        write_word(&response[ET_CAN_TX_EVENT_FLAGS * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.flags);
+        write_word(&response[ET_CAN_TX_EVENT_DLC * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.dlc);
+        write_word(&response[ET_CAN_TX_EVENT_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.timestamp);
+        write_word(&response[ET_CAN_TX_EVENT_TYPE * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.event_type);
+        write_word(&response[ET_CAN_TX_EVENT_MARKER * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.marker);
+        write_word(&response[ET_CAN_TX_EVENT_INDEX * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.event.index);
+        write_word(&response[ET_CAN_EVENT_INTERNAL_TIMESTAMP_VALID * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.internal_timestamp_valid);
+        write_word(&response[ET_CAN_EVENT_TSU_CAPTURED * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.tsu_captured);
+        write_word(&response[ET_CAN_EVENT_TSU_POINTER * ET_CAN_WIRE_WORD_BYTES],
+                   event.details.tsu_pointer);
+        write_word(&response[ET_CAN_DMU_EVENT_TRANSFERRED_VALID * ET_CAN_WIRE_WORD_BYTES],
+                   event.transferred_timestamp_valid);
+        write_word(&response[ET_CAN_DMU_EVENT_TRANSFERRED_TIMESTAMP * ET_CAN_WIRE_WORD_BYTES],
+                   event.transferred_timestamp);
+    }
+
+    return status;
+}
+
+/**
  * @brief Execute one validated CAN command through the own Wrap.
  * @param[in,out] service Selected CAN Service and managed IRQ state.
  * @param[in] command Public command number.
@@ -2056,7 +2596,23 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     uint8_t initializing;
     uint32_t requested;
 
-    if (command >= ET_CAN_COMMAND_DMU_ENDPOINT_GET && command <= ET_CAN_COMMAND_DMU_COUNTERS_GET)
+    if (command >= ET_CAN_COMMAND_DMU_WORD_ACCESS && command <= ET_CAN_COMMAND_DMU_EVENT_GET)
+    {
+        return execute_dmu_test_command(service, command, body, response);
+    }
+
+    if (command == ET_CAN_COMMAND_DMU_STATUS_CONSUME && service->dmu_watched != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    if (command >= ET_CAN_COMMAND_DMU_TX_IMAGE_ENCODE &&
+        command <= ET_CAN_COMMAND_DMU_EVENT_IMAGE_DECODE)
+    {
+        return execute_dmu_image_command(id, command, body, response);
+    }
+
+    if (command >= ET_CAN_COMMAND_DMU_ENDPOINT_GET && command <= ET_CAN_COMMAND_DMU_STATUS_CONSUME)
     {
         return execute_dmu_command(id, command, body, response);
     }
@@ -2066,7 +2622,10 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
         return execute_ecc_command(service, command, body, response);
     }
 
-    if ((command >= ET_CAN_COMMAND_TSU_CONFIG_SET) && (command <= ET_CAN_COMMAND_TSU_SLOT0_CONSUME))
+    if (((command >= ET_CAN_COMMAND_TSU_CONFIG_SET) &&
+         (command <= ET_CAN_COMMAND_TSU_SLOT0_CONSUME)) ||
+        ((command >= ET_CAN_COMMAND_DMU_TIMESTAMP_SET) &&
+         (command <= ET_CAN_COMMAND_EXTERNAL_VECTOR_GET)))
     {
         return execute_tsu_command(id, command, body, response);
     }
@@ -2087,7 +2646,8 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     if (((command >= ET_CAN_COMMAND_PROTOCOL_STATUS_CONSUME) &&
          (command <= ET_CAN_COMMAND_CLOCK_STOP_ACK_GET)) ||
         (command == ET_CAN_COMMAND_TIMEOUT_RELOAD) ||
-        (command == ET_CAN_COMMAND_TIMESTAMP_RESET_SNAPSHOT))
+        (command == ET_CAN_COMMAND_TIMESTAMP_RESET_SNAPSHOT) ||
+        (command == ET_CAN_COMMAND_RAM_WATCHDOG_GET))
     {
         return execute_status_command(id, command, body, response);
     }
@@ -2346,6 +2906,13 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RAM_LAYOUT_SET] = ET_CAN_RAM_LAYOUT_WORDS,
         [ET_CAN_COMMAND_BUS_CONFIG_SET] = ET_CAN_BUS_CONFIG_WORDS,
         [ET_CAN_COMMAND_DMU_ENDPOINT_GET] = 1u,
+        [ET_CAN_COMMAND_DMU_WORD_ACCESS] = ET_CAN_DMU_ACCESS_WORDS,
+        [ET_CAN_COMMAND_DMU_CAPTURE_START] = 1u,
+        [ET_CAN_COMMAND_DMU_TIMESTAMP_SET] = 1u,
+        [ET_CAN_COMMAND_FILTER_SYNC_SET] = ET_CAN_FILTER_SYNC_SET_WORDS,
+        [ET_CAN_COMMAND_FILTER_SYNC_GET] = ET_CAN_FILTER_SELECT_WORDS,
+        [ET_CAN_COMMAND_RX_TIMESTAMP_GET] = 1u,
+        [ET_CAN_COMMAND_EXTERNAL_VECTOR_SET] = 1u,
         [ET_CAN_COMMAND_DMU_REQUEST_SET] = 1u,
         [ET_CAN_COMMAND_LOOPBACK_SET] = 1u,
         [ET_CAN_COMMAND_TX_WRITE] = ET_CAN_TX_WRITE_WORDS,
@@ -2378,6 +2945,9 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_ECC_FORCE] = 1u,
         [ET_CAN_COMMAND_ECC_CLEAR] = 1u,
         [ET_CAN_COMMAND_ECC_CAPTURE_START] = 1u,
+        [ET_CAN_COMMAND_DMU_TX_IMAGE_ENCODE] = ET_CAN_TX_WRITE_WORDS,
+        [ET_CAN_COMMAND_DMU_RX_IMAGE_DECODE] = ET_CAN_DMU_RX_IMAGE_REQUEST_WORDS,
+        [ET_CAN_COMMAND_DMU_EVENT_IMAGE_DECODE] = ET_CAN_DMU_IMAGE_ENVELOPE_WORDS,
         [ET_CAN_COMMAND_NOMINAL_TIMING_WRITE] = ET_CAN_PHASE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
@@ -2419,6 +2989,16 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_DMU_ENDPOINT_GET] = 1u,
         [ET_CAN_COMMAND_DMU_REQUEST_GET] = 1u,
         [ET_CAN_COMMAND_DMU_COUNTERS_GET] = ET_CAN_DMU_COUNTER_WORDS,
+        [ET_CAN_COMMAND_DMU_WORD_ACCESS] = 1u,
+        [ET_CAN_COMMAND_DMU_EVENT_GET] = ET_CAN_DMU_EVENT_WORDS,
+        [ET_CAN_COMMAND_FILTER_SYNC_GET] = 1u,
+        [ET_CAN_COMMAND_RX_TIMESTAMP_GET] = ET_CAN_RX_TIMESTAMP_WORDS,
+        [ET_CAN_COMMAND_EXTERNAL_VECTOR_GET] = 1u,
+        [ET_CAN_COMMAND_RAM_WATCHDOG_GET] = ET_CAN_RAM_WATCHDOG_WORDS,
+        [ET_CAN_COMMAND_DMU_STATUS_CONSUME] = ET_CAN_DMU_STATUS_WORDS,
+        [ET_CAN_COMMAND_DMU_TX_IMAGE_ENCODE] = ET_CAN_DMU_IMAGE_ENVELOPE_WORDS,
+        [ET_CAN_COMMAND_DMU_RX_IMAGE_DECODE] = ET_CAN_DMU_RX_IMAGE_RESPONSE_WORDS,
+        [ET_CAN_COMMAND_DMU_EVENT_IMAGE_DECODE] = ET_CAN_DMU_EVENT_IMAGE_RESPONSE_WORDS,
         [ET_CAN_COMMAND_ECC_EVENT_GET] = ET_CAN_ECC_EVENT_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
@@ -2486,6 +3066,7 @@ int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,
     (void)memset(service, 0, sizeof(*service));
     service->can_id = can_id;
     service->ecc_event[ET_CAN_ECC_EVENT_INSTANCE] = UINT32_MAX;
+    service->dmu_event[ET_CAN_DMU_EVENT_INSTANCE] = UINT32_MAX;
     service->irq_manager = irq_manager;
     service->irq_priority = irq_priority;
     service->descriptor.service_id = ET_CAN_SERVICE_ID;

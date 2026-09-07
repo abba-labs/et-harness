@@ -10,6 +10,8 @@ from types import ModuleType
 from ...core.errors import ConfigurationError
 from ...drivers.can import CanDriver, CanPhaseTiming, CanRamLayout, CanRamLimits, CanTiming
 from ...drivers.crg import CrgDriver
+from ...drivers.dma import DmaCapabilities, DmaDriver
+from ...drivers.sysctrl import SysctrlDriver
 from ...profiles import chip_execution_mappings
 
 TIMEOUT_S = 5.0
@@ -38,6 +40,15 @@ class CanSupport:
     timing_limits: CanTiming
     mapping: ModuleType
     clock_hz: int
+
+
+# Case显式选择DMA控制器后得到的只读依赖，不在此持有运行中的通道或路由状态。
+@dataclass(frozen=True)
+class CanDmaSupport:
+    dma: DmaDriver
+    sysctrl: SysctrlDriver
+    capabilities: DmaCapabilities
+    controller: int
 
 
 # 按芯片加载已审核事实；缺失映射是开发错误，不能冒充外部环境SKIP。
@@ -116,6 +127,32 @@ def loopback_ram(support: CanSupport, *, payload_bytes: int = 8) -> CanRamLayout
         rx_buffer_payload_bytes=payload,
         rx0_payload_bytes=payload,
         rx1_payload_bytes=payload,
+    )
+
+
+# DMU布局纯计算：两个TX FIFO槽、四项Event、各四项RX0/RX1，均保留64-byte容量。
+def dmu_ram(support: CanSupport) -> CanRamLayout:
+    layout = loopback_ram(support, payload_bytes=64)
+    limits, mapping = support.ram_limits, support.mapping
+    if limits.tx_count < 2 or limits.event_count < 4:
+        raise ConfigurationError("CAN DMU requires two TX and four event slots")
+    stride = mapping.CAN_RAM_HEADER_BYTES + 64
+    event_offset = layout.tx_offset + 2 * stride
+    rx0_offset = event_offset + 4 * mapping.CAN_EVENT_BYTES
+    rx1_offset = rx0_offset + 4 * stride
+    buffer_offset = rx1_offset + 4 * stride
+    if buffer_offset + limits.rx_buffer_count * stride > limits.ram_bytes:
+        raise ConfigurationError("CAN DMU layout exceeds Message RAM")
+    return replace(
+        layout,
+        tx_buffer_count=0,
+        tx_fifo_count=2,
+        event_offset=event_offset,
+        event_count=4,
+        rx0_offset=rx0_offset,
+        rx1_offset=rx1_offset,
+        rx1_count=4,
+        rx_buffer_offset=buffer_offset,
     )
 
 

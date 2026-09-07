@@ -1593,6 +1593,27 @@ typedef enum
     CAN_TEST_DMU_TX_EVENT = 3U,
     CAN_TEST_DMU_ELEMENT_COUNT
 } CAN_TestDmuElement;
+/** One word access inside a named DMU aperture; deliberately permits illegal direction/order. */
+int32_t CAN_testAccessDmuWord(CAN_Type *CANx, CAN_TestDmuElement element,
+                            uint32_t wordIndex, uint32_t write, uint32_t *value);
+/** Error IRQ control/readback; masks are physical DMUIE bits. */
+int32_t CAN_testSetDmuIrq(CAN_Type *CANx, uint32_t mask, uint32_t enabled);
+uint32_t CAN_testGetDmuIrq(CAN_Type *CANx);
+/** Protected TTS selection; leaves UTSU and prior CCE unchanged. */
+int32_t CAN_testSetDmuTimestamp(CAN_Type *CANx, uint32_t enabled);
+/** Filter timestamp capture selection; update only SSYNC/ESYNC of an allocated filter. */
+int32_t CAN_testAccessFilterSync(CAN_Type *CANx, uint32_t extended, uint32_t index,
+                               uint32_t write, uint32_t *enabled);
+typedef struct
+{
+    uint32_t internalValid;
+    uint32_t timestamp;
+    uint32_t captured;
+    uint32_t pointer;
+} CAN_TestRxTimestamp;
+/** Non-consuming Message RAM header read at a caller-selected actual FIFO index. */
+int32_t CAN_testGetRxTimestamp(CAN_Type *CANx, CAN_RxFIFONum fifo, uint32_t index,
+                              CAN_TestRxTimestamp *metadata);
 /** SVD DMUQC counters are eight-bit successful enqueue/dequeue totals. */
 typedef struct
 {
@@ -1608,8 +1629,46 @@ int32_t CAN_testGetDmuEndpoint(CAN_Type *CANx, CAN_TestDmuElement element, uint3
 int32_t CAN_testSetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest request);
 /** Read actual selection; reject reserved hardware encoding without altering output. */
 int32_t CAN_testGetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest *request);
-/** Decode all counters from one DMUQC read; no reset, IRQ read or queue advance. */
+/** One possibly consuming DMUQC read; no reset write, IRQ read or queue advance. */
 int32_t CAN_testGetDmuCounters(CAN_Type *CANx, CAN_TestDmuCounters *counters);
+/** Ordered reads of DMUIR, DMUI and DMUC; no implicit interrupt acknowledgement. */
+typedef struct
+{
+    uint32_t flags;
+    uint32_t enabled;
+    uint32_t transferTimestamp;
+} CAN_TestDmuStatus;
+int32_t CAN_testConsumeDmuStatus(CAN_Type *CANx, CAN_TestDmuStatus *status);
+/** M_CAN AN004 sections 5/6: two header words followed by at most 64 payload bytes. */
+#define CAN_TEST_DMU_IMAGE_WORDS (CAN_TEST_TX_HEADER_WORDS + CAN_MAX_PAYLOAD_BYTES / sizeof(uint32_t))
+/** AN004 figure 6: R1B bit 4 is TSC and bits 3:0 are RXTSP, not an internal timestamp. */
+#define CAN_TEST_RX_TSC_MASK (0x10U)
+#define CAN_TEST_RX_POINTER_MASK (0x0FU)
+/** Metadata from a copied DMA image only; no TSU slot is consumed by decoding. */
+typedef struct
+{
+    uint32_t internalTimestampValid;
+    uint32_t tsuCaptured;
+    uint32_t tsuPointer;
+    uint32_t transferredTimestampValid;
+    uint32_t transferredTimestamp;
+    uint32_t validPayloadBytes;
+} CAN_TestDmuRxMetadata;
+/** Encode into caller-owned CPU memory only; never write Message RAM or a DMU window. */
+int32_t CAN_testEncodeDmuTx(CAN_Type *CANx, const CAN_TxBufElement *element,
+                            uint32_t *words, uint32_t capacity, uint32_t *wordCount);
+/** Decode exactly one copied RX image using the actual FIFO geometry and TSU format. */
+int32_t CAN_testDecodeDmuRx(CAN_Type *CANx, CAN_RxFIFONum fifo,
+                            const uint32_t *words, uint32_t wordCount,
+                            CAN_RxBufElement *element, CAN_TestDmuRxMetadata *metadata);
+/** Decode a copied two-word event, or three words when actual UTSU/TTS is enabled. */
+int32_t CAN_testDecodeDmuEvent(CAN_Type *CANx, const uint32_t *words, uint32_t wordCount,
+                               CAN_TxEventFIFOElement *element, CAN_TestEventMetadata *metadata,
+                               uint32_t *transferredValid, uint32_t *transferredTimestamp);
+/** Access the paired MISC external vector; writes require INIT. This does not prove TSU routing. */
+int32_t CAN_testAccessExternalVector(CAN_Type *CANx, uint32_t write, uint32_t *value);
+/** Read WDC and WDV from one RWD snapshot, without reloading or changing the watchdog. */
+int32_t CAN_testGetRamWatchdog(CAN_Type *CANx, uint32_t *limit, uint32_t *value);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

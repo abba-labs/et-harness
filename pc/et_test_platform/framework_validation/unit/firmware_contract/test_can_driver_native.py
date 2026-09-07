@@ -36,7 +36,9 @@ def write_can_driver_harness(directory: Path) -> Path:
     )
     irq_definitions = "\n".join(
         f"#define {name} {value}"
-        for name, value in re.findall(r"\b(CAN[0-2]_INT[01]_IRQn|CAN_ECC_IRQn)\s*=\s*(\d+)", cmsis)
+        for name, value in re.findall(
+            r"\b(CAN[0-2]_(?:INT[01]|DMU)_IRQn|CAN_ECC_IRQn)\s*=\s*(\d+)", cmsis
+        )
     )
     # DMUIR虽不被当前原语读取，仍保留在桩中作为无副作用哨兵。
     fields = sorted(set(re.findall(r"CANx->(\w+)", source)) | {"DMUIR"})
@@ -53,7 +55,7 @@ def write_can_driver_harness(directory: Path) -> Path:
         "typedef struct { " + " ".join(f"uint32_t {field};" for field in fields) + " } CAN_Type;\n"
         "typedef struct {uint32_t MISC_STATUS, MISC_CTRL, DMU_DMA_CFG; "
         "uint32_t MTTCAN_INT_EN, MTTCAN_INT_MASK, MTTCAN_INT_FORCE, MTTCAN_INT_CLR; "
-        "uint32_t MTTCAN_INT_RSTATUS, MTTCAN_INT_MSTATUS;} CAN_MISC_Type;\n"
+        "uint32_t MTTCAN_INT_RSTATUS, MTTCAN_INT_MSTATUS, MTTCAN_EXTS;} CAN_MISC_Type;\n"
         "typedef struct {uint32_t ECCEN;} SYSC_Type;\n"
         # CAN0前保留16KiB真实宿主内存，验证SDK地址偏移和RAM编码；其他实例仅测寄存器隔离。
         "typedef struct {uint8_t ram[16384]; CAN_Type blocks[3];} CAN_TestMemory;\n"
@@ -212,9 +214,17 @@ static unsigned timeout_write_count;
 static unsigned timestamp_snapshot_model, timestamp_write_count;
 static unsigned tsu_slot_reads, tsu_status_reads;
 static unsigned ecc_status_model;
-static unsigned dmu_counter_reads;
+static unsigned dmu_counter_reads, dmu_counter_consume_model;
+static unsigned dmu_flags_reads, dmu_flags_consume_model;
+static uintptr_t dmu_window_address;
+static uint32_t dmu_window_value;
+static unsigned dmu_window_reads, dmu_window_writes;
 void can_test_write(volatile uint32_t *address, uint32_t value)
 {
+    if (dmu_window_address != 0 && (uintptr_t)address == dmu_window_address)
+    {
+        ++dmu_window_writes; dmu_window_value=value; return;
+    }
     for (unsigned i=0; i<3; ++i)
     {
         if (address == &misc_blocks[i].MTTCAN_INT_FORCE)
@@ -249,10 +259,23 @@ void can_test_write(volatile uint32_t *address, uint32_t value)
 }
 uint32_t can_test_read(volatile uint32_t *address)
 {
+    if (dmu_window_address != 0 && (uintptr_t)address == dmu_window_address)
+    {
+        ++dmu_window_reads; return dmu_window_value;
+    }
     uint32_t value=*address;
     for (unsigned i=0; i<3; ++i)
     {
-        if (address == &controllers[i].DMUQC) { ++dmu_counter_reads; }
+        if (address == &controllers[i].DMUQC)
+        {
+            ++dmu_counter_reads;
+            if (dmu_counter_consume_model) { *address=0; }
+        }
+        if (address == &controllers[i].DMUIR)
+        {
+            ++dmu_flags_reads;
+            if (dmu_flags_consume_model) { *address=0; }
+        }
         if (ecc_status_model && address == &misc_blocks[i].MTTCAN_INT_MSTATUS)
         {
             return misc_blocks[i].MTTCAN_INT_RSTATUS & misc_blocks[i].MTTCAN_INT_EN &
@@ -484,6 +507,56 @@ static void test_tsu_contract(void)
     for (unsigned i=0; i<3; ++i)
     {
         CAN_Type *can = &controllers[i];
+        /* Test only the real access path; do not synthesize an EXTS-to-ATB connection. */
+        uint32_t vector=0x12345678;
+        uint32_t vector_actual=0;
+        uint32_t watchdog_limit, watchdog_value;
+        CAN_MISC_Type misc_saved[3];
+        memcpy(misc_saved, misc_blocks, sizeof(misc_saved));
+        can->RWD=0xCAFE0710;
+        assert(et_can_wrap_get_ram_watchdog(i, &watchdog_limit, &watchdog_value)==ET_WRAP_STATUS_OK);
+        assert(watchdog_limit==16 && watchdog_value==7 && can->RWD==0xCAFE0710);
+        assert(et_can_wrap_get_ram_watchdog(i, NULL, &watchdog_value)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        can->CCCR=0;
+        assert(et_can_wrap_access_external_vector(i, 1, &vector)==ET_WRAP_STATUS_STATE_ERROR);
+        assert(memcmp(misc_saved, misc_blocks, sizeof(misc_saved))==0);
+        can->CCCR=CAN0_CCCR_INIT_Msk;
+        uint32_t atb_saved=can->ATB;
+        assert(et_can_wrap_access_external_vector(i, 1, &vector)==ET_WRAP_STATUS_OK);
+        assert(misc_blocks[i].MTTCAN_EXTS==0x12345678 && can->ATB==atb_saved);
+        misc_blocks[i].MTTCAN_EXTS=0x89ABCDEF;
+        assert(et_can_wrap_access_external_vector(i, 0, &vector_actual)==ET_WRAP_STATUS_OK);
+        assert(vector_actual==0x89ABCDEF && can->ATB==atb_saved);
+        assert(et_can_wrap_access_external_vector(i, 2, &vector)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_access_external_vector(i, 1, NULL)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        for (unsigned j=0; j<3; ++j)
+        {
+            if (j!=i) { assert(memcmp(&misc_saved[j], &misc_blocks[j], sizeof(CAN_MISC_Type))==0); }
+        }
+        {
+            et_can_service_t svc;
+            et_irq_manager_t vector_manager={0};
+            uint16_t length=99;
+            uint8_t request[5]={(uint8_t)i,0x78,0x56,0x34,0x12};
+            uint8_t response[4]={0};
+            assert(et_can_service_init(&svc, i, &vector_manager, 0)==0);
+            et_service_descriptor_t *desc=&svc.descriptor;
+            assert(desc->handle(desc->context,95,request,4,NULL,0,&length)==ET_STATUS_INVALID_PARAM);
+            assert(misc_blocks[i].MTTCAN_EXTS==0x89ABCDEF);
+            assert(desc->handle(desc->context,95,request,5,NULL,0,&length)==ET_STATUS_OK);
+            assert(length==0 && misc_blocks[i].MTTCAN_EXTS==0x12345678);
+            misc_blocks[i].MTTCAN_EXTS=0x89ABCDEF;
+            assert(desc->handle(desc->context,96,request,1,response,3,&length)==ET_STATUS_INVALID_PARAM);
+            assert(desc->handle(desc->context,96,request,1,response,4,&length)==ET_STATUS_OK);
+            assert(length==4 && response[0]==0xEF && response[1]==0xCD && response[2]==0xAB && response[3]==0x89);
+            {
+                uint8_t watchdog_response[8]={0};
+                assert(desc->handle(desc->context,97,request,1,watchdog_response,7,&length)==ET_STATUS_INVALID_PARAM);
+                assert(desc->handle(desc->context,97,request,1,watchdog_response,8,&length)==ET_STATUS_OK);
+                assert(length==8 && watchdog_response[0]==16 && watchdog_response[4]==7);
+                assert(watchdog_response[1]==0 && watchdog_response[7]==0 && can->RWD==0xCAFE0710);
+            }
+        }
         for (unsigned count=0; count<3; ++count)
         {
             for (unsigned generic=0; generic<4; ++generic)
@@ -661,13 +734,38 @@ static void test_dmu_service(void)
         request[1]=3;
         assert(desc->handle(desc->context,80,request,5,NULL,0,&length)==ET_STATUS_INVALID_PARAM);
         assert(((misc_blocks[i].DMU_DMA_CFG>>4)&3)==2);
+        /* Each mapping is checked against independent SVD bit positions, not its own table. */
+        const unsigned error_bits[]={30,27,26,25,24,21,19,18,17,16,15,14,5,4,3,2,1,0};
+        dmu_flags_consume_model=1;
+        controllers[i].DMUI=0x8000;
+        controllers[i].DMUC=0;
+        for (unsigned bit=0; bit<18; ++bit)
+        {
+            controllers[i].DMUIR=1U<<error_bits[bit];
+            dmu_flags_reads=0;
+            assert(desc->handle(desc->context,83,request,1,response,11,&length)==ET_STATUS_INVALID_PARAM);
+            assert(dmu_flags_reads==0);
+            assert(desc->handle(desc->context,83,request,1,response,20,&length)==ET_STATUS_OK);
+            memcpy(&address,response,4);
+            assert(length==12 && address==(1U<<bit) && dmu_flags_reads==1);
+            assert(controllers[i].DMUIR==0 && memcmp(response+4,"\x01\0\0\0\0\0\0\0",8)==0);
+        }
+        controllers[i].DMUIR=0x30100040U; /* Debug and successful TX/Event/RX1 operations. */
+        controllers[i].DMUC=1;
+        controllers[i].DMUI=0;
+        assert(desc->handle(desc->context,83,request,1,response,20,&length)==ET_STATUS_OK);
+        assert(memcmp(response,"\0\0\0\0\0\0\0\0\x01\0\0\0",12)==0);
+        dmu_flags_consume_model=0;
         controllers[i].DMUQC=0xFE807F01;
+        dmu_counter_consume_model=1;
         dmu_counter_reads=0;
         assert(desc->handle(desc->context,82,request,1,response,19,&length)==ET_STATUS_INVALID_PARAM);
         assert(desc->handle(desc->context,82,request,2,response,20,&length)==ET_STATUS_INVALID_PARAM);
         assert(dmu_counter_reads==0);
         assert(desc->handle(desc->context,82,request,1,response,20,&length)==ET_STATUS_OK);
         assert(dmu_counter_reads==1 && length==20);
+        assert(controllers[i].DMUQC==0);
+        dmu_counter_consume_model=0;
         assert(memcmp(response,"\x01\0\0\0\x7F\0\0\0\x80\0\0\0\xFE\0\0\0\0\x01\0\0",20)==0);
         misc_blocks[i].DMU_DMA_CFG|=0x30;
         assert(desc->handle(desc->context,81,request,1,response,20,&length)==ET_STATUS_INTERNAL_ERROR);
@@ -682,10 +780,249 @@ static void test_dmu_service(void)
     memset(misc_blocks,0,sizeof(misc_blocks));
 }
 
+/* Independent DMA image goldens; all conversions preserve every controller and MISC register. */
+static void test_dmu_images(void)
+{
+    et_can_tx_frame_t tx={.identifier=0x321,.flags=4|8|32,.dlc=15,.marker=0x12};
+    et_can_dmu_image_t image;
+    et_can_dmu_rx_image_t rx;
+    et_can_dmu_event_image_t event;
+    et_irq_manager_t manager={0};
+    et_can_service_t service;
+    CAN_Type saved[3];
+    CAN_MISC_Type saved_misc[3];
+    uint8_t request[89]={0}, response[116];
+    uint32_t wire[29]={0};
+    uint16_t length;
+    for(unsigned byte=0;byte<64;++byte) { tx.data[byte]=byte; }
+    memset(controllers,0,sizeof(controllers));
+    memset(misc_blocks,0,sizeof(misc_blocks));
+    for(unsigned i=0;i<3;++i)
+    {
+        CAN_Type *can=&controllers[i];
+        can->RXESC=0x77; /* Both RX FIFO payload capacities are 64 bytes. */
+        can->DMUIR=0xBEEFFACE;
+        memcpy(saved,controllers,sizeof(saved));
+        memcpy(saved_misc,misc_blocks,sizeof(saved_misc));
+        assert(et_can_wrap_encode_dmu_tx(i,&tx,&image)==ET_WRAP_STATUS_OK);
+        assert(image.byte_count==72 && image.words[0]==0x0C840000 && image.words[1]==0x12BF0000);
+        assert(image.words[2]==0x03020100 && image.words[17]==0x3F3E3D3C);
+        assert(image.words[18]==0 && image.words[19]==0);
+        image.words[1]=0x003F1234; /* RX normal format, deliberately not an encoded TX echo. */
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_OK);
+        assert(rx.frame.identifier==0x321 && rx.frame.flags==(4|8) && rx.frame.dlc==15);
+        assert(rx.frame.timestamp==0x1234 && rx.frame.index==UINT32_MAX && rx.frame.data_length==64);
+        assert(rx.internal_timestamp_valid && !rx.tsu_captured && !rx.transferred_timestamp_valid);
+        assert(memcmp(rx.frame.data,tx.data,64)==0);
+        image.byte_count=68;
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        image.words[17]=0;
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_IO_ERROR);
+        image.byte_count=72;
+        image.words[18]=1;
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        image.words[18]=0;
+        assert(et_can_wrap_decode_dmu_rx(i,2,&image,&rx)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        memset(&image,0,sizeof(image));
+        image.byte_count=8; image.words[0]=0x0C840000; image.words[1]=0x127F1234;
+        assert(et_can_wrap_decode_dmu_event(i,&image,&event)==ET_WRAP_STATUS_OK);
+        assert(event.details.event.identifier==0x321 && event.details.event.marker==0x12);
+        assert(event.details.event.event_type==1 && event.details.event.timestamp==0x1234);
+        assert(event.details.event.index==UINT32_MAX && event.details.internal_timestamp_valid);
+        assert(!event.transferred_timestamp_valid);
+        assert(memcmp(saved,controllers,sizeof(saved))==0);
+        assert(memcmp(saved_misc,misc_blocks,sizeof(saved_misc))==0);
+        /* Full Service envelopes and short-capacity rejection. */
+        assert(et_can_service_init(&service,i,&manager,1)==0);
+        const et_service_descriptor_t *desc=et_can_service_descriptor(&service);
+        request[0]=i;
+        wire[0]=0; wire[1]=0x321; wire[2]=4|8|32; wire[3]=15; wire[4]=0x12;
+        memcpy(wire+5,tx.data,64); memcpy(request+1,wire,84);
+        assert(desc->handle(desc->context,84,request,85,response,83,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,84,request,85,response,84,&length)==ET_STATUS_OK && length==84);
+        memcpy(wire,response,84);
+        assert(wire[0]==72 && wire[1]==0x0C840000 && wire[2]==0x12BF0000 && wire[18]==0x3F3E3D3C);
+        wire[2]=0x003F1234;
+        memset(request+1,0,4); memcpy(request+5,wire,84);
+        assert(desc->handle(desc->context,85,request,89,response,115,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,85,request,89,response,116,&length)==ET_STATUS_OK && length==116);
+        memcpy(wire,response,116);
+        assert(wire[0]==0x321 && wire[3]==0x1234 && wire[6]==64 && wire[7]==UINT32_MAX && wire[24]==1);
+        memset(wire,0,sizeof(wire)); wire[0]=8; wire[1]=0x0C840000; wire[2]=0x127F1234;
+        memcpy(request+1,wire,84);
+        assert(desc->handle(desc->context,86,request,85,response,47,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,86,request,85,response,48,&length)==ET_STATUS_OK && length==48);
+        memcpy(wire,response,48);
+        assert(wire[0]==0x321 && wire[3]==0x1234 && wire[6]==UINT32_MAX && wire[7]==1 && wire[10]==0);
+        assert(memcmp(saved,controllers,sizeof(saved))==0);
+        /* TSU RX and event semantics use captured bytes, never a live timestamp read. */
+        can->CCCR=CAN0_CCCR_UTSU_Msk; can->DMUC=1;
+        memcpy(saved,controllers,sizeof(saved));
+        memset(&image,0,sizeof(image));
+        image.byte_count=72; image.words[0]=0x0C840000; image.words[1]=0x00380013;
+        image.words[2]=0x03020100; image.words[3]=0x07060504; image.words[17]=0x87654321;
+        unsigned slot_reads=tsu_slot_reads;
+        assert(et_can_wrap_decode_dmu_rx(i,1,&image,&rx)==ET_WRAP_STATUS_OK);
+        assert(!rx.internal_timestamp_valid && rx.tsu_captured && rx.tsu_pointer==3);
+        assert(rx.frame.timestamp==0 && rx.frame.data_length==8 && rx.transferred_timestamp_valid);
+        assert(rx.transferred_timestamp==0x87654321 && rx.frame.data[8]==0);
+        image.words[1]=0x003F0013;
+        assert(et_can_wrap_decode_dmu_rx(i,1,&image,&rx)==ET_WRAP_STATUS_OK);
+        assert(rx.frame.dlc==15 && rx.frame.data_length==60 && rx.frame.data[60]==0);
+        memset(&image,0,sizeof(image));
+        image.byte_count=12; image.words[0]=0x0C840000; image.words[1]=0x127FAB13; image.words[2]=0xDEADBEEF;
+        assert(et_can_wrap_decode_dmu_event(i,&image,&event)==ET_WRAP_STATUS_OK);
+        assert(!event.details.internal_timestamp_valid && event.details.tsu_captured);
+        assert(event.details.tsu_pointer==3 && event.details.event.marker==0xAB12);
+        assert(event.details.event.timestamp==0 && event.transferred_timestamp_valid);
+        assert(event.transferred_timestamp==0xDEADBEEF && tsu_slot_reads==slot_reads);
+        assert(memcmp(saved,controllers,sizeof(saved))==0);
+        assert(memcmp(saved_misc,misc_blocks,sizeof(saved_misc))==0);
+        memset(can,0,sizeof(*can));
+    }
+}
+
+/* Explicit register-model IRQ dispatch; not a simulated CAN bus or hardware PASS. */
+static void test_dmu_error_session(void)
+{
+    CAN_Type *instances[]={CAN0,CAN1,CAN2};
+    const int lines[]={CAN0_DMU_IRQn,CAN1_DMU_IRQn,CAN2_DMU_IRQn};
+    const uint32_t offsets[]={0x200,0x280,0x300,0x380};
+    for (unsigned i=0;i<3;++i)
+    {
+        et_irq_manager_t manager={0}; et_can_service_t service;
+        uint8_t request[17]={i}, response[36]; uint16_t length;
+        uint32_t value=0, enabled=0;
+        memset(controllers,0,sizeof(controllers));
+        assert(et_can_service_init(&service,i,&manager,1)==0);
+        const et_service_descriptor_t *desc=et_can_service_descriptor(&service);
+        for (unsigned element=0;element<4;++element)
+        {
+            unsigned last=element==3 ? 2 : 17;
+            dmu_window_address=(uintptr_t)instances[i]+offsets[element]+4*last;
+            dmu_window_reads=0; dmu_window_writes=0; dmu_window_value=0x12345678;
+            assert(CAN_testAccessDmuWord(instances[i],element,last,0,&value)==DRV_OK);
+            assert(value==0x12345678 && dmu_window_reads==1);
+            value=0x87654321;
+            assert(CAN_testAccessDmuWord(instances[i],element,last,1,&value)==DRV_OK);
+            assert(dmu_window_value==value && dmu_window_writes==1);
+            assert(CAN_testAccessDmuWord(instances[i],element,last+1,0,&value)==DRV_ERROR);
+            assert(CAN_testAccessDmuWord(instances[i],element,0,2,&value)==DRV_ERROR);
+            assert(dmu_window_reads==1 && dmu_window_writes==1);
+        }
+        dmu_window_address=(uintptr_t)instances[i]+0x200;
+        dmu_window_reads=0;
+        assert(desc->handle(desc->context,87,request,17,response,3,&length)==ET_STATUS_INVALID_PARAM);
+        assert(dmu_window_reads==0);
+        assert(desc->handle(desc->context,87,request,17,response,4,&length)==ET_STATUS_OK);
+        assert(dmu_window_reads==1 && length==4);
+        request[9]=2;
+        assert(desc->handle(desc->context,87,request,17,response,4,&length)==ET_STATUS_INVALID_PARAM);
+        request[9]=0; dmu_window_address=0;
+        /* Public TX_READ bit 12 maps to physical DMUIR/DMUIE bit 5. */
+        request[2]=0x10;
+        dmu_flags_consume_model=1; dmu_flags_reads=0;
+        assert(desc->handle(desc->context,88,request,5,response,0,&length)==ET_STATUS_OK);
+        assert(service.dmu_bound && service.dmu_route.irq_line==lines[i]);
+        assert(instances[i]->DMUIE==0x20 && dmu_flags_reads==1);
+        assert(et_can_wrap_get_dmu_irq(i,&enabled)==ET_WRAP_STATUS_OK && enabled==0x1000);
+        unsigned slot=0;
+        while (slot<6 && bound_context[slot]!=&service) {++slot;}
+        assert(slot<6);
+        instances[i]->DMUIR=0x40000020; /* Accompanying unenabled IAC must remain in first Raw. */
+        assert(desc->handle(desc->context,83,request,1,response,12,&length)==ET_STATUS_BUSY);
+        assert(dmu_flags_reads==1);
+        bound_callback[slot](bound_context[slot],bound_irq_line[slot],bound_route_events[slot]);
+        assert(dmu_flags_reads==2 && instances[i]->DMUIR==0 && instances[i]->DMUIE==0);
+        assert(desc->handle(desc->context,90,request,1,response,35,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,90,request,1,response,36,&length)==ET_STATUS_OK);
+        assert(length==36 && response[0]==1 && response[1]==0x10 && response[5]==0x10);
+        assert(response[12]==1 && response[24]==1 && response[28]==0 && response[32]==i);
+        assert(dmu_flags_reads==2);
+        fail_unbind_once=1;
+        assert(desc->handle(desc->context,89,request,1,response,0,&length)==ET_STATUS_INTERNAL_ERROR);
+        assert(service.dmu_bound && service.dmu_watched);
+        assert(desc->handle(desc->context,89,request,1,response,0,&length)==ET_STATUS_OK);
+        assert(!service.dmu_bound && !service.dmu_watched);
+        /* Failed bind retaining a Manager slot must remain explicitly cleanable. */
+        fail_bind_mode=2;
+        assert(desc->handle(desc->context,88,request,5,response,0,&length)==ET_STATUS_INTERNAL_ERROR);
+        assert(service.dmu_bound && instances[i]->DMUIE==0);
+        assert(desc->handle(desc->context,89,request,1,response,0,&length)==ET_STATUS_OK);
+        dmu_flags_consume_model=0;
+    }
+    memset(controllers,0,sizeof(controllers));
+}
+
+/* Actual configuration/MMIO codec contracts, not physical timestamp accuracy. */
+static void test_dmu_timestamp_controls(void)
+{
+    CAN_Type *instances[]={CAN0,CAN1,CAN2};
+    for (unsigned i=0;i<3;++i)
+    {
+        CAN_Type *can=instances[i];
+        et_can_rx_timestamp_t metadata;
+        uint32_t sync=1;
+        memset(controllers,0,sizeof(controllers));
+        for (unsigned permission=0;permission<2;++permission)
+        {
+            can->CCCR=0xC01|(permission<<1); can->DMUC=0x80;
+            assert(et_can_wrap_set_dmu_timestamp(i,1)==ET_WRAP_STATUS_OK);
+            assert(can->DMUC==0x81 && can->CCCR==(0xC01|(permission<<1)));
+            assert(et_can_wrap_set_dmu_timestamp(i,0)==ET_WRAP_STATUS_OK && can->DMUC==0x80);
+        }
+        can->CCCR=1;
+        assert(et_can_wrap_set_dmu_timestamp(i,1)==ET_WRAP_STATUS_STATE_ERROR && can->DMUC==0x80);
+        can->CCCR=0xC00;
+        assert(et_can_wrap_set_dmu_timestamp(i,0)==ET_WRAP_STATUS_STATE_ERROR && can->DMUC==0x80);
+        can->CCCR=0xC01; can->SIDFC=0x00010000; can->XIDFC=0x00010020;
+        uintptr_t ram=(uintptr_t)can-0x4000;
+        REG32(ram)=0x49230456; REG32(ram+0x20)=0x41234567; REG32(ram+0x24)=0x41234567;
+        assert(et_can_wrap_access_filter_sync(i,0,0,1,&sync)==ET_WRAP_STATUS_OK);
+        assert(REG32(ram)==0x49238456);
+        assert(et_can_wrap_access_filter_sync(i,1,0,1,&sync)==ET_WRAP_STATUS_OK);
+        assert(REG32(ram+0x20)==0x41234567 && REG32(ram+0x24)==0x61234567);
+        sync=0; assert(et_can_wrap_access_filter_sync(i,1,0,0,&sync)==ET_WRAP_STATUS_OK && sync==1);
+        assert(et_can_wrap_access_filter_sync(i,1,1,1,&sync)==ET_WRAP_STATUS_STATE_ERROR);
+        can->RXF0C=0x00020100; can->RXF0S=0x00000101; can->RXESC=0;
+        REG32(ram+0x114)=0x00000013; /* index1, stride16, R1 captured with pointer3. */
+        tsu_slot_reads=0;
+        assert(et_can_wrap_get_rx_timestamp(i,0,&metadata)==ET_WRAP_STATUS_OK);
+        assert(!metadata.internal_valid && metadata.timestamp==0 && metadata.captured==1);
+        assert(metadata.pointer==3 && metadata.index==1 && tsu_slot_reads==0 && can->RXF0A==0);
+        can->CCCR=1; REG32(ram+0x114)=0x0000ABCD;
+        assert(et_can_wrap_get_rx_timestamp(i,0,&metadata)==ET_WRAP_STATUS_OK);
+        assert(metadata.internal_valid && metadata.timestamp==0xABCD && !metadata.captured && !metadata.pointer);
+        can->RXF0S=0;
+        assert(et_can_wrap_get_rx_timestamp(i,0,&metadata)==ET_WRAP_STATUS_BUSY);
+        et_irq_manager_t manager={0}; et_can_service_t service;
+        uint8_t request[13]={i}, response[20]; uint16_t length;
+        assert(et_can_service_init(&service,i,&manager,1)==0);
+        const et_service_descriptor_t *desc=et_can_service_descriptor(&service);
+        request[1]=2;
+        assert(desc->handle(desc->context,91,request,5,response,0,&length)==ET_STATUS_INVALID_PARAM);
+        request[1]=0; request[9]=2;
+        assert(desc->handle(desc->context,92,request,13,response,0,&length)==ET_STATUS_INVALID_PARAM);
+        assert(REG32(ram)==0x49238456);
+        request[9]=1;
+        assert(desc->handle(desc->context,92,request,13,response,0,&length)==ET_STATUS_OK);
+        assert(desc->handle(desc->context,93,request,9,response,3,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,93,request,9,response,4,&length)==ET_STATUS_OK && response[0]==1);
+        can->RXF0S=0x00000101;
+        assert(desc->handle(desc->context,94,request,5,response,19,&length)==ET_STATUS_INVALID_PARAM);
+        assert(desc->handle(desc->context,94,request,5,response,20,&length)==ET_STATUS_OK);
+        assert(length==20 && response[0]==1 && response[4]==0xCD && response[5]==0xAB && response[16]==1);
+    }
+    memset(controllers,0,sizeof(controllers));
+}
+
 int main(void)
 {
+    test_dmu_timestamp_controls();
+    test_dmu_error_session();
     test_dmu_primitives();
     test_dmu_service();
+    test_dmu_images();
     test_tsu_contract();
     test_ecc_register_contract();
     test_ecc_session_contract();

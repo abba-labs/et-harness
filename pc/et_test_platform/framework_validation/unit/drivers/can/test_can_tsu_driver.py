@@ -11,6 +11,41 @@ from et_test_platform.drivers.can import CanDriver, CanTsuConfig, CanTsuLimits
 from et_test_platform.framework_validation.unit.drivers.can.test_can_driver import TargetStub
 
 
+# Watchdog当前计数和配置周期是两个不同字段，不把配置回显当当前值。
+def test_ram_watchdog_snapshot_golden() -> None:
+    target = TargetStub([bytes.fromhex("10 00 00 00 07 00 00 00")])
+    driver = CanDriver(target, 2)
+    assert driver.ram_watchdog_get(timeout_s=0.25) == (16, 7)
+    assert target.requests[0]["command"] == 97
+    assert target.requests[0]["body"] == b"\x02"
+    assert target.requests[0]["retry_safe"] is True
+    assert target.requests[0]["timeout_s"] == 0.25
+
+
+# 外部向量SET不重试，GET实读；使用独立常量而非请求回显生成预期。
+def test_external_vector_golden() -> None:
+    target = TargetStub([b"", bytes.fromhex("EF CD AB 89")])
+    driver = CanDriver(target, 2)
+    driver.external_vector_set(0x12345678, timeout_s=0.25)
+    assert driver.external_vector_get(timeout_s=0.5) == 0x89ABCDEF
+    assert [item["command"] for item in target.requests] == [95, 96]
+    assert [item["body"] for item in target.requests] == [
+        bytes.fromhex("02 78 56 34 12"),
+        b"\x02",
+    ]
+    assert [item["retry_safe"] for item in target.requests] == [False, True]
+    assert [item["timeout_s"] for item in target.requests] == [0.25, 0.5]
+
+
+# 32-bit输入的类型/范围在传输前拒绝，不允许bool伪装计数。
+@pytest.mark.parametrize("value", [-1, 0x100000000, True, 1.0])
+def test_external_vector_invalid_no_io(value) -> None:
+    target = TargetStub()
+    with pytest.raises(ValueError):
+        CanDriver(target, 0).external_vector_set(value)
+    assert target.requests == []
+
+
 # 每条原语有独立Golden；不使用请求数据生成目标读回。
 def test_tsu_golden_and_consume_retry_policy() -> None:
     target = TargetStub(

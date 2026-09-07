@@ -11,6 +11,9 @@ WORD = Struct("<I")
 INSTANCE = Struct("<B")
 POLL_INTERVAL_S = 0.001
 FRAME_DATA_BYTES = 64
+# 有界CPU镜像信封预算，不是目标DMU元素长度。
+DMU_IMAGE_BYTES = 80
+DMU_IMAGE_WORDS = DMU_IMAGE_BYTES // WORD.size
 # 固定Wire批大小，不代表芯片RAM容量；最后一批允许少于64个有效word。
 RAM_ACCESS_WORDS = 64
 CLASSIC_DATA_BYTES = 8
@@ -107,6 +110,21 @@ class CanCommand(IntEnum):
     DMU_REQUEST_SET = 80
     DMU_REQUEST_GET = 81
     DMU_COUNTERS_GET = 82
+    DMU_STATUS_CONSUME = 83
+    DMU_TX_IMAGE_ENCODE = 84
+    DMU_RX_IMAGE_DECODE = 85
+    DMU_EVENT_IMAGE_DECODE = 86
+    DMU_WORD_ACCESS = 87
+    DMU_CAPTURE_START = 88
+    DMU_CAPTURE_STOP = 89
+    DMU_EVENT_GET = 90
+    DMU_TIMESTAMP_SET = 91
+    FILTER_SYNC_SET = 92
+    FILTER_SYNC_GET = 93
+    RX_TIMESTAMP_GET = 94
+    EXTERNAL_VECTOR_SET = 95
+    EXTERNAL_VECTOR_GET = 96
+    RAM_WATCHDOG_GET = 97
 
 
 REQUEST_WORDS = (
@@ -183,6 +201,12 @@ REQUEST_WORDS = (
 )
 REQUEST_WORDS += (2, 2, 1, 1, 0, 1, 0, 0, 0)  # ECC controls/capture, IDs 70..78.
 REQUEST_WORDS += (1, 1, 0, 0)  # Named DMU endpoint, request selection and queue totals.
+REQUEST_WORDS += (0,)  # DMU_STATUS_CONSUME is deliberately not retry-safe.
+REQUEST_WORDS += (21, 2 + DMU_IMAGE_WORDS, 1 + DMU_IMAGE_WORDS)
+REQUEST_WORDS += (4, 1, 0, 0)  # Bounded window access and independent IRQ capture.
+REQUEST_WORDS += (1, 3, 2, 1)  # TTS, per-filter capture and actual RX timestamp metadata.
+REQUEST_WORDS += (1, 0)  # Explicit external vector, separate from TSU source selection.
+REQUEST_WORDS += (0,)  # One actual RAM watchdog snapshot, no reload.
 RESPONSE_WORDS = (
     2,
     0,
@@ -257,6 +281,12 @@ RESPONSE_WORDS = (
 )
 RESPONSE_WORDS += (0, 0, 0, 0, 4, 0, 0, 9, 0)  # ECC actual snapshot and ISR evidence.
 RESPONSE_WORDS += (1, 0, 1, 5)  # Counters include their modulus, not a chip-specific width.
+RESPONSE_WORDS += (3,)  # Errors, enabled, timestamp transfer state; no clear action.
+RESPONSE_WORDS += (1 + DMU_IMAGE_WORDS, 29, 12)  # CPU image and explicit timestamp metadata.
+RESPONSE_WORDS += (1, 0, 0, 9)  # Actual access value or latched ISR facts.
+RESPONSE_WORDS += (0, 0, 1, 5)
+RESPONSE_WORDS += (0, 1)
+RESPONSE_WORDS += (2,)  # Configured cycles and current counter; not measured RAM latency.
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
     "last_error",
@@ -383,6 +413,13 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.ECC_EVENT_GET,
         CanCommand.DMU_ENDPOINT_GET,
         CanCommand.DMU_REQUEST_GET,
-        CanCommand.DMU_COUNTERS_GET,
+        CanCommand.DMU_TX_IMAGE_ENCODE,
+        CanCommand.DMU_RX_IMAGE_DECODE,
+        CanCommand.DMU_EVENT_IMAGE_DECODE,
+        CanCommand.DMU_EVENT_GET,
+        CanCommand.FILTER_SYNC_GET,
+        CanCommand.RX_TIMESTAMP_GET,
+        CanCommand.EXTERNAL_VECTOR_GET,
+        CanCommand.RAM_WATCHDOG_GET,
     }
 )

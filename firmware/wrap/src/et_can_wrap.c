@@ -13,6 +13,7 @@ typedef struct
     CAN_Type *instance;
     et_irq_line_t irq_lines[ET_CAN_IRQ_LINE_COUNT];
     et_irq_line_t ecc_irq;
+    et_irq_line_t dmu_irq;
 } et_can_mapping_t;
 
 typedef struct
@@ -27,6 +28,7 @@ static const et_can_timing_limits_t timing_limits = ET_CHIP_CAN_TIMING_LIMIT_MAP
 static const et_can_option_limits_t option_limits = ET_CHIP_CAN_OPTION_LIMIT_MAP_TABLE;
 static const CAN_TestDmuElement dmu_elements[] = ET_CHIP_CAN_DMU_ELEMENT_MAP_TABLE;
 static const CAN_DMURxRequest dmu_requests[] = ET_CHIP_CAN_DMU_REQUEST_MAP_TABLE;
+static const et_can_irq_mapping_t dmu_errors[] = ET_CHIP_CAN_DMU_ERROR_MAP_TABLE;
 
 /**
  * @brief Resolve the requested logical controller from immutable chip facts.
@@ -63,6 +65,137 @@ static CAN_Type *find_instance(et_can_id_t id)
 }
 
 /**
+ * @brief Access exactly one word in a named test aperture.
+ * @param[in] id Logical controller.
+ * @param[in] element Named DMU element, never an arbitrary address.
+ * @param[in] word_index Word offset bounded by the own Driver aperture.
+ * @param[in] write Boolean direction; illegal hardware directions are intentional.
+ * @param[in,out] value Written word or actual readback; reads may consume hardware state.
+ * @return OK, invalid request or unsupported controller.
+ * @note No retry, hidden sequence, reset or IRQ acknowledgement.
+ */
+et_wrap_status_t et_can_wrap_access_dmu_word(et_can_id_t id, et_can_dmu_element_t element,
+                                             uint32_t word_index, uint8_t write, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (value == NULL || (uint32_t)element >= ET_CAN_DMU_ELEMENT_COUNT || write > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testAccessDmuWord(instance, dmu_elements[element], word_index, write, value) ==
+                   DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_INVALID_ARGUMENT;
+}
+
+/**
+ * @brief Resolve the DMU's independent semantic IRQ route.
+ * @param[in] id Logical controller.
+ * @param[in] sources Nonempty public error mask.
+ * @param[out] route Immutable physical route facts.
+ * @return OK, invalid mask or unsupported instance.
+ * @note No IRQ Manager or register access.
+ */
+et_wrap_status_t et_can_wrap_get_dmu_route(et_can_id_t id, uint32_t sources, et_irq_route_t *route)
+{
+    const et_can_mapping_t *mapping = find_mapping(id);
+
+    if (route == NULL || sources == 0u || (sources & ~ET_CAN_DMU_ERROR_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (mapping == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    route->irq_line = mapping->dmu_irq;
+    route->reserved = 0u;
+    route->route_events = sources;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Change selected DMU error interrupt enables.
+ * @param[in] id Logical controller.
+ * @param[in] sources Public error mask.
+ * @param[in] enabled Boolean enable state.
+ * @return OK, invalid argument or unsupported instance.
+ * @note Only the own Driver writes DMUIE; raw errors are not consumed.
+ */
+et_wrap_status_t et_can_wrap_set_dmu_irq(et_can_id_t id, uint32_t sources, uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+    uint32_t index, mask = 0u;
+
+    if ((sources & ~ET_CAN_DMU_ERROR_ALL) != 0u || enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    for (index = 0u; index < sizeof(dmu_errors) / sizeof(dmu_errors[0]); ++index)
+    {
+        if ((sources & dmu_errors[index].public_event) != 0u)
+        {
+            mask |= dmu_errors[index].driver_event;
+        }
+    }
+
+    return CAN_testSetDmuIrq(instance, mask, enabled) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Read actual enabled DMU error sources without consuming raw errors.
+ * @param[in] id Logical controller.
+ * @param[out] sources Public error enables.
+ * @return OK, invalid output or unsupported instance.
+ * @note One own Driver read; success/debug bits have no public error meaning.
+ */
+et_wrap_status_t et_can_wrap_get_dmu_irq(et_can_id_t id, uint32_t *sources)
+{
+    CAN_Type *instance = find_instance(id);
+    uint32_t index, actual;
+
+    if (sources == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    actual = CAN_testGetDmuIrq(instance);
+    *sources = 0u;
+
+    for (index = 0u; index < sizeof(dmu_errors) / sizeof(dmu_errors[0]); ++index)
+    {
+        if ((actual & dmu_errors[index].driver_event) != 0u)
+        {
+            *sources |= dmu_errors[index].public_event;
+        }
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
  * @brief Resolve one named DMA endpoint through the own CAN Driver.
  * @param[in] id Logical controller.
  * @param[in] element Public virtual element selector.
@@ -88,6 +221,114 @@ et_wrap_status_t et_can_wrap_get_dmu_endpoint(et_can_id_t id, et_can_dmu_element
     return CAN_testGetDmuEndpoint(instance, dmu_elements[element], address) == DRV_OK
                ? ET_WRAP_STATUS_OK
                : ET_WRAP_STATUS_IO_ERROR;
+}
+
+/**
+ * @brief Set only protected DMU timestamp transfer selection.
+ * @param[in] id Logical controller.
+ * @param[in] enabled Strict Boolean.
+ * @return OK, invalid argument, missing INIT/UTSU or unsupported instance.
+ * @note Does not change UTSU, TSU configuration or the caller's original CCE permission.
+ */
+et_wrap_status_t et_can_wrap_set_dmu_timestamp(et_can_id_t id, uint8_t enabled)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testSetDmuTimestamp(instance, enabled) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                                : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Access one allocated filter's timestamp capture selection.
+ * @param[in] id Logical controller.
+ * @param[in] extended Strict filter-list selector.
+ * @param[in] index Allocated filter index.
+ * @param[in] write Strict direction selector.
+ * @param[in,out] enabled Requested Boolean for write, actual Boolean for read.
+ * @return OK, invalid selector, unsupported controller or Driver precondition failure.
+ * @note Only the own Driver handles SYNC fields; filter IDs and actions are preserved.
+ */
+et_wrap_status_t et_can_wrap_access_filter_sync(et_can_id_t id, uint8_t extended, uint32_t index,
+                                                uint8_t write, uint32_t *enabled)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (extended > 1u || write > 1u || enabled == NULL || (write && *enabled > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testAccessFilterSync(instance, extended, index, write, enabled) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read explicit timestamp metadata from the current nonempty RX FIFO head.
+ * @param[in] id Logical controller.
+ * @param[in] fifo Public FIFO selector.
+ * @param[out] metadata Timestamp format, captured pointer and actual FIFO index.
+ * @return OK, invalid selector, empty FIFO or invalid hardware layout.
+ * @note Caller must stop competing consumers; no Ack, virtual window or TSU slot read.
+ */
+et_wrap_status_t et_can_wrap_get_rx_timestamp(et_can_id_t id, uint32_t fifo,
+                                              et_can_rx_timestamp_t *metadata)
+{
+    CAN_Type *instance = find_instance(id);
+    et_can_rx_fifo_status_t head;
+    CAN_TestRxTimestamp actual;
+    et_wrap_status_t status;
+
+    if (fifo > 1u || metadata == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    status = et_can_wrap_get_rx_fifo_status(id, fifo, &head);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    if (head.fill == 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    if (CAN_testGetRxTimestamp(instance, fifo == 0u ? CAN_RX_FIFO_NUM_0 : CAN_RX_FIFO_NUM_1,
+                               head.get_index, &actual) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    metadata->internal_valid = actual.internalValid;
+    metadata->timestamp = actual.timestamp;
+    metadata->captured = actual.captured;
+    metadata->pointer = actual.pointer;
+    metadata->index = head.get_index;
+
+    return ET_WRAP_STATUS_OK;
 }
 
 /**
@@ -162,7 +403,7 @@ et_wrap_status_t et_can_wrap_get_dmu_request(et_can_id_t id, et_can_dmu_request_
  * @param[in] id Logical controller.
  * @param[out] counters Enqueue/dequeue totals and counter modulus.
  * @return OK, invalid argument, unsupported instance or Driver error.
- * @note Does not reset counters, read IRQ flags or acknowledge queued elements.
+ * @note The read may consume counters; no reset write, IRQ read or queue acknowledgement.
  */
 et_wrap_status_t et_can_wrap_get_dmu_counters(et_can_id_t id, et_can_dmu_counters_t *counters)
 {
@@ -189,6 +430,50 @@ et_wrap_status_t et_can_wrap_get_dmu_counters(et_can_id_t id, et_can_dmu_counter
     counters->rx1_dequeued = actual.rx1Dequeued;
     counters->tx_event_dequeued = actual.txEventDequeued;
     counters->modulus = actual.modulus;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Capture DMU error flags once and translate only documented error sources.
+ * @param[in] id Logical CAN controller.
+ * @param[out] status Actual errors followed by enable and timestamp controls.
+ * @return OK, invalid argument, unsupported instance or Driver error.
+ * @note Reads may consume target flags; no retry, clear write or virtual-window access.
+ */
+et_wrap_status_t et_can_wrap_consume_dmu_status(et_can_id_t id, et_can_dmu_status_t *status)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TestDmuStatus actual;
+    size_t index;
+
+    if (status == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_testConsumeDmuStatus(instance, &actual) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    status->errors = 0u;
+
+    for (index = 0u; index < sizeof(dmu_errors) / sizeof(dmu_errors[0]); ++index)
+    {
+        if ((actual.flags & dmu_errors[index].driver_event) != 0u)
+        {
+            status->errors |= dmu_errors[index].public_event;
+        }
+    }
+
+    status->enabled = actual.enabled;
+    status->transfer_timestamp = actual.transferTimestamp;
 
     return ET_WRAP_STATUS_OK;
 }
@@ -1459,6 +1744,229 @@ static int encode_tx_element(const et_can_tx_frame_t *frame, uint32_t marker_bit
 }
 
 /**
+ * @brief Encode one public frame into a bounded CPU-owned DMA image.
+ * @param[in] id Logical controller whose actual element format is used.
+ * @param[in] frame Explicit frame and payload.
+ * @param[out] image Encoded bytes and actual length; unused envelope is zero.
+ * @return OK, invalid argument, unsupported instance or Driver error.
+ * @note No Message RAM, DMU window, DMA controller or transmit request is accessed.
+ */
+et_wrap_status_t et_can_wrap_encode_dmu_tx(et_can_id_t id, const et_can_tx_frame_t *frame,
+                                           et_can_dmu_image_t *image)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TxBufElement element;
+    uint32_t marker_bits;
+    uint32_t tsu_enabled;
+    uint32_t words;
+
+    if (image == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetEventFormat(instance, &marker_bits, &tsu_enabled);
+
+    if (!encode_tx_element(frame, marker_bits, &element))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    (void)memset(image, 0, sizeof(*image));
+
+    if (CAN_testEncodeDmuTx(instance, &element, image->words, ET_CAN_DMU_IMAGE_WORDS, &words) !=
+        DRV_OK)
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    image->byte_count = words * sizeof(uint32_t);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Validate the bounded raw-image envelope before passing words to the own Driver.
+ * @param[in] image CPU-owned bytes; padding must be zero.
+ * @return Nonzero only for a nonempty word-aligned image within the software budget.
+ * @note No chip element length is inferred here; the own Driver owns geometry checks.
+ */
+static int valid_dmu_image(const et_can_dmu_image_t *image)
+{
+    uint32_t index;
+
+    if ((image == NULL) || (image->byte_count == 0u) ||
+        (image->byte_count > ET_CAN_DMU_IMAGE_BYTES) ||
+        (image->byte_count % sizeof(uint32_t) != 0u))
+    {
+        return 0;
+    }
+
+    for (index = image->byte_count / sizeof(uint32_t); index < ET_CAN_DMU_IMAGE_WORDS; ++index)
+    {
+        if (image->words[index] != 0u)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Check decoded identifier alignment and protocol flag consistency.
+ * @param[in] identifier Driver-native identifier encoding.
+ * @param[in] extended Extended identifier flag.
+ * @param[in] remote Remote frame flag.
+ * @param[in] fd FD frame flag.
+ * @param[in] brs Bit-rate switch flag.
+ * @param[in] esi Error-state indicator flag.
+ * @return Nonzero only for a valid Driver header.
+ * @note Encoding facts are supplied by Chip Config; no raw image bits are decoded here.
+ */
+static int valid_dmu_header(uint32_t identifier, uint32_t extended, uint32_t remote, uint32_t fd,
+                            uint32_t brs, uint32_t esi)
+{
+    return (extended <= 1u) && (remote <= 1u) && (fd <= 1u) && (brs <= 1u) && (esi <= 1u) &&
+           !(fd && remote) && !(!fd && (brs || esi)) &&
+           (identifier <= frame_mapping.extended_id_max) &&
+           (extended ||
+            ((((identifier >> frame_mapping.standard_id_shift)
+               << frame_mapping.standard_id_shift) == identifier) &&
+             ((identifier >> frame_mapping.standard_id_shift) <= frame_mapping.standard_id_max)));
+}
+
+/**
+ * @brief Decode one already-copied RX image through the own Chip Driver.
+ * @param[in] id Logical controller supplying actual format and FIFO geometry.
+ * @param[in] fifo Public receive FIFO number.
+ * @param[in] image Bounded copied DMA bytes.
+ * @param[out] decoded Actual frame and explicit timestamp validity.
+ * @return OK, invalid argument, unsupported instance or malformed-image error.
+ * @note Does not read a FIFO, acknowledge it, consume TSU slots or operate DMA.
+ */
+et_wrap_status_t et_can_wrap_decode_dmu_rx(et_can_id_t id, uint32_t fifo,
+                                           const et_can_dmu_image_t *image,
+                                           et_can_dmu_rx_image_t *decoded)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_RxBufElement element;
+    CAN_TestDmuRxMetadata metadata;
+    uint32_t byte;
+
+    if ((decoded == NULL) || (fifo >= sizeof(rx_fifo_numbers) / sizeof(rx_fifo_numbers[0])) ||
+        !valid_dmu_image(image))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if ((CAN_testDecodeDmuRx(instance, rx_fifo_numbers[fifo], image->words,
+                             image->byte_count / sizeof(uint32_t), &element,
+                             &metadata) != DRV_OK) ||
+        !valid_dmu_header(element.id, element.xtd, element.rtr, element.fdf, element.brs,
+                          element.esi) ||
+        (metadata.validPayloadBytes > ET_CAN_FRAME_DATA_BYTES))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    (void)memset(decoded, 0, sizeof(*decoded));
+    decoded->frame.identifier =
+        element.xtd ? element.id : element.id >> frame_mapping.standard_id_shift;
+    decoded->frame.flags =
+        (element.xtd ? ET_CAN_FRAME_EXTENDED : 0u) | (element.rtr ? ET_CAN_FRAME_REMOTE : 0u) |
+        (element.fdf ? ET_CAN_FRAME_FD : 0u) | (element.brs ? ET_CAN_FRAME_BRS : 0u) |
+        (element.esi ? ET_CAN_FRAME_ESI : 0u);
+    decoded->frame.dlc = element.dlc;
+    decoded->frame.timestamp = element.rxts;
+    decoded->frame.filter_index = element.fidx;
+    decoded->frame.nonmatching = element.anmf;
+    decoded->frame.data_length = metadata.validPayloadBytes;
+    decoded->frame.index = UINT32_MAX;
+
+    for (byte = 0u; byte < metadata.validPayloadBytes; ++byte)
+    {
+        decoded->frame.data[byte] = (uint8_t)element.data[byte];
+    }
+
+    decoded->internal_timestamp_valid = metadata.internalTimestampValid;
+    decoded->tsu_captured = metadata.tsuCaptured;
+    decoded->tsu_pointer = metadata.tsuPointer;
+    decoded->transferred_timestamp_valid = metadata.transferredTimestampValid;
+    decoded->transferred_timestamp = metadata.transferredTimestamp;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Decode one already-copied TX event image using the actual target format.
+ * @param[in] id Logical controller.
+ * @param[in] image Bounded DMA bytes, not a pointer to a virtual window.
+ * @param[out] decoded Event and explicit timestamp validity; no FIFO index is fabricated.
+ * @return OK, invalid argument, unsupported instance or malformed-image error.
+ * @note Only own-IP configuration reads occur; no live event or TSU slot is consumed.
+ */
+et_wrap_status_t et_can_wrap_decode_dmu_event(et_can_id_t id, const et_can_dmu_image_t *image,
+                                              et_can_dmu_event_image_t *decoded)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TxEventFIFOElement event;
+    CAN_TestEventMetadata metadata;
+    uint32_t transferred_valid;
+    uint32_t transferred_timestamp;
+
+    if ((decoded == NULL) || !valid_dmu_image(image))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if ((CAN_testDecodeDmuEvent(instance, image->words, image->byte_count / sizeof(uint32_t),
+                                &event, &metadata, &transferred_valid,
+                                &transferred_timestamp) != DRV_OK) ||
+        !valid_dmu_header(event.id, event.xtd, event.rtr, event.fdf, event.brs, event.esi) ||
+        ((event.et != ET_CAN_TX_EVENT_TRANSMITTED) &&
+         (event.et != ET_CAN_TX_EVENT_TRANSMITTED_AFTER_CANCEL)))
+    {
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    (void)memset(decoded, 0, sizeof(*decoded));
+    decoded->details.event.identifier =
+        event.xtd ? event.id : event.id >> frame_mapping.standard_id_shift;
+    decoded->details.event.flags =
+        (event.xtd ? ET_CAN_FRAME_EXTENDED : 0u) | (event.rtr ? ET_CAN_FRAME_REMOTE : 0u) |
+        (event.fdf ? ET_CAN_FRAME_FD : 0u) | (event.brs ? ET_CAN_FRAME_BRS : 0u) |
+        (event.esi ? ET_CAN_FRAME_ESI : 0u);
+    decoded->details.event.dlc = event.dlc;
+    decoded->details.event.timestamp = event.txts;
+    decoded->details.event.event_type = event.et;
+    decoded->details.event.marker = event.mm;
+    decoded->details.event.index = UINT32_MAX;
+    decoded->details.internal_timestamp_valid = metadata.internalTimestampValid;
+    decoded->details.tsu_captured = metadata.tsuCaptured;
+    decoded->details.tsu_pointer = metadata.tsuPointer;
+    decoded->transferred_timestamp_valid = transferred_valid;
+    decoded->transferred_timestamp = transferred_timestamp;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
  * @brief Prepare one allocated TX element without requesting transmission.
  * @param[in] id Logical controller.
  * @param[in] index Allocated software-owned slot, including FIFO/Queue preload slots.
@@ -2065,6 +2573,60 @@ et_wrap_status_t et_can_wrap_read_tsu_value(et_can_id_t id, uint8_t consume, uin
     *value = consume != 0u ? CAN_testConsumeTsuSlot0(instance) : CAN_testGetTsuTimebase(instance);
 
     return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Access the controller's external vector through its own driver.
+ * @param[in] id Logical controller.
+ * @param[in] write Strict Boolean selecting write instead of read.
+ * @param[in,out] value Input vector on write, actual hardware vector on read.
+ * @return OK, invalid argument, unsupported instance or invalid state.
+ * @note Writes require INIT and change the external vector, not TSU configuration.
+ */
+et_wrap_status_t et_can_wrap_access_external_vector(et_can_id_t id, uint8_t write, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((value == NULL) || (write > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testAccessExternalVector(instance, write, value) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read the actual RAM watchdog configuration and current counter.
+ * @param[in] id Logical CAN controller.
+ * @param[out] limit Actual configured watchdog cycles; zero means disabled.
+ * @param[out] value Current hardware counter in CAN system clock cycles.
+ * @return OK, invalid argument or unsupported instance.
+ * @note One own-driver snapshot; no reload, IRQ clear or inferred response latency.
+ */
+et_wrap_status_t et_can_wrap_get_ram_watchdog(et_can_id_t id, uint32_t *limit, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((limit == NULL) || (value == NULL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testGetRamWatchdog(instance, limit, value) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_INVALID_ARGUMENT;
 }
 
 /**

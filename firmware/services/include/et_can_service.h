@@ -79,6 +79,31 @@ typedef enum
     ET_CAN_DMU_COUNTER_MODULUS,
     ET_CAN_DMU_COUNTER_WORDS
 } et_can_dmu_counter_word_t;
+typedef enum
+{
+    ET_CAN_DMU_STATUS_ERRORS = 0u,
+    ET_CAN_DMU_STATUS_ENABLED,
+    ET_CAN_DMU_STATUS_TRANSFER_TIMESTAMP,
+    ET_CAN_DMU_STATUS_WORDS
+} et_can_dmu_status_word_t;
+/** Image envelope is a byte count plus fixed CPU bytes; RX prepends a FIFO selector. */
+#define ET_CAN_DMU_IMAGE_ENVELOPE_WORDS (1u + ET_CAN_DMU_IMAGE_WORDS)
+#define ET_CAN_DMU_RX_IMAGE_REQUEST_WORDS (1u + ET_CAN_DMU_IMAGE_ENVELOPE_WORDS)
+typedef enum
+{
+    ET_CAN_DMU_RX_INTERNAL_VALID = ET_CAN_RX_FRAME_WORDS,
+    ET_CAN_DMU_RX_TSU_CAPTURED,
+    ET_CAN_DMU_RX_TSU_POINTER,
+    ET_CAN_DMU_RX_TRANSFERRED_VALID,
+    ET_CAN_DMU_RX_TRANSFERRED_TIMESTAMP,
+    ET_CAN_DMU_RX_IMAGE_RESPONSE_WORDS
+} et_can_dmu_rx_image_word_t;
+typedef enum
+{
+    ET_CAN_DMU_EVENT_TRANSFERRED_VALID = ET_CAN_EVENT_DETAILS_WORDS,
+    ET_CAN_DMU_EVENT_TRANSFERRED_TIMESTAMP,
+    ET_CAN_DMU_EVENT_IMAGE_RESPONSE_WORDS
+} et_can_dmu_event_image_word_t;
 /** Counter reload response contains real reads rather than a configured TOP value. */
 typedef enum
 {
@@ -86,6 +111,13 @@ typedef enum
     ET_CAN_COUNTER_RELOAD_AFTER,
     ET_CAN_COUNTER_RELOAD_WORDS
 } et_can_counter_reload_word_t;
+/** Single hardware RAM watchdog snapshot, not a reload or latency measurement. */
+typedef enum
+{
+    ET_CAN_RAM_WATCHDOG_LIMIT = 0u,
+    ET_CAN_RAM_WATCHDOG_VALUE,
+    ET_CAN_RAM_WATCHDOG_WORDS
+} et_can_ram_watchdog_word_t;
 #define ET_CAN_RX_SELECT_WORDS 2u
 #define ET_CAN_RX_BITMAP_WORDS 2u
 #define ET_CAN_RX_SELECT_SOURCE 0u
@@ -342,6 +374,21 @@ typedef enum
     ET_CAN_COMMAND_DMU_REQUEST_SET = 80u,
     ET_CAN_COMMAND_DMU_REQUEST_GET = 81u,
     ET_CAN_COMMAND_DMU_COUNTERS_GET = 82u,
+    ET_CAN_COMMAND_DMU_STATUS_CONSUME = 83u,
+    ET_CAN_COMMAND_DMU_TX_IMAGE_ENCODE = 84u,
+    ET_CAN_COMMAND_DMU_RX_IMAGE_DECODE = 85u,
+    ET_CAN_COMMAND_DMU_EVENT_IMAGE_DECODE = 86u,
+    ET_CAN_COMMAND_DMU_WORD_ACCESS = 87u,
+    ET_CAN_COMMAND_DMU_CAPTURE_START = 88u,
+    ET_CAN_COMMAND_DMU_CAPTURE_STOP = 89u,
+    ET_CAN_COMMAND_DMU_EVENT_GET = 90u,
+    ET_CAN_COMMAND_DMU_TIMESTAMP_SET = 91u,
+    ET_CAN_COMMAND_FILTER_SYNC_SET = 92u,
+    ET_CAN_COMMAND_FILTER_SYNC_GET = 93u,
+    ET_CAN_COMMAND_RX_TIMESTAMP_GET = 94u,
+    ET_CAN_COMMAND_EXTERNAL_VECTOR_SET = 95u,
+    ET_CAN_COMMAND_EXTERNAL_VECTOR_GET = 96u,
+    ET_CAN_COMMAND_RAM_WATCHDOG_GET = 97u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
@@ -372,6 +419,26 @@ typedef enum
 /** ECC appends actual callback instance to the standard eight IRQ evidence words. */
 #define ET_CAN_ECC_EVENT_INSTANCE ET_CAN_IRQ_EVENT_WORDS
 #define ET_CAN_ECC_EVENT_WORDS (ET_CAN_IRQ_EVENT_WORDS + 1u)
+/** DMU evidence uses the same field ordering, with independent storage and generation. */
+#define ET_CAN_DMU_EVENT_INSTANCE ET_CAN_IRQ_EVENT_WORDS
+#define ET_CAN_DMU_EVENT_WORDS (ET_CAN_IRQ_EVENT_WORDS + 1u)
+typedef enum
+{
+    ET_CAN_DMU_ACCESS_ELEMENT = 0u,
+    ET_CAN_DMU_ACCESS_WORD_INDEX,
+    ET_CAN_DMU_ACCESS_WRITE,
+    ET_CAN_DMU_ACCESS_VALUE,
+    ET_CAN_DMU_ACCESS_WORDS
+} et_can_dmu_access_word_t;
+typedef enum
+{
+    ET_CAN_RX_TIMESTAMP_INTERNAL_VALID = 0u,
+    ET_CAN_RX_TIMESTAMP_VALUE,
+    ET_CAN_RX_TIMESTAMP_CAPTURED,
+    ET_CAN_RX_TIMESTAMP_POINTER,
+    ET_CAN_RX_TIMESTAMP_INDEX,
+    ET_CAN_RX_TIMESTAMP_WORDS
+} et_can_rx_timestamp_word_t;
 typedef enum
 {
     ET_CAN_ECC_RAW = 0u,
@@ -412,6 +479,7 @@ typedef enum
 
 /** Filter selector is extended/index; configuration adds type/action/ID1/ID2/Buffer index. */
 #define ET_CAN_FILTER_SELECT_WORDS 2u
+#define ET_CAN_FILTER_SYNC_SET_WORDS (ET_CAN_FILTER_SELECT_WORDS + 1u)
 #define ET_CAN_FILTER_CONFIG_WORDS 5u
 #define ET_CAN_FILTER_SET_WORDS (ET_CAN_FILTER_SELECT_WORDS + ET_CAN_FILTER_CONFIG_WORDS)
 /** High Priority Message status returns four public semantic words. */
@@ -453,6 +521,10 @@ typedef struct
     volatile uint32_t ecc_event[ET_CAN_ECC_EVENT_WORDS];
     uint32_t ecc_watched;
     uint8_t ecc_bound;
+    et_irq_route_t dmu_route;
+    volatile uint32_t dmu_event[ET_CAN_DMU_EVENT_WORDS];
+    uint32_t dmu_watched;
+    uint8_t dmu_bound;
 } et_can_service_t;
 
 int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,

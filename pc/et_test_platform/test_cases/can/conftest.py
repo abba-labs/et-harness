@@ -12,10 +12,13 @@ import pytest
 from ...core.errors import ConfigurationError
 from ...drivers.can import CAN_SERVICE_ID, CanDriver
 from ...drivers.crg import CRG_SERVICE_ID, CrgDriver
+from ...drivers.dma import DMA_SERVICE_ID, DmaDriver, DmaFeature
 from ...drivers.gpio import GPIO_SERVICE_ID, GpioDriver, GpioFunction
+from ...drivers.stimer import STIMER_SERVICE_ID, StimerDriver, StimerFeature
+from ...drivers.sysctrl import SYSCTRL_SERVICE_ID, SysctrlDriver
 from ...instruments.can_boxes.connection import create_zlg_can_box_from_environment
 from ...profiles.hardware_connections import load_hardware_connections
-from ._support import CanSupport, chip_mapping
+from ._support import CanDmaSupport, CanSupport, chip_mapping
 
 
 # 选择唯一dut角色并做只读一致性核对；不将缺失命令或时钟映射降级为SKIP。
@@ -58,6 +61,60 @@ def can_support(framework_communication, target_capabilities):
         mapping,
         mapping.CAN_CLOCK_HZ[connections.lane],
     )
+
+
+# DMA依赖只读核对；在芯片映射与公开能力交集中选择一个代表控制器。
+@pytest.fixture
+def can_dma_support(can_support, framework_communication, target_capabilities):
+    mapping = can_support.mapping
+    declared = target_capabilities.instances("dma")
+    controllers = tuple(
+        item for item in mapping.CAN_DMU_ALLOWED_CONTROLLERS if f"dma{item}" in declared
+    )
+    if not controllers:
+        raise ConfigurationError("CAN DMU has no declared and mapped DMA controller")
+    controller = controllers[0]
+    services = {
+        (item.service_id, item.instance_id) for item in framework_communication.runtime_services
+    }
+    if not {(DMA_SERVICE_ID, controller), (SYSCTRL_SERVICE_ID, 0)} <= services:
+        raise ConfigurationError("CAN DMU requires matching DMA and SYSCTRL runtime services")
+    if can_support.can.instance_id not in mapping.CAN_DMU_REQUESTS:
+        raise ConfigurationError("CAN DMU request mapping is missing for the selected instance")
+    dma = DmaDriver(framework_communication.target_client, controller)
+    capabilities = dma.capabilities_get()
+    required = DmaFeature.MEMORY_TO_PERIPHERAL | DmaFeature.PERIPHERAL_TO_MEMORY
+    if capabilities.channel_count < 2 or capabilities.features & required != required:
+        raise ConfigurationError("CAN DMU requires two channels and bidirectional peripheral DMA")
+    if not {0, 1} <= set(mapping.CAN_DMU_ALLOWED_INTERFACES):
+        raise ConfigurationError("CAN DMU Case-selected interfaces are not mapped")
+    return CanDmaSupport(
+        dma, SysctrlDriver(framework_communication.target_client), capabilities, controller
+    )
+
+
+# STIMER只读依赖用于生成真实计数样本；不建立未经证明的CAN硬连线。
+@pytest.fixture
+def can_stimer_reference(framework_communication, target_capabilities):
+    instances = target_capabilities.instances("stimer")
+    if not instances:
+        raise ConfigurationError("CAN TSU sample requires a declared STIMER instance")
+    name = instances[0]
+    suffix = name.removeprefix("stimer")
+    if not suffix.isdecimal():
+        raise ConfigurationError("CAN TSU STIMER logical instance is invalid")
+    instance = int(suffix)
+    services = {
+        (item.service_id, item.instance_id) for item in framework_communication.runtime_services
+    }
+    if (STIMER_SERVICE_ID, instance) not in services:
+        raise ConfigurationError("CAN TSU STIMER runtime service is missing")
+    driver = StimerDriver(framework_communication.target_client, instance_id=instance)
+    limits = driver.capabilities_get()
+    required = StimerFeature.START_STOP | StimerFeature.CLEAR | StimerFeature.ONE_SHOT
+    if limits.features & required != required:
+        raise ConfigurationError("CAN TSU STIMER sample primitives are missing")
+    return instance, driver, limits
 
 
 # 全实例只读入口：核对Capability与Runtime交集，不配置硬件或截取代表实例。

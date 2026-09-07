@@ -31,6 +31,20 @@ CAN_STD_FILTER_BYTES = 4
 CAN_EXT_FILTER_BYTES = 8
 CAN_EVENT_BYTES = 8
 
+# et6x_sysctrl.h SYSCTRL_DMAReqIdx：CAN0_TX=222起，CAN发送/接收请求逐实例连续排列。
+# CAN RX请求经同实例MISC选择RX0/RX1/Event；两套AHBDMA的8路接口均可路由。
+# 数据窗口只支持32-bit顺序地址访问；DMU端点地址由Own CAN Driver独立查询。
+CAN_DMU_WORD_BYTES = 4
+CAN_DMU_ALLOWED_CONTROLLERS = (0, 1)
+CAN_DMU_ALLOWED_INTERFACES = tuple(range(8))
+CAN_DMU_REQUESTS = MappingProxyType(
+    {
+        0: MappingProxyType({"tx": 222, "rx": 223}),
+        1: MappingProxyType({"tx": 224, "rx": 225}),
+        2: MappingProxyType({"tx": 226, "rx": 227}),
+    }
+)
+
 # 三实例控制基址间隔0x8000；SDK各自前0x4000是CPU访问窗口，不代表独占RAM。
 # UT5覆盖单实例16KiB；这里只声明单实例可测范围，不推导并存时物理独立。
 CAN_RAM_TEST_REGIONS = MappingProxyType(

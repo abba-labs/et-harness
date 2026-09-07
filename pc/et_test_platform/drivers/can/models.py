@@ -486,6 +486,76 @@ class CanDmuCounters:
     modulus: int
 
 
+# 仅错误语义；成功入队/出队及Debug事件不混入本掩码。
+class CanDmuError(IntFlag):
+    NONE = 0
+    CONFIGURATION_ACCESS = 1 << 0
+    EVENT_WRITE = 1 << 1
+    EVENT_SEQUENCE = 1 << 2
+    EVENT_DEQUEUE = 1 << 3
+    EVENT_START = 1 << 4
+    RX1_TIMESTAMP_OVERWRITE = 1 << 5
+    RX1_WRITE = 1 << 6
+    RX1_SEQUENCE = 1 << 7
+    RX1_DEQUEUE = 1 << 8
+    RX1_START = 1 << 9
+    MEMORY_UNCORRECTED = 1 << 10
+    MEMORY_CORRECTED = 1 << 11
+    TX_READ = 1 << 12
+    TX_AFTER_TRIGGER = 1 << 13
+    TX_DLC = 1 << 14
+    TX_SEQUENCE = 1 << 15
+    TX_ENQUEUE = 1 << 16
+    TX_START = 1 << 17
+
+
+# 错误标志先读一次，再读两个状态；不是同时采样，不自动清除或重试。
+@dataclass(frozen=True, slots=True)
+class CanDmuStatus:
+    errors: CanDmuError
+    enabled: bool
+    transfer_timestamp: bool
+
+
+# DMU独立IRQ首次读值；与控制器/ECC事件位图不混用。
+@dataclass(frozen=True, slots=True)
+class CanDmuEvent:
+    raw_status: CanDmuError
+    masked_status: CanDmuError
+    latched_events: CanDmuError
+    event_count: int
+    unexpected_count: int
+    overflow_count: int
+    generation: int
+    fault_flags: int
+    instance_id: int | None
+
+
+# 非消费FIFO头部元数据；内部时间戳和TSU指针有互斥有效性。
+@dataclass(frozen=True, slots=True)
+class CanRxTimestamp:
+    internal_timestamp: int | None
+    tsu_pointer: int | None
+    index: int
+
+
+# DMA复制后解码的RX；index为0xffffffff表示镜像不携带FIFO索引。
+# frame.data只保留真实有效负载，TSU覆盖的末字节不冒充接收数据。
+@dataclass(frozen=True, slots=True)
+class CanDmuRxImage:
+    frame: CanRxFrame
+    internal_timestamp_valid: bool
+    tsu_pointer: int | None
+    transferred_timestamp: int | None
+
+
+# DMA事件镜像不重新读取FIFO或TSU；None表示未附加有效时间戳。
+@dataclass(frozen=True, slots=True)
+class CanDmuEventImage:
+    event: CanTxEventDetails
+    transferred_timestamp: int | None
+
+
 # 一个过滤器的显式配置或实际读回，格式和列表索引由Driver方法参数指定。
 # 普通过滤buffer_index必须为0；BUFFER使用RANGE、id2=0，不隐式选择时间戳捕获。
 @dataclass(frozen=True, slots=True)
