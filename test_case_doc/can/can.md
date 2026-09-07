@@ -381,8 +381,8 @@ RAM对应`CanRamLayout`、`CanRamLimits`及`ram_layout_set/get`、`ram_limits_ge
 | CAN_P1_019 | CAN Monitor与Restricted模式 | P1 | R4 | PLANNED，见第3节 |
 | CAN_P1_020 | CAN FD ISO与Non-ISO格式 | P1 | R2～R4 | IMPLEMENTED，见第3节；硬件结果单独登记 |
 | CAN_P1_021 | CAN TDC启用后的FD总线收发 | P1 | R2～R4 | SPEC，见第3节 |
-| CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | 已实现，硬件未执行 |
-| CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | 已实现，硬件未执行 |
+| CAN_P2_001 | CAN DMA经DMU发送与接收 | P2 | R1 | SPEC，见第3节；芯片结果单独登记 |
+| CAN_P2_002 | CAN DMA搬运TX Event | P2 | R1 | SPEC，见第3节；芯片结果单独登记 |
 | CAN_P2_003 | CAN ECC中断链强制触发 | P2 | R1 | IMPLEMENTED，见第3节 |
 | CAN_P2_004 | CAN多实例Message RAM隔离 | P2 | R1 | SPEC，见第3节 |
 | CAN_P2_005 | CAN内部与外部回环引脚对照 | P2 | R2 | SPEC，见第3节 |
@@ -2282,7 +2282,7 @@ cases:
 
 | Chip | Feature Platform Summary | Case Adaptation Summary | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | ADAPTED=21; IMPLEMENTATION_GAP=16 | ADAPTED=25; IMPLEMENTATION_GAP=8; NEEDS_VERIFICATION=9 | 31 SPEC、8 PLAN、3项确认流程；新增Case软件门禁通过，DMU和TSU等真实执行语义仍待验证，适配状态不因注册自动升级；实测结论见芯片文档 | `ET6801_can.md` |
+| ET6801 | ADAPTED=26; PARTIAL_ADAPTATION=4; IMPLEMENTATION_GAP=7 | ADAPTED=31; IMPLEMENTATION_GAP=8; NEEDS_VERIFICATION=3 | 31 SPEC、8 PLAN、3项确认流程；Case核心映射与Feature更强覆盖缺口分开登记，ADAPTED不等于硬件PASS；实测结论仅见芯片文档 | `ET6801_can.md` |
 
 ## 5. Common Gap / Evolution
 
