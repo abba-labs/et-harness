@@ -121,6 +121,7 @@ class TsuTarget:
 class TimerSample:
     def __init__(self, timebase=None, fault=None):
         self.calls = []
+        self.running = False
         if timebase == "internal":
             samples = (100, 110, 1110, 1120)
             if fault == "timer_wrap":
@@ -133,6 +134,7 @@ class TimerSample:
 
     def stop(self):
         self.calls.append("stop")
+        self.running = False
 
     def configure(self, config):
         assert config.period_ticks == 0xFFFFFFFF
@@ -143,10 +145,11 @@ class TimerSample:
 
     def start(self):
         self.calls.append("start")
+        self.running = True
 
     def live_count_get(self):
         self.calls.append("read")
-        return next(self.values)
+        return next(self.values) if self.running else 0
 
 
 # 完整正常矩阵及每个决定性坏值；错误仍恢复向量并尝试所有清理。
@@ -188,8 +191,8 @@ def test_tsu_case_decisive_vectors(timebase, sof, fault):
                 "clear",
                 "start",
                 "read",
-                "stop",
                 "read",
+                "stop",
             ]
     assert timer.calls[-1] == "stop"
     assert [item["command"] for item in target.requests[-3:]] == [1, 2, 95]

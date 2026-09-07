@@ -72,7 +72,12 @@ def test_timeout_case_vectors(source, fault, monkeypatch):
             target.responses += [
                 pack("<4I", irq, 0, 0, 1),
                 pack("<8I", irq, irq, 0 if fault == "latched" else irq, 1, 0, 0, 1, 0),
-                pack("<I", 1 if fault == "expired" else 0),
+                pack(
+                    "<I",
+                    (1001 if fault == "expired" else 642)
+                    if source == 0
+                    else int(fault == "expired"),
+                ),
             ]
         else:
             target.responses += [
@@ -90,7 +95,7 @@ def test_timeout_case_vectors(source, fault, monkeypatch):
                         0,
                         8,
                         0,
-                        1,
+                        2,
                         0x5B if fault == "frame" and stage == "disabled" else 0x5A,
                         0,
                     ),

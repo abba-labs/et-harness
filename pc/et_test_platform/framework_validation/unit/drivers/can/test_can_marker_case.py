@@ -7,7 +7,10 @@ from struct import pack
 
 import pytest
 from et_test_platform.core.errors import ProtocolError
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.test_cases.can import test_can_p1_marker as marker_case
 
 
@@ -18,7 +21,7 @@ from et_test_platform.test_cases.can import test_can_p1_marker as marker_case
 @pytest.mark.parametrize(
     "fault", (None, "format", "marker", "rx_tail", "event_type", "stamp", "extra", "lost")
 )
-def test_marker_case_vectors(bits, fault, monkeypatch):
+def test_marker_case_vectors(bits, fault, monkeypatch, tmp_path):
     support, resource, target, calls = dependencies()
     target.responses = (
         [b"", pack("<I", 1)]
@@ -59,7 +62,7 @@ def test_marker_case_vectors(bits, fault, monkeypatch):
                     0,
                     8,
                     0x5678 if valid else 0,
-                    2 if fault == "event_type" else 1,
+                    1 if fault == "event_type" else 2,
                     marker,
                     index,
                     valid,
@@ -92,3 +95,6 @@ def test_marker_case_vectors(bits, fault, monkeypatch):
             expected_markers
         )
     assert calls == [("can", 0), ("resource",), ("can", 0), ("resource",)]
+    assert_case_report(properties, "CAN_P1_010", "FAIL" if fault else "PASS", tmp_path)
+    if fault not in (None, "extra", "lost"):
+        assert dict(properties)["empty_window"] == "NOT_OBSERVED"

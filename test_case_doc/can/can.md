@@ -918,13 +918,13 @@ p_level: P1
 feature_refs: [CAN_F_016]
 method:
   inputs:
-    - "Marker矩阵：8-bit模式使用0x12和0xAB，16-bit模式使用0x1234和0xABCD；关闭TSU，发送事件启用，内部回环8-byte帧。"
+    - "Marker矩阵：8-bit模式使用0x12和0xAB，16-bit模式使用0x1234和0xABCD；关闭TSU及自动重发，发送事件启用，内部回环8-byte帧。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "Marker配置：配置当前Marker位宽，16-bit模式明确占用事件中原16-bit时间戳位置。"
     - "帧构造：写两帧不同Marker，先保存Marker Expected，确认配置读回。"
     - "发送完成：逐帧等TX.COMPLETED，比较完整RX ID/Flags/DLC/Data并Ack RX，再检查TX_EVENT.FILL增加且Lost为0，不用RX时间戳推导Marker。"
-    - "事件读取：读取完整原始TX Event，按当前模式解码Marker并Ack。"
+    - "事件读取：读取完整原始TX Event，按当前模式解码Marker，严格核对关闭自动重发时的取消后成功发送类型并Ack。"
     - "位宽判断：比较两条Marker完整有效位；16-bit模式不同时声称验证16-bit TX时间戳。"
     - "排空窗口：Ack两条事件后连续100ms核对RX和Event的Fill均为0、Lost均为0，防止重复事件。"
   observations:
@@ -1086,10 +1086,10 @@ method:
     - "超时矩阵：连续、RX FIFO0、RX FIFO1、TX Event FIFO四源，TOP=1000、分频1、仲裁500 kbit/s；IRQ捕获启用，FIFO深度4。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "计数配置：内部回环，配置当前超时源；先禁用计数，确认无Timeout事件。"
+    - "计数配置：内部回环且关闭自动重发，配置当前超时源；先禁用计数，确认无Timeout事件；TX Event成功帧按当前重发模式核对取消后成功发送类型。"
     - "装载启动：连续模式写入重装动作启动；FIFO模式先确认空时计数为TOP，再发一帧仅使目标FIFO非空启动；TX Event模式拒收自发帧，RX0/1模式不保存TX Event，另外两源FIFO须为空。"
-    - "到期观察：不消费当前源FIFO，等待TIMEOUT.IRQ有效，保存COUNTER到期值和ISR锁存。"
-    - "重装验证：连续模式单命令返回实际重装前后值，要求前值0、后值在1..TOP；FIFO模式核对实际数据并Ack到空，检查COUNTER重新为TOP。"
+    - "到期观察：不消费当前源FIFO，等待TIMEOUT.IRQ有效，保存COUNTER到期值和ISR锁存；FIFO源到期保持0，连续源到零立即自动重装，因此后续实读须在0..TOP。"
+    - "重装验证：连续模式单命令返回实际重装前后值，前值须在0..TOP、后值在1..TOP，不假设自动重装计数仍停在零；FIFO模式核对实际数据并Ack到空，检查COUNTER重新为TOP。"
     - "禁止对照：显式进入INIT关闭计数后再退出，不复位CAN或RAM；清IRQ，FIFO模式重新产生仅目标非空条件，至少两倍理论周期内确认计数保持、无新Timeout或ISR，随后读取并Ack目标条目。"
   observations:
     - "计数来源：FIFO空/非空与TIMEOUT.COUNTER启动/重装关系一致，连续模式按写重装生效。"
@@ -1250,10 +1250,10 @@ p_level: P1
 feature_refs: [CAN_F_020]
 method:
   inputs:
-    - "时间基矩阵：内部计数分频4、外部固定值0x12345678/0x89ABCDEF及STIMER停止后的真实计数样本；从硬件读取时间戳槽数N，合法N为4/8/16，SOF/EOF只枚举硬件声明支持的捕获位置。"
+    - "时间基矩阵：内部计数分频4、外部固定值0x12345678/0x89ABCDEF及STIMER运行中保存的真实计数样本；从硬件读取时间戳槽数N，合法N为4/8/16，SOF/EOF只枚举硬件声明支持的捕获位置。"
     - "单一捕获源：内部回环Classic 8-byte，TX Timestamp Capture开启，RX过滤不启用SYNC，避免一帧TX和RX各捕获一次；只直接读取已映射的TS0。"
   steps:
-    - "独立基线：先复位参与STIMER，再复位CAN、Service和资源池；样本节点显式配置长周期One-Shot并启动、采样、停止、实读，验证计数推进且未到期；配置内部回环、TSU使能及当前时间基，外部模式写入向量并分别读取向量端点与ACTIVE_TIMEBASE，两者必须等于独立输入。"
+    - "独立基线：先复位参与STIMER，再复位CAN、Service和资源池；样本节点显式配置长周期One-Shot并启动、连续两次实读后停止，保存停止前的样本并验证计数推进且未到期，不依赖停止后的计数保持行为；配置内部回环、TSU使能及当前时间基，外部模式写入向量并分别读取向量端点与ACTIVE_TIMEBASE，两者必须等于独立输入。"
     - "新值捕获：记录ATB_before，逐帧发一个TX捕获，最多N帧，直到TSU.NEW[0]=1；期间只读New/Lost和发送状态，不读取时间戳槽。"
     - "读清核对：记录ATB_after及TSU.NEW/LOST，读取TS0一次，再读New/Lost；TS0对应New/Lost必须清零，其他槽位不受此次读取影响。"
     - "覆盖刺激：在2N次捕获开始前记录ATB_before，不再读取任何时间戳槽，连续完成2N个TX捕获后记录ATB_after；保存TSU.NEW[0]和LOST[0]，两者均须为1。"
@@ -2135,7 +2135,7 @@ cases:
     fields:
       - {source: observation, path: marker_bits, label: 硬件Marker位宽, format: decimal, aggregate: all}
       - {source: measurement, path: event_summary, label: 实际事件Marker和时间戳有效性, format: text, aggregate: all}
-      - {source: observation, path: empty_event_fill, label: 排空窗口事件数量, format: decimal, aggregate: all}
+      - {source: measurement, path: empty_window, label: 排空窗口实读摘要或未到达状态, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 独立Marker输入, format: text, aggregate: all}
   CAN_P1_020:
     summary: 四格式组合乘两长度；匹配双向完整帧，失配需首个协议错误和零RX，最后ISO双向恢复。

@@ -282,7 +282,14 @@ def test_can_p2_001_dmu_tx_rx(
                 channel: dma.channel_snapshot_get(channel) for channel in (tx_channel, rx_channel)
             }
             raw = resource_driver.read(destination)
-            actual = can.dmu_rx_image_decode(fifo, raw, timeout_s=deadline.remaining_s())
+            # 原始搬运结果先留证；解码拒绝畸形头时不能丢失实际DMA输出。
+            record_observation(
+                record_property,
+                key="received_image",
+                value=raw.hex(),
+                source="dut",
+                endpoint="DMA.DESTINATION",
+            )
             after = can.rx_fifo_status_get(fifo, timeout_s=deadline.remaining_s())
             errors = can.dmu_status_consume(timeout_s=deadline.remaining_s())
             states.append(
@@ -295,7 +302,7 @@ def test_can_p2_001_dmu_tx_rx(
             frames.append(
                 {
                     "image": raw.hex(),
-                    "decoded": str(actual),
+                    "decoded": "NOT_DECODED",
                     "fifo": asdict(after),
                     "dmu": asdict(errors),
                 }
@@ -341,7 +348,6 @@ def test_can_p2_001_dmu_tx_rx(
                 )
             # 接收FIFO与发送完成分别留证，保留失败前的实际终态。
             for key, value, endpoint in (
-                ("received_image", raw.hex(), "DMA.DESTINATION"),
                 ("rx_after", asdict(after), "RX.FIFO_STATUS"),
                 ("dmu_after_errors", int(errors.errors), "DMU.ERROR"),
                 ("dmu_after_enabled", errors.enabled, "DMU.ENABLED"),
@@ -351,6 +357,9 @@ def test_can_p2_001_dmu_tx_rx(
                 record_observation(
                     record_property, key=key, value=value, source="dut", endpoint=endpoint
                 )
+            actual = can.dmu_rx_image_decode(fifo, raw, timeout_s=deadline.remaining_s())
+            frames[-1]["decoded"] = str(actual)
+            record_property("frame", str(frames[-1]))
             assert all(
                 status.is_free
                 and status.fifo_empty

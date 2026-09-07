@@ -63,6 +63,7 @@ def test_can_p1_010_message_marker_width(
     )
     event_summary = []
     record_property("event_summary", event_summary)
+    record_property("empty_window", "NOT_OBSERVED")
     record_property("expected", {"marker_bits": marker_bits, "markers": markers})
     deadline = OperationDeadline.start(TIMEOUT_S, label="CAN Marker width")
 
@@ -221,7 +222,9 @@ def test_can_p1_010_message_marker_width(
             assert (
                 event.identifier == 0x123 and event.flags == CanFrameFlags.NONE and event.dlc == 8
             )
-            assert event.event_type is CanTxEventType.TRANSMITTED and event.tsu_pointer is None
+            # DAR模式自动取消发送请求；成功帧的事件类型仍为“取消后成功发送”。
+            assert event.event_type is CanTxEventType.TRANSMITTED_AFTER_CANCEL
+            assert event.tsu_pointer is None
             if marker_bits == 16:
                 assert event.timestamp is None
             else:
@@ -234,6 +237,16 @@ def test_can_p1_010_message_marker_width(
         while True:
             event_status = can.tx_event_status_get(timeout_s=deadline.remaining_s())
             rx_status = can.rx_fifo_status_get(0, timeout_s=deadline.remaining_s())
+            # 阶段摘要：只记录已经取得的读数；提前失败时保留未到达状态而非伪造零值。
+            record_property(
+                "empty_window",
+                {
+                    "event_fill": event_status.fill,
+                    "event_lost": event_status.lost,
+                    "rx_fill": rx_status.fill,
+                    "rx_lost": rx_status.lost,
+                },
+            )
             record_observation(
                 record_property,
                 key="empty_event_fill",

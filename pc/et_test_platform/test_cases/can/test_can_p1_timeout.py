@@ -41,7 +41,7 @@ pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
 # 测试方法：
 # 1. 独立复位，TOP1000/分频1/500k，三个FIFO各深度四，先禁用作空基线。
 # 2. 启用后连续源单写重装；FIFO源先验证空时TOP，再仅产生所选FIFO条目。
-# 3. 等待Raw及实际ISR，保留FIFO条目直到到期并读到计数0。
+# 3. 等待Raw及实际ISR；FIFO保留条目并读到0，连续源核对自动重装后的合法范围。
 # 4. 连续源再次重装立即读回；FIFO源读数据并Ack到空，读回TOP。
 # 5. 再禁用，FIFO模式重新保持目标非空，至少两倍周期内无Timeout且计数不下降。
 #
@@ -57,6 +57,8 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
     period_s = top * divisor / bitrate
     event_source = source is CanTimeoutSource.TX_EVENT
     fifo_source = source is not CanTimeoutSource.CONTINUOUS
+    # 到期上界：FIFO保持零；连续模式已自动重装，允许完整TOP范围。
+    expired_max = 0 if fifo_source else top
     fifo = 1 if source is CanTimeoutSource.RX1 else 0
     action = (
         CanFilterAction.REJECT
@@ -209,7 +211,9 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
                 counter = can.timeout_counter_get(timeout_s=deadline.remaining_s())
                 counter_trace.append({"stage": "expired", "count": counter})
                 irq_trace.append({"stage": stage, "raw": int(pending.raw_status), **asdict(event)})
-                assert counter == 0 and pending.raw_status & CanIrqSource.TIMEOUT
+                # 连续源到零后自动重装；FIFO源在条目未Ack期间必须保持零。
+                assert pending.raw_status & CanIrqSource.TIMEOUT
+                assert 0 <= counter <= expired_max
                 assert event.event_count == 1 and event.latched_events == CanIrqSource.TIMEOUT
                 assert event.unexpected_count == event.overflow_count == event.fault_flags == 0
             else:
@@ -250,7 +254,9 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
                 )
                 assert frame_event.identifier == 0x123 and frame_event.marker == 0x5A
                 assert frame_event.flags == CanFrameFlags.NONE
-                assert frame_event.dlc == 8 and frame_event.event_type is CanTxEventType.TRANSMITTED
+                # 当前显式关闭自动重发，成功发送按DAR语义产生取消后发送事件。
+                assert frame_event.dlc == 8
+                assert frame_event.event_type is CanTxEventType.TRANSMITTED_AFTER_CANCEL
                 can.tx_event_ack(frame_event.index, timeout_s=deadline.remaining_s())
             elif stimulated:
                 receive_source = CanRxSource.FIFO1 if fifo else CanRxSource.FIFO0
@@ -272,4 +278,4 @@ def test_can_p1_014_timeout_sources(can_support, resource_driver, record_propert
             elif enabled:
                 before, after = can.timeout_reload(timeout_s=deadline.remaining_s())
                 counter_trace.append({"stage": "reload", "before": before, "after": after})
-                assert before == 0 and 0 < after <= top
+                assert 0 <= before <= top and 0 < after <= top

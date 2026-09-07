@@ -37,7 +37,7 @@ pytestmark = [pytest.mark.hardware, pytest.mark.ip("can")]
 # TSU内外32-bit时间基、TX捕获New/Lost和单槽读清。
 #
 # 测试方法：
-# 1. 内部源分频4；外部源使用两组固定值及片内STIMER停止后的真实计数样本。
+# 1. 内部源分频4；外部源使用两组固定值及片内STIMER运行中的真实计数样本。
 # 2. 外部向量和ATB分别实读，必须均等于输入；逐一执行硬件支持的EOF/SOF。
 # 3. 最多N次TX定位TS0新值，读取TS0并证明New/Lost只清目标槽。
 # 4. 再执行2N次TX且不读槽，证明覆盖Lost，读取TS0后重新核对读清。
@@ -89,15 +89,15 @@ def test_can_p1_018_tsu_capture(
         assert external or limits.internal
         vector = timebase if isinstance(timebase, int) else 0
 
-        # 片内参考：只把停止后的真实STIMER计数样本作为稳定输入，不声称实时跨IP连接。
+        # 片内参考：停止前保存真实STIMER计数作为稳定输入，不依赖停止后的计数保持行为。
         if timebase == "stimer":
             timer.stop()
             timer.configure(StimerConfig(period_ticks=timer_limits.maximum_period_ticks))
             timer.clear()
             timer.start()
             first = timer.live_count_get()
-            timer.stop()
             vector = timer.live_count_get()
+            timer.stop()
             record_observation(
                 record_property,
                 key="stimer_sample",

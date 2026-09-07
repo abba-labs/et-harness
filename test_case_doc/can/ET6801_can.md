@@ -552,28 +552,28 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-07 22:55 CST`
+状态更新时间：`2026-09-07 23:41 CST`
 
-最新开发状态：注册表已增至31项；下述11:27运行仅覆盖原16项。新增15项软件验证完成但FPGA为NOT_EXECUTED，不能继承旧Run的PASS。尚未执行新固件编译及完整三阶段部署，需本次人工门禁与探针身份确认。
+最新开发状态：31项注册Case已全部执行；20项PASS、11项FAIL，不能宣称CAN全通过。23:37的PC修复专项120项通过，尚未复测硬件，以下仍保留修复前真实运行结果。
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-07 11:27 CST` | `4af208d573464988853f297df22384398cf79fe6` | `false` | `artifacts/runs/20260907_112757_400571_local_et6801_fpga_atp_testing/` |
+| FPGA | `2026-09-07 23:11 CST` | `fda166eec730bddf75c2cf531e82ac861d661957` | `false` | `artifacts/runs/20260907_231131_181190_local_et6801_fpga_atp_testing/` |
 
 Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控制连接COM12@115200；身份由本次Session取得。
-用户明确要求执行CAN全部用例并排除示波器项目。本轮通过正式Pipeline执行当前全部16条注册Case；CAN0（GPIO58 RX/59 TX）经现有收发器连接USBCANFD-200U通道1，指定盒子序列号校验、终端电阻启用。没有编译、烧录、重配FPGA、启动目标或操作电源；Case内按契约配置/复位CAN、访问Message RAM并清理。
-运行记录证明PC Source为上述clean SHA；板上固件仅核对Build ID/Registry Hash，bitstream_id和device_identity均为null，不宣称整套板上镜像的Exact SHA。目标为FPGA，不因Build ID含silicon而计为Silicon实测。
+用户明确要求继续并完成本轮测试，已授权Keil构建及FPGA bitfile -> BootROM -> PFLASH完整部署。构建Run为`20260907_230425_869147_local_et6801_fpga_atp_testing`，0 Error/0 Warning；部署及P0_002烟测Run为`20260907_230652_247619_local_et6801_fpga_atp_testing`，烧录Verify OK及烟测PASS。随后只执行31项CAN注册Case，不重复部署或启动。CAN0（GPIO58 RX/59 TX）连接USBCANFD-200U通道1，指定盒子身份校验、终端电阻启用。
+运行记录证明PC Source为上述clean SHA；新AXF SHA256=`39162DFD3A4B47FF1362256735417F1DD37C49A03FA980A0B894D00709671C95`。bitstream_id和device_identity在Session中仍为null，不补造身份；目标为FPGA，不因Build ID含silicon而计为Silicon实测。
 
 ### 当前结果汇总
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 31 | 16 | 16 | 0 | 0 | 15 | 94 |
+| FPGA | 31 | 31 | 20 | 11 | 0 | 0 | 148 |
 
-94个参数Execution全部PASS，全部Evidence完整；选中94、未选0。pytest耗时209.18 s，pytest及Pipeline均退出0；报告正常生成：`artifacts/reports/20260907_113128_012912_ET6801_CAN测试报告.xlsx`。
-本轮没有修改Case、Driver、Firmware、Registry或配置；移除前次进程级PYTEST_ADDOPTS筛选，直接运行正式CAN注册全集。软件预检复用同一实现源码的总门禁1344 PASS、17条件SKIP（任务`20260907_111003_b21ad743`）；381045d6至本Run PC SHA仅芯片结果文档变化。17项宿主C编译器条件SKIP不是本次CAN硬件SKIP。
+148个参数Execution中116 PASS、32 FAIL、0 SKIP，选中148、未选0，pytest耗时383.76 s并退出1。报告阶段因Marker Case早期失败未产生`empty_event_fill`而失败，本Run无完整Excel报告，不能声称Pipeline PASS。
+软件预检为1835 PASS、17 Windows宿主编译器条件SKIP，另有WSL GCC真实SDK/Wrap/Service Native执行PASS；证据`artifacts/runs/20260907_can_planned_development/stages/software_gate_2250.log`。这些软件结果不覆盖本次硬件失败。
 
 | CAN Case（省略CAN_前缀） | Executions | 本轮范围 |
 |---|---:|---|
@@ -585,30 +585,30 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 | P1_011 | 6 | 内部/外部回环/Normal各两种IRQ线路；外部Peer正常ACK |
 | P1_015 / 016 | 各1 | Clock Stop握手恢复、Message RAM完整模式及March C- |
 | P2_004 | 1 | Capability全实例共享RAM切片、数据/配置/Guard隔离 |
+| P1_010 / 012 / 013 / 014 / 018 | 2 / 9 / 3 / 4 / 4 | Marker、时序、时间戳、Timeout、TSU |
+| P1_020 / 021 | 8 / 2 | ISO/Non-ISO格式与外部FD/BRS/TDC |
+| P2_001 / 002 / 003 / 005 | 2 / 1 / 2 / 1 | DMU收发、DMU事件、ECC中断与回环边界 |
+| P2_007 / 008 / 010 / P3_001 | 9 / 5 / 1 / 1 | DMU错误/TSU、Watchdog基础行为及连续批量 |
 
 ### 当前非PASS Case
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CAN_P1_010` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_012` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_013` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_014` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_018` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_020` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P1_021` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_001` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_002` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_003` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_005` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_007` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_008` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P2_010` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
-| `CAN_P3_001` | FPGA | NOT_EXECUTED | 对应公共SPEC | 未执行 | 新固件及本次板级门禁未完成 | 核对适配、完整部署后执行 | 软件门禁`software_gate_2250.log`，无新增HIL证据 |
+| `CAN_P1_010` | FPGA | FAIL | Marker | 2节点Event Type实际2、预期1 | DAR模式Oracle错误；同时缺排空报告字段 | 按Bosch §3.1.7.1修正精确类型并复测 | 最新Run `tests/can/` |
+| `CAN_P1_014` | FPGA | FAIL | Timeout | 连续到期后计数642；Event源Type2 | 连续自动重装及DAR模式Oracle错误 | 按Bosch §3.3修正模式判据并复测 | 最新Run `tests/can/` |
+| `CAN_P1_018` | FPGA | FAIL | TSU | STIMER停止后第二读为0；其他3节点PASS | 样本时机依赖停止保持行为 | 停止前保存两次样本后复测 | 最新Run `tests/can/` |
+| `CAN_P1_020` | FPGA | FAIL | Non-ISO | 6节点FAIL；NISO写1读0或Peer拒绝发送 | 配置/集成及Peer格式能力待定 | 保留严格格式及双向判据定位 | 最新Run `tests/can/` |
+| `CAN_P2_001` | FPGA | FAIL | DMU TX/RX | 2节点RX镜像解码命令返回INTERNAL_ERROR | 缺原始镜像现场，尚不能裁定数据或解码根因 | 先保存镜像和DMA状态再解码复测 | 最新Run `tests/can/` |
+| `CAN_P2_002` | FPGA | FAIL | DMU Event | DMA通道状态命令超时 | DMU/DMA握手现场待定位 | 核对突发和请求路由后复测 | 最新Run `tests/can/` |
+| `CAN_P2_003` | FPGA | FAIL | ECC IRQ | 两源Force后Raw仅为当前Enable源 | 原Case假设未Enable源同样产生Raw | 核对Enable/Force关系，不放宽为任意值 | 最新Run `tests/can/` |
+| `CAN_P2_005` | FPGA | FAIL | 回环边界 | Peer只听接收超时，错误0x4 | 已知只听条件仍未闭合 | 保留正常ACK正对照与独立捕获判据 | 最新Run `tests/can/` |
+| `CAN_P2_007` | FPGA | FAIL | DMU错误恢复 | 9节点恢复阶段DMA状态命令超时 | 合法DMA恢复路径未闭合 | 定位公共DMU恢复配置后逐错误复测 | 最新Run `tests/can/` |
+| `CAN_P2_008` | FPGA | FAIL | DMU TSU | 5节点DMA/解码路径失败 | 搬运及时间戳格式待定位 | 保存原始镜像并核对请求/帧长 | 最新Run `tests/can/` |
+| `CAN_P2_010` | FPGA | FAIL | Watchdog基础行为 | DMA搬运/解码阶段失败 | 未完成关闭对照和恢复 | 先修DMU数据路径再复测 | 最新Run `tests/can/` |
 
 ### 未注册目标与本轮排除范围
 
-以下为11:27运行时的26项未注册目标历史快照（不是当前注册数量）；其中15项已于22:55完成软件实现，现纳入上表NOT_EXECUTED。其余11项仍未注册：
+以下为11:27运行时的26项未注册目标历史快照（不是当前注册数量）；其中15项已于22:55完成软件实现并于23:11运行。其余11项仍未注册：
 
 | 目标 | 数量 | 当前边界 |
 |---|---:|---|
@@ -617,9 +617,9 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 | P2_001、P2_002、P2_003、P2_005、P2_007、P2_008、P2_010、P3_001 | 8 | 仍缺DMU/DMA、ECC IRQ、外部回环对照、TSU、RAM延迟刺激或连续收发实现；不因盒子通信成功而闭合 |
 | P2_006、P2_013 | 2 | DESIGN_GAP：真实ECC注入时点/作用范围、TX Event附加TSU布局尚未确认 |
 
-11:27历史结论为17个非示波器目标中15个PLAN、2个DESIGN_GAP；22:55修正：该15项已实现，硬件仍未执行，另外2项DESIGN_GAP继续保留。
+11:27历史结论为17个非示波器目标中15个PLAN、2个DESIGN_GAP；23:41修正：该15项已实现并全部执行，结果见当前状态，另外2项DESIGN_GAP继续保留。
 
-旧ACK失败、只听超时及旧报告失败Run均保留不改写；无ACK/只听捕获未宣称修复。经批准的P1_011外部回环仍保持DUT EXTERNAL，Peer允许ACK；内部自接收不代替实际RX引脚路径。当前已完成全部已注册CAN FPGA回归，但没有执行外部FD/BRS、Silicon或全部42项目标，不能扩大为CAN全功能通过。6.1及其后带旧日期的开发统计是历史快照；当前结果以本状态区为准。
+旧ACK失败、只听超时及报告失败Run均保留不改写；无ACK/只听捕获未宣称修复。P1_011外部回环仍保持DUT EXTERNAL、Peer允许ACK；内部自接收不代替实际RX引脚路径。本轮已执行新增外部FD/BRS且P1_021两节点PASS，但未执行Silicon或全部42项目标，31项注册回归仍有11项FAIL。6.1及其后旧日期开发统计为历史快照，当前结果以本状态区为准。
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 无需外部通信的剩余开发项
