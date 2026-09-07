@@ -2813,5 +2813,82 @@ int32_t CAN_testResetTimestampSnapshot(CAN_Type *CANx, uint32_t *before, uint32_
     *after = CAN_getTSCounterVal(CANx);
     return DRV_OK;
 }
+/** Read the synthesized TSU geometry and options from one TSS2 snapshot. */
+int32_t CAN_testGetTsuLimits(CAN_Type *CANx, uint32_t *slots, uint32_t *internal, uint32_t *sof)
+{
+    uint32_t status, count, generic;
+    assert_param(IS_CAN_PERIPH(CANx));
+    if ((slots == NULL) || (internal == NULL) || (sof == NULL))
+    {
+        return DRV_ERROR;
+    }
+    status = READ_REG(CANx->TSS2);
+    count = (status & CAN0_TSS2_NTSG_Msk) >> CAN0_TSS2_NTSG_Pos;
+    generic = (status & CAN0_TSS2_ITBG_Msk) >> CAN0_TSS2_ITBG_Pos;
+    if (count > CAN_TEST_TSU_SLOT_ENCODING_MAX)
+    {
+        return DRV_ERROR;
+    }
+    *slots = CAN_TEST_TSU_MIN_SLOTS << count;
+    *internal = generic & 1U;
+    *sof = (generic >> 1U) & 1U;
+    return DRV_OK;
+}
+/** Require INIT and legal synthesis options before any write; preserve prior CCE. */
+int32_t CAN_testSetTsu(CAN_Type *CANx, const CAN_TSUConfigParams *config)
+{
+    uint32_t slots, internal, sof, permission;
+    int32_t result;
+    assert_param(IS_CAN_PERIPH(CANx));
+    if ((config == NULL) || (config->enable > 1U) || (config->tbcs > 1U) ||
+        (config->scp > 1U) || (config->tbPrescalar < CAN_TSU_TBPRE_MIN_VALUE) ||
+        (config->tbPrescalar > CAN_TSU_TBPRE_MAX_VALUE) ||
+        (READ_BIT(CANx->CCCR, CAN0_CCCR_INIT_Msk) == 0U) ||
+        (CAN_testGetTsuLimits(CANx, &slots, &internal, &sof) != DRV_OK))
+    {
+        return DRV_ERROR;
+    }
+    if (((config->tbcs == 0U) && (internal == 0U)) ||
+        ((config->scp != 0U) && (sof == 0U)))
+    {
+        return DRV_ERROR;
+    }
+    permission = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_CCE);
+    result = CAN_configTSU(CANx, config);
+    CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_CCE, permission);
+    return result;
+}
+/** Read only the actual configuration; one snapshot avoids mixed-field sampling. */
+void CAN_testGetTsu(CAN_Type *CANx, CAN_TSUConfigParams *config)
+{
+    uint32_t value;
+    assert_param(IS_CAN_PERIPH(CANx));
+    value = READ_REG(CANx->TSCFG);
+    config->enable = (value & CAN0_TSCFG_TSUE_Msk) >> CAN0_TSCFG_TSUE_Pos;
+    config->tbcs = (value & CAN0_TSCFG_TBCS_Msk) >> CAN0_TSCFG_TBCS_Pos;
+    config->scp = (value & CAN0_TSCFG_SCP_Msk) >> CAN0_TSCFG_SCP_Pos;
+    config->tbPrescalar = ((value & CAN0_TSCFG_TBPRE_Msk) >> CAN0_TSCFG_TBPRE_Pos) + 1U;
+}
+/** Read New and Lost from the same TSS1 snapshot, without consuming any timestamp. */
+void CAN_testGetTsuFlags(CAN_Type *CANx, uint32_t *newFlags, uint32_t *lostFlags)
+{
+    uint32_t value;
+    assert_param(IS_CAN_PERIPH(CANx));
+    value = READ_REG(CANx->TSS1);
+    *newFlags = (value & CAN0_TSS1_TSN_Msk) >> CAN0_TSS1_TSN_Pos;
+    *lostFlags = (value & CAN0_TSS1_TSL_Msk) >> CAN0_TSS1_TSL_Pos;
+}
+/** Read the actual active timebase once; do not synthesize a timestamp. */
+uint32_t CAN_testGetTsuTimebase(CAN_Type *CANx)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    return READ_REG(CANx->ATB);
+}
+/** Consume only the explicitly mapped TS0; hardware clears its New/Lost bits. */
+uint32_t CAN_testConsumeTsuSlot0(CAN_Type *CANx)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    return READ_REG(CANx->TS0);
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

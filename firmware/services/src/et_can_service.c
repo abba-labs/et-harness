@@ -1479,6 +1479,102 @@ static et_wrap_status_t execute_ram_access(et_can_id_t id, uint16_t command, con
 }
 
 /**
+ * @brief Decode one TSU action and encode actual Wrap results.
+ * @param[in] id Logical controller.
+ * @param[in] command Validated TSU command.
+ * @param[in] body Length-validated input words.
+ * @param[out] response Capacity-validated output storage.
+ * @return Own Wrap status; no local test verdict.
+ * @note Consuming TS0 is separate from non-consuming timebase and flags reads.
+ */
+static et_wrap_status_t execute_tsu_command(et_can_id_t id, uint16_t command, const uint8_t *body,
+                                            uint8_t *response)
+{
+    et_can_tsu_config_t config;
+    et_can_tsu_limits_t limits;
+    et_wrap_status_t status;
+    uint32_t new_flags, lost_flags, value;
+
+    /* Phase 1: Select exactly one own-IP operation from the validated command. */
+    switch (command)
+    {
+        case ET_CAN_COMMAND_TSU_CONFIG_SET:
+        {
+            config.enabled = read_word(&body[ET_CAN_TSU_ENABLED * ET_CAN_WIRE_WORD_BYTES]);
+            config.external = read_word(&body[ET_CAN_TSU_EXTERNAL * ET_CAN_WIRE_WORD_BYTES]);
+            config.sof = read_word(&body[ET_CAN_TSU_SOF * ET_CAN_WIRE_WORD_BYTES]);
+            config.divisor = read_word(&body[ET_CAN_TSU_DIVISOR * ET_CAN_WIRE_WORD_BYTES]);
+
+            return et_can_wrap_set_tsu(id, &config);
+        }
+
+        case ET_CAN_COMMAND_TSU_CONFIG_GET:
+        {
+            status = et_can_wrap_get_tsu(id, &config);
+
+            /* Phase 2: Publish only actual successful reads; never echo request values. */
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_TSU_ENABLED * ET_CAN_WIRE_WORD_BYTES], config.enabled);
+                write_word(&response[ET_CAN_TSU_EXTERNAL * ET_CAN_WIRE_WORD_BYTES],
+                           config.external);
+                write_word(&response[ET_CAN_TSU_SOF * ET_CAN_WIRE_WORD_BYTES], config.sof);
+                write_word(&response[ET_CAN_TSU_DIVISOR * ET_CAN_WIRE_WORD_BYTES], config.divisor);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_TSU_LIMITS_GET:
+        {
+            status = et_can_wrap_get_tsu_limits(id, &limits);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_TSU_SLOTS * ET_CAN_WIRE_WORD_BYTES], limits.slots);
+                write_word(&response[ET_CAN_TSU_INTERNAL_SUPPORT * ET_CAN_WIRE_WORD_BYTES],
+                           limits.internal);
+                write_word(&response[ET_CAN_TSU_SOF_SUPPORT * ET_CAN_WIRE_WORD_BYTES], limits.sof);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_TSU_FLAGS_GET:
+        {
+            status = et_can_wrap_get_tsu_flags(id, &new_flags, &lost_flags);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(&response[ET_CAN_TSU_NEW * ET_CAN_WIRE_WORD_BYTES], new_flags);
+                write_word(&response[ET_CAN_TSU_LOST * ET_CAN_WIRE_WORD_BYTES], lost_flags);
+            }
+
+            return status;
+        }
+
+        case ET_CAN_COMMAND_TSU_TIMEBASE_GET:
+        case ET_CAN_COMMAND_TSU_SLOT0_CONSUME:
+        {
+            status =
+                et_can_wrap_read_tsu_value(id, command == ET_CAN_COMMAND_TSU_SLOT0_CONSUME, &value);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, value);
+            }
+
+            return status;
+        }
+
+        default:
+        {
+            return ET_WRAP_STATUS_NOT_SUPPORTED;
+        }
+    }
+}
+
+/**
  * @brief Execute one validated CAN command through the own Wrap.
  * @param[in,out] service Selected CAN Service and managed IRQ state.
  * @param[in] command Public command number.
@@ -1499,6 +1595,11 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if ((command >= ET_CAN_COMMAND_TSU_CONFIG_SET) && (command <= ET_CAN_COMMAND_TSU_SLOT0_CONSUME))
+    {
+        return execute_tsu_command(id, command, body, response);
+    }
 
     if ((command >= ET_CAN_COMMAND_RAM_WORDS_READ) &&
         (command <= ET_CAN_COMMAND_RAM_WORDS_EXCHANGE))
@@ -1799,6 +1900,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_CONFIGURATION_WRITE_SET] = 1u,
         [ET_CAN_COMMAND_NON_ISO_SET] = 1u,
         [ET_CAN_COMMAND_EVENT_FORMAT_SET] = ET_CAN_EVENT_FORMAT_WORDS,
+        [ET_CAN_COMMAND_TSU_CONFIG_SET] = ET_CAN_TSU_CONFIG_WORDS,
         [ET_CAN_COMMAND_NOMINAL_TIMING_WRITE] = ET_CAN_PHASE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
@@ -1831,6 +1933,11 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TX_EVENT_DETAILS_READ] = ET_CAN_EVENT_DETAILS_WORDS,
         [ET_CAN_COMMAND_TIMEOUT_RELOAD] = ET_CAN_COUNTER_RELOAD_WORDS,
         [ET_CAN_COMMAND_TIMESTAMP_RESET_SNAPSHOT] = ET_CAN_COUNTER_RELOAD_WORDS,
+        [ET_CAN_COMMAND_TSU_CONFIG_GET] = ET_CAN_TSU_CONFIG_WORDS,
+        [ET_CAN_COMMAND_TSU_LIMITS_GET] = ET_CAN_TSU_LIMITS_WORDS,
+        [ET_CAN_COMMAND_TSU_FLAGS_GET] = ET_CAN_TSU_FLAGS_WORDS,
+        [ET_CAN_COMMAND_TSU_TIMEBASE_GET] = 1u,
+        [ET_CAN_COMMAND_TSU_SLOT0_CONSUME] = 1u,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,

@@ -184,6 +184,12 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | TX_EVENT_DETAILS_READ | 61 | 无 | 原TX_EVENT_READ七word后追加internal_timestamp_valid、tsu_captured、tsu_pointer；无效时间戳/指针Wire字段为0，PC返回None；不Ack或读取TSU时间戳 |
 | TIMEOUT_RELOAD | 62 | 无 | before、after两个u32；一次连续计数重装前后的实际16-bit计数；FIFO控制源返回状态错误，不清IRQ或改变INIT |
 | TIMESTAMP_RESET_SNAPSHOT | 63 | 无 | before、after两个u32；一次内部时间戳清零前后的实际16-bit计数；关闭/外部源返回状态错误，不清Wrap IRQ或改变INIT |
+| TSU_CONFIG_SET | 64 | enabled、external、sof：严格Boolean；divisor：实际1～256 | 无；要求INIT，保留写权限，不选择UTSU或驱动外部输入；不支持的内部源/SOF拒绝 |
+| TSU_CONFIG_GET | 65 | 无 | enabled、external、sof、divisor：真实配置快照 |
+| TSU_LIMITS_GET | 66 | 无 | slots：4/8/16；internal、sof：严格Boolean支持标志；非法综合值失败关闭 |
+| TSU_FLAGS_GET | 67 | 无 | new、lost：同一次快照的16-bit位图，不读清 |
+| TSU_TIMEBASE_GET | 68 | 无 | 32-bit活动时间基；不消费捕获槽 |
+| TSU_SLOT0_CONSUME | 69 | 无 | 读取TS0一次的32-bit值；硬件清该槽New/Lost，不隐式重试，不读取其他槽 |
 
 `TX_WRITE`与`TX_READ`的Marker按当前实际位宽校验/解释，不隐式改变事件格式。旧`TX_EVENT_READ`只接受具有内部时间戳字段的基本格式，宽Marker/TSU格式返回状态错误；新读取61以显式有效性防止伪时间戳。内部时间戳有效性只描述字段存在，不证明计数源已经启用。TSU指针只在实际捕获时有效，不是时间戳数值。
 

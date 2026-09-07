@@ -327,6 +327,23 @@ class CanTxEvent:
     index: int
 
 
+# TSU配置：源0内部/1外部，捕获0 EOF/1 SOF，分频为实际值。
+@dataclass(frozen=True)
+class CanTsuConfig:
+    enabled: bool
+    external: bool
+    sof: bool
+    divisor: int
+
+
+# 槽数与内部源/SOF支持必须由目标读回，不从请求缓存推断。
+@dataclass(frozen=True)
+class CanTsuLimits:
+    slots: int
+    internal: bool
+    sof: bool
+
+
 # 实际事件格式；TSU启用时硬件使用16-bit Marker。
 @dataclass(frozen=True, slots=True)
 class CanEventFormat:

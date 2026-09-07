@@ -1594,6 +1594,150 @@ et_wrap_status_t et_can_wrap_get_event_format(et_can_id_t id, et_can_event_forma
 }
 
 /**
+ * @brief Configure TSU through the own Driver, without selecting UTSU or entering INIT.
+ * @param[in] id Logical controller.
+ * @param[in] config Boolean options and actual divisor.
+ * @return OK, invalid argument, unsupported instance or state error.
+ * @note External timebase pins are not controlled here.
+ */
+et_wrap_status_t et_can_wrap_set_tsu(et_can_id_t id, const et_can_tsu_config_t *config)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TSUConfigParams params;
+
+    if ((config == NULL) || (config->enabled > 1u) || (config->external > 1u) ||
+        (config->sof > 1u) || (config->divisor < 1u) || (config->divisor > ET_CAN_TSU_DIVISOR_MAX))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    params.enable = config->enabled;
+    params.tbcs = config->external;
+    params.scp = config->sof;
+    params.tbPrescalar = config->divisor;
+
+    return CAN_testSetTsu(instance, &params) == DRV_OK ? ET_WRAP_STATUS_OK
+                                                       : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read actual TSU configuration without consuming captures.
+ * @param[in] id Logical controller.
+ * @param[out] config Actual hardware configuration.
+ * @return OK, invalid argument or unsupported instance.
+ * @note No cached configuration or implicit writes.
+ */
+et_wrap_status_t et_can_wrap_get_tsu(et_can_id_t id, et_can_tsu_config_t *config)
+{
+    CAN_Type *instance = find_instance(id);
+    CAN_TSUConfigParams params;
+
+    if (config == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetTsu(instance, &params);
+    config->enabled = params.enable;
+    config->external = params.tbcs;
+    config->sof = params.scp;
+    config->divisor = params.tbPrescalar;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read real synthesized TSU limits through the own Driver.
+ * @param[in] id Logical controller.
+ * @param[out] limits Slot count and internal/SOF support.
+ * @return OK, invalid argument, unsupported instance or state error.
+ * @note Invalid synthesis encodings fail closed, never assume eight slots.
+ */
+et_wrap_status_t et_can_wrap_get_tsu_limits(et_can_id_t id, et_can_tsu_limits_t *limits)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if (limits == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testGetTsuLimits(instance, &limits->slots, &limits->internal, &limits->sof) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
+ * @brief Read one non-consuming New/Lost hardware snapshot.
+ * @param[in] id Logical controller.
+ * @param[out] new_flags Actual New bitmap.
+ * @param[out] lost_flags Actual Lost bitmap from the same snapshot.
+ * @return OK, invalid argument or unsupported instance.
+ * @note Does not read a timestamp slot or clear any flags.
+ */
+et_wrap_status_t et_can_wrap_get_tsu_flags(et_can_id_t id, uint32_t *new_flags,
+                                           uint32_t *lost_flags)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((new_flags == NULL) || (lost_flags == NULL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    CAN_testGetTsuFlags(instance, new_flags, lost_flags);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Read one TSU value through the own Chip Driver.
+ * @param[in] id Logical controller.
+ * @param[in] consume Zero selects active timebase, one consumes TS0.
+ * @param[out] value Actual 32-bit hardware value.
+ * @return OK, invalid argument or unsupported instance.
+ * @note TS0 clears only its New/Lost in hardware; no retry or guessed slots.
+ */
+et_wrap_status_t et_can_wrap_read_tsu_value(et_can_id_t id, uint8_t consume, uint32_t *value)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((value == NULL) || (consume > 1u))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    *value = consume != 0u ? CAN_testConsumeTsuSlot0(instance) : CAN_testGetTsuTimebase(instance);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
  * @brief Acknowledge the current TX Event FIFO head through the CAN Driver.
  * @param[in] id Logical controller.
  * @param[in] index Get Index returned by the preceding status or event read.

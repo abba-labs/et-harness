@@ -27,12 +27,38 @@ from .models import (
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTsuConfig,
+    CanTsuLimits,
     CanTxEvent,
     CanTxEventDetails,
     CanTxEventType,
     CanTxFrame,
     CanUnmatchedPolicy,
 )
+
+
+# 编码TSU配置；不允许非法分频或隐式Boolean转换。
+def tsu_config_words(config: CanTsuConfig) -> tuple[int, ...]:
+    if isinstance(config.divisor, bool) or not isinstance(config.divisor, int):
+        raise ValueError("CAN TSU divisor must be an integer")
+    if not 1 <= config.divisor <= 256:
+        raise ValueError("CAN TSU divisor must be in 1..256")
+    return boolean(config.enabled), boolean(config.external), boolean(config.sof), config.divisor
+
+
+# 独立解码硬件配置并拒绝保留值，不用输入配置补值。
+def decode_tsu_config(words: tuple[int, ...]) -> CanTsuConfig:
+    if len(words) != 4 or not 1 <= words[3] <= 256:
+        raise ProtocolError("CAN TSU configuration is invalid")
+    return CanTsuConfig(*(status_boolean(word) for word in words[:3]), words[3])
+
+
+# 从三个实际Wire字段解码槽数和内部源/SOF支持；槽数仅接受4/8/16，保留值失败关闭。
+def decode_tsu_limits(words: tuple[int, ...]) -> CanTsuLimits:
+    if len(words) != 3 or words[0] not in (4, 8, 16):
+        raise ProtocolError("CAN TSU limits are invalid")
+    return CanTsuLimits(words[0], status_boolean(words[1]), status_boolean(words[2]))
+
 
 BUS_SELECTORS = {
     "timestamp_source": CanTimestampSource,

@@ -88,6 +88,12 @@ class CanCommand(IntEnum):
     TX_EVENT_DETAILS_READ = 61
     TIMEOUT_RELOAD = 62
     TIMESTAMP_RESET_SNAPSHOT = 63
+    TSU_CONFIG_SET = 64
+    TSU_CONFIG_GET = 65
+    TSU_LIMITS_GET = 66
+    TSU_FLAGS_GET = 67
+    TSU_TIMEBASE_GET = 68
+    TSU_SLOT0_CONSUME = 69
 
 
 REQUEST_WORDS = (
@@ -155,6 +161,12 @@ REQUEST_WORDS = (
     0,
     0,  # TIMEOUT_RELOAD: continuous source only.
     0,  # TIMESTAMP_RESET_SNAPSHOT: internal timestamp only.
+    4,  # TSU_CONFIG_SET: enabled, external, SOF, actual divisor.
+    0,
+    0,
+    0,
+    0,
+    0,
 )
 RESPONSE_WORDS = (
     2,
@@ -221,6 +233,12 @@ RESPONSE_WORDS = (
     10,  # TX_EVENT_DETAILS_READ: old fields plus timestamp-valid, TSU-captured, pointer.
     2,  # TIMEOUT_RELOAD: before/after actual counter, not TOP echo.
     2,  # TIMESTAMP_RESET_SNAPSHOT: actual count before/after one reset write.
+    0,
+    4,  # TSU_CONFIG_GET: actual configuration.
+    3,  # TSU_LIMITS_GET: slots, internal support, SOF support.
+    2,  # TSU_FLAGS_GET: New/Lost bitmaps from one hardware snapshot.
+    1,  # TSU_TIMEBASE_GET: actual 32-bit timebase.
+    1,  # TSU_SLOT0_CONSUME: read once, clears this slot's New/Lost.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -340,5 +358,9 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.NON_ISO_GET,
         CanCommand.EVENT_FORMAT_GET,
         CanCommand.TX_EVENT_DETAILS_READ,
+        CanCommand.TSU_CONFIG_GET,
+        CanCommand.TSU_LIMITS_GET,
+        CanCommand.TSU_FLAGS_GET,
+        CanCommand.TSU_TIMEBASE_GET,
     }
 )

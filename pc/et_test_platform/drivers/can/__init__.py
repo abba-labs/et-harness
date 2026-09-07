@@ -34,6 +34,8 @@ from .models import (
     CanTimeoutSource,
     CanTimestampSource,
     CanTiming,
+    CanTsuConfig,
+    CanTsuLimits,
     CanTxEvent,
     CanTxEventDetails,
     CanTxEventStatus,
@@ -44,6 +46,8 @@ from .models import (
 )
 
 __all__ = [
+    "CanTsuConfig",
+    "CanTsuLimits",
     "CanEventFormat",
     "CanTxEventDetails",
     "CanActivity",

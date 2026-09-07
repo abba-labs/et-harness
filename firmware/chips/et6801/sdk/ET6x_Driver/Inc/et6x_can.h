@@ -1555,6 +1555,16 @@ void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
 int32_t CAN_testReloadTimeout(CAN_Type *CANx, uint32_t *before, uint32_t *after);
 /** Internal timestamp only: read, single reset write, read; no IRQ clear or polling. */
 int32_t CAN_testResetTimestampSnapshot(CAN_Type *CANx, uint32_t *before, uint32_t *after);
+/** TSU access uses only the explicitly mapped TS0, never guessed TS2..15 addresses. */
+/** ET6801 SVD TSS2.NTSG: encodings 0..2 mean 4, 8, 16 slots; 3 is reserved. */
+#define CAN_TEST_TSU_SLOT_ENCODING_MAX (2U)
+#define CAN_TEST_TSU_MIN_SLOTS (4U)
+int32_t CAN_testSetTsu(CAN_Type *CANx, const CAN_TSUConfigParams *config);
+void CAN_testGetTsu(CAN_Type *CANx, CAN_TSUConfigParams *config);
+int32_t CAN_testGetTsuLimits(CAN_Type *CANx, uint32_t *slots, uint32_t *internal, uint32_t *sof);
+void CAN_testGetTsuFlags(CAN_Type *CANx, uint32_t *newFlags, uint32_t *lostFlags);
+uint32_t CAN_testGetTsuTimebase(CAN_Type *CANx);
+uint32_t CAN_testConsumeTsuSlot0(CAN_Type *CANx);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

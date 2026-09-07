@@ -197,6 +197,7 @@ static unsigned ram_trace_enabled, ram_trace_count;
 static uintptr_t ram_trace[4];
 static unsigned timeout_write_count;
 static unsigned timestamp_snapshot_model, timestamp_write_count;
+static unsigned tsu_slot_reads, tsu_status_reads;
 void can_test_write(volatile uint32_t *address, uint32_t value)
 {
     for (unsigned i=0; i<3; ++i)
@@ -222,6 +223,15 @@ void can_test_write(volatile uint32_t *address, uint32_t value)
 uint32_t can_test_read(volatile uint32_t *address)
 {
     uint32_t value=*address;
+    for (unsigned i=0; i<3; ++i)
+    {
+        if (address == &controllers[i].TS0)
+        {
+            ++tsu_slot_reads;
+            controllers[i].TSS1 &= ~0x00010001U;
+        }
+        if (address == &controllers[i].TSS1) { ++tsu_status_reads; }
+    }
     if (ram_trace_enabled && (uintptr_t)address >= (uintptr_t)test_memory.ram &&
         (uintptr_t)address < (uintptr_t)CAN0 && ram_trace_count < 4)
     {
@@ -237,8 +247,94 @@ uint32_t can_test_read(volatile uint32_t *address)
     return value;
 }
 
+/* Independent register and Wire vectors; no CAN bus or external input is simulated. */
+static void test_tsu_contract(void)
+{
+    et_can_tsu_limits_t limits;
+    et_can_tsu_config_t config = {1, 0, 0, 4}, actual;
+    uint32_t new_flags, lost_flags, value;
+    for (unsigned i=0; i<3; ++i)
+    {
+        CAN_Type *can = &controllers[i];
+        for (unsigned count=0; count<3; ++count)
+        {
+            for (unsigned generic=0; generic<4; ++generic)
+            {
+                can->TSS2 = (count << 12) | (generic << 14);
+                assert(et_can_wrap_get_tsu_limits(i, &limits) == ET_WRAP_STATUS_OK);
+                assert(limits.slots == (4U << count));
+                assert(limits.internal == (generic & 1));
+                assert(limits.sof == (generic >> 1));
+            }
+        }
+        can->TSS2 = 0x3000;
+        assert(et_can_wrap_get_tsu_limits(i, &limits) == ET_WRAP_STATUS_STATE_ERROR);
+        can->TSS2 = 0xD000;
+        for (unsigned cce=0; cce<2; ++cce)
+        {
+            can->CCCR = 0x8001 | (cce << 1);
+            assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_OK);
+            assert(can->TSCFG == 0x301 && can->CCCR == (0x8001 | (cce << 1)));
+            assert(et_can_wrap_get_tsu(i, &actual) == ET_WRAP_STATUS_OK);
+            assert(actual.enabled == 1 && actual.external == 0 && actual.sof == 0);
+            assert(actual.divisor == 4);
+        }
+        can->CCCR = 0;
+        can->TSCFG = 0xAB00;
+        assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_STATE_ERROR);
+        assert(can->TSCFG == 0xAB00);
+        can->CCCR = 1;
+        can->TSS2 = 0x9000; /* SOF available, internal timebase absent. */
+        assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_STATE_ERROR);
+        assert(can->TSCFG == 0xAB00);
+        config.external=1; config.sof=1; config.divisor=256;
+        assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_OK);
+        assert(can->TSCFG == 0xFF07);
+        can->TSS2 = 0x5000;
+        assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_STATE_ERROR);
+        config.sof=0; config.external=0; config.divisor=0;
+        assert(et_can_wrap_set_tsu(i, &config) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+        config.divisor=4;
+        can->TSS1 = 0x008100A5; can->TS0=0x12345678; can->ATB=0x89ABCDEF;
+        tsu_slot_reads=0; tsu_status_reads=0;
+        assert(et_can_wrap_get_tsu_flags(i, &new_flags, &lost_flags) == ET_WRAP_STATUS_OK);
+        assert(new_flags==0xA5 && lost_flags==0x81 && tsu_status_reads==1 && tsu_slot_reads==0);
+        assert(et_can_wrap_read_tsu_value(i, 0, &value) == ET_WRAP_STATUS_OK);
+        assert(value==0x89ABCDEF && tsu_slot_reads==0 && can->TSS1==0x008100A5);
+        assert(et_can_wrap_read_tsu_value(i, 1, &value) == ET_WRAP_STATUS_OK);
+        assert(value==0x12345678 && tsu_slot_reads==1 && can->TSS1==0x008000A4);
+        et_can_service_t service;
+        et_irq_manager_t manager={0};
+        uint8_t request[17]={i, 1,0,0,0, 0,0,0,0, 0,0,0,0, 4,0,0,0};
+        uint8_t response[16];
+        uint16_t length;
+        assert(et_can_service_init(&service, i, &manager, 1)==0);
+        const et_service_descriptor_t *desc=et_can_service_descriptor(&service);
+        assert(desc->handle(desc->context,64,request,17,response,16,&length)==ET_STATUS_OK);
+        assert(length==0 && can->TSCFG==0x301);
+        assert(desc->handle(desc->context,65,request,1,response,16,&length)==ET_STATUS_OK);
+        assert(length==16 && memcmp(response,&request[1],16)==0);
+        assert(desc->handle(desc->context,66,request,1,response,16,&length)==ET_STATUS_OK);
+        assert(length==12 && response[0]==8 && response[4]==1 && response[8]==0);
+        can->TSS1=0x00010001;
+        assert(desc->handle(desc->context,67,request,1,response,16,&length)==ET_STATUS_OK);
+        assert(length==8 && response[0]==1 && response[4]==1 && can->TSS1==0x00010001);
+        assert(desc->handle(desc->context,68,request,1,response,16,&length)==ET_STATUS_OK);
+        assert(length==4 && memcmp(response,"\xEF\xCD\xAB\x89",4)==0);
+        tsu_slot_reads=0;
+        assert(desc->handle(desc->context,69,request,1,response,3,&length)==ET_STATUS_INVALID_PARAM);
+        assert(tsu_slot_reads==0 && length==0);
+        assert(desc->handle(desc->context,69,request,1,response,16,&length)==ET_STATUS_OK);
+        assert(length==4 && memcmp(response,"\x78\x56\x34\x12",4)==0);
+        assert(tsu_slot_reads==1 && can->TSS1==0);
+        assert(desc->handle(desc->context,64,request,16,response,16,&length)==ET_STATUS_INVALID_PARAM);
+        memset(can,0,sizeof(*can));
+    }
+}
+
 int main(void)
 {
+    test_tsu_contract();
     CAN_Type *instances[] = {CAN0, CAN1, CAN2};
     CAN_ConfigParams config = {0};
     CAN_ECCConfigParams ecc = {0};

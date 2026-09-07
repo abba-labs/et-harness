@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 15:09 CST
+更新时间：2026-09-07 15:59 CST
+
+2026-09-07 15:59 CST 验证追加：TSU原语最终完整门禁1601 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/tsu_primitives_software_gate_formatted.log`）；最终源码重新生成并执行三实例Native Harness通过（`tsu_native_final.log`）。中间文档同步、接口注释与C格式检查失败日志均保留，未放宽检查器。新增命令属于接口实现进度，15项计划仍为8项Case软件闭合；TSU正式Case及外部输入映射未完成，尚未烧录或执行新增硬件Case。
+
+2026-09-07 15:38 CST 开发追加：TSU独立命令64～69已接通，累计70条CAN命令；配置、综合能力、New/Lost同快照、ATB和单次TS0读清分别执行。SVD TSS2.NTSG编码0/1/2对应4/8/16槽，3拒绝；ITBG低位表示内部源、高位表示SOF支持。Chip Driver只读映射明确的TS0，不推测TS2～15地址；配置要求INIT且保留CCE，非法配置在写入前拒绝。20项独立Wire回归及WSL GCC真实SDK/Wrap/Service三实例Harness通过（`artifacts/runs/20260907_can_planned_development/stages/tsu_driver_unit.log`、`tsu_native_execution.log`）。总门禁首次因本记录未同步而失败，正在重跑；P1_018尚未转SPEC，外部32-bit时间基测试入口仍未映射，不宣称捕获硬件PASS，未部署镜像。
 
 2026-09-07 15:09 CST 验证追加：固定时钟速率矩阵63项独立Wire/Peer专项及完整门禁通过，1575 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/rate_case_software_gate.log`）。15项计划已有8项实现与软件验证完成；输入分频bypass按人工要求不测，不计SKIP或PASS。未执行新增Case硬件，未修改CRG实现或固件。
 

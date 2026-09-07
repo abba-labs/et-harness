@@ -451,6 +451,29 @@ et_wrap_status_t et_can_wrap_reload_timeout(et_can_id_t id, uint32_t *before, ui
 et_wrap_status_t et_can_wrap_set_clock_stop(et_can_id_t id, uint8_t requested);
 et_wrap_status_t et_can_wrap_get_clock_stop_ack(et_can_id_t id, uint32_t *acknowledged);
 
+/** Independent TSU configuration; divisor is the actual value in 1..256. */
+#define ET_CAN_TSU_DIVISOR_MAX 256u
+typedef struct
+{
+    uint32_t enabled;
+    uint32_t external;
+    uint32_t sof;
+    uint32_t divisor;
+} et_can_tsu_config_t;
+typedef struct
+{
+    uint32_t slots;
+    uint32_t internal;
+    uint32_t sof;
+} et_can_tsu_limits_t;
+et_wrap_status_t et_can_wrap_set_tsu(et_can_id_t id, const et_can_tsu_config_t *config);
+et_wrap_status_t et_can_wrap_get_tsu(et_can_id_t id, et_can_tsu_config_t *config);
+et_wrap_status_t et_can_wrap_get_tsu_limits(et_can_id_t id, et_can_tsu_limits_t *limits);
+et_wrap_status_t et_can_wrap_get_tsu_flags(et_can_id_t id, uint32_t *new_flags,
+                                           uint32_t *lost_flags);
+/** consume=0 reads the timebase; consume=1 reads TS0 once and clears its flags. */
+et_wrap_status_t et_can_wrap_read_tsu_value(et_can_id_t id, uint8_t consume, uint32_t *value);
+
 /** Stable CAN interrupt-source namespace; bit values are public events, not register bits. */
 typedef enum
 {

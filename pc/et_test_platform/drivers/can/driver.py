@@ -30,6 +30,8 @@ from .models import (
     CanRxFrame,
     CanRxSource,
     CanTiming,
+    CanTsuConfig,
+    CanTsuLimits,
     CanTxEvent,
     CanTxEventDetails,
     CanTxEventStatus,
@@ -86,6 +88,39 @@ class CanDriver:
         return codec.decode_tx_event_details(
             self._request(CanCommand.TX_EVENT_DETAILS_READ, timeout_s=timeout_s)
         )
+
+    # TSU配置只写一次；不进入INIT，不控制外部输入，失败直接上抛。
+    def tsu_config_set(self, config: CanTsuConfig, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.TSU_CONFIG_SET, codec.tsu_config_words(config), timeout_s=timeout_s
+        )
+
+    # 单次真实读回，不轮询、不使用配置缓存；timeout_s约束通信，失败直接上抛。
+    def tsu_config_get(self, *, timeout_s: float | None = None) -> CanTsuConfig:
+        return codec.decode_tsu_config(
+            self._request(CanCommand.TSU_CONFIG_GET, timeout_s=timeout_s)
+        )
+
+    # 单次查询槽数及内部源/SOF支持；timeout_s约束通信，失败直接上抛，不使用Profile默认值。
+    def tsu_limits_get(self, *, timeout_s: float | None = None) -> CanTsuLimits:
+        return codec.decode_tsu_limits(
+            self._request(CanCommand.TSU_LIMITS_GET, timeout_s=timeout_s)
+        )
+
+    # 一次读取New/Lost快照；不消费任何槽，不轮询，通信失败上抛。
+    def tsu_flags_get(self, *, timeout_s: float | None = None) -> tuple[int, int]:
+        new, lost = self._request(CanCommand.TSU_FLAGS_GET, timeout_s=timeout_s)
+        if new > 0xFFFF or lost > 0xFFFF:
+            raise ProtocolError("CAN TSU flags exceed 16 slots")
+        return new, lost
+
+    # 单次读取32-bit活动时间基，不推断源频率或外部输入；timeout_s约束通信，失败直接上抛。
+    def tsu_timebase_get(self, *, timeout_s: float | None = None) -> int:
+        return self._request(CanCommand.TSU_TIMEBASE_GET, timeout_s=timeout_s)[0]
+
+    # 只读TS0一次并消费其New/Lost；timeout_s约束通信，失败上抛，不重试或读取未映射槽。
+    def tsu_slot0_consume(self, *, timeout_s: float | None = None) -> int:
+        return self._request(CanCommand.TSU_SLOT0_CONSUME, timeout_s=timeout_s)[0]
 
     # 连续模式下重装一次并返回相邻的实际前后计数；不清IRQ，不改变配置。
     # 一次请求受timeout_s约束，失败上抛且不重试；不含PC等待或假定读回等于TOP。

@@ -46,6 +46,28 @@ typedef enum
     ET_CAN_EVENT_FORMAT_TSU_ENABLED,
     ET_CAN_EVENT_FORMAT_WORDS
 } et_can_event_format_word_t;
+/** TSU wire fields are logical values, not register positions. */
+typedef enum
+{
+    ET_CAN_TSU_ENABLED = 0u,
+    ET_CAN_TSU_EXTERNAL,
+    ET_CAN_TSU_SOF,
+    ET_CAN_TSU_DIVISOR,
+    ET_CAN_TSU_CONFIG_WORDS
+} et_can_tsu_config_word_t;
+typedef enum
+{
+    ET_CAN_TSU_SLOTS = 0u,
+    ET_CAN_TSU_INTERNAL_SUPPORT,
+    ET_CAN_TSU_SOF_SUPPORT,
+    ET_CAN_TSU_LIMITS_WORDS
+} et_can_tsu_limits_word_t;
+typedef enum
+{
+    ET_CAN_TSU_NEW = 0u,
+    ET_CAN_TSU_LOST,
+    ET_CAN_TSU_FLAGS_WORDS
+} et_can_tsu_flags_word_t;
 #define ET_CAN_RX_FIFO_STATUS_WORDS 5u
 /** Counter reload response contains real reads rather than a configured TOP value. */
 typedef enum
@@ -291,6 +313,12 @@ typedef enum
     ET_CAN_COMMAND_TX_EVENT_DETAILS_READ = 61u,
     ET_CAN_COMMAND_TIMEOUT_RELOAD = 62u,
     ET_CAN_COMMAND_TIMESTAMP_RESET_SNAPSHOT = 63u,
+    ET_CAN_COMMAND_TSU_CONFIG_SET = 64u,
+    ET_CAN_COMMAND_TSU_CONFIG_GET = 65u,
+    ET_CAN_COMMAND_TSU_LIMITS_GET = 66u,
+    ET_CAN_COMMAND_TSU_FLAGS_GET = 67u,
+    ET_CAN_COMMAND_TSU_TIMEBASE_GET = 68u,
+    ET_CAN_COMMAND_TSU_SLOT0_CONSUME = 69u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
