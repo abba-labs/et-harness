@@ -407,6 +407,33 @@ def test_can_p1_011_irq_lines_and_clear(
         can.initializing_set(False)
         can.wait_initializing(False, timeout_s=TIMEOUT_S)
 
+        # 配置读回：确认真实回环/MON组合，不能用发送完成反推外部引脚已输出。
+        loopback = can.loopback_get()
+        bus_config = can.bus_config_get()
+        record_observation(
+            record_property,
+            key="loopback_mode",
+            value=int(loopback),
+            source="dut",
+            endpoint="CONFIG.LOOPBACK",
+        )
+        record_observation(
+            record_property,
+            key="monitor_mode",
+            value=bus_config.monitor,
+            source="dut",
+            endpoint="CONFIG.MONITOR",
+        )
+        assert (
+            loopback
+            == {
+                "internal": CanLoopback.INTERNAL,
+                "external": CanLoopback.EXTERNAL,
+                "normal": CanLoopback.DISABLED,
+            }[mode]
+        )
+        assert bus_config.monitor == (mode == "internal")
+
         # 两次真实刺激：第一笔验证投递/清除，第二笔证明清理后新事件仍有效。
         for payload in (PATTERN_A, PATTERN_B):
             can.irq_event_reset()
@@ -415,9 +442,25 @@ def test_can_p1_011_irq_lines_and_clear(
             can.tx_write(0, CanTxFrame(0x123, CanFrameFlags.NONE, 8, 0, payload))
             can.tx_request(1)
             tx = can.wait_tx_complete(1, timeout_s=TIMEOUT_S)
+            record_observation(
+                record_property,
+                key="tx_complete",
+                value=tx.completed,
+                source="dut",
+                endpoint="TX.COMPLETED",
+            )
 
             # 外部路径保留盒子真实捕获；Normal必须回发，不能把本机发送当作接收。
             if box:
+                peer_error = box.error_get()
+                record_observation(
+                    record_property,
+                    key="peer_error_before_receive",
+                    value=peer_error,
+                    source="peer",
+                    device_id=box.identity,
+                    endpoint="CHANNEL.ERROR",
+                )
                 captured = box.receive(timeout_s=TIMEOUT_S)
                 record_observation(
                     record_property,
@@ -452,13 +495,6 @@ def test_can_p1_011_irq_lines_and_clear(
                 value=asdict(received),
                 source="dut",
                 endpoint="RX.FRAME",
-            )
-            record_observation(
-                record_property,
-                key="tx_complete",
-                value=tx.completed,
-                source="dut",
-                endpoint="TX.COMPLETED",
             )
             record_property("masked_event", asdict(masked_event))
             assert received.identifier == (0x321 if mode == "normal" else 0x123)

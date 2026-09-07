@@ -136,6 +136,7 @@ def test_irq_case_checks_actual_line_attribution(tx_line, wrong_line, tmp_path) 
 
     support, resource, target, calls = dependencies()
     target.responses = [b"", b"", pack("<I", 1)] + [b""] * 8 + [pack("<I", 0)]
+    target.responses.extend([pack("<I", 1), pack("<11I", 1, 0, 1, 0, 0, 0, 0, 1, 1, 2, 2)])
     line1 = 512 if tx_line else 1
 
     # 软件夹具只提供预定采样，不读取Case发送的数据来制造Expected。

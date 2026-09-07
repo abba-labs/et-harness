@@ -880,14 +880,15 @@ method:
     - "中断参数：RX FIFO New Message和TX Complete两源，分别路由Line0/Line1并交换；内部回环、外部回环和Normal+Peer三种路径；其他源禁用。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "事件基线：配置本节点模式及路由，开启本次TX Buffer完成事件产生条件，清历史Raw和ISR计数；先关闭Source及Line投递。"
-    - "屏蔽刺激：回环节点发一帧；Normal节点DUT先发一帧并等Peer确认收到，再由Peer回发另一ID帧。确认本机TX完成与RX就绪后读取Raw中两源已置位、ISR计数仍0，避免把本机发出视作本机收到。"
+    - "事件基线：配置本节点模式及路由，读回CONFIG.LOOPBACK与CONFIG.MONITOR并核对当前路径，开启本次TX Buffer完成事件产生条件，清历史Raw和ISR计数；先关闭Source及Line投递。"
+    - "屏蔽刺激：回环节点发一帧；先记录本机TX.COMPLETED及外部Peer接收前CHANNEL.ERROR，再等待Peer捕获；Normal节点由Peer回发另一ID帧。确认本机RX就绪后读取Raw中两源已置位、ISR计数仍0，避免把本机发出视作本机收到。"
     - "路由投递：打开目标Source及Line，等待各线路ISR锁存；ISR只锁存并屏蔽，不清本次待验证Raw。"
     - "独立清除：先W1C清TX Complete，确认RX Raw保留；再清RX Raw并Ack接收帧，确认两位均0。"
     - "新事件验证：重开使能并重复当前路径，要求再次投递到正确线路；交换路由后重复。外部路径保留Peer捕获，外部回环时Peer只听，Normal时Peer正常ACK。"
   observations:
     - "中断硬件：IRQ.RAW在屏蔽时可置位，各目标位W1C独立清除。"
     - "回调证据：IRQ_EVENT.LINE/SOURCE/COUNT记录实际ISR执行，线路交换后仍对应配置。"
+    - "路径现场：CONFIG.LOOPBACK、CONFIG.MONITOR为真实模式读回；TX.COMPLETED在等待Peer之前记录，外部路径同时保留Peer接收前CHANNEL.ERROR，即使捕获超时也不丢失已取得事实。"
   pass_criteria:
     - "路由正确：关闭投递无ISR，开放后每源至少一次正确线路投递，不能只验证Raw。"
     - "清除正确：无新刺激时清指定源不影响另一源，清后新事件仍可投递。"
