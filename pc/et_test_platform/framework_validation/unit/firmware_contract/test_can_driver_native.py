@@ -814,6 +814,15 @@ static void test_dmu_images(void)
         assert(rx.frame.timestamp==0x1234 && rx.frame.index==UINT32_MAX && rx.frame.data_length==64);
         assert(rx.internal_timestamp_valid && !rx.tsu_captured && !rx.transferred_timestamp_valid);
         assert(memcmp(rx.frame.data,tx.data,64)==0);
+        /* Received standard ID low bits are not identifier bits (manual 2.4.2).
+         * Match the observed FPGA shape while keeping a non-echo independent ID. */
+        image.words[0]=0x0C840642;
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_OK);
+        assert(rx.frame.identifier==0x321 && image.words[0]==0x0C840642);
+        image.words[0]=0x5ABCDEF1;
+        assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_OK);
+        assert(rx.frame.identifier==0x1ABCDEF1 && (rx.frame.flags&ET_CAN_FRAME_EXTENDED));
+        image.words[0]=0x0C840000;
         image.byte_count=68;
         assert(et_can_wrap_decode_dmu_rx(i,0,&image,&rx)==ET_WRAP_STATUS_INVALID_ARGUMENT);
         image.words[17]=0;
@@ -830,6 +839,12 @@ static void test_dmu_images(void)
         assert(event.details.event.event_type==1 && event.details.event.timestamp==0x1234);
         assert(event.details.event.index==UINT32_MAX && event.details.internal_timestamp_valid);
         assert(!event.transferred_timestamp_valid);
+        image.words[0]=0x0C840642;
+        assert(et_can_wrap_decode_dmu_event(i,&image,&event)==ET_WRAP_STATUS_OK);
+        assert(event.details.event.identifier==0x321 && image.words[0]==0x0C840642);
+        image.words[0]=0x5ABCDEF1;
+        assert(et_can_wrap_decode_dmu_event(i,&image,&event)==ET_WRAP_STATUS_OK);
+        assert(event.details.event.identifier==0x1ABCDEF1);
         assert(memcmp(saved,controllers,sizeof(saved))==0);
         assert(memcmp(saved_misc,misc_blocks,sizeof(saved_misc))==0);
         /* Full Service envelopes and short-capacity rejection. */

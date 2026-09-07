@@ -552,9 +552,11 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-07 23:41 CST`
+状态更新时间：`2026-09-08 00:11 CST`
 
-最新开发状态：31项注册Case已全部执行；20项PASS、11项FAIL，不能宣称CAN全通过。23:37的PC修复专项120项通过，尚未复测硬件，以下仍保留修复前真实运行结果。
+最新开发状态：下面148节点表保留最近完整回归基线；23:50定向复测Marker/Timeout/TSU共10节点PASS，DMU结果序列化中断。00:06在clean `72f11198`上复测Timeout/格式/DMU RX/DMU TSU共19节点，6 PASS/13 FAIL/0 SKIP，原始结果和Excel均成功生成：`artifacts/runs/20260908_000655_769499_local_et6801_fpga_atp_testing/`、`artifacts/reports/20260908_000720_803804_ET6801_CAN测试报告.xlsx`。尚未进行修复后的完整148节点回归，不宣称CAN全通过。
+
+00:11定位：RX0/RX1原始头R0=`0x048C0246`，标准ID位28:18正确为0x123，低18位非零；DMA FREE、地址推进、完整64-byte数据和FIFO出队已有实读。TSU三个TTS节点末word与TS0相等。Bosch M_TTCAN 3.3.0 §2.4.2/2.4.4（PDF第81/84页）仅定义标准ID存于28:18，原Wrap按完整29-bit SDK字段要求低位全零，导致合法头被拒绝。Chip Driver的DMU RX/Event镜像解码现按XTD归一标准ID字段，保持原始镜像和扩展ID全部29位；Wire/Case判据不变。Native补非零低位和扩展ID反例，当前待验证及重新构建部署。
 
 ### 最近一次运行身份
 

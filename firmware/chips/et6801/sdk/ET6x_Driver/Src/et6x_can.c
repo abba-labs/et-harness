@@ -3284,6 +3284,13 @@ int32_t CAN_testDecodeDmuRx(CAN_Type *CANx, CAN_RxFIFONum fifo,
         image[index] = words[index];
     }
     CAN_copyBufferToMsg(image, &decoded);
+    /* M_TTCAN 3.3.0 section 2.4.2: standard IDs occupy ID[28:18].
+     * The remaining received ID bits are not part of the standard identifier.
+     * Normalize only the returned SDK field; keep the copied DMA image intact. */
+    if (decoded.xtd == 0U)
+    {
+        decoded.id = (decoded.id >> CAN_TEST_STANDARD_ID_SHIFT) << CAN_TEST_STANDARD_ID_SHIFT;
+    }
     tsu = CAN_RD_FIELD32(CANx->CCCR, CAN0_CCCR_UTSU);
     actual.internalTimestampValid = tsu == 0U;
     actual.validPayloadBytes = bytes;
@@ -3334,6 +3341,11 @@ int32_t CAN_testDecodeDmuEvent(CAN_Type *CANx, const uint32_t *words, uint32_t w
     decoded.id = (header & CAN_TX_EVENT_FIFO_ELEM_ID_MASK) >> CAN_TX_EVENT_FIFO_ELEM_ID_SHIFT;
     decoded.rtr = (header & CAN_TX_EVENT_FIFO_ELEM_RTR_MASK) >> CAN_TX_EVENT_FIFO_ELEM_RTR_SHIFT;
     decoded.xtd = (header & CAN_TX_EVENT_FIFO_ELEM_XTD_MASK) >> CAN_TX_EVENT_FIFO_ELEM_XTD_SHIFT;
+    /* Section 2.4.4 defines the same standard ID field for copied TX events. */
+    if (decoded.xtd == 0U)
+    {
+        decoded.id = (decoded.id >> CAN_TEST_STANDARD_ID_SHIFT) << CAN_TEST_STANDARD_ID_SHIFT;
+    }
     decoded.esi = (header & CAN_TX_EVENT_FIFO_ELEM_ESI_MASK) >> CAN_TX_EVENT_FIFO_ELEM_ESI_SHIFT;
     header = words[1];
     decoded.txts = (header & CAN_TX_EVENT_FIFO_ELEM_TXTS_MASK) >> CAN_TX_EVENT_FIFO_ELEM_TXTS_SHIFT;
