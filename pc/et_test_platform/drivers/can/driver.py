@@ -65,6 +65,15 @@ class CanDriver:
         words = codec.timing_words(CanTiming(timing, timing))[: len(contract.PHASE_FIELDS)]
         self._request(CanCommand.NOMINAL_TIMING_WRITE, words, timeout_s=timeout_s)
 
+    # 在已进入INIT的控制器上选择FD编码；不进入INIT，不隐式重发。
+    # timeout_s约束一次命令，失败直接上抛；模式生效须独立读回。
+    def non_iso_set(self, enabled: bool, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.NON_ISO_SET, (codec.boolean(enabled),), timeout_s=timeout_s)
+
+    # 读取实际FD编码选择；非法Boolean失败关闭，不返回请求缓存。
+    def non_iso_get(self, *, timeout_s: float | None = None) -> bool:
+        return codec.status_boolean(self._request(CanCommand.NON_ISO_GET, timeout_s=timeout_s)[0])
+
     # 连续消费一次协议状态和错误计数；读清字段会被确认，不允许自动重试。
     # 失败上抛，调用者应保存首个读回；返回值不是同时发生的原子快照。
     def protocol_status_consume(self, *, timeout_s: float | None = None) -> CanProtocolStatus:

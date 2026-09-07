@@ -1527,6 +1527,8 @@ void CAN_testGetInterruptConfig(CAN_Type *CANx, uint32_t *enabled, uint32_t *lin
 int32_t CAN_testConfigurationAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual);
 /** Write NBTP without automatically opening CCE, allowing hardware protection observation. */
 int32_t CAN_testWriteNominalTiming(CAN_Type *CANx, const CAN_BitTimingParams *timing);
+/** Select CCCR.NISO in INIT while preserving CCE; non-NULL actual selects read only. */
+int32_t CAN_testNonIsoAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

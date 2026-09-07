@@ -1,18 +1,22 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 12:20 CST
+更新时间：2026-09-07 12:31 CST
+
+2026-09-07 12:31 CST 开发追加：新增FD编码选择命令57/58，公共命令累计59条。ET6801 Chip Driver Test Extension使用生成头`CAN0_CCCR_NISO_Msk`，写入要求INIT并临时开启、随后恢复CCE，保留其他字段；Wrap/Service不访问寄存器。PC严格Boolean、无隐式INIT或写重试，GET读取硬件。当前只完成P1_020所需基础接口，Case仍为PLAN；未烧录、未形成新硬件结果。芯片查询证据`artifacts/runs/20260907_can_planned_development/stages/noniso_chip_query.json`。
 
 2026-09-07 11:54 CST 开发追加：P1_021已补PC正式Case、注册及报告绑定，待软件验证与FPGA执行。40MHz的2M数据时序为(1,15,4,4)，5M为(1,5,2,2)，仲裁1M为(2,15,4,4)，字段顺序BRP/TSEG1/TSEG2/SJW且均为实际计数；TDCO分别16/6、TDCF=0，取数据采样位置(1+TSEG1)*BRP，符合SDK的0..127范围。这是合法配置输入，不是外部速率已实测结论，也不覆盖Silicon时钟。当前实现数量增为17 SPEC/22 PLAN；下列11:27的16条Case/94节点历史实测结论不包含新增Case。
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_021/P2_005尚未FPGA执行。** 当前57条命令、18项SPEC、21项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有2项软件实现完成。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_021/P2_005尚未FPGA执行。** 当前59条命令、18项SPEC、21项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标；15项已有PLAN正在逐项实现，已有2项软件实现完成。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 
 2026-09-07 12:20 CST 验证追加：P2_005专项7 PASS，总软件门禁1363 PASS、17宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/loopback_software_gate_verified.log`。Case保留Normal ACK正对照和回环只听要求，内部100ms静默必须真实超时且Observer无错误，不接受短窗口或意外帧。真实Driver/Wire夹具另覆盖三阶段坏帧；软件结果不关闭旧只听硬件问题。未修改Firmware或执行硬件；新增P1_021/P2_005均NOT_EXECUTED。
 
 ## 第一章 IP分析
+
+2026-09-07 12:35 CST 验证追加：Non-ISO基础接口通过完整软件门禁1366 PASS、17宿主编译器条件SKIP，见`artifacts/runs/20260907_can_planned_development/stages/noniso_primitives_software_gate.log`。ARMclang对真实CAN SDK/Wrap/Service语法检查通过（`noniso_armclang_syntax.log`）；Native寄存器Harness已新增NISO/CCE保留、非法值、INIT限制、三实例隔离及Service精确Body测试，但因宿主编译器缺失未执行，不用语法检查冒充运行。P1_020正式Case继续开发，未构建部署镜像或执行硬件。
 
 ### 1.1 工作原理与应用
 

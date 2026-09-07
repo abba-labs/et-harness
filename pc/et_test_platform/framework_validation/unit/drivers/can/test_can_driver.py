@@ -43,6 +43,34 @@ TIMING = CanTiming(CanPhaseTiming(2, 31, 8, 8), CanPhaseTiming(1, 15, 4, 4))
 OPTIONS = CanOptions(True, True, True, False, False, True, False, 20, 10, 100)
 
 
+# 测试Feature：独立Non-ISO选择命令及实际Boolean读回。
+# 测试方法：逐字节核对Golden请求，注入非法请求值和非法响应。
+# 通过条件：只读可重试，写入不重试，无隐式INIT，错误不返回缓存。
+def test_non_iso_commands_golden() -> None:
+
+    target = TargetStub([b"", pack("<I", 1), b"", pack("<I", 0)])
+    driver = CanDriver(target, 2)
+    driver.non_iso_set(True, timeout_s=0.25)
+    assert driver.non_iso_get() is True
+    driver.non_iso_set(False)
+    assert driver.non_iso_get() is False
+    assert [request["command"] for request in target.requests] == [57, 58, 57, 58]
+    assert [request["body"] for request in target.requests] == [
+        bytes.fromhex("02 01000000"),
+        b"\x02",
+        bytes.fromhex("02 00000000"),
+        b"\x02",
+    ]
+    assert [request["retry_safe"] for request in target.requests] == [False, True, False, True]
+    assert target.requests[0]["timeout_s"] == 0.25
+    with pytest.raises(ValueError):
+        driver.non_iso_set(1)
+    assert len(target.requests) == 4
+    target.responses = [pack("<I", 2)]
+    with pytest.raises(ProtocolError):
+        driver.non_iso_get()
+
+
 # 测试Feature：配置写权限与不隐式解锁的仲裁时序写命令。
 # 测试方法：核对独立Golden字节和只读重试属性，非法Boolean不能发送。
 # 通过条件：三条命令按顺序各执行一次，不隐藏配置动作或返回缓存。

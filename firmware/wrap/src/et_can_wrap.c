@@ -523,6 +523,42 @@ et_wrap_status_t et_can_wrap_configuration_access(et_can_id_t id, uint8_t enable
 }
 
 /**
+ * @brief Select or read the CAN FD encoding format through the own Driver.
+ * @param[in] id Logical controller identity.
+ * @param[in] enabled Boolean Non-ISO selection, ignored for reads.
+ * @param[out] actual Non-NULL selects read, NULL selects write.
+ * @return OK or argument, instance or state failure.
+ * @note Writes require INIT and do not send frames or change other CAN options.
+ */
+et_wrap_status_t et_can_wrap_non_iso_access(et_can_id_t id, uint8_t enabled, uint8_t *actual)
+{
+    CAN_Type *instance = find_instance(id);
+    uint32_t value;
+
+    if (enabled > 1u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    if (CAN_testNonIsoAccess(instance, enabled, actual == NULL ? NULL : &value) != DRV_OK)
+    {
+        return ET_WRAP_STATUS_STATE_ERROR;
+    }
+
+    if (actual != NULL)
+    {
+        *actual = (uint8_t)value;
+    }
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
  * @brief Attempt a nominal timing write while preserving the permission gate.
  * @param[in] id Logical controller.
  * @param[in] timing Four positive physical timing counts.

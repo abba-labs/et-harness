@@ -1,6 +1,6 @@
 # CAN / CAN FD Stable IP Contract
 
-更新时间：2026-09-07 11:08 CST
+更新时间：2026-09-07 12:31 CST
 
 开发稿：39项能力/行为目标（37项已准入Feature、2项待定），42项测试目标；18项SPEC、21项PLAN、3项目标仍缺关键硬件语义，未冒充PLAN或SKIP。已实现Case与注册表及报告模板绑定，芯片实测结论只记录在对应芯片文档；第5节缺口闭合前，不宣称IP分析全部完成。
 
@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制和中断管理，共57条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO、协议状态消费、计时控制、中断管理及FD格式选择，共59条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -177,6 +177,8 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | CONFIGURATION_WRITE_SET | 54 | enabled：0/1 | 无；INIT下显式改变配置写权限，不修改位时序 |
 | CONFIGURATION_WRITE_GET | 55 | 无 | enabled：真实配置写权限 |
 | NOMINAL_TIMING_WRITE | 56 | brp、segment1、segment2、sjw：实际正整数 | 无；INIT下发出一次仲裁位时序写，不隐式解锁；成功返回不表示硬件接受，应独立读回 |
+| NON_ISO_SET | 57 | enabled：严格Boolean，0为ISO、1为Non-ISO | 无；要求已处于INIT，仅选择FD编码，保留配置写权限及其他选项，不发送帧；须独立读回 |
+| NON_ISO_GET | 58 | 无 | enabled：实际硬件Boolean，无读清副作用；不返回上次请求缓存 |
 
 RAM访问限制：offset以Byte计且4-byte对齐，count为1～64；全部范围必须落在当前实例声明的Message RAM容量内。descending严格为0/1，只改变访问顺序。固件不生成测试模式、不比较Expected、不计算PASS；PC负责算法、完整读值比较和首错定位。
 

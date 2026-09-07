@@ -272,6 +272,27 @@ int main(void)
         assert(et_can_wrap_set_initializing(index, 1) == ET_WRAP_STATUS_OK);
         assert(et_can_wrap_get_initializing(index, &initializing) == ET_WRAP_STATUS_OK);
         assert(initializing == 1);
+        /* Non-ISO selection changes only NISO, preserving CCE and other instances. */
+        for (unsigned permission = 0; permission < 2; ++permission)
+        {
+            instances[index]->CCCR = CAN0_CCCR_INIT_Msk | CAN0_CCCR_DAR_Msk |
+                (permission ? CAN0_CCCR_CCE_Msk : 0);
+            uint32_t before_format = instances[index]->CCCR;
+            assert(et_can_wrap_non_iso_access(index, 1, NULL) == ET_WRAP_STATUS_OK);
+            assert(instances[index]->CCCR == (before_format | CAN0_CCCR_NISO_Msk));
+            assert(et_can_wrap_non_iso_access(index, 0, &initializing) == ET_WRAP_STATUS_OK);
+            assert(initializing == 1);
+            assert(et_can_wrap_non_iso_access(index, 0, NULL) == ET_WRAP_STATUS_OK);
+            assert(instances[index]->CCCR == before_format);
+            assert(et_can_wrap_non_iso_access(index, 2, NULL) == ET_WRAP_STATUS_INVALID_ARGUMENT);
+            assert(instances[index]->CCCR == before_format);
+            assert(instances[(index + 1) % 3]->CCCR == 0);
+        }
+        instances[index]->CCCR = CAN0_CCCR_DAR_Msk;
+        assert(et_can_wrap_non_iso_access(index, 1, NULL) == ET_WRAP_STATUS_STATE_ERROR);
+        assert(instances[index]->CCCR == CAN0_CCCR_DAR_Msk);
+        assert(et_can_wrap_non_iso_access(99, 1, NULL) == ET_WRAP_STATUS_NOT_SUPPORTED);
+        assert(et_can_wrap_set_initializing(index, 1) == ET_WRAP_STATUS_OK);
         assert(et_can_wrap_get_timing_limits(index, &limits) == ET_WRAP_STATUS_OK);
         assert(limits.nominal_max.prescaler == 512 && limits.data_max.prescaler == 32);
         assert(et_can_wrap_set_timing(index, &timing) == ET_WRAP_STATUS_OK);
@@ -357,6 +378,28 @@ int main(void)
     assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 5,
                               NULL, 0, &response_length) == ET_STATUS_OK);
     assert(CAN_getOpMode(CAN0) == CAN_OPERATION_MODE_SW_INIT && response_length == 0);
+    assert(descriptor->handle(descriptor->context, 57, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_OK);
+    assert(response_length == 0 && (controllers[0].CCCR & CAN0_CCCR_NISO_Msk));
+    assert(descriptor->handle(descriptor->context, 58, request, 1,
+                              response, 4, &response_length) == ET_STATUS_OK);
+    assert(response_length == 4 && response[0] == 1 && response[1] == 0 &&
+           response[2] == 0 && response[3] == 0);
+    unchanged = controllers[0];
+    request[1] = 2;
+    assert(descriptor->handle(descriptor->context, 57, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(response_length == 0 && memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+    assert(descriptor->handle(descriptor->context, 57, request, 4,
+                              NULL, 0, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(descriptor->handle(descriptor->context, 58, request, 1,
+                              response, 3, &response_length) == ET_STATUS_INVALID_PARAM);
+    assert(memcmp(&unchanged, &controllers[0], sizeof(unchanged)) == 0);
+    request[1] = 0;
+    assert(descriptor->handle(descriptor->context, 57, request, 5,
+                              NULL, 0, &response_length) == ET_STATUS_OK);
+    assert(!(controllers[0].CCCR & CAN0_CCCR_NISO_Msk));
+    request[1] = 1;
     request[2] = 1;
     unchanged = controllers[0];
     assert(descriptor->handle(descriptor->context, ET_CAN_COMMAND_INITIALIZING_SET, request, 5,

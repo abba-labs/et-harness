@@ -1497,6 +1497,30 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
             return et_can_wrap_configuration_access(id, (uint8_t)requested, NULL);
         }
 
+        case ET_CAN_COMMAND_NON_ISO_SET:
+        {
+            requested = read_word(body);
+
+            if (requested > 1u)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            return et_can_wrap_non_iso_access(id, (uint8_t)requested, NULL);
+        }
+
+        case ET_CAN_COMMAND_NON_ISO_GET:
+        {
+            status = et_can_wrap_non_iso_access(id, 0u, &initializing);
+
+            if (status == ET_WRAP_STATUS_OK)
+            {
+                write_word(response, initializing);
+            }
+
+            return status;
+        }
+
         case ET_CAN_COMMAND_CONFIGURATION_WRITE_GET:
         {
             status = et_can_wrap_configuration_access(id, 0u, &initializing);
@@ -1698,6 +1722,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_RAM_WORDS_WRITE] = ET_CAN_RAM_ACCESS_WRITE_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WRITE_WORDS,
         [ET_CAN_COMMAND_CONFIGURATION_WRITE_SET] = 1u,
+        [ET_CAN_COMMAND_NON_ISO_SET] = 1u,
         [ET_CAN_COMMAND_NOMINAL_TIMING_WRITE] = ET_CAN_PHASE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
@@ -1725,6 +1750,7 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_IRQ_LINE_EVENTS_GET] = ET_CAN_IRQ_LINE_COUNT,
         [ET_CAN_COMMAND_RAM_WORDS_READ] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_CONFIGURATION_WRITE_GET] = 1u,
+        [ET_CAN_COMMAND_NON_ISO_GET] = 1u,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,

@@ -2648,5 +2648,33 @@ int32_t CAN_testWriteNominalTiming(CAN_Type *CANx, const CAN_BitTimingParams *ti
               (timing->nomSynchJumpWidth << CAN0_NBTP_NSJW_Pos));
     return DRV_OK;
 }
+/**
+ * @brief Read or select Non-ISO FD encoding using the generated CCCR.NISO field.
+ * @note A write requires INIT, temporarily opens CCE and restores its previous value.
+ *       All unrelated CCCR fields are preserved; no frame is transmitted here.
+ */
+int32_t CAN_testNonIsoAccess(CAN_Type *CANx, uint32_t enable, uint32_t *actual)
+{
+    uint32_t permission;
+
+    assert_param(IS_CAN_PERIPH(CANx));
+    if (actual != NULL)
+    {
+        *actual = READ_BIT(CANx->CCCR, CAN0_CCCR_NISO_Msk) != 0U;
+        return DRV_OK;
+    }
+    if ((enable > 1U) || (CAN_getOpMode(CANx) != CAN_OPERATION_MODE_SW_INIT))
+    {
+        return DRV_ERROR;
+    }
+    permission = READ_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    SET_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    CAN_WR_FIELD32(CANx->CCCR, CAN0_CCCR_NISO, enable);
+    if (permission == 0U)
+    {
+        CLEAR_BIT(CANx->CCCR, CAN0_CCCR_CCE_Msk);
+    }
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

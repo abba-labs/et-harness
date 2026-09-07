@@ -81,6 +81,8 @@ class CanCommand(IntEnum):
     CONFIGURATION_WRITE_SET = 54
     CONFIGURATION_WRITE_GET = 55
     NOMINAL_TIMING_WRITE = 56
+    NON_ISO_SET = 57
+    NON_ISO_GET = 58
 
 
 REQUEST_WORDS = (
@@ -141,6 +143,8 @@ REQUEST_WORDS = (
     1,
     0,
     4,
+    1,  # NON_ISO_SET: explicit Boolean format selection.
+    0,
 )
 RESPONSE_WORDS = (
     2,
@@ -200,6 +204,8 @@ RESPONSE_WORDS = (
     0,
     1,
     0,
+    0,
+    1,  # NON_ISO_GET: actual hardware format selection.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
@@ -316,5 +322,6 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.IRQ_LINE_EVENTS_GET,
         CanCommand.RAM_WORDS_READ,
         CanCommand.CONFIGURATION_WRITE_GET,
+        CanCommand.NON_ISO_GET,
     }
 )
