@@ -95,6 +95,14 @@ class CanDriver:
             raise ProtocolError("CAN timeout reload returned an invalid 16-bit count")
         return before, after
 
+    # 内部源下单次清零并返回实际前后计数；旧timestamp_reset行为保持。
+    # timeout_s约束一次请求，失败直接上抛、不重试；Case另外检查包围窗口和清零上界。
+    def timestamp_reset_snapshot(self, *, timeout_s: float | None = None) -> tuple[int, int]:
+        before, after = self._request(CanCommand.TIMESTAMP_RESET_SNAPSHOT, timeout_s=timeout_s)
+        if before > 0xFFFF or after > 0xFFFF:
+            raise ProtocolError("CAN timestamp snapshot returned an invalid 16-bit count")
+        return before, after
+
     # 在已进入INIT的控制器上选择FD编码；不进入INIT，不隐式重发。
     # timeout_s约束一次命令，失败直接上抛；模式生效须独立读回。
     def non_iso_set(self, enabled: bool, *, timeout_s: float | None = None) -> None:

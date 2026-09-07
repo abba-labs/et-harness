@@ -1553,6 +1553,8 @@ void CAN_testReadTxEvent(CAN_Type *CANx, CAN_TxEventFIFOElement *element,
                          CAN_TestEventMetadata *metadata);
 /** Continuous timeout only: read old count, write TOCV once, immediately read actual count. */
 int32_t CAN_testReloadTimeout(CAN_Type *CANx, uint32_t *before, uint32_t *after);
+/** Internal timestamp only: read, single reset write, read; no IRQ clear or polling. */
+int32_t CAN_testResetTimestampSnapshot(CAN_Type *CANx, uint32_t *before, uint32_t *after);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 

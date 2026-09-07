@@ -2390,6 +2390,34 @@ et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id)
 }
 
 /**
+ * @brief Reset an internal timestamp with actual adjacent reads in one Driver action.
+ * @param[in] id Logical controller.
+ * @param[out] before Actual pre-reset value.
+ * @param[out] after Actual post-reset value, not a constant zero.
+ * @return OK, INVALID_ARGUMENT, NOT_SUPPORTED or STATE_ERROR for a non-internal source.
+ * @note Keeps the old reset API unchanged; no polling, retry or IRQ clearing occurs.
+ */
+et_wrap_status_t et_can_wrap_reset_timestamp_snapshot(et_can_id_t id, uint32_t *before,
+                                                      uint32_t *after)
+{
+    CAN_Type *instance = find_instance(id);
+
+    if ((before == NULL) || (after == NULL))
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (instance == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    return CAN_testResetTimestampSnapshot(instance, before, after) == DRV_OK
+               ? ET_WRAP_STATUS_OK
+               : ET_WRAP_STATUS_STATE_ERROR;
+}
+
+/**
  * @brief Request or withdraw CAN clock stop without waiting for acknowledgement.
  * @param[in] id Logical controller.
  * @param[in] requested Boolean request, not an assumed final state.

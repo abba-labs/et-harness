@@ -2792,5 +2792,26 @@ int32_t CAN_testReloadTimeout(CAN_Type *CANx, uint32_t *before, uint32_t *after)
     *after = CAN_getTOCounterVal(CANx);
     return DRV_OK;
 }
+/**
+ * @brief Reset the internal timestamp and return adjacent actual count reads.
+ * @param CANx Valid controller pointer.
+ * @param before Actual count before the write.
+ * @param after Actual count after the write, including any hardware advancement.
+ * @return DRV_OK or DRV_ERROR for invalid storage or a non-internal timestamp source.
+ * @note No IRQ clearing, interrupt suppression, polling or implicit INIT transition.
+ */
+int32_t CAN_testResetTimestampSnapshot(CAN_Type *CANx, uint32_t *before, uint32_t *after)
+{
+    assert_param(IS_CAN_PERIPH(CANx));
+    if ((before == NULL) || (after == NULL) ||
+        (CAN_RD_FIELD32(CANx->TSCC, CAN0_TSCC_TSS) != CAN_TIMESTAMP_INTERNAL))
+    {
+        return DRV_ERROR;
+    }
+    *before = CAN_getTSCounterVal(CANx);
+    WRITE_REG(CANx->TSCV, 0U);
+    *after = CAN_getTSCounterVal(CANx);
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

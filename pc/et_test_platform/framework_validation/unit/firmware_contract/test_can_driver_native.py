@@ -196,10 +196,18 @@ static unsigned consume_enabled, ecr_reads, psr_reads, txbc_reads;
 static unsigned ram_trace_enabled, ram_trace_count;
 static uintptr_t ram_trace[4];
 static unsigned timeout_write_count;
+static unsigned timestamp_snapshot_model, timestamp_write_count;
 void can_test_write(volatile uint32_t *address, uint32_t value)
 {
     for (unsigned i=0; i<3; ++i)
     {
+        if (timestamp_snapshot_model && address == &controllers[i].TSCV)
+        {
+            assert(value == 0);
+            ++timestamp_write_count;
+            *address = 1U;
+            return;
+        }
         if (address == &controllers[i].TOCV)
         {
             assert(value == 0);
@@ -1015,6 +1023,37 @@ int main(void)
         assert(descriptor->handle(descriptor->context,62,request,1,response,7,&response_length)==ET_STATUS_INVALID_PARAM);
         assert(descriptor->handle(descriptor->context,62,request,2,response,8,&response_length)==ET_STATUS_INVALID_PARAM);
         assert(timeout_write_count==4);
+    }
+
+    /* Snapshot returns actual reset advancement and preserves configuration/IRQ per instance. */
+    {
+        uint32_t before=0, after=0;
+        timestamp_snapshot_model=1; timestamp_write_count=0;
+        for (unsigned i=0; i<3; ++i)
+        {
+            instances[i]->TSCC=(i<<16)|1U;
+            instances[i]->TSCV=0x9000U+i;
+            instances[i]->IR=0x10000U;
+            uint32_t cccr=instances[i]->CCCR;
+            assert(et_can_wrap_reset_timestamp_snapshot(i,&before,&after)==ET_WRAP_STATUS_OK);
+            assert(before==0x9000U+i && after==1U);
+            assert(instances[i]->TSCC==((i<<16)|1U) && instances[i]->CCCR==cccr);
+            assert(instances[i]->IR==0x10000U);
+            instances[i]->TSCC=2U;
+            assert(et_can_wrap_reset_timestamp_snapshot(i,&before,&after)==ET_WRAP_STATUS_STATE_ERROR);
+            instances[i]->TSCC=0;
+            assert(et_can_wrap_reset_timestamp_snapshot(i,&before,&after)==ET_WRAP_STATUS_STATE_ERROR);
+        }
+        assert(timestamp_write_count==3);
+        assert(et_can_wrap_reset_timestamp_snapshot(0,NULL,&after)==ET_WRAP_STATUS_INVALID_ARGUMENT);
+        assert(et_can_wrap_reset_timestamp_snapshot(9,&before,&after)==ET_WRAP_STATUS_NOT_SUPPORTED);
+        CAN0->TSCC=1U; CAN0->TSCV=0xABCDU; request[0]=0;
+        assert(descriptor->handle(descriptor->context,63,request,1,response,8,&response_length)==ET_STATUS_OK);
+        assert(response_length==8 && response[0]==0xCD && response[1]==0xAB && response[4]==1);
+        assert(descriptor->handle(descriptor->context,63,request,1,response,7,&response_length)==ET_STATUS_INVALID_PARAM);
+        assert(descriptor->handle(descriptor->context,63,request,2,response,8,&response_length)==ET_STATUS_INVALID_PARAM);
+        assert(timestamp_write_count==4);
+        timestamp_snapshot_model=0;
     }
 
     /* Bounded RAM primitive preserves per-word descending order and validates before mutation. */

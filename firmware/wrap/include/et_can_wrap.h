@@ -442,6 +442,9 @@ et_wrap_status_t et_can_wrap_consume_protocol_status(et_can_id_t id,
                                                      et_can_protocol_status_t *status);
 et_wrap_status_t et_can_wrap_get_timestamp(et_can_id_t id, uint32_t *count);
 et_wrap_status_t et_can_wrap_reset_timestamp(et_can_id_t id);
+/** Internal-source reset with real adjacent reads; no IRQ clear or implicit configuration. */
+et_wrap_status_t et_can_wrap_reset_timestamp_snapshot(et_can_id_t id, uint32_t *before,
+                                                      uint32_t *after);
 et_wrap_status_t et_can_wrap_get_timeout_counter(et_can_id_t id, uint32_t *count);
 /** One continuous-counter reload; actual reads on both sides, no IRQ clear or mode change. */
 et_wrap_status_t et_can_wrap_reload_timeout(et_can_id_t id, uint32_t *before, uint32_t *after);

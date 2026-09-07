@@ -87,6 +87,7 @@ class CanCommand(IntEnum):
     EVENT_FORMAT_GET = 60
     TX_EVENT_DETAILS_READ = 61
     TIMEOUT_RELOAD = 62
+    TIMESTAMP_RESET_SNAPSHOT = 63
 
 
 REQUEST_WORDS = (
@@ -153,6 +154,7 @@ REQUEST_WORDS = (
     0,
     0,
     0,  # TIMEOUT_RELOAD: continuous source only.
+    0,  # TIMESTAMP_RESET_SNAPSHOT: internal timestamp only.
 )
 RESPONSE_WORDS = (
     2,
@@ -218,6 +220,7 @@ RESPONSE_WORDS = (
     2,
     10,  # TX_EVENT_DETAILS_READ: old fields plus timestamp-valid, TSU-captured, pointer.
     2,  # TIMEOUT_RELOAD: before/after actual counter, not TOP echo.
+    2,  # TIMESTAMP_RESET_SNAPSHOT: actual count before/after one reset write.
 )
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (

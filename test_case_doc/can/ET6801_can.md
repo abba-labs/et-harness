@@ -2,6 +2,10 @@
 
 更新时间：2026-09-07 14:23 CST
 
+2026-09-07 14:34 CST 验证追加：时间戳清零快照基础接口通过独立Wire向量及WSL GCC真实SDK/Wrap/Service Harness（`timestamp_native_compile.log`、`timestamp_native_execution.log`），验证内部源限定、三实例及IRQ保留、返回非零实际后值和精确Body长度。完整软件门禁1479 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timestamp_snapshot_software_gate.log`）；没有构建/部署固件或执行新Case硬件测试。
+
+2026-09-07 14:29 CST 开发追加：时间戳清零快照命令63累计64条。SVD TSCC.TSS=1才内部计数、TSCV任意写清零且自然回绕置IR.TSW；Chip Driver单读/单写/单读并保留TSCC、CCCR和IR，关闭或外部源拒绝。无需DWT或新增外部仪器，返回值不伪造为0；Case的测量窗口和自然回绕排除仍由PC独立判断。P1_013尚未转SPEC，未构建/部署固件。
+
 2026-09-07 14:23 CST 验证追加：P1_014四源Case及35项独立Wire反例验证完成，完整门禁1473 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timeout_case_software_gate_external_temp.log`）。此前一次门禁遇Windows公共TEMP中的目录消失，随后把TMP放在仓库内又触发布局/路径归属三项检查，原日志分别保留为`timeout_case_software_gate.log`、`timeout_case_software_gate_verified.log`；未改框架测试。改用仓库外专属临时目录后6项相关路径自测和全门禁均通过。15项计划已完成6项实现与软件验证；新增硬件测试仍NOT_EXECUTED。
 
 2026-09-07 14:00 CST 验证追加：Timeout重装基础接口通过5项独立Wire向量、WSL GCC真实SDK/Wrap/Service Harness编译与执行（`timeout_native_compile.log`、`timeout_native_execution.log`）；三个实例返回独立前值及模拟递减后的实读值，FIFO源拒绝且无多余写操作，Service精确长度拒绝保持。完整软件门禁1438 PASS、17 Windows编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/timeout_reload_software_gate.log`）。P1_014正式Case继续开发，未部署或执行硬件。
