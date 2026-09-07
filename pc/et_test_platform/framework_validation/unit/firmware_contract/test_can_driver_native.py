@@ -38,7 +38,8 @@ def write_can_driver_harness(directory: Path) -> Path:
         f"#define {name} {value}"
         for name, value in re.findall(r"\b(CAN[0-2]_INT[01]_IRQn|CAN_ECC_IRQn)\s*=\s*(\d+)", cmsis)
     )
-    fields = sorted(set(re.findall(r"CANx->(\w+)", source)))
+    # DMUIR虽不被当前原语读取，仍保留在桩中作为无副作用哨兵。
+    fields = sorted(set(re.findall(r"CANx->(\w+)", source)) | {"DMUIR"})
     stub = (
         "#pragma once\n#include <stdint.h>\n#include <stddef.h>\n#include <assert.h>\n"
         "#define assert_param(v) assert(v)\n#define DRV_OK 0\n#define DRV_ERROR (-1)\n"
@@ -211,6 +212,7 @@ static unsigned timeout_write_count;
 static unsigned timestamp_snapshot_model, timestamp_write_count;
 static unsigned tsu_slot_reads, tsu_status_reads;
 static unsigned ecc_status_model;
+static unsigned dmu_counter_reads;
 void can_test_write(volatile uint32_t *address, uint32_t value)
 {
     for (unsigned i=0; i<3; ++i)
@@ -250,6 +252,7 @@ uint32_t can_test_read(volatile uint32_t *address)
     uint32_t value=*address;
     for (unsigned i=0; i<3; ++i)
     {
+        if (address == &controllers[i].DMUQC) { ++dmu_counter_reads; }
         if (ecc_status_model && address == &misc_blocks[i].MTTCAN_INT_MSTATUS)
         {
             return misc_blocks[i].MTTCAN_INT_RSTATUS & misc_blocks[i].MTTCAN_INT_EN &
@@ -557,8 +560,80 @@ static void test_tsu_contract(void)
     }
 }
 
+/* DMA addresses are resolved only; the host must never dereference a virtual window. */
+static void test_dmu_primitives(void)
+{
+    CAN_Type *instances[] = {CAN0, CAN1, CAN2};
+    const uint32_t offsets[] = {0x200, 0x280, 0x300, 0x380};
+    CAN_MISC_Type saved_misc[3];
+    CAN_Type saved_can[3];
+    CAN_TestDmuCounters counters;
+    CAN_DMURxRequest request;
+    uint32_t address;
+    memset(controllers, 0, sizeof(controllers));
+    memset(misc_blocks, 0, sizeof(misc_blocks));
+    for (unsigned i=0; i<3; ++i)
+    {
+        CAN_Type *can=instances[i];
+        can->DMUQC=0xFE807F01U;
+        can->DMUIR=0x12345678U;
+        can->DMUC=1;
+        for (unsigned j=0; j<3; ++j) { misc_blocks[j].DMU_DMA_CFG=0xA5A500CFU+j; }
+        memcpy(saved_can, controllers, sizeof(saved_can));
+        memcpy(saved_misc, misc_blocks, sizeof(saved_misc));
+        for (unsigned element=0; element<4; ++element)
+        {
+            assert(CAN_testGetDmuEndpoint(can, (CAN_TestDmuElement)element, &address)==DRV_OK);
+            assert(address==(uintptr_t)can+offsets[element]);
+        }
+        address=0xDEADBEEFU;
+        assert(CAN_testGetDmuEndpoint(can, (CAN_TestDmuElement)4, &address)==DRV_ERROR);
+        assert(CAN_testGetDmuEndpoint(can, (CAN_TestDmuElement)-1, &address)==DRV_ERROR);
+        assert(address==0xDEADBEEFU);
+        assert(CAN_testGetDmuEndpoint(can, CAN_TEST_DMU_TX, NULL)==DRV_ERROR);
+        dmu_counter_reads=0;
+        assert(CAN_testGetDmuCounters(can, &counters)==DRV_OK);
+        assert(dmu_counter_reads==1);
+        assert(counters.txEnqueued==1 && counters.rx0Dequeued==127);
+        assert(counters.rx1Dequeued==128 && counters.txEventDequeued==254);
+        assert(CAN_testGetDmuCounters(can, NULL)==DRV_ERROR && dmu_counter_reads==1);
+        assert(memcmp(saved_can, controllers, sizeof(saved_can))==0);
+        assert(memcmp(saved_misc, misc_blocks, sizeof(saved_misc))==0);
+        for (unsigned selection=0; selection<3; ++selection)
+        {
+            assert(CAN_testSetDmuRxRequest(can, (CAN_DMURxRequest)selection)==DRV_OK);
+            assert(misc_blocks[i].DMU_DMA_CFG==((saved_misc[i].DMU_DMA_CFG&~0x30U)|(selection<<4)));
+            request=CAN_DMU_REQ_TXER;
+            assert(CAN_testGetDmuRxRequest(can, &request)==DRV_OK && (unsigned)request==selection);
+            for (unsigned j=0; j<3; ++j)
+            {
+                if (j!=i) { assert(memcmp(&saved_misc[j], &misc_blocks[j], sizeof(saved_misc[j]))==0); }
+            }
+        }
+        memcpy(saved_misc, misc_blocks, sizeof(saved_misc));
+        assert(CAN_testSetDmuRxRequest(can, (CAN_DMURxRequest)3)==DRV_ERROR);
+        assert(CAN_testSetDmuRxRequest(can, (CAN_DMURxRequest)-1)==DRV_ERROR);
+        assert(CAN_testGetDmuRxRequest(can, NULL)==DRV_ERROR);
+        assert(memcmp(saved_misc, misc_blocks, sizeof(saved_misc))==0);
+        /* Independent register mutation proves GET does not echo the last successful SET. */
+        misc_blocks[i].DMU_DMA_CFG &= ~0x30U;
+        assert(CAN_testGetDmuRxRequest(can, &request)==DRV_OK && request==CAN_DMU_REQ_RX0R);
+        misc_blocks[i].DMU_DMA_CFG |= 0x30U;
+        request=CAN_DMU_REQ_RX1R;
+        assert(CAN_testGetDmuRxRequest(can, &request)==DRV_ERROR && request==CAN_DMU_REQ_RX1R);
+        assert(memcmp(saved_can, controllers, sizeof(saved_can))==0);
+    }
+    assert(CAN_testGetDmuEndpoint(NULL, CAN_TEST_DMU_TX, &address)==DRV_ERROR);
+    assert(CAN_testGetDmuCounters(NULL, &counters)==DRV_ERROR);
+    assert(CAN_testGetDmuRxRequest(NULL, &request)==DRV_ERROR);
+    assert(CAN_testSetDmuRxRequest(NULL, CAN_DMU_REQ_RX0R)==DRV_ERROR);
+    memset(controllers, 0, sizeof(controllers));
+    memset(misc_blocks, 0, sizeof(misc_blocks));
+}
+
 int main(void)
 {
+    test_dmu_primitives();
     test_tsu_contract();
     test_ecc_register_contract();
     test_ecc_session_contract();

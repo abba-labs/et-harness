@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 17:30 CST
+更新时间：2026-09-07 17:48 CST
+
+2026-09-07 17:48 CST 验证追加：DMU Chip Driver批次完整软件门禁1677 PASS、17 Windows宿主编译器条件SKIP，日志`artifacts/runs/20260907_can_planned_development/stages/dmu_driver_software_gate.log`；同批Native Harness已由WSL GCC实际编译执行通过。这里只闭合Driver基础原语，不升级DMU正式Case状态，未烧录或执行硬件。
+
+2026-09-07 17:44 CST DMU Chip Driver基础实现：隔离Test Extension新增四个命名虚拟端点查询、RX请求选择合法性校验/实读和DMUQC单次快照解码。端点仅返回SDK已定义TX/RX0/RX1/TX Event起址，不读写虚拟窗口、不配置外部DMA；RX_SEL只操作配对MISC，保留其他位并拒绝编码3；四个8-bit计数分别为TX入队、RX0/RX1及TX Event出队累计值，不当作FIFO占用量。依据已有DMU查询和mttcan_cfg.svd字段，未扩展DMUC写入或假定DMUIR清除语义。三实例真实SDK/Wrap/Service Native Harness通过（`artifacts/runs/20260907_can_planned_development/stages/dmu_native_driver_retry.log`）；首轮桩未包含未访问的DMUIR哨兵，补齐桩字段后重跑通过，未改生产语义绕过。公共DMU Wrap/Wire/Case仍未接入，P2_001/002/007/008保持实现缺口；总门禁待本批执行，未操作硬件。
 
 2026-09-07 17:30 CST 历史Watchdog定向复核：按用户要求重新检查1.3索引中的ET6801/6003/3101 CAN测试及ET6801 CAN Example。ET6801 `DFP/Test/UnitTest/test_can.c:74～99`和`FPGATest/can_fpga_test.c:83～104`清零initParams且注释明确Message RAM Watchdog disabled；两参考芯片UnitTest/FPGATest同类入口也只命中disabled说明。ET6801 `Doc/examples/CAN/CAN_init_transmit_priority_watermark/Source/main.c:213`及receive版本219行设置wdcPreload=0xFF，但TX示例234/294/296行只处理/选择/使能TX Event FIFO Watermark，没有WDI触发或判据。`DFP/Drivers/ET6x_Driver/Src/et6x_can.c:288～289`只是将wdcPreload写入RWD.WDC；3101 FPGATest的FDCAN_ConfigRamWatchdog同样只有配置。限定CAN源文件中未找到RAM应答延迟或WDI断言；两份can.json未命中Watchdog。结论限定于上述检索范围，不推断全部历史均未测。P2_010的16限制/8与32延迟矩阵属于后补设计，不是ET旧测试已有路径；当前未确认可控RAM应答接口，不能用配置读回或CPU延时代替。查询证据`artifacts/runs/20260907_can_planned_development/stages/watchdog_reference_query.json`；结构化查询只定位到复制Driver配置API，随后按精确测试根用rg复核。不修改P2_010判据、不操作硬件，继续DMU实现。
 

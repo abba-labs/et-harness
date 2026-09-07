@@ -2955,5 +2955,69 @@ int32_t CAN_testGetEccSnapshot(CAN_Type *CANx, CAN_TestEccSnapshot *snapshot)
     snapshot->masked = READ_REG(misc->MTTCAN_INT_MASK) & CAN_TEST_ECC_ALL;
     return DRV_OK;
 }
+/** Return only a named virtual-window start; callers own external DMA configuration. */
+int32_t CAN_testGetDmuEndpoint(CAN_Type *CANx, CAN_TestDmuElement element, uint32_t *address)
+{
+    static const uint32_t offsets[] = {
+        CAN_DMU_TX_ELEMENT_BASE_ADDRESS, CAN_DMU_RX0_ELEMENT_BASE_ADDRESS,
+        CAN_DMU_RX1_ELEMENT_BASE_ADDRESS, CAN_DMU_TXE_ELEMENT_BASE_ADDRESS
+    };
+    uintptr_t base;
+    if (!IS_CAN_PERIPH(CANx) || (address == NULL) ||
+        ((uint32_t)element >= CAN_TEST_DMU_ELEMENT_COUNT))
+    {
+        return DRV_ERROR;
+    }
+    base = (uintptr_t)CANx;
+    if (base > UINT32_MAX - offsets[element])
+    {
+        return DRV_ERROR;
+    }
+    *address = (uint32_t)base + offsets[element];
+    return DRV_OK;
+}
+/** Reject invalid selection before the existing paired-MISC write primitive. */
+int32_t CAN_testSetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest request)
+{
+    if (!IS_CAN_PERIPH(CANx) || ((uint32_t)request > CAN_DMU_REQ_TXER))
+    {
+        return DRV_ERROR;
+    }
+    CAN_setDMURxRequest(CANx, request);
+    return DRV_OK;
+}
+/** Read the actual mux selection, not a cache of the preceding SET. */
+int32_t CAN_testGetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest *request)
+{
+    CAN_MISC_Type *misc;
+    uint32_t value;
+    if (!IS_CAN_PERIPH(CANx) || request == NULL)
+    {
+        return DRV_ERROR;
+    }
+    misc = CAN_getMiscInstance(CANx);
+    value = CAN_RD_FIELD32(misc->DMU_DMA_CFG, CAN_MISC0_DMU_DMA_CFG_DMU_DMA_RX_SEL);
+    if (value > CAN_DMU_REQ_TXER)
+    {
+        return DRV_ERROR;
+    }
+    *request = (CAN_DMURxRequest)value;
+    return DRV_OK;
+}
+/** One register read keeps the four eight-bit queue totals in the same observation. */
+int32_t CAN_testGetDmuCounters(CAN_Type *CANx, CAN_TestDmuCounters *counters)
+{
+    uint32_t value;
+    if (!IS_CAN_PERIPH(CANx) || counters == NULL)
+    {
+        return DRV_ERROR;
+    }
+    value = READ_REG(CANx->DMUQC);
+    counters->txEnqueued = (value & CAN0_DMUQC_TXEEC_Msk) >> CAN0_DMUQC_TXEEC_Pos;
+    counters->rx0Dequeued = (value & CAN0_DMUQC_RX0EDC_Msk) >> CAN0_DMUQC_RX0EDC_Pos;
+    counters->rx1Dequeued = (value & CAN0_DMUQC_RX1EDC_Msk) >> CAN0_DMUQC_RX1EDC_Pos;
+    counters->txEventDequeued = (value & CAN0_DMUQC_TXEEDC_Msk) >> CAN0_DMUQC_TXEEDC_Pos;
+    return DRV_OK;
+}
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif

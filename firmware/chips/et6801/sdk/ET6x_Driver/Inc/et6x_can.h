@@ -1584,6 +1584,31 @@ int32_t CAN_testForceEcc(CAN_Type *CANx, uint32_t sources);
 int32_t CAN_testClearEcc(CAN_Type *CANx, uint32_t sources);
 /** Actual non-consuming register reads, not a synthesized status or Force echo. */
 int32_t CAN_testGetEccSnapshot(CAN_Type *CANx, CAN_TestEccSnapshot *snapshot);
+/** DMU virtual elements, not Message RAM slots or DMA channel numbers. */
+typedef enum
+{
+    CAN_TEST_DMU_TX = 0U,
+    CAN_TEST_DMU_RX0 = 1U,
+    CAN_TEST_DMU_RX1 = 2U,
+    CAN_TEST_DMU_TX_EVENT = 3U,
+    CAN_TEST_DMU_ELEMENT_COUNT
+} CAN_TestDmuElement;
+/** SVD DMUQC counters are eight-bit successful enqueue/dequeue totals. */
+typedef struct
+{
+    uint32_t txEnqueued;
+    uint32_t rx0Dequeued;
+    uint32_t rx1Dequeued;
+    uint32_t txEventDequeued;
+} CAN_TestDmuCounters;
+/** Resolve a DMA virtual-window start address only; never access the window. */
+int32_t CAN_testGetDmuEndpoint(CAN_Type *CANx, CAN_TestDmuElement element, uint32_t *address);
+/** Validate the selector before changing only the paired MISC RX_SEL field. */
+int32_t CAN_testSetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest request);
+/** Read actual selection; reject reserved hardware encoding without altering output. */
+int32_t CAN_testGetDmuRxRequest(CAN_Type *CANx, CAN_DMURxRequest *request);
+/** Decode all counters from one DMUQC read; no reset, IRQ read or queue advance. */
+int32_t CAN_testGetDmuCounters(CAN_Type *CANx, CAN_TestDmuCounters *counters);
 /********************* TEST DRIVER EXTENSION END *********************/
 #endif
 
