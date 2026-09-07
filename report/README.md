@@ -150,6 +150,7 @@ report/
 
 ### 周报
 
+- [2026-09-07 周报](Weekly_report/20260907_weekly_report.md)
 - [2026-08-26 周报](Weekly_report/20260826_weekly_report.md)
 - [2026-08-24 周报](Weekly_report/20260824_weekly_report.md)
 
