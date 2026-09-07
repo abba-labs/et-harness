@@ -140,8 +140,11 @@ class DmaStub:
         self.target = target
         self.started = []
         self.cleaned = []
+        self.configured = set()
 
     def configure(self, config):
+        assert config.channel not in self.configured
+        self.configured.add(config.channel)
         assert config.transfer_count == 18
         assert config.transfer_type == (
             DmaTransferType.MEMORY_TO_PERIPHERAL
@@ -150,6 +153,7 @@ class DmaStub:
         )
 
     def start(self, channel):
+        assert channel in self.configured
         self.started.append(channel)
 
     def wait_channels_free(self, channels, *, timeout_s):
@@ -172,6 +176,7 @@ class DmaStub:
 
     def deconfigure(self, channel):
         assert channel in (0, 1)
+        self.configured.discard(channel)
 
     def controller_enable(self):
         pass

@@ -268,7 +268,7 @@ def test_configuration_protection_flow_and_report(corrupt, tmp_path) -> None:
 
 
 # 将真实Case记录做JSON往返后交给现有报告模型；不补造缺失的Observation。
-def assert_case_report(properties, case_id, status, directory) -> None:
+def assert_case_report(properties, case_id, status, directory, *, report_status=None) -> None:
 
     from pathlib import Path
 
@@ -309,7 +309,7 @@ def assert_case_report(properties, case_id, status, directory) -> None:
         Path(__file__).resolve().parents[6] / "test_case_doc/can/can.md", directory
     )
     row = next(row for row in model["cases"] if row["case_id"] == case_id)
-    assert row["status"] == status
+    assert row["status"] == (report_status or status)
 
 
 # 明确序列化两帧独立RX Golden；不从Case刚发送的请求取回数据制造一致性。

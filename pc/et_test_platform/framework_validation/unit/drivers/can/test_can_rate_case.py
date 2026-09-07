@@ -7,7 +7,10 @@ from struct import pack
 from types import SimpleNamespace
 
 import pytest
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
 from et_test_platform.test_cases.can.test_can_p1_rates import (
     test_can_p1_012_bitrate_matrix as run_case,
@@ -33,7 +36,7 @@ NODES = [(rate, None) for rate in NOMINAL] + [
 @pytest.mark.parametrize(
     "fault", (None, "timing", "options", "peer_tail", "dut_tail", "echo", "bus_off")
 )
-def test_rate_matrix_vectors(nominal, data, fault):
+def test_rate_matrix_vectors(nominal, data, fault, tmp_path):
     support, resource, target, calls = dependencies()
     fd = data is not None
     size, dlc, flags = (64, 15, 12) if fd else (8, 8, 0)
@@ -126,4 +129,12 @@ def test_rate_matrix_vectors(nominal, data, fault):
         assert configured[0].data_bitrate == (data or 2_000_000)
         assert dict(properties)["expected"]["clock_source"] == "chip_profile"
         assert dict(properties)["timing"][0]["sample_point"] == 0.8
+    # 配置失败尚无该Case声明的收发失败观测，报告应保留RUN_ERROR而非伪装DUT数据FAIL。
+    assert_case_report(
+        properties,
+        "CAN_P1_012",
+        "FAIL" if fault else "PASS",
+        tmp_path,
+        report_status="RUN_ERROR" if fault in ("timing", "options") else None,
+    )
     assert calls == [("can", 0), ("resource",), ("peer_close",), ("can", 0), ("resource",)]

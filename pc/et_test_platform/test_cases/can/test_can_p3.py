@@ -70,6 +70,11 @@ def test_can_p3_001_bounded_fifo_traffic(
     forward_count = reverse_count = 0
     record_property("counts", counts)
     record_property("status_summary", status_summary)
+    # 报告只展示实收计数和最近帧；全部1280帧仍逐条进入原始Observation。
+    peer_summary = {"count": 0, "last_frame": "NOT_OBSERVED"}
+    dut_summary = {"count": 0, "last_frame": "NOT_OBSERVED"}
+    record_property("peer_frame_summary", peer_summary)
+    record_property("dut_frame_summary", dut_summary)
     record_property(
         "expected",
         {
@@ -187,6 +192,7 @@ def test_can_p3_001_bounded_fifo_traffic(
             # 全量Peer捕获：Expected来自预先生成序号和Pattern，完整帧相等包含FD/BRS标志。
             for payload in forward:
                 received = box.receive(timeout_s=deadline.remaining_s())
+                peer_summary.update(count=forward_count + 1, last_frame=str(received))
                 record_observation(
                     record_property,
                     key="peer_frames",
@@ -227,6 +233,7 @@ def test_can_p3_001_bounded_fifo_traffic(
             # 逐条消费：每条保存完整数据再判定，读取成功不等于正确接收。
             for payload in reverse:
                 frame = can.rx_read(CanRxSource.FIFO0, timeout_s=deadline.remaining_s())
+                dut_summary.update(count=reverse_count + 1, last_frame=str(frame))
                 record_observation(
                     record_property,
                     key="frames",
@@ -297,6 +304,7 @@ def test_can_p3_001_bounded_fifo_traffic(
             assert elapsed >= quiet_s
             assert box.error_get() == 0
         else:
+            peer_summary.update(count=forward_count + 1, last_frame=str(unexpected))
             record_observation(
                 record_property,
                 key="peer_frames",

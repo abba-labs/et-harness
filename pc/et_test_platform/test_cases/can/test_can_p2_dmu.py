@@ -577,8 +577,8 @@ def test_can_p2_002_dmu_tx_event(
                     destination_width=DmaWidth.BITS_32,
                     source_address_mode=DmaAddressMode.INCREMENT,
                     destination_address_mode=DmaAddressMode.INCREMENT,
-                    source_burst=DmaBurst.ITEMS_1,
-                    destination_burst=DmaBurst.ITEMS_1,
+                    source_burst=DmaBurst.ITEMS_32,
+                    destination_burst=DmaBurst.ITEMS_32,
                     source_interface=interface,
                 )
             )

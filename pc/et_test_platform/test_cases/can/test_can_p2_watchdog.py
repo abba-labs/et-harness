@@ -328,6 +328,9 @@ def test_can_p2_010_ram_watchdog(
                     expected.dlc,
                     expected.data,
                 )
+                # FREE仅表示硬件完成；解除Service配置后才能为下一帧重新配置。
+                dma.deconfigure(rx_channel)
+                dma.deconfigure(tx_channel)
 
             # 有界观察：至少100 ms且STIMER未回绕；没有WDI不解释为“不支持”或SKIP。
             while True:

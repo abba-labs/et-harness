@@ -62,6 +62,9 @@ def test_can_p1_021_tdc_external_fd(
     options = CanOptions(True, True, True, False, False, True, True, offset, 0, 0)
     tdc_summary = []
     record_property("tdc_summary", tdc_summary)
+    peer_summary, dut_summary = [], []
+    record_property("peer_frame_summary", peer_summary)
+    record_property("dut_frame_summary", dut_summary)
     flags = CanFrameFlags.FD | CanFrameFlags.BRS
     forward = tuple(i.to_bytes(4, "little") + pattern(64)[4:] for i in (1, 2))
     reverse = tuple(i.to_bytes(4, "little") + pattern(64, inverse=True)[4:] for i in (3, 4))
@@ -181,6 +184,7 @@ def test_can_p1_021_tdc_external_fd(
             )
             assert tx.completed & 1
             received = box.receive(timeout_s=deadline.remaining_s())
+            peer_summary.append(str(received))
             record_observation(
                 record_property,
                 key="peer_frames",
@@ -206,6 +210,7 @@ def test_can_p1_021_tdc_external_fd(
             box.send(PeerFrame(0x321, payload, fd=True, brs=True), single_shot=True)
             ready = can.wait_rx_available(0, timeout_s=deadline.remaining_s())
             dut_frame = can.rx_read(CanRxSource.FIFO0, timeout_s=deadline.remaining_s())
+            dut_summary.append(str(dut_frame))
             record_observation(
                 record_property,
                 key="dut_frames",

@@ -86,6 +86,9 @@ def test_can_p1_012_bitrate_matrix(
     reverse = tuple(i.to_bytes(4, "little") + pattern(size, inverse=True)[4:] for i in (3, 4))
     timing_trace = []
     record_property("timing", timing_trace)
+    peer_summary, dut_summary = [], []
+    record_property("peer_frame_summary", peer_summary)
+    record_property("dut_frame_summary", dut_summary)
     record_property(
         "expected",
         {
@@ -205,6 +208,7 @@ def test_can_p1_012_bitrate_matrix(
             )
             assert tx.completed & 1 and not tx.pending & 1
             received = box.receive(timeout_s=deadline.remaining_s())
+            peer_summary.append(str(received))
             record_observation(
                 record_property,
                 key="peer_frames",
@@ -221,6 +225,7 @@ def test_can_p1_012_bitrate_matrix(
             box.send(PeerFrame(0x321, payload, fd=fd, brs=fd), single_shot=True)
             ready = can.wait_rx_available(0, timeout_s=deadline.remaining_s())
             frame = can.rx_read(CanRxSource.FIFO0, timeout_s=deadline.remaining_s())
+            dut_summary.append(str(frame))
             record_observation(
                 record_property,
                 key="frame",

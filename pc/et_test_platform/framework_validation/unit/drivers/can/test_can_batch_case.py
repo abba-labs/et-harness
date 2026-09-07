@@ -8,7 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 from et_test_platform.core.errors import ConfigurationError
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.instruments.can_boxes.models import CanFrame, CanReceivedFrame
 from et_test_platform.test_cases.can import test_can_p3 as batch_case
 from et_test_platform.test_cases.can._support import batch_fifo_ram
@@ -35,7 +38,7 @@ def test_batch_layout_geometry():
     "fault",
     (None, "peer_tail", "dut_tail", "last_sequence", "lost", "pending", "protocol", "extra"),
 )
-def test_batch_case_full_vectors(fault, monkeypatch):
+def test_batch_case_full_vectors(fault, monkeypatch, tmp_path):
     support, resource, target, calls = dependencies()
     support.mapping.CAN_TDC_TIMING_PROFILES = {40_000_000: {5_000_000: ((1, 5, 2, 2), 6)}}
     target.responses = (
@@ -125,4 +128,5 @@ def test_batch_case_full_vectors(fault, monkeypatch):
             "peer_received": 640,
             "dut_received": 640,
         }
+    assert_case_report(properties, "CAN_P3_001", "FAIL" if fault else "PASS", tmp_path)
     assert calls == [("can", 0), ("resource",), ("peer_close",), ("can", 0), ("resource",)]

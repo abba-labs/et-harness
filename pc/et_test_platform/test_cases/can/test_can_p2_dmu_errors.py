@@ -322,8 +322,8 @@ def test_can_p2_007_dmu_illegal_irq(
                     destination_width=DmaWidth.BITS_32,
                     source_address_mode=DmaAddressMode.INCREMENT,
                     destination_address_mode=DmaAddressMode.INCREMENT,
-                    source_burst=DmaBurst.ITEMS_1,
-                    destination_burst=DmaBurst.ITEMS_1,
+                    source_burst=DmaBurst.ITEMS_32,
+                    destination_burst=DmaBurst.ITEMS_32,
                     source_interface=rx_interface,
                 )
             )
@@ -339,8 +339,8 @@ def test_can_p2_007_dmu_illegal_irq(
                     destination_width=DmaWidth.BITS_32,
                     source_address_mode=DmaAddressMode.INCREMENT,
                     destination_address_mode=DmaAddressMode.INCREMENT,
-                    source_burst=DmaBurst.ITEMS_1,
-                    destination_burst=DmaBurst.ITEMS_1,
+                    source_burst=DmaBurst.ITEMS_32,
+                    destination_burst=DmaBurst.ITEMS_32,
                     destination_interface=tx_interface,
                 )
             )

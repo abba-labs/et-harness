@@ -1475,7 +1475,7 @@ method:
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
     - "端点配置：配置CAN与Event FIFO，设置DMU选择Event，查询Event端点宽度、请求号和元素长度。"
-    - "DMA准备：申请两项Event目标区并用0xA5预填，配置独立DMA通道从Event虚拟窗口读取。"
+    - "DMA准备：申请两项Event目标区并用0xA5预填，配置独立DMA通道从Event虚拟窗口读取；32-item burst覆盖完整元素，实际传输数仍为单项Event的word数。"
     - "产生事件：CPU经CAN Driver分别请求两帧成功发送，不由CPU读取TX Event数据窗口。"
     - "等待搬运：确认两次TX成功及DMA完成，观察Event FIFO由非空被DMU推进。"
     - "事件比较：解码DMA目标区的两项ID、Marker和Event Type，逐项与成功发送输入比较。"
@@ -1642,7 +1642,7 @@ method:
     - "中断布置：只使能目标DMU错误源并注册真实IRQ记录；ISR首次锁存后关闭该源，避免未知清除语义造成中断风暴；原始状态读取副作用按Chip Mapping执行，首个值必须保留。"
     - "最短违规刺激：通过受限测试接口执行该行明确的读/写序列；非法DLC顺序写两个头word，跳号节点只写word0和word2，其余一次访问；不让软件参数校验提前拒绝而未触达硬件。"
     - "错误判定：读取并保留目标DMU.ERROR位及ISR源/次数，目标位必须置1且ISR实际执行；非法读取返回数据不参与功能判定。"
-    - "复位恢复：保存证据后硬复位CAN并重建合法DMU配置，经DMU发一帧回环并核对数据、入/出队完成，不能凭未知W1C规则盲写DMUIR。"
+    - "复位恢复：保存证据后硬复位CAN并重建合法DMU配置，采用32-item burst且传输数限定为完整帧word数，经DMU发一帧回环并核对数据、入/出队完成，不能凭未知W1C规则盲写DMUIR。"
   observations:
     - "非法访问事件：每行刺激对应目标DMU.ERROR位由0变1；IRQ_EVENT记录目标源，区别于API INVALID_PARAM。"
     - "恢复结果：复位后DMU错误回到0，合法帧真实完成并匹配8-byte；本Case声明硬复位恢复，不声称未验证的软件清除。"
@@ -1776,7 +1776,7 @@ method:
     - "独立基线：每阶段停止IRQ捕获，先复位DMA/STIMER再复位CAN及资源池；显式建立FD内部回环、RX0过滤及DMU请求路由。"
     - "看门狗配置：配置当前WDC并读回WATCHDOG.CONFIG/VALUE；仅注册WDI捕获，确认Raw为零、Service计数为零且目标源已使能。"
     - "观察启动：配置并启动STIMER，保存首次计数及PC窗口起点；分配TX镜像和RX目标资源，启用DMA及请求路由。"
-    - "搬运刺激：逐帧先启动RX DMA再启动TX DMA；等两个通道释放、CAN发送完成，读取实际RX镜像并逐项比较ID、flags、DLC、64-byte数据。"
+    - "搬运刺激：逐帧先启动RX DMA再启动TX DMA；等两个通道FREE、CAN发送完成，读取实际RX镜像并逐项比较ID、flags、DLC、64-byte数据，解除两个通道配置后再进入下一帧。"
     - "开关观测：至少观察100 ms；WDC=1必须实测WDI及一次正确ISR，WDC=0必须无WDI/ISR；记录STIMER末值且要求未回绕、计数确实递增。"
     - "清除核对：所有搬运结束后保存RWD与WDI/ISR，停止捕获并显式W1C；要求WDI清零、IRQ禁用、RX排空、DMU无错误且入出队各等于已搬运帧数。"
     - "恢复验证：前两阶段之后独立复位并关闭Watchdog，按同一路径完成一帧及100 ms无WDI观察；失败清理先停DMA与IRQ，再释放路由和复位资源。"
@@ -2076,16 +2076,16 @@ cases:
     summary: 固定Profile输入时钟的九组速率矩阵，DUT时序实读，双向各两帧完整比较；不测试输入时钟分频。
     fields:
       - {source: measurement, path: timing, label: 计算时序和硬件读回, format: text, aggregate: all}
-      - {source: observation, path: frame, label: DUT实际接收帧, format: text, aggregate: all}
-      - {source: observation, path: peer_frames, label: Peer实际捕获帧, format: text, aggregate: all}
-      - {source: measurement, path: expected, label: Profile时钟及输入矩阵, format: text}
+      - {source: measurement, path: dut_frame_summary, label: DUT实际接收帧摘要, format: text, aggregate: all}
+      - {source: measurement, path: peer_frame_summary, label: Peer实际捕获帧摘要, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: Profile时钟及输入矩阵, format: text, aggregate: all}
   CAN_P1_013:
     summary: 关闭全零，内部锁存落在受限计数窗口，自然回卷及W1C有效，清零排除自然回卷和无动作。
     fields:
       - {source: measurement, path: timestamp, label: 逐帧计数与锁存窗口, format: text, aggregate: all}
       - {source: measurement, path: wrap, label: 自然回卷及Raw序列, format: text, aggregate: all}
-      - {source: measurement, path: reset_snapshot, label: 清零前后实读与窗口, format: text}
-      - {source: measurement, path: expected, label: 预先固定的时间上界, format: text}
+      - {source: measurement, path: reset_snapshot, label: 清零前后实读与窗口, format: text, aggregate: all}
+      - {source: measurement, path: expected, label: 预先固定的时间上界, format: text, aggregate: all}
   CAN_P1_014:
     summary: 连续与三个互斥FIFO源分别自然到期及ISR，重装真实读回，禁用后保持同样刺激仍无事件。
     fields:
@@ -2128,8 +2128,8 @@ cases:
     fields:
       - {source: measurement, path: counts, label: 每轮累计实际接收数量, format: text, aggregate: all}
       - {source: measurement, path: status_summary, label: 各轮硬件与Peer错误状态, format: text, aggregate: all}
-      - {source: observation, path: peer_frames, label: 全部Peer实际捕获帧, format: text, aggregate: all}
-      - {source: observation, path: frames, label: 全部DUT实际接收帧, format: text, aggregate: all}
+      - {source: measurement, path: peer_frame_summary, label: Peer实收数量及最近帧, format: text, aggregate: all}
+      - {source: measurement, path: dut_frame_summary, label: DUT实收数量及最近帧, format: text, aggregate: all}
   CAN_P1_010:
     summary: 两种位宽各两条独立Marker；完整RX匹配，宽格式无时间戳，Ack后100ms无额外事件。
     fields:
@@ -2155,8 +2155,8 @@ cases:
     summary: 核对TDC开启配置和2/5M数据速率下的双向64-byte FD BRS通信，不测补偿极限。
     fields:
       - {source: measurement, path: tdc_summary, label: TDC配置及时序读回与实际第二采样点, format: text, aggregate: all}
-      - {source: observation, path: peer_frames, label: Peer实际接收FD帧, format: text, aggregate: all}
-      - {source: observation, path: dut_frames, label: DUT实际接收FD帧, format: text, aggregate: all}
+      - {source: measurement, path: peer_frame_summary, label: Peer实际接收FD帧摘要, format: text, aggregate: all}
+      - {source: measurement, path: dut_frame_summary, label: DUT实际接收FD帧摘要, format: text, aggregate: all}
       - {source: measurement, path: expected, label: 独立输入与时序, format: text, aggregate: all}
   CAN_P2_004:
     summary: 核对全部实例并存收发，以及仅重配最后实例后的配置和RAM首尾保持。

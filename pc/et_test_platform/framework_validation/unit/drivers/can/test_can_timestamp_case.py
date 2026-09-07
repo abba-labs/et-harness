@@ -7,7 +7,10 @@ from itertools import count
 from struct import pack
 
 import pytest
-from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import dependencies
+from et_test_platform.framework_validation.unit.drivers.can.test_can_case_flow import (
+    assert_case_report,
+    dependencies,
+)
 from et_test_platform.test_cases.can import test_can_p1_timestamp as timestamp_case
 
 
@@ -31,7 +34,7 @@ from et_test_platform.test_cases.can import test_can_p1_timestamp as timestamp_c
         "reset_window",
     ),
 )
-def test_timestamp_case_vectors(divisor, fault, monkeypatch):
+def test_timestamp_case_vectors(divisor, fault, monkeypatch, tmp_path):
     support, resource, target, calls = dependencies()
     target.responses = []
     for internal in (False, True):
@@ -112,4 +115,5 @@ def test_timestamp_case_vectors(divisor, fault, monkeypatch):
         assert dict(properties)["reset_snapshot"]["after"] == 3
         assert len(dict(properties)["timestamp"]) == 3
     expected_stages = 2 if fault == "disabled" else 3
+    assert_case_report(properties, "CAN_P1_013", "FAIL" if fault else "PASS", tmp_path)
     assert calls == [("can", 0), ("resource",)] * expected_stages
