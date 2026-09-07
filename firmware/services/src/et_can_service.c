@@ -80,6 +80,385 @@ static void write_word(uint8_t *data, uint32_t value)
 /********************************** IRQ Capture Management **********************************/
 
 /**
+ * @brief Copy or reset the independent ECC evidence generation.
+ * @param[in,out] service ECC session owner.
+ * @param[in] reset Nonzero resets evidence only while unbound.
+ * @param[out] words Nine-word output, unused for reset.
+ * @return OK, BUSY or generation overflow failure.
+ * @note Bounded critical section protects ISR-owned fields; no peripheral writes.
+ */
+static et_wrap_status_t ecc_event_access(et_can_service_t *service, uint8_t reset, uint32_t *words)
+{
+    uint32_t key = et_irq_manager_enter_critical();
+    uint32_t index;
+
+    if (reset != 0u)
+    {
+        if (service->ecc_bound != 0u ||
+            service->ecc_event[ET_CAN_IRQ_EVENT_GENERATION] == UINT32_MAX)
+        {
+            et_irq_manager_exit_critical(key);
+
+            return service->ecc_bound != 0u ? ET_WRAP_STATUS_BUSY : ET_WRAP_STATUS_IO_ERROR;
+        }
+
+        ++service->ecc_event[ET_CAN_IRQ_EVENT_GENERATION];
+
+        for (index = 0u; index < ET_CAN_ECC_EVENT_WORDS; ++index)
+        {
+            if (index != ET_CAN_IRQ_EVENT_GENERATION)
+            {
+                service->ecc_event[index] = 0u;
+            }
+        }
+
+        service->ecc_event[ET_CAN_ECC_EVENT_INSTANCE] = UINT32_MAX;
+    }
+    else
+    {
+        for (index = 0u; index < ET_CAN_ECC_EVENT_WORDS; ++index)
+        {
+            words[index] = service->ecc_event[index];
+        }
+    }
+
+    et_irq_manager_exit_critical(key);
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Saturate an ECC counter and retain overflow diagnostics.
+ * @param[in,out] service ECC evidence owner.
+ * @param[in] field Counter index in the fixed evidence array.
+ * @note Called only in bounded IRQ context; does not affect controller IRQ evidence.
+ */
+static void increment_ecc_counter(et_can_service_t *service, uint32_t field)
+{
+    if (service->ecc_event[field] != UINT32_MAX)
+    {
+        ++service->ecc_event[field];
+
+        return;
+    }
+
+    service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_OVERFLOW;
+
+    if (service->ecc_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT] != UINT32_MAX)
+    {
+        ++service->ecc_event[ET_CAN_IRQ_EVENT_OVERFLOW_COUNT];
+    }
+}
+
+/**
+ * @brief Capture this instance's actual ECC sources on a possibly shared IRQ.
+ * @param[in,out] context CAN Service owning the registered route.
+ * @param[in] irq_line Physical line dispatched by IRQ Manager.
+ * @param[in] route_events ECC sources assigned to this session.
+ * @note Bounded ISR reads own status and masks active sources; raw remains for explicit PC clear.
+ */
+static void can_ecc_callback(void *context, et_irq_line_t irq_line, uint32_t route_events)
+{
+    et_can_service_t *service = (et_can_service_t *)context;
+    et_can_ecc_snapshot_t snapshot;
+    uint32_t active, watched;
+
+    if (service == NULL || service->ecc_bound == 0u)
+    {
+        return;
+    }
+
+    /* Phase 1: Shared-line dispatch is not itself evidence of a local ECC event. */
+    if (et_can_wrap_get_ecc_snapshot(service->can_id, &snapshot) != ET_WRAP_STATUS_OK)
+    {
+        service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+        (void)et_can_wrap_set_ecc_masked(service->can_id, ET_CAN_ECC_ALL, 1u);
+
+        return;
+    }
+
+    active = snapshot.raw & snapshot.status & snapshot.enabled & ~snapshot.masked;
+
+    if (active == 0u)
+    {
+        return;
+    }
+
+    watched = active & route_events & service->ecc_watched;
+
+    if (irq_line != service->ecc_route.irq_line || active != watched)
+    {
+        increment_ecc_counter(service, ET_CAN_IRQ_EVENT_UNEXPECTED_COUNT);
+        service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_UNEXPECTED;
+    }
+
+    /* Phase 2: Preserve first raw/status, accumulate real events and suppress a level storm. */
+    if (watched != 0u && irq_line == service->ecc_route.irq_line)
+    {
+        if (service->ecc_event[ET_CAN_IRQ_EVENT_COUNT] == 0u)
+        {
+            service->ecc_event[ET_CAN_IRQ_EVENT_RAW_STATUS] = snapshot.raw;
+            service->ecc_event[ET_CAN_IRQ_EVENT_MASKED_STATUS] = snapshot.status;
+        }
+
+        service->ecc_event[ET_CAN_IRQ_EVENT_LATCHED_EVENTS] |= watched;
+        service->ecc_event[ET_CAN_ECC_EVENT_INSTANCE] = service->can_id;
+        increment_ecc_counter(service, ET_CAN_IRQ_EVENT_COUNT);
+    }
+
+    if (et_can_wrap_set_ecc_masked(service->can_id, active, 1u) != ET_WRAP_STATUS_OK)
+    {
+        service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+    }
+}
+
+/**
+ * @brief Observe whether a failed bind retained this exact ECC ownership record.
+ * @param[in] service ECC session whose bind returned an error.
+ * @return Nonzero only when Manager still owns this callback, context and line.
+ * @note Read-only bounded inspection of public Manager storage under its critical section;
+ *       never edits bindings or performs physical IRQ cleanup outside Manager.
+ */
+static uint8_t ecc_binding_retained(const et_can_service_t *service)
+{
+    uint32_t key = et_irq_manager_enter_critical();
+    uint32_t index;
+    uint8_t retained = 0u;
+
+    for (index = 0u; index < ET_FRAMEWORK_MAX_IRQ_BINDINGS; ++index)
+    {
+        const et_irq_binding_t *binding = &service->irq_manager->bindings[index];
+
+        if (binding->in_use != 0u && binding->callback == can_ecc_callback &&
+            binding->context == service && binding->irq_line == service->ecc_route.irq_line)
+        {
+            retained = 1u;
+            break;
+        }
+    }
+
+    et_irq_manager_exit_critical(key);
+
+    return retained;
+}
+
+/**
+ * @brief Disable ECC sources before releasing the owned shared-line route.
+ * @param[in,out] service ECC session owner.
+ * @return OK or cleanup failure, retaining ownership for retry on failure.
+ * @note Raw and callback evidence are retained; a failed source shutdown prevents unbinding.
+ */
+static et_wrap_status_t stop_ecc_capture(et_can_service_t *service)
+{
+    et_wrap_status_t masked, disabled;
+
+    if (service->ecc_watched == 0u)
+    {
+        return ET_WRAP_STATUS_OK;
+    }
+
+    masked = et_can_wrap_set_ecc_masked(service->can_id, service->ecc_watched, 1u);
+    disabled = et_can_wrap_set_ecc_enabled(service->can_id, service->ecc_watched, 0u);
+
+    if (masked != ET_WRAP_STATUS_OK || disabled != ET_WRAP_STATUS_OK)
+    {
+        service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    if (service->ecc_bound != 0u &&
+        et_irq_manager_unbind(service->irq_manager, service->ecc_route.irq_line, can_ecc_callback,
+                              service) != 0)
+    {
+        service->ecc_event[ET_CAN_IRQ_EVENT_FAULT_FLAGS] |= ET_CAN_IRQ_FAULT_IO;
+
+        return ET_WRAP_STATUS_IO_ERROR;
+    }
+
+    service->ecc_bound = 0u;
+    service->ecc_watched = 0u;
+
+    return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Start a fresh ECC capture with selected sources enabled but still masked.
+ * @param[in,out] service CAN Service session owner.
+ * @param[in] sources Nonempty public ECC sources.
+ * @return OK or setup/rollback failure.
+ * @note Clear stale watched raw before binding; PC must explicitly unmask for delivery.
+ */
+static et_wrap_status_t start_ecc_capture(et_can_service_t *service, uint32_t sources)
+{
+    et_wrap_status_t status;
+
+    if (sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (service->ecc_bound != 0u || service->ecc_watched != 0u)
+    {
+        return ET_WRAP_STATUS_BUSY;
+    }
+
+    /* Phase 1: Resolve facts and empty evidence before changing any source. */
+    status = et_can_wrap_get_ecc_route(service->can_id, sources, &service->ecc_route);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = ecc_event_access(service, 1u, NULL);
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    service->ecc_watched = sources;
+    status = et_can_wrap_set_ecc_masked(service->can_id, sources, 1u);
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        status = et_can_wrap_set_ecc_enabled(service->can_id, sources, 0u);
+    }
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        status = et_can_wrap_clear_ecc(service->can_id, sources);
+    }
+
+    /* Phase 2: Preserve ownership even if Manager bind leaves a cleanup-pending slot. */
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        service->ecc_bound = 1u;
+
+        if (et_irq_manager_bind(service->irq_manager, &service->ecc_route, service->irq_priority,
+                                can_ecc_callback, service) != 0)
+        {
+            service->ecc_bound = ecc_binding_retained(service);
+            status = ET_WRAP_STATUS_IO_ERROR;
+        }
+    }
+
+    if (status == ET_WRAP_STATUS_OK)
+    {
+        status = et_can_wrap_set_ecc_enabled(service->can_id, sources, 1u);
+    }
+
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        (void)stop_ecc_capture(service);
+    }
+
+    return status;
+}
+
+/**
+ * @brief Execute exactly one validated ECC control or evidence operation.
+ * @param[in,out] service Selected CAN Service.
+ * @param[in] command Public ECC command ID.
+ * @param[in] body Exact-length request words.
+ * @param[out] response Capacity-validated output storage.
+ * @return Own Wrap or session status.
+ * @note No polling, stimulus sequence, RAM injection or final test decision.
+ */
+static et_wrap_status_t execute_ecc_command(et_can_service_t *service, uint16_t command,
+                                            const uint8_t *body, uint8_t *response)
+{
+    uint32_t sources, value, index;
+    uint32_t words[ET_CAN_ECC_EVENT_WORDS];
+    et_can_ecc_snapshot_t snapshot;
+    et_wrap_status_t status;
+
+    /* Phase 1: Decode independent mutations; Boolean validation precedes narrowing. */
+    switch (command)
+    {
+        case ET_CAN_COMMAND_ECC_ENABLE_SET:
+        case ET_CAN_COMMAND_ECC_MASK_SET:
+        {
+            sources = read_word(body);
+            value = read_word(&body[ET_CAN_WIRE_WORD_BYTES]);
+
+            if (value > 1u)
+            {
+                return ET_WRAP_STATUS_INVALID_ARGUMENT;
+            }
+
+            return command == ET_CAN_COMMAND_ECC_ENABLE_SET
+                       ? et_can_wrap_set_ecc_enabled(service->can_id, sources, (uint8_t)value)
+                       : et_can_wrap_set_ecc_masked(service->can_id, sources, (uint8_t)value);
+        }
+
+        case ET_CAN_COMMAND_ECC_FORCE:
+        {
+            return et_can_wrap_force_ecc(service->can_id, read_word(body));
+        }
+
+        case ET_CAN_COMMAND_ECC_CLEAR:
+        {
+            return et_can_wrap_clear_ecc(service->can_id, read_word(body));
+        }
+
+        case ET_CAN_COMMAND_ECC_CAPTURE_START:
+        {
+            return start_ecc_capture(service, read_word(body));
+        }
+
+        case ET_CAN_COMMAND_ECC_CAPTURE_STOP:
+        {
+            return stop_ecc_capture(service);
+        }
+
+        case ET_CAN_COMMAND_ECC_EVENT_RESET:
+        {
+            return ecc_event_access(service, 1u, NULL);
+        }
+
+        default:
+        {
+            break;
+        }
+    }
+
+    /* Phase 2: Encode actual facts only after a successful snapshot operation. */
+    if (command == ET_CAN_COMMAND_ECC_SNAPSHOT_GET)
+    {
+        status = et_can_wrap_get_ecc_snapshot(service->can_id, &snapshot);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            write_word(&response[ET_CAN_ECC_RAW * ET_CAN_WIRE_WORD_BYTES], snapshot.raw);
+            write_word(&response[ET_CAN_ECC_STATUS * ET_CAN_WIRE_WORD_BYTES], snapshot.status);
+            write_word(&response[ET_CAN_ECC_ENABLED * ET_CAN_WIRE_WORD_BYTES], snapshot.enabled);
+            write_word(&response[ET_CAN_ECC_MASKED * ET_CAN_WIRE_WORD_BYTES], snapshot.masked);
+        }
+
+        return status;
+    }
+
+    if (command == ET_CAN_COMMAND_ECC_EVENT_GET)
+    {
+        status = ecc_event_access(service, 0u, words);
+
+        if (status == ET_WRAP_STATUS_OK)
+        {
+            for (index = 0u; index < ET_CAN_ECC_EVENT_WORDS; ++index)
+            {
+                write_word(&response[index * ET_CAN_WIRE_WORD_BYTES], words[index]);
+            }
+        }
+
+        return status;
+    }
+
+    return ET_WRAP_STATUS_NOT_SUPPORTED;
+}
+
+/**
  * @brief Saturate one callback-owned counter and preserve overflow evidence.
  * @param[in,out] service CAN Service that owns the fixed event snapshot.
  * @param[in,out] counter Counter to increment.
@@ -1596,6 +1975,11 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     uint8_t initializing;
     uint32_t requested;
 
+    if (command >= ET_CAN_COMMAND_ECC_ENABLE_SET && command <= ET_CAN_COMMAND_ECC_EVENT_RESET)
+    {
+        return execute_ecc_command(service, command, body, response);
+    }
+
     if ((command >= ET_CAN_COMMAND_TSU_CONFIG_SET) && (command <= ET_CAN_COMMAND_TSU_SLOT0_CONSUME))
     {
         return execute_tsu_command(id, command, body, response);
@@ -1901,6 +2285,11 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_NON_ISO_SET] = 1u,
         [ET_CAN_COMMAND_EVENT_FORMAT_SET] = ET_CAN_EVENT_FORMAT_WORDS,
         [ET_CAN_COMMAND_TSU_CONFIG_SET] = ET_CAN_TSU_CONFIG_WORDS,
+        [ET_CAN_COMMAND_ECC_ENABLE_SET] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_ECC_MASK_SET] = ET_CAN_IRQ_CONTROL_WORDS,
+        [ET_CAN_COMMAND_ECC_FORCE] = 1u,
+        [ET_CAN_COMMAND_ECC_CLEAR] = 1u,
+        [ET_CAN_COMMAND_ECC_CAPTURE_START] = 1u,
         [ET_CAN_COMMAND_NOMINAL_TIMING_WRITE] = ET_CAN_PHASE_WORDS};
     static const uint8_t output_words[ET_CAN_COMMAND_COUNT] = {
         [ET_CAN_COMMAND_IDENTITY_GET] = ET_CAN_IDENTITY_WORDS,
@@ -1938,6 +2327,8 @@ static uint16_t can_handle(void *context, uint16_t command_id, const uint8_t *re
         [ET_CAN_COMMAND_TSU_FLAGS_GET] = ET_CAN_TSU_FLAGS_WORDS,
         [ET_CAN_COMMAND_TSU_TIMEBASE_GET] = 1u,
         [ET_CAN_COMMAND_TSU_SLOT0_CONSUME] = 1u,
+        [ET_CAN_COMMAND_ECC_SNAPSHOT_GET] = ET_CAN_ECC_SNAPSHOT_WORDS,
+        [ET_CAN_COMMAND_ECC_EVENT_GET] = ET_CAN_ECC_EVENT_WORDS,
         [ET_CAN_COMMAND_RAM_WORDS_EXCHANGE] = ET_CAN_RAM_ACCESS_WORDS,
         [ET_CAN_COMMAND_IRQ_EVENT_GET] = ET_CAN_IRQ_EVENT_WORDS,
         [ET_CAN_COMMAND_HIGH_PRIORITY_STATUS_GET] = ET_CAN_HIGH_PRIORITY_STATUS_WORDS,
@@ -2003,6 +2394,7 @@ int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,
 
     (void)memset(service, 0, sizeof(*service));
     service->can_id = can_id;
+    service->ecc_event[ET_CAN_ECC_EVENT_INSTANCE] = UINT32_MAX;
     service->irq_manager = irq_manager;
     service->irq_priority = irq_priority;
     service->descriptor.service_id = ET_CAN_SERVICE_ID;

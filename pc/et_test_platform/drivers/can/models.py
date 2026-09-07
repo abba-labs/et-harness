@@ -7,7 +7,37 @@ from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 
 
-# 公共错误语义；固件通过SDK枚举映射，数值不是芯片寄存器编码接口。
+# ECC专用源命名空间，不等同控制器BEC/BEU中断。
+class CanEccSource(IntFlag):
+    NONE = 0
+    CORRECTED = 1
+    UNCORRECTED = 2
+
+
+# ECC寄存器的独立真实观测，不把Raw重新计算为Status。
+@dataclass(frozen=True, slots=True)
+class CanEccSnapshot:
+    raw: CanEccSource
+    status: CanEccSource
+    enabled: CanEccSource
+    masked: CanEccSource
+
+
+# ECC共享线路按实例独立锁存；尚无回调时instance_id为None。
+@dataclass(frozen=True, slots=True)
+class CanEccEvent:
+    raw_status: CanEccSource
+    masked_status: CanEccSource
+    latched_events: CanEccSource
+    event_count: int
+    unexpected_count: int
+    overflow_count: int
+    generation: int
+    fault_flags: int
+    instance_id: int | None
+
+
+# 公共错误语义，不使用ECC源位图解释控制器LEC。
 class CanError(IntEnum):
     NONE = 0
     STUFF = 1

@@ -319,6 +319,15 @@ typedef enum
     ET_CAN_COMMAND_TSU_FLAGS_GET = 67u,
     ET_CAN_COMMAND_TSU_TIMEBASE_GET = 68u,
     ET_CAN_COMMAND_TSU_SLOT0_CONSUME = 69u,
+    ET_CAN_COMMAND_ECC_ENABLE_SET = 70u,
+    ET_CAN_COMMAND_ECC_MASK_SET = 71u,
+    ET_CAN_COMMAND_ECC_FORCE = 72u,
+    ET_CAN_COMMAND_ECC_CLEAR = 73u,
+    ET_CAN_COMMAND_ECC_SNAPSHOT_GET = 74u,
+    ET_CAN_COMMAND_ECC_CAPTURE_START = 75u,
+    ET_CAN_COMMAND_ECC_CAPTURE_STOP = 76u,
+    ET_CAN_COMMAND_ECC_EVENT_GET = 77u,
+    ET_CAN_COMMAND_ECC_EVENT_RESET = 78u,
     ET_CAN_COMMAND_COUNT
 } et_can_command_t;
 
@@ -345,6 +354,18 @@ typedef enum
     ET_CAN_IRQ_EVENT_FAULT_FLAGS = 7u,
     ET_CAN_IRQ_EVENT_WORDS
 } et_can_irq_event_word_t;
+
+/** ECC appends actual callback instance to the standard eight IRQ evidence words. */
+#define ET_CAN_ECC_EVENT_INSTANCE ET_CAN_IRQ_EVENT_WORDS
+#define ET_CAN_ECC_EVENT_WORDS (ET_CAN_IRQ_EVENT_WORDS + 1u)
+typedef enum
+{
+    ET_CAN_ECC_RAW = 0u,
+    ET_CAN_ECC_STATUS,
+    ET_CAN_ECC_ENABLED,
+    ET_CAN_ECC_MASKED,
+    ET_CAN_ECC_SNAPSHOT_WORDS
+} et_can_ecc_snapshot_word_t;
 
 /** Service-local callback diagnostics; these are not CAN hardware interrupt sources. */
 typedef enum
@@ -414,6 +435,10 @@ typedef struct
     uint32_t line1_sources;
     uint8_t irq_priority;
     uint8_t bound_lines;
+    et_irq_route_t ecc_route;
+    volatile uint32_t ecc_event[ET_CAN_ECC_EVENT_WORDS];
+    uint32_t ecc_watched;
+    uint8_t ecc_bound;
 } et_can_service_t;
 
 int et_can_service_init(et_can_service_t *service, et_can_id_t can_id,

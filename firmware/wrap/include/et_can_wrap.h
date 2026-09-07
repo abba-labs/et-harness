@@ -493,6 +493,7 @@ et_wrap_status_t et_can_wrap_set_ecc_masked(et_can_id_t id, uint32_t sources, ui
 et_wrap_status_t et_can_wrap_force_ecc(et_can_id_t id, uint32_t sources);
 et_wrap_status_t et_can_wrap_clear_ecc(et_can_id_t id, uint32_t sources);
 et_wrap_status_t et_can_wrap_get_ecc_snapshot(et_can_id_t id, et_can_ecc_snapshot_t *snapshot);
+et_wrap_status_t et_can_wrap_get_ecc_route(et_can_id_t id, uint32_t sources, et_irq_route_t *route);
 
 /** Stable controller interrupt-source namespace, independent of ECC above. */
 typedef enum

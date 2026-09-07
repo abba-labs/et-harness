@@ -34,10 +34,11 @@
  * INT0 physical route and INT1 physical route. GPIO and external CAN-box facts
  * remain outside the Firmware Wrap mapping.
  */
+/* CAN mapping appends the shared CAN_ECC physical route after the INT0/INT1 array. */
 #define ET_CHIP_CAN_MAP_TABLE \
-    {{0u, CAN0, {CAN0_INT0_IRQn, CAN0_INT1_IRQn}}, \
-     {1u, CAN1, {CAN1_INT0_IRQn, CAN1_INT1_IRQn}}, \
-     {2u, CAN2, {CAN2_INT0_IRQn, CAN2_INT1_IRQn}}}
+    {{0u, CAN0, {CAN0_INT0_IRQn, CAN0_INT1_IRQn}, CAN_ECC_IRQn}, \
+     {1u, CAN1, {CAN1_INT0_IRQn, CAN1_INT1_IRQn}, CAN_ECC_IRQn}, \
+     {2u, CAN2, {CAN2_INT0_IRQn, CAN2_INT1_IRQn}, CAN_ECC_IRQn}}
 
 /** Public CAN semantic interrupt events mapped to generated SDK interrupt masks. */
 #define ET_CHIP_CAN_IRQ_MAP_TABLE \

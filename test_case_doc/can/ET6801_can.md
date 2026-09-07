@@ -1,6 +1,10 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-07 16:33 CST
+更新时间：2026-09-07 16:58 CST
+
+2026-09-07 16:58 CST 验证追加：ECC会话与9条Wire最终总门禁1630 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/ecc_session_software_gate_rollback.log`）；含绑定失败两种所有权情形、解绑重试、计数饱和、错误线路及三实例两源的最终Native编译执行通过（`ecc_session_rollback_native.log`）。Service只读检查自己在Manager公开固定表中是否留有绑定，不修改Manager存储或绕过其清理API。前两次总门禁分别发现CAN注释改写被识别为GPIO文档同步、两处Driver超时/失败注释不完整，恢复非目标注释并补全接口说明后通过；日志`ecc_session_software_gate.log`及`ecc_session_software_gate_verified.log`保留。没有放宽检查器；P2_003正式Case未完成，未新增硬件结果。
+
+2026-09-07 16:48 CST 开发追加：ECC命令70～78及独立Service会话已接通，累计79条命令。ET_CHIP_CAN_MAP_TABLE为每个CAN实例单独登记共享CAN_ECC_IRQn=48，不扩展原INT0/INT1公共选择器、不修改IRQ Manager或IRQ Wrap；已有RAM向量注册路径接入此物理线路。回调逐实例读Raw/MSTATUS/Enable/Mask，保存首次状态、累积源、实际实例、饱和计数及Fault，随后屏蔽活动源而保留Raw。停止先屏蔽/关源再解绑，失败保留所有权重试清理。20项独立PC Wire回归及初版三实例共享线路Native通过，补充溢出/错误线路/解绑失败反例后正执行最终验证。P2_003仍PLANNED，未部署或执行硬件；SVD机器记录将唯一共享向量挂在CAN2下是源索引位置，不能据此宣称其他实例没有该共享向量。修正当前命令汇总先前未随TSU增长的64条旧值。
 
 2026-09-07 16:33 CST 验证追加：ECC Wrap/Chip Driver基础原语完整门禁1601 PASS、17 Windows宿主编译器条件SKIP（`artifacts/runs/20260907_can_planned_development/stages/ecc_wrap_software_gate.log`）；真实SDK/Wrap/Service Native Harness重新生成、WSL GCC编译执行通过（`ecc_native_generation.log`、`ecc_native_wrap.log`），包含三实例两源、非目标Raw保留、MSTATUS独立读回、非法参数无副作用及全局ECC配置保留。尚未实现ECC Service会话、Wire命令和P2_003正式Case；未构建部署固件或执行硬件。
 
@@ -40,7 +44,7 @@
 
 2026-09-05 10:50 CST 审核整改：内部回环仍从连接文件选择CAN实例，但不再要求GPIO Service和RX/TX复用检查；未修改GPIO或接线配置。TX Event在断言前记录真实Observation并追加报告摘要，恢复帧的RX数据、Event数据和FILL分开取证，不再等待整Case成功后才生成摘要。每个摘要列表只登记一次，空列表表示尚未到达该采样阶段。Wrap在单条Event读取命令内复用一次RAM配置查询，不跨命令缓存；Service删除已由掩码保证恒假的判断，保留物理IRQ线检查。均未改变Wire或测试判据，硬件状态仍为未执行。
 
-**状态：CAN开发进行中；新增P1_010/P1_012/P1_013/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前64条命令、24项SPEC、15项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标及FPGA输入时钟bypass分频；15项已有PLAN正在逐项实现，已有8项软件验证完成、7项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
+**状态：CAN开发进行中；新增P1_010/P1_012/P1_013/P1_014/P1_020/P1_021/P2_005/P3_001尚未FPGA执行。** 当前79条命令、24项SPEC、15项PLAN及3项DESIGN_GAP，共42项测试目标；39项能力/行为中37项为准入Feature。2026-09-07 11:27正式回归的原16条Case、94个Execution全部PASS，无FAIL/SKIP，不包含新增Case。按用户要求不测示波器相关目标及FPGA输入时钟bypass分频；15项已有PLAN正在逐项实现，已有8项软件验证完成、7项待实现。内部FD/BRS不代表外部FD/BRS通过，旧只听问题仍保留，详见唯一当前状态区。
 
 2026-09-07 12:09 CST 验证追加：P1_021专项12 PASS，真实Driver/Wire夹具覆盖两速率及未开启TDC、Peer/DUT末字节损坏、回显和BRS不符。总软件门禁1356 PASS、17条件SKIP（宿主C编译器条件），日志`artifacts/runs/20260907_can_planned_development/stages/tdc_software_gate_verified.log`。未改Firmware、未烧录、未执行新Case FPGA；公共SPEC表示已实现，不表示硬件PASS。Windows运行检查须使用`PYTHONUTF8=1`，否则Git中文diff被默认GBK解码导致检查进程失败；未修改Checker。
 

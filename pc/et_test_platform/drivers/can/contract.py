@@ -94,6 +94,15 @@ class CanCommand(IntEnum):
     TSU_FLAGS_GET = 67
     TSU_TIMEBASE_GET = 68
     TSU_SLOT0_CONSUME = 69
+    ECC_ENABLE_SET = 70
+    ECC_MASK_SET = 71
+    ECC_FORCE = 72
+    ECC_CLEAR = 73
+    ECC_SNAPSHOT_GET = 74
+    ECC_CAPTURE_START = 75
+    ECC_CAPTURE_STOP = 76
+    ECC_EVENT_GET = 77
+    ECC_EVENT_RESET = 78
 
 
 REQUEST_WORDS = (
@@ -168,6 +177,7 @@ REQUEST_WORDS = (
     0,
     0,
 )
+REQUEST_WORDS += (2, 2, 1, 1, 0, 1, 0, 0, 0)  # ECC controls/capture, IDs 70..78.
 RESPONSE_WORDS = (
     2,
     0,
@@ -240,6 +250,7 @@ RESPONSE_WORDS = (
     1,  # TSU_TIMEBASE_GET: actual 32-bit timebase.
     1,  # TSU_SLOT0_CONSUME: read once, clears this slot's New/Lost.
 )
+RESPONSE_WORDS += (0, 0, 0, 0, 4, 0, 0, 9, 0)  # ECC actual snapshot and ISR evidence.
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
     "last_error",
@@ -362,5 +373,7 @@ READ_ONLY_COMMANDS = frozenset(
         CanCommand.TSU_LIMITS_GET,
         CanCommand.TSU_FLAGS_GET,
         CanCommand.TSU_TIMEBASE_GET,
+        CanCommand.ECC_SNAPSHOT_GET,
+        CanCommand.ECC_EVENT_GET,
     }
 )

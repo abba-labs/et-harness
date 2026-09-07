@@ -36,7 +36,7 @@ def write_can_driver_harness(directory: Path) -> Path:
     )
     irq_definitions = "\n".join(
         f"#define {name} {value}"
-        for name, value in re.findall(r"\b(CAN[0-2]_INT[01]_IRQn)\s*=\s*(\d+)", cmsis)
+        for name, value in re.findall(r"\b(CAN[0-2]_INT[01]_IRQn|CAN_ECC_IRQn)\s*=\s*(\d+)", cmsis)
     )
     fields = sorted(set(re.findall(r"CANx->(\w+)", source)))
     stub = (
@@ -130,10 +130,12 @@ CAN_MISC_Type misc_blocks[3];
 SYSC_Type system_control;
 
 /* The Service is tested with a bounded host-side IRQ Manager double. */
-static et_irq_callback_t bound_callback[2];
-static void *bound_context[2];
-static et_irq_line_t bound_irq_line[2];
-static uint32_t bound_route_events[2];
+static et_irq_callback_t bound_callback[6];
+static void *bound_context[6];
+static et_irq_line_t bound_irq_line[6];
+static uint32_t bound_route_events[6];
+static unsigned fail_unbind_once;
+static unsigned fail_bind_mode;
 
 uint32_t et_irq_manager_enter_critical(void)
 {
@@ -152,8 +154,9 @@ int et_irq_manager_bind(et_irq_manager_t *manager, const et_irq_route_t *route, 
 
     (void)manager;
     (void)priority;
+    if (fail_bind_mode==1) { fail_bind_mode=0; return -1; }
 
-    for (slot = 0; slot < 2; ++slot)
+    for (slot = 0; slot < 6; ++slot)
     {
         if (bound_callback[slot] == NULL)
         {
@@ -161,6 +164,11 @@ int et_irq_manager_bind(et_irq_manager_t *manager, const et_irq_route_t *route, 
             bound_context[slot] = context;
             bound_irq_line[slot] = route->irq_line;
             bound_route_events[slot] = route->route_events;
+            manager->bindings[slot].in_use=1;
+            manager->bindings[slot].callback=callback;
+            manager->bindings[slot].context=context;
+            manager->bindings[slot].irq_line=route->irq_line;
+            if (fail_bind_mode==2) { fail_bind_mode=0; fail_unbind_once=1; return -1; }
 
             return 0;
         }
@@ -175,8 +183,9 @@ int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
     unsigned slot;
 
     (void)manager;
+    if (fail_unbind_once) { fail_unbind_once=0; return -1; }
 
-    for (slot = 0; slot < 2; ++slot)
+    for (slot = 0; slot < 6; ++slot)
     {
         if ((bound_callback[slot] == callback) && (bound_context[slot] == context) &&
             (bound_irq_line[slot] == irq_line))
@@ -185,6 +194,7 @@ int et_irq_manager_unbind(et_irq_manager_t *manager, et_irq_line_t irq_line,
             bound_context[slot] = NULL;
             bound_irq_line[slot] = 0;
             bound_route_events[slot] = 0;
+            memset(&manager->bindings[slot], 0, sizeof(manager->bindings[slot]));
 
             return 0;
         }
@@ -200,6 +210,7 @@ static uintptr_t ram_trace[4];
 static unsigned timeout_write_count;
 static unsigned timestamp_snapshot_model, timestamp_write_count;
 static unsigned tsu_slot_reads, tsu_status_reads;
+static unsigned ecc_status_model;
 void can_test_write(volatile uint32_t *address, uint32_t value)
 {
     for (unsigned i=0; i<3; ++i)
@@ -239,6 +250,11 @@ uint32_t can_test_read(volatile uint32_t *address)
     uint32_t value=*address;
     for (unsigned i=0; i<3; ++i)
     {
+        if (ecc_status_model && address == &misc_blocks[i].MTTCAN_INT_MSTATUS)
+        {
+            return misc_blocks[i].MTTCAN_INT_RSTATUS & misc_blocks[i].MTTCAN_INT_EN &
+                ~misc_blocks[i].MTTCAN_INT_MASK;
+        }
         if (address == &controllers[i].TS0)
         {
             ++tsu_slot_reads;
@@ -340,6 +356,122 @@ static void test_ecc_register_contract(void)
     memset(misc_blocks, 0, sizeof(misc_blocks));
 }
 
+/* Exercise the real Service callbacks through a shared-line Manager double. */
+static void test_ecc_session_contract(void)
+{
+    et_can_service_t services[3];
+    et_irq_manager_t manager={0};
+    uint8_t request[9]={0}, response[36];
+    uint16_t length=0;
+    ecc_status_model=1;
+    for (unsigned mode=1; mode<=2; ++mode)
+    {
+        assert(et_can_service_init(&services[0], 0, &manager, 2)==0);
+        request[0]=0; request[1]=1;
+        fail_bind_mode=mode;
+        assert(services[0].descriptor.handle(&services[0], 75, request, 5, NULL, 0, &length)==ET_STATUS_INTERNAL_ERROR);
+        assert(services[0].ecc_bound==(mode==2));
+        assert(services[0].descriptor.handle(&services[0], 76, request, 1, NULL, 0, &length)==0);
+        assert(services[0].ecc_bound==0 && services[0].ecc_watched==0);
+        assert(services[0].descriptor.handle(&services[0], 75, request, 5, NULL, 0, &length)==0);
+        assert(services[0].descriptor.handle(&services[0], 76, request, 1, NULL, 0, &length)==0);
+    }
+    for (unsigned target=0; target<3; ++target)
+    {
+        for (uint32_t source=1; source<=2; ++source)
+        {
+            uint32_t other=3 ^ source;
+            memset(misc_blocks, 0, sizeof(misc_blocks));
+            for (unsigned i=0; i<3; ++i)
+            {
+                assert(et_can_service_init(&services[i], i, &manager, 2)==0);
+                request[0]=i; request[1]=source;
+                assert(services[i].descriptor.handle(&services[i], 75, request, 5, NULL, 0, &length)==0);
+                assert(services[i].ecc_event[6]==1 && services[i].ecc_event[8]==UINT32_MAX);
+                assert(misc_blocks[i].MTTCAN_INT_EN==source && misc_blocks[i].MTTCAN_INT_MASK==source);
+                assert(services[i].descriptor.handle(&services[i], 78, request, 1, NULL, 0, &length)==ET_STATUS_BUSY);
+            }
+            request[0]=target; request[1]=3;
+            assert(services[target].descriptor.handle(&services[target], 72, request, 5, NULL, 0, &length)==0);
+            for (unsigned slot=0; slot<6; ++slot)
+            {
+                if (bound_callback[slot])
+                {
+                    assert(bound_irq_line[slot]==CAN_ECC_IRQn);
+                    bound_callback[slot](bound_context[slot], bound_irq_line[slot], bound_route_events[slot]);
+                }
+            }
+            for (unsigned i=0; i<3; ++i) { assert(services[i].ecc_event[3]==0); }
+            request[1]=source; request[5]=0;
+            assert(services[target].descriptor.handle(&services[target], 71, request, 9, NULL, 0, &length)==0);
+            for (unsigned slot=0; slot<6; ++slot)
+            {
+                if (bound_callback[slot])
+                {
+                    bound_callback[slot](bound_context[slot], bound_irq_line[slot], bound_route_events[slot]);
+                }
+            }
+            for (unsigned i=0; i<3; ++i)
+            {
+                assert(services[i].ecc_event[3]==(i==target ? 1 : 0));
+                assert(services[i].ecc_event[7]==0);
+            }
+            assert(services[target].ecc_event[0]==3 && services[target].ecc_event[1]==source);
+            assert(services[target].ecc_event[2]==source && services[target].ecc_event[8]==target);
+            assert(misc_blocks[target].MTTCAN_INT_RSTATUS==3);
+            assert(services[target].descriptor.handle(&services[target], 77, request, 1, response, 35, &length)==ET_STATUS_INVALID_PARAM);
+            assert(length==0);
+            assert(services[target].descriptor.handle(&services[target], 77, request, 1, response, 36, &length)==0);
+            assert(length==36 && response[12]==1 && response[32]==target);
+            assert(services[target].descriptor.handle(&services[target], 73, request, 5, NULL, 0, &length)==0);
+            assert(misc_blocks[target].MTTCAN_INT_RSTATUS==other);
+            assert(services[target].descriptor.handle(&services[target], 72, request, 5, NULL, 0, &length)==0);
+            assert(services[target].descriptor.handle(&services[target], 71, request, 9, NULL, 0, &length)==0);
+            for (unsigned slot=0; slot<6; ++slot)
+            {
+                if (bound_callback[slot])
+                {
+                    bound_callback[slot](bound_context[slot], bound_irq_line[slot], bound_route_events[slot]);
+                }
+            }
+            assert(services[target].ecc_event[3]==2 && services[target].irq_event[3]==0);
+            services[target].ecc_event[3]=UINT32_MAX;
+            assert(services[target].descriptor.handle(&services[target], 71, request, 9, NULL, 0, &length)==0);
+            for (unsigned slot=0; slot<6; ++slot)
+            {
+                if (bound_context[slot]==&services[target])
+                {
+                    bound_callback[slot](bound_context[slot], bound_irq_line[slot], bound_route_events[slot]);
+                    assert(services[target].ecc_event[3]==UINT32_MAX);
+                    assert(services[target].ecc_event[5]==1 && services[target].ecc_event[7]==ET_CAN_IRQ_FAULT_OVERFLOW);
+                    assert(services[target].descriptor.handle(&services[target], 71, request, 9, NULL, 0, &length)==0);
+                    bound_callback[slot](bound_context[slot], CAN0_INT0_IRQn, bound_route_events[slot]);
+                    assert(services[target].ecc_event[4]==1);
+                    assert(services[target].ecc_event[7]==(ET_CAN_IRQ_FAULT_OVERFLOW | ET_CAN_IRQ_FAULT_UNEXPECTED));
+                }
+            }
+            assert(services[target].descriptor.handle(&services[target], 72, request, 6, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
+            request[5]=2;
+            assert(services[target].descriptor.handle(&services[target], 70, request, 9, NULL, 0, &length)==ET_STATUS_INVALID_PARAM);
+            request[5]=0;
+            for (unsigned i=0; i<3; ++i)
+            {
+                request[0]=i;
+                fail_unbind_once=1;
+                assert(services[i].descriptor.handle(&services[i], 76, request, 1, NULL, 0, &length)==ET_STATUS_INTERNAL_ERROR);
+                assert(services[i].ecc_bound==1 && misc_blocks[i].MTTCAN_INT_EN==0);
+                assert(services[i].descriptor.handle(&services[i], 76, request, 1, NULL, 0, &length)==0);
+                assert(services[i].ecc_bound==0 && misc_blocks[i].MTTCAN_INT_EN==0);
+                assert(services[i].descriptor.handle(&services[i], 78, request, 1, NULL, 0, &length)==0);
+                assert(services[i].ecc_event[6]==2 && services[i].ecc_event[8]==UINT32_MAX);
+            }
+            assert(misc_blocks[target].MTTCAN_INT_RSTATUS==3);
+        }
+    }
+    ecc_status_model=0;
+    memset(misc_blocks, 0, sizeof(misc_blocks));
+}
+
 /* Independent register and Wire vectors; no CAN bus or external input is simulated. */
 static void test_tsu_contract(void)
 {
@@ -429,6 +561,7 @@ int main(void)
 {
     test_tsu_contract();
     test_ecc_register_contract();
+    test_ecc_session_contract();
     CAN_Type *instances[] = {CAN0, CAN1, CAN2};
     CAN_ConfigParams config = {0};
     CAN_ECCConfigParams ecc = {0};

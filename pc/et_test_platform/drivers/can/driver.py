@@ -11,6 +11,9 @@ from .contract import CanCommand
 from .models import (
     CanBusConfig,
     CanBusLimits,
+    CanEccEvent,
+    CanEccSnapshot,
+    CanEccSource,
     CanEventFormat,
     CanFilter,
     CanHighPriorityStatus,
@@ -47,6 +50,59 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 仅改变所选ECC源的使能；timeout内单次请求，失败上抛，不重试或启用全局RAM ECC。
+    def ecc_enable_set(
+        self, sources: CanEccSource, enabled: bool, *, timeout_s: float | None = None
+    ) -> None:
+        self._request(
+            CanCommand.ECC_ENABLE_SET,
+            (codec.ecc_sources(sources), codec.boolean(enabled)),
+            timeout_s=timeout_s,
+        )
+
+    # 屏蔽不清Raw；通信失败上抛，不以重试掩盖原始状态。
+    def ecc_mask_set(
+        self, sources: CanEccSource, masked: bool, *, timeout_s: float | None = None
+    ) -> None:
+        self._request(
+            CanCommand.ECC_MASK_SET,
+            (codec.ecc_sources(sources), codec.boolean(masked)),
+            timeout_s=timeout_s,
+        )
+
+    # 单次Force中断锁存，不注入RAM错误；timeout由调用方给定，无自动重试。
+    def ecc_force(self, sources: CanEccSource, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.ECC_FORCE, (codec.ecc_sources(sources),), timeout_s=timeout_s)
+
+    # 单次清目标Raw，保留其他源与Service证据；错误直接上抛，不隐式恢复。
+    def ecc_clear(self, sources: CanEccSource, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.ECC_CLEAR, (codec.ecc_sources(sources),), timeout_s=timeout_s)
+
+    # 独立读取硬件事实，不等待状态变化；timeout内只请求一次，失败上抛。
+    def ecc_snapshot_get(self, *, timeout_s: float | None = None) -> CanEccSnapshot:
+        return codec.decode_ecc_snapshot(
+            self._request(CanCommand.ECC_SNAPSHOT_GET, timeout_s=timeout_s)
+        )
+
+    # 创建新证据代并清旧目标Raw，源使能但保持屏蔽；timeout内单次请求，失败上抛。
+    # 不重试、不隐式解除屏蔽；等待中断及负向窗口由Case显式执行。
+    def ecc_capture_start(self, sources: CanEccSource, *, timeout_s: float | None = None) -> None:
+        self._request(
+            CanCommand.ECC_CAPTURE_START, (codec.ecc_sources(sources),), timeout_s=timeout_s
+        )
+
+    # 先关源再解绑，保留Raw和ISR证据；timeout内单次动作，清理错误上抛。
+    def ecc_capture_stop(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.ECC_CAPTURE_STOP, timeout_s=timeout_s)
+
+    # 读取真实ISR归属，不以读取请求制造回调；单次timeout内完成，错误上抛。
+    def ecc_event_get(self, *, timeout_s: float | None = None) -> CanEccEvent:
+        return codec.decode_ecc_event(self._request(CanCommand.ECC_EVENT_GET, timeout_s=timeout_s))
+
+    # 仅未绑定时复位证据，不清硬件Raw；失败上抛，不自动停止会话或重试。
+    def ecc_event_reset(self, *, timeout_s: float | None = None) -> None:
+        self._request(CanCommand.ECC_EVENT_RESET, timeout_s=timeout_s)
 
     # 本次受保护写显式保留硬件权限；普通timing_set的自动解锁行为不变。
     # 只等待本次响应，timeout_s传到底层；失败上抛，不重试写入或改变INIT。

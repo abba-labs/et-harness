@@ -98,7 +98,7 @@ TSU外部时间基是片内32-bit总线接入，RAM Watchdog是CAN主机RAM应�
 
 ### 0.6 已实现的基础Wrap接口
 
-当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、中断管理及FD格式选择，共64条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
+当前已贯通身份、INIT、位时序、选项、总线/回环、RAM布局及受限读写、单次收发、过滤器、High Priority状态、TX Event FIFO及格式解码、协议状态消费、计时控制、TSU原语、中断管理、ECC中断链及FD格式选择，共79条命令，详见0.7。已实现Case以第3节SPEC和静态注册表为准；不等于本章全部动作已实现。
 
 | 接口 | 参数与输出 | 执行边界 |
 |---|---|---|
@@ -190,6 +190,15 @@ CAN Service ID=`0x010C`，复用既有ET-Frame。Body前缀为`instance_id:u8`�
 | TSU_FLAGS_GET | 67 | 无 | new、lost：同一次快照的16-bit位图，不读清 |
 | TSU_TIMEBASE_GET | 68 | 无 | 32-bit活动时间基；不消费捕获槽 |
 | TSU_SLOT0_CONSUME | 69 | 无 | 读取TS0一次的32-bit值；硬件清该槽New/Lost，不隐式重试，不读取其他槽 |
+| ECC_ENABLE_SET | 70 | sources、enabled：非空ECC源掩码、严格Boolean | 仅改变所选源使能；不改全局RAM ECC |
+| ECC_MASK_SET | 71 | sources、masked：非空ECC源掩码、严格Boolean | 仅改变所选源屏蔽；Raw保留 |
+| ECC_FORCE | 72 | sources | 单次强制中断锁存，不注入RAM错误，不重试 |
+| ECC_CLEAR | 73 | sources | 单次清目标Raw，不清非目标Raw或Service证据 |
+| ECC_SNAPSHOT_GET | 74 | 无 | raw、status、enabled、masked四个实际ECC源位图；非原子、非消费读取 |
+| ECC_CAPTURE_START | 75 | sources | 清旧目标Raw、新证据代、绑定自身逻辑Route；所选源使能但保持屏蔽，须显式unmask |
+| ECC_CAPTURE_STOP | 76 | 无 | 先屏蔽和关闭所选源，再解绑；保留Raw/ISR证据，失败保留清理所有权 |
+| ECC_EVENT_GET | 77 | 无 | raw_status、masked_status、latched_events、event_count、unexpected_count、overflow_count、generation、fault_flags、instance_id；无回调时实例Wire值0xFFFFFFFF，PC为None |
+| ECC_EVENT_RESET | 78 | 无 | 未绑定时复位证据并递增generation；不清硬件Raw，代号饱和拒绝 |
 
 `TX_WRITE`与`TX_READ`的Marker按当前实际位宽校验/解释，不隐式改变事件格式。旧`TX_EVENT_READ`只接受具有内部时间戳字段的基本格式，宽Marker/TSU格式返回状态错误；新读取61以显式有效性防止伪时间戳。内部时间戳有效性只描述字段存在，不证明计数源已经启用。TSU指针只在实际捕获时有效，不是时间戳数值。
 
@@ -228,7 +237,9 @@ RAM布局顺序：`std_offset, std_count, ext_offset, ext_count, tx_offset, tx_b
 - Dedicated RX没有硬件数量寄存器，因此布局按RAM_LIMITS_GET发布的rx_buffer_count预留完整区域，不虚构数量读回。PC布局规划必须计算该区间；其他计数区域可设0。
 - SET仅配置布局，不清RAM、不Ack、不复位；数据准备与状态隔离仍是Case显式步骤。
 
-ECC Wrap基础接口使用独立事件命名空间：`CORRECTED=1`、`UNCORRECTED=2`，不复用控制器中断事件。`set_ecc_enabled`和`set_ecc_masked`只改变所选非空源掩码；`force_ecc`只强制中断锁存，不注入RAM错误；`clear_ecc`仅清目标源。`get_ecc_snapshot`返回真实、非消费的raw/status/enabled/masked，独立寄存器观测不承诺原子快照；status不能由其他字段重算代替。非法源/Boolean/空指针在动作前拒绝，未知实例返回NOT_SUPPORTED。这些原语不操作全局ECC、不绑定物理IRQ、不清Service证据；当前仅完成Wrap/Chip Driver，尚无对应Wire命令或可执行ECC Case。
+ECC使用独立事件命名空间：`CORRECTED=1`、`UNCORRECTED=2`，不复用控制器中断事件。Wrap的Enable/Mask只改变所选非空源掩码；Force只强制中断锁存，不注入RAM错误；Clear仅清目标源。Snapshot返回真实、非消费的raw/status/enabled/masked，独立寄存器观测不承诺原子快照；status不能由其他字段重算代替。非法源/Boolean/空指针在动作前拒绝，未知实例返回NOT_SUPPORTED。Wrap不操作全局ECC、不绑定物理IRQ、不清Service证据。
+
+ECC Service共享IRQ回调必须读取自身实例真实状态，只对实际活动目标源累计计数和锁存实际实例；首次raw/status保留，后续源累积。回调屏蔽活动源防止中断风暴，保留Raw供PC显式Clear，再次投递必须显式unmask；不是调用事件查询便增加计数。非目标实例的共享线路回调没有本地活动源时不产生证据。Fault沿用IO=1、Unexpected=2、Overflow=4，计数饱和保存溢出事实；PC必须检查这些诊断，不能只看Count。ECC会话与控制器IRQ会话独立。9条Wire已接通，P2_003正式Case仍待实现，不等同硬件PASS。
 
 Service只解码、调用本CAN Wrap、编码；不执行GPIO/CRG配置或测试判断。Wrap的STATE_ERROR映射现有ET_STATUS_BUSY（当前状态不满足配置前提），其他Driver执行错误映射INTERNAL_ERROR；未新增公共状态码或旧协议兼容分支。后续数据通路命令只能追加ID并在此处同步，不复用已分配ID。
 

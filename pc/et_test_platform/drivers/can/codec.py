@@ -8,6 +8,9 @@ from . import contract
 from .models import (
     CanActivity,
     CanBusConfig,
+    CanEccEvent,
+    CanEccSnapshot,
+    CanEccSource,
     CanError,
     CanEventFormat,
     CanFilter,
@@ -35,6 +38,34 @@ from .models import (
     CanTxFrame,
     CanUnmatchedPolicy,
 )
+
+
+# ECC请求只接受专用非空源枚举，禁止控制器中断位图混用。
+def ecc_sources(value: CanEccSource) -> int:
+    if not isinstance(value, CanEccSource) or not 1 <= int(value) <= 3:
+        raise ValueError("CAN ECC requires a nonempty public ECC source mask")
+    return int(value)
+
+
+# 四项均保留实际位图，不强加跨寄存器采样的同时性假设。
+def decode_ecc_snapshot(words: tuple[int, ...]) -> CanEccSnapshot:
+    if len(words) != 4 or any(value & ~3 for value in words):
+        raise ProtocolError("CAN ECC snapshot contains reserved sources")
+    return CanEccSnapshot(*(CanEccSource(value) for value in words))
+
+
+# 只解析显式ISR实例字段；禁止用本Driver实例补造回调归属。
+def decode_ecc_event(words: tuple[int, ...]) -> CanEccEvent:
+    if len(words) != 9 or any(value & ~3 for value in words[:3]):
+        raise ProtocolError("CAN ECC event contains reserved sources or wrong length")
+    instance = words[8]
+    if instance > 255 and instance != 0xFFFFFFFF:
+        raise ProtocolError("CAN ECC callback instance is invalid")
+    return CanEccEvent(
+        *(CanEccSource(value) for value in words[:3]),
+        *words[3:8],
+        None if instance == 0xFFFFFFFF else instance,
+    )
 
 
 # 编码TSU配置；不允许非法分频或隐式Boolean转换。

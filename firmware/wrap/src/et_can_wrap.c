@@ -12,6 +12,7 @@ typedef struct
     et_can_id_t id;
     CAN_Type *instance;
     et_irq_line_t irq_lines[ET_CAN_IRQ_LINE_COUNT];
+    et_irq_line_t ecc_irq;
 } et_can_mapping_t;
 
 typedef struct
@@ -57,6 +58,35 @@ static CAN_Type *find_instance(et_can_id_t id)
     const et_can_mapping_t *mapping = find_mapping(id);
 
     return mapping == NULL ? NULL : mapping->instance;
+}
+
+/**
+ * @brief Resolve a logical ECC session to its private physical route.
+ * @param[in] id Logical CAN controller.
+ * @param[in] sources Nonempty public ECC source mask.
+ * @param[out] route Binding facts for the Service and IRQ Manager.
+ * @return OK, invalid argument or unsupported instance.
+ * @note Only immutable mapping is read; no NVIC or peripheral state changes.
+ */
+et_wrap_status_t et_can_wrap_get_ecc_route(et_can_id_t id, uint32_t sources, et_irq_route_t *route)
+{
+    const et_can_mapping_t *mapping = find_mapping(id);
+
+    if (route == NULL || sources == 0u || (sources & ~ET_CAN_ECC_ALL) != 0u)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    if (mapping == NULL)
+    {
+        return ET_WRAP_STATUS_NOT_SUPPORTED;
+    }
+
+    route->irq_line = mapping->ecc_irq;
+    route->reserved = 0u;
+    route->route_events = sources;
+
+    return ET_WRAP_STATUS_OK;
 }
 
 /**
