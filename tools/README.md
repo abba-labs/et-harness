@@ -41,18 +41,23 @@ CAN盒子人工诊断：`tools/runner/can_box.py`；配置和设备能力边界�
 .\.venv\Scripts\python.exe tools\validate_pc.py
 ```
 
-固定Case档案维护：
+Case知识辅助：
 
 ```powershell
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py extract `
+  --chip ET6801 --ip can --lane fpga --source artifacts/runs/current/tests/can
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py check --chip ET6801 --ip can
-.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py update `
-  --chip ET6801 --ip can --lane fpga --source <Session目录> --manifest <原Manifest文件>
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py index --chip ET6801 --ip can
+# Agent逐Case整理或确认无新知识后，显式确认当前现场可以复用：
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py review `
+  --chip ET6801 --ip can --lane fpga --source artifacts/runs/current/tests/can
 ```
 
-`update/check/archive/prune`共用这一入口。档案位于`artifacts/records/<CHIP>/<IP>`，
-正式Runner自动调用更新；`--no-report`只省略Excel，`--protect-case`可重复指定验收基线Case。
-显式阶段归档、中断工作区归档和预览优先的保护释放示例见
-[产物导航](../artifacts/README.md)，唯一语义见R500第6节。
+`extract/check/index/review/archive`共用原维护入口。长期入口为
+`artifacts/records/<CHIP>/<IP>/cases/*.md`；当次事实摘要与可选Excel在
+`artifacts/runs/current/tests/<ip>/`。脚本不编写Case正文。
+精确键查询、旧记录只读与显式现场归档示例见
+[产物导航](../artifacts/README.md)，唯一语义见R130与R500第6节。
 
 Firmware平台自有C源码格式化与检查：
 

@@ -1,7 +1,7 @@
-# 维护命令的无硬件回归。
-# 职责：验证更新入口、预览与执行分离、损坏目录拒绝更新和身份校验。
-# 边界：使用合成输入，不运行Case或连接设备。
-# 依赖：pytest和相邻数据工厂。
+# Case知识命令的端到端无硬件回归。
+# 职责：验证当前事实准备、显式整理确认、只读检查和报告开关。
+# 边界：工具不生成或改写人工Case知识，不操作硬件。
+# 依赖：pytest和合成Canonical Session。
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from types import ModuleType
 
 import pytest
 
-from .test_record_store import incoming, update
+from .test_record_source import make_session
+from .test_record_store import make_knowledge
 
 
 @pytest.fixture
@@ -23,177 +24,155 @@ def cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     return module
 
 
-# 测试方法：更新两次同一执行后检查；通过条件：首次发布、再次幂等且入口只写固定目录。
-def test_cli_update_is_idempotent(
-    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = importlib.import_module("record_store")
-    value = incoming(store, 1)
-    monkeypatch.setattr(cli, "load_input", lambda *args, **kwargs: value)
-    arguments = [
-        "update",
-        "--chip",
-        "CHIP",
-        "--ip",
-        "TEST",
-        "--source",
-        str(tmp_path),
-        "--lane",
-        "fpga",
-    ]
-    assert cli.main(arguments) == 0
-    result = cli.run_operation(cli._arguments(arguments), tmp_path)
-    assert result["changed_files"] == 0
-    assert cli.main(["check", "--chip", "CHIP", "--ip", "TEST"]) == 0
-
-
-# 测试方法：从CLI归档后预览、执行释放；通过条件：预览不改变受保护快照，执行才释放。
-def test_cli_prune_requires_execute(cli: ModuleType, tmp_path: Path) -> None:
-    store = importlib.import_module("record_store")
-    update(store, tmp_path, incoming(store, 1, status="FAIL"))
-    root, _ = update(store, tmp_path, incoming(store, 2))
-    common = ["--chip", "CHIP", "--ip", "TEST"]
-    output = tmp_path / "milestone.zip"
-    assert cli.main(["archive", *common, "--output", str(output)]) == 0
-    arguments = ["prune", *common, "--archive", str(output), "--case", "TEST_P0_001"]
-    before = (root / "evidence/TEST_P0_001.json").read_bytes()
-    assert cli.main(arguments) == 0
-    assert (root / "evidence/TEST_P0_001.json").read_bytes() == before
-    assert cli.main([*arguments, "--execute"]) == 0
-    assert store.load_records(root)[0]["TEST_P0_001"].payload["protected"] == []
-
-
-# 测试方法：破坏当前索引后请求更新；通过条件：拒绝，不用新结果掩盖损坏。
-def test_cli_rejects_damaged_existing_view(cli: ModuleType, tmp_path: Path) -> None:
-    store = importlib.import_module("record_store")
-    root, _ = update(store, tmp_path, incoming(store, 1))
-    path = root / "results.json"
-    path.write_bytes(b"damaged")
-    assert (
-        cli.main(
-            [
-                "update",
-                "--chip",
-                "CHIP",
-                "--ip",
-                "TEST",
-                "--source",
-                str(tmp_path),
-                "--lane",
-                "fpga",
-            ]
-        )
-        == 1
-    )
-    assert path.read_bytes() == b"damaged"
-
-
-# 测试方法：请求不同芯片目录；通过条件：Session身份不匹配时不发布结果。
-def test_cli_rejects_wrong_chip(
-    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = importlib.import_module("record_store")
-    monkeypatch.setattr(cli, "load_input", lambda *args, **kwargs: incoming(store, 1))
-    assert (
-        cli.main(
-            [
-                "update",
-                "--chip",
-                "OTHER",
-                "--ip",
-                "TEST",
-                "--source",
-                str(tmp_path),
-                "--lane",
-                "fpga",
-            ]
-        )
-        == 1
-    )
-    assert not store.record_root(tmp_path, "OTHER", "TEST").exists()
-
-
-# 测试方法：关闭再开启Excel并重复同一输入；通过条件：次数不变，JSON/MD始终存在。
-def test_cli_report_toggle_preserves_records(
-    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = importlib.import_module("record_store")
-    value = incoming(store, 1)
-    monkeypatch.setattr(cli, "load_input", lambda *args, **kwargs: value)
-    kwargs = {"chip": "CHIP", "ip": "TEST", "lane": "fpga"}
-    cli.update_records(tmp_path, tmp_path, **kwargs)
-    result = cli.update_records(tmp_path, tmp_path, **kwargs, write_report=False)
-    root = store.record_root(tmp_path, "CHIP", "TEST")
-    assert not (root / "test_report.xlsx").exists()
-    assert (root / "results.json").is_file() and (root / "README.md").is_file()
-    assert result["file_count"] == 5
-    assert (
-        cli.update_records(tmp_path, tmp_path, **kwargs, write_report=False)["changed_files"] == 0
-    )
-    cli.update_records(tmp_path, tmp_path, **kwargs)
-    assert (root / "test_report.xlsx").is_file()
-    view = store.build_view(store.load_records(root)[0])
-    assert view["executions"][0]["attempts"] == 1
-
-
-# 测试方法：真实样本导入后封存工作区；通过条件：全部原始文件都被发布证明覆盖。
-def test_cli_returns_exact_workspace_proof(cli: ModuleType, tmp_path: Path) -> None:
-    from .test_record_source import make_session
-
+def current_session(tmp_path: Path) -> Path:
     source = importlib.import_module("record_source")
-    workspace = importlib.import_module("record_workspace")
-    run = make_session(source, tmp_path)
+    original = make_session(source, tmp_path)
     current = tmp_path / "artifacts/runs/current/tests/crc"
     current.parent.mkdir(parents=True)
-    run.rename(current)
-    result = cli.update_records(tmp_path, current, chip="ET6801", ip="crc", lane="fpga")
-    workspace.seal_workspace(
-        tmp_path, current, proofs=result["_proofs"], expected_files=result["_source_files"]
-    )
-    workspace.verify_publication(tmp_path, current)
+    original.rename(current)
+    return current
 
 
-# 测试方法：CLI显式归档中断工作区；通过条件：现场保留且可以校验归档回执。
-def test_cli_archives_interrupted_workspace(cli: ModuleType, tmp_path: Path) -> None:
+# 测试方法：准备真实形状结果两次；通过条件：原始字节不变，只生成当前摘要/报告，不建长期记录。
+def test_preparation_does_not_create_long_term_records(cli: ModuleType, tmp_path: Path) -> None:
+    current = current_session(tmp_path)
+    raw = {p.relative_to(current): p.read_bytes() for p in current.rglob("*") if p.is_file()}
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    assert cli.prepare_review(tmp_path, current, **kwargs)["knowledge_review"] == "PENDING"
+    second = cli.prepare_review(tmp_path, current, **kwargs)
+    assert second["changed_files"] == 0
+    assert not (tmp_path / "artifacts/records").exists()
+    assert (current / "facts.md").is_file() and (current / "test_report.xlsx").is_file()
+    assert not list(current.rglob("*.zip"))
+    assert all((current / name).read_bytes() == value for name, value in raw.items())
+
+
+# 测试方法：PASS后先只读check，再显式review；通过条件：check不解锁，review才放行且不改知识。
+def test_review_requires_curated_knowledge_and_is_explicit(cli: ModuleType, tmp_path: Path) -> None:
     workspace = importlib.import_module("record_workspace")
-    root = tmp_path / "artifacts/runs/current"
-    root.mkdir(parents=True)
-    (root / "pipeline.log").write_bytes(b"interrupted")
-    output = tmp_path / "milestone.zip"
-    assert cli.main(["archive", "--workspace", str(root), "--output", str(output)]) == 0
-    workspace.verify_publication(tmp_path, root)
-    assert (root / "pipeline.log").read_bytes() == b"interrupted"
+    current = current_session(tmp_path)
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    cli.prepare_review(tmp_path, current, **kwargs)
+    with pytest.raises(ValueError, match="knowledge directory"):
+        cli.review_records(tmp_path, current, **kwargs)
+    path = make_knowledge(tmp_path)
+    before = path.read_bytes()
+    assert cli.main(["check", "--chip", "ET6801", "--ip", "crc"]) == 0
+    with pytest.raises(workspace.KnowledgeReviewPending):
+        workspace.prepare_workspace(tmp_path, current)
+    cli.review_records(tmp_path, current, **kwargs)
+    workspace.verify_publication(tmp_path, current)
+    receipt = (current / "publication.json").read_bytes()
+    cli.review_records(tmp_path, current, **kwargs)
+    assert receipt == (current / "publication.json").read_bytes()
+    assert path.read_bytes() == before
+    assert cli.prepare_review(tmp_path, current, **kwargs)["knowledge_review"] == "REVIEWED"
+    workspace.prepare_workspace(tmp_path, current)
+    assert list(current.iterdir()) == [] and path.read_bytes() == before
 
 
-# 测试方法：同时指定两种归档对象；通过条件：参数解析拒绝歧义。
-def test_cli_rejects_ambiguous_archive(cli: ModuleType) -> None:
-    with pytest.raises(SystemExit):
-        cli._arguments(["archive", "--workspace", "current", "--chip", "CHIP", "--output", "a.zip"])
+# 测试方法：人工知识仍标问题未关闭，而本次Result是PASS；通过条件：工具不自动关闭或覆盖问题。
+def test_first_pass_does_not_close_existing_issue(cli: ModuleType, tmp_path: Path) -> None:
+    current = current_session(tmp_path)
+    path = make_knowledge(tmp_path)
+    before = path.read_bytes()
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    cli.prepare_review(tmp_path, current, **kwargs)
+    cli.review_records(tmp_path, current, **kwargs)
+    assert path.read_bytes() == before
+    assert "未关闭" in path.read_text(encoding="utf-8")
 
 
-# 测试方法：显式重建损坏的派生文字；通过条件：原始证据和人工分析不变，完整检查恢复。
-def test_cli_refreshes_only_derived_views(cli: ModuleType, tmp_path: Path) -> None:
-    store = importlib.import_module("record_store")
-    root, _ = update(store, tmp_path, incoming(store, 1))
-    evidence = {path.name: path.read_bytes() for path in (root / "evidence").iterdir()}
-    path = root / "cases/TEST_P0_001.md"
-    path.write_text(
-        path.read_text(encoding="utf-8").replace("## 当前测试", "## 损坏的旧视图")
-        + "\n人工分析保留。\n",
-        encoding="utf-8",
+# 测试方法：关闭/开启当前Excel；通过条件：只改变当前派生文件，不创建长期报告和JSON副本。
+def test_report_toggle_is_current_only(cli: ModuleType, tmp_path: Path) -> None:
+    current = current_session(tmp_path)
+    path = make_knowledge(tmp_path)
+    before = path.read_bytes()
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+    assert not (current / "test_report.xlsx").exists()
+    cli.prepare_review(tmp_path, current, **kwargs, write_report=True)
+    assert (current / "test_report.xlsx").is_file()
+    cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+    assert not (current / "test_report.xlsx").exists()
+    assert path.read_bytes() == before
+    assert not list(path.parent.parent.rglob("*.xlsx"))
+    assert not list(path.parent.parent.rglob("*.json"))
+
+
+# 测试方法：历史来源只提取，不允许准备/解锁；通过条件：历史字节和目录成员完全保留。
+def test_historical_source_is_read_only(cli: ModuleType, tmp_path: Path) -> None:
+    source = importlib.import_module("record_source")
+    old = make_session(source, tmp_path)
+    before = {p.relative_to(old): p.read_bytes() for p in old.rglob("*") if p.is_file()}
+    assert (
+        cli.main(
+            [
+                "extract",
+                "--source",
+                str(old),
+                "--chip",
+                "ET6801",
+                "--ip",
+                "crc",
+                "--lane",
+                "fpga",
+                "--case",
+                "CRC_P1_001",
+            ]
+        )
+        == 0
     )
-    common = ["check", "--chip", "CHIP", "--ip", "TEST"]
-    assert cli.main(common) == 1
-    assert cli.main([*common, "--refresh-views"]) == 0
-    assert "人工分析保留。" in path.read_text(encoding="utf-8")
-    assert evidence == {path.name: path.read_bytes() for path in (root / "evidence").iterdir()}
+    for operation in (cli.prepare_review, cli.review_records):
+        with pytest.raises(ValueError, match="historical"):
+            operation(tmp_path, old, chip="ET6801", ip="crc", lane="fpga")
+    assert before == {p.relative_to(old): p.read_bytes() for p in old.rglob("*") if p.is_file()}
 
 
-# 测试方法：原始附件包损坏时请求重建；通过条件：拒绝，不能以派生重建绕过证据检查。
-def test_cli_refresh_rejects_broken_raw_evidence(cli: ModuleType, tmp_path: Path) -> None:
-    store = importlib.import_module("record_store")
-    root, _ = update(store, tmp_path, incoming(store, 1))
-    (root / "evidence/TEST_P0_001.zip").write_bytes(b"broken")
-    before = (root / "results.json").read_bytes()
-    assert cli.main(["check", "--chip", "CHIP", "--ip", "TEST", "--refresh-views"]) == 1
-    assert (root / "results.json").read_bytes() == before
+# 测试方法：请求错误芯片、保留未绑定文件或篡改已封存来源；通过条件：停止，不掩盖现场。
+@pytest.mark.parametrize("kind", ["chip", "unbound", "changed"])
+def test_preparation_rejects_inconsistent_source(
+    cli: ModuleType, tmp_path: Path, kind: str
+) -> None:
+    current = current_session(tmp_path)
+    if kind == "changed":
+        cli.prepare_review(tmp_path, current, chip="ET6801", ip="crc", lane="fpga")
+        (current / "pytest.log").write_bytes(b"external edit")
+    elif kind == "unbound":
+        (current / "keep.txt").write_bytes(b"unbound")
+    with pytest.raises(ValueError):
+        cli.prepare_review(
+            tmp_path, current, chip="OTHER" if kind == "chip" else "ET6801", ip="crc", lane="fpga"
+        )
+    if kind == "unbound":
+        assert (current / "keep.txt").read_bytes() == b"unbound"
+    if kind == "changed":
+        assert (current / "pytest.log").read_bytes() == b"external edit"
+
+
+# 测试方法：旧长期快照写命令和保护参数不再受理；通过条件：明确拒绝而不是静默继续生成包。
+@pytest.mark.parametrize("command", ["update", "prune"])
+def test_legacy_mutating_commands_are_retired(cli: ModuleType, command: str) -> None:
+    with pytest.raises(SystemExit):
+        cli._arguments([command, "--chip", "ET6801", "--ip", "crc"])
+
+
+# 测试方法：索引发布被进程中断；通过条件：check不写入，显式index恢复事务且保留Case。
+def test_explicit_index_recovers_interrupted_publication(cli: ModuleType, tmp_path: Path) -> None:
+    transaction = importlib.import_module("record_transaction")
+    path = make_knowledge(tmp_path)
+    before = path.read_bytes()
+    root = path.parent.parent
+    work = cli.working_root(tmp_path, "ET6801", "crc")
+
+    def interrupted() -> None:
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        transaction.publish(root, work, {"README.md": b"partial index"}, validate=interrupted)
+    assert cli.main(["check", "--chip", "ET6801", "--ip", "crc"]) == 1
+    assert (root / "README.md").read_bytes() == b"partial index"
+    assert cli.main(["index", "--chip", "ET6801", "--ip", "crc"]) == 0
+    assert "CRC_P1_001" in (root / "README.md").read_text(encoding="utf-8")
+    assert not (work / "transaction.json").exists()
+    assert path.read_bytes() == before

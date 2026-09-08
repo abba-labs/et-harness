@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -439,7 +441,8 @@ def _add_trace_sheet(workbook: Any, model: dict[str, Any]) -> None:
         sheet.set_column(column, column, width)
 
 
-def _write_xlsx(model: dict[str, Any], output: Path) -> None:
+# 供当前工作区发布复用同一报告版式；固定容器时间使相同输入不产生无意义写入。
+def xlsx_bytes(model: dict[str, object]) -> bytes:
     try:
         import xlsxwriter
     except ImportError as exc:
@@ -447,17 +450,24 @@ def _write_xlsx(model: dict[str, Any], output: Path) -> None:
             'XLSX export requires the report extra; install with: pip install -e ".[report]"'
         ) from exc
 
-    output.parent.mkdir(parents=True, exist_ok=True)
+    stream = io.BytesIO()
     workbook = xlsxwriter.Workbook(
-        str(output),
-        {"strings_to_formulas": False, "strings_to_urls": False},
+        stream,
+        {"in_memory": True, "strings_to_formulas": False, "strings_to_urls": False},
     )
+    workbook.set_properties({"created": datetime(1980, 1, 1)})
     try:
         _add_report_sheet(workbook, model)
         _add_execution_sheet(workbook, model)
         _add_trace_sheet(workbook, model)
     finally:
         workbook.close()
+    return stream.getvalue()
+
+
+def _write_xlsx(model: dict[str, Any], output: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(xlsx_bytes(model))
 
 
 def main(argv: Sequence[str] | None = None) -> int:

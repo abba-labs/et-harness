@@ -47,7 +47,7 @@ firmware/build/*/*.uvguix.*
 # Operator-local configuration and generated output
 run_config.yaml
 
-# Generated test evidence stays local by default. Explicitly reviewed evidence can use git add -f.
+# Runtime facts and legacy evidence stay local; add reviewed Case Markdown/attachments with exact git add -f paths.
 artifacts/runs/**
 artifacts/reports/**
 artifacts/records/**

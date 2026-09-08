@@ -8,7 +8,7 @@ from __future__ import annotations
 import subprocess
 import tempfile
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from et_test_platform.results.case_report import build_case_report_model
@@ -22,6 +22,7 @@ class RecordInput:
     ip: str
     cases: dict[str, list[Snapshot]]
     blobs: dict[str, bytes]
+    report_model: dict[str, object] = field(default_factory=dict)
 
 
 def _bounded_read(path: Path) -> bytes:
@@ -225,4 +226,4 @@ def load_input(
         cases.setdefault(snapshot.case_id.upper(), []).append(snapshot)
     if sum(len(data) for data in blobs.values()) > MAX_IP_BYTES:
         raise ValueError("incoming evidence exceeds IP capacity; source Run was retained")
-    return RecordInput(chip, ip.upper(), cases, blobs)
+    return RecordInput(chip, ip.upper(), cases, blobs, model)

@@ -1258,7 +1258,6 @@ def test_run_ip_tests_rejects_arguments_that_can_override_platform_control(
 
 def test_run_ip_tests_defaults_to_project_artifacts() -> None:
     assert REPOSITORY_ROOT / "artifacts" / "runs" == RUN_IP_TESTS.DEFAULT_OUTPUT_ROOT
-    assert REPOSITORY_ROOT / "artifacts" / "records" == RUN_IP_TESTS.REPORTS_ROOT
 
 
 # 测试 Feature：仓库内测试产物不得污染源码脏状态。
@@ -1605,9 +1604,11 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     assert Path(pytest_command[pytest_command.index("--et-artifact-dir") + 1]) == (
         output_root / "current/tests/crc"
     )
-    root = tmp_path / "artifacts/records/ET6801/CRC"
+    root = output_root / "current/tests/crc"
     assert (root / "test_report.xlsx").is_file() is not no_report
-    assert json.loads((root / "results.json").read_text())["executions"][0]["status"] == status
+    assert f"| {status} |" in (root / "facts.md").read_text(encoding="utf-8")
+    assert not (tmp_path / "artifacts/records").exists()
+    assert json.loads((root / "publication.json").read_text())["pending_review"] is True
     assert (output_root / "current/publication.json").is_file()
 
 

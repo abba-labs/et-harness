@@ -1,70 +1,116 @@
-# 当前档案Excel的结构和来源回归。
-# 职责：检查确定性生成、数据类型、公式注入防护和损坏报告拒绝。
-# 边界：合成输入，仅检查输出文件，不形成硬件结论。
-# 依赖：标准库、pytest和记录测试数据工厂。
+# 当前事实提取与既有Excel消费者回归。
+# 职责：验证精确字段读取、摘要边界、原始结果不变与报告输入一致。
+# 边界：仅合成Canonical数据，不创建真实硬件结论。
+# 依赖：pytest、合成Session和既有报表导出器。
 
 from __future__ import annotations
 
 import importlib
 import io
-import xml.etree.ElementTree as ET
+import json
 import zipfile
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
-from .test_record_store import incoming, update
+from .test_record_source import make_session
 
 
 @pytest.fixture
-def store(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    repository = Path(__file__).resolve().parents[5]
-    monkeypatch.syspath_prepend(str(repository / "tools/runner"))
-    return importlib.import_module("record_store")
+def reporting(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    root = Path(__file__).resolve().parents[5]
+    monkeypatch.syspath_prepend(str(root / "tools/runner"))
+    return importlib.import_module("record_report")
 
 
-# 测试方法：重复生成相同记录并读取OpenXML；通过条件：字节一致，来源Hash可见，时间和次数为数值。
-def test_record_report_is_deterministic_and_typed(store: ModuleType, tmp_path: Path) -> None:
-    root, _ = update(store, tmp_path, incoming(store, 1))
-    records = store.load_records(root)[0]
-    view = store.build_view(records)
-    data = store.report_bytes(view, records)
-    assert data == (root / "test_report.xlsx").read_bytes()
-    namespace = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    with zipfile.ZipFile(io.BytesIO(data)) as package:
-        strings = package.read("xl/sharedStrings.xml").decode()
-        assert view["inputs_sha256"] in strings
-        assert "不代表同一版本的完整回归" in strings
-        cells = ET.fromstring(package.read("xl/worksheets/sheet1.xml"))
-        assert cells.find(".//s:c[@r='E6']", namespace).get("t") is None
-        assert cells.find(".//s:c[@r='M6']", namespace).get("t") is None
-        assert cells.find(".//s:sheetViews/s:sheetView/s:pane", namespace) is not None
+# 测试方法：先取摘要、再列字段、最后精确取值；通过条件：不重复方法全文，原值和来源保留。
+def test_extract_is_bounded_and_on_demand(reporting: ModuleType, tmp_path: Path) -> None:
+    source = importlib.import_module("record_source")
+    run = make_session(source, tmp_path)
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    original = {p.relative_to(run): p.read_bytes() for p in run.rglob("*") if p.is_file()}
+    summary = reporting.render_facts(incoming).decode()
+    assert "CRC_P1_001" in summary and "PASS" in summary
+    assert "执行DUT刺激" not in summary and "observations" not in summary
+    fields = reporting.render_facts(incoming, cases=("CRC_P1_001",)).decode()
+    assert "measurement.actual_crc" in fields
+    detail = reporting.render_facts(
+        incoming, cases=("CRC_P1_001",), keys=("measurement.actual_crc",)
+    ).decode()
+    assert "measurement.actual_crc：" in detail and "\n1\n" in detail
+    assert original == {p.relative_to(run): p.read_bytes() for p in run.rglob("*") if p.is_file()}
 
 
-# 测试方法：方法文本以等号开头并保留失败；通过条件：文本不是公式，受保护快照单独展示。
-def test_report_keeps_literal_text_and_protected_evidence(
-    store: ModuleType, tmp_path: Path
+# 测试方法：请求未选Case、拼错字段、跨Case无选择取值或超限；通过条件：明确失败，不静默丢字段。
+def test_extract_rejects_ambiguous_or_oversized_selection(
+    reporting: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    value = incoming(store, 1, status="FAIL")
-    value.cases["TEST_P0_001"][0].selection["method"] = "=1+1"
-    update(store, tmp_path, value)
-    latest = incoming(store, 2)
-    latest.cases["TEST_P0_001"][0].selection["method"] = "=1+1"
-    root, _ = update(store, tmp_path, latest)
-    with zipfile.ZipFile(root / "test_report.xlsx") as package:
-        strings = package.read("xl/sharedStrings.xml").decode()
-        assert "=1+1" in strings and "FAIL" in strings and "PASS" in strings
-        assert "受保护证据" in package.read("xl/workbook.xml").decode()
-        for name in package.namelist():
-            if name.startswith("xl/worksheets/") and name.endswith(".xml"):
-                assert b"<f>" not in package.read(name)
+    source = importlib.import_module("record_source")
+    run = make_session(source, tmp_path)
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    for kwargs in (
+        {"cases": ("CRC_P1_999",)},
+        {"keys": ("measurement.actual_crc",)},
+        {"cases": ("CRC_P1_001",), "keys": ("measurement.missing",)},
+    ):
+        with pytest.raises(ValueError):
+            reporting.render_facts(incoming, **kwargs)
+    monkeypatch.setattr(reporting, "MAX_FACTS_BYTES", 1)
+    with pytest.raises(ValueError, match="256 KiB"):
+        reporting.render_facts(incoming)
 
 
-# 测试方法：损坏当前报告；通过条件：完整性检查拒绝，不能当作可归档的完整记录。
-def test_check_rejects_damaged_excel(store: ModuleType, tmp_path: Path) -> None:
-    root, _ = update(store, tmp_path, incoming(store, 1))
-    (root / "test_report.xlsx").write_bytes(b"broken")
-    checker = importlib.import_module("record_check")
-    with pytest.raises(ValueError, match="stale or modified.*test_report"):
-        checker.check_records(root)
+# 测试方法：选中但未执行的Case提取；通过条件：显示NOT_EXECUTED而不是继承其他PASS。
+def test_extract_preserves_not_executed(reporting: ModuleType, tmp_path: Path) -> None:
+    source = importlib.import_module("record_source")
+    run = make_session(source, tmp_path, missing=True)
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    text = reporting.render_facts(incoming).decode()
+    assert "NOT_EXECUTED" in text and "| PASS |" not in text
+
+
+# 测试方法：同一已校验Session生成两份内存报告；通过条件：字节确定，沿用原报告页和原始状态。
+def test_report_uses_canonical_model_not_knowledge(reporting: ModuleType, tmp_path: Path) -> None:
+    from tools.reporting.generate_case_report import xlsx_bytes
+
+    source = importlib.import_module("record_source")
+    run = make_session(source, tmp_path)
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    data = xlsx_bytes(incoming.report_model)
+    assert data == xlsx_bytes(incoming.report_model)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.testzip() is None
+        workbook = archive.read("xl/workbook.xml").decode()
+        assert "测试报告" in workbook and "执行明细" in workbook
+        assert "受保护证据" not in workbook
+        assert "PASS" in archive.read("xl/sharedStrings.xml").decode()
+
+
+# 测试方法：同一key包含多个端点及重复采样；通过条件：精确查询保留全部原始观测顺序与身份。
+def test_extract_keeps_all_observations_for_one_key(reporting: ModuleType, tmp_path: Path) -> None:
+    source = importlib.import_module("record_source")
+    run = make_session(source, tmp_path)
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    result = incoming.cases["CRC_P1_001"][0].result
+    assert result is not None
+    observations = [
+        {
+            "key": "protected_timings",
+            "source": "dut",
+            "device_id": "dut",
+            "endpoint": endpoint,
+            "value": value,
+            "artifacts": [],
+        }
+        for endpoint, value in (("CAN0.NBTP", 500), ("CAN1.NBTP", 250), ("CAN0.NBTP", 500))
+    ]
+    result["observations"] = observations
+    listing = reporting.render_facts(incoming, cases=("CRC_P1_001",)).decode()
+    assert listing.count("- `observation.protected_timings`") == 1
+    detail = reporting.render_facts(
+        incoming, cases=("CRC_P1_001",), keys=("observation.protected_timings",)
+    ).decode()
+    extracted = json.loads(detail.split("````json\n")[1].split("\n````")[0])
+    assert extracted == observations and len(extracted) == 3
+    assert result["observations"] == observations

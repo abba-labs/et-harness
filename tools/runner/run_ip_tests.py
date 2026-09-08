@@ -17,17 +17,20 @@ from pathlib import Path
 from uuid import uuid4
 
 from artifact_layout import (
-    DEFAULT_RECORDS_ROOT,
     DEFAULT_RUNS_ROOT,
     capture_source_identity,
     create_current_directory,
     utc_timestamp,
     write_manifest,
 )
-from maintain_test_records import update_records
-from record_model import object_value
+from maintain_test_records import prepare_review
 from record_store import record_root
-from record_workspace import environment_lock, prepare_workspace, seal_pipeline, seal_workspace
+from record_workspace import (
+    KnowledgeReviewPending,
+    environment_lock,
+    prepare_workspace,
+    seal_pipeline,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FORMAL_CASE_ROOT = REPOSITORY_ROOT / "pc/et_test_platform/test_cases"
@@ -36,7 +39,6 @@ REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
 VALIDATE_PC = REPOSITORY_ROOT / "tools/validate_pc.py"
 DEFAULT_OUTPUT_ROOT = DEFAULT_RUNS_ROOT
 ARTIFACT_RUNS_ROOT = DEFAULT_RUNS_ROOT
-REPORTS_ROOT = DEFAULT_RECORDS_ROOT
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -463,9 +465,9 @@ def _execute_ip(args: argparse.Namespace) -> int:
 
     canonical_exit = 0 if evidence_complete else 2
     chip = _session_chip(run_dir)
-    print("Publishing fixed Case records...")
+    print("Preparing current facts and report for Case knowledge review...")
     try:
-        published = update_records(
+        prepare_review(
             REPOSITORY_ROOT,
             run_dir,
             chip=chip,
@@ -475,21 +477,18 @@ def _execute_ip(args: argparse.Namespace) -> int:
             or (artifact_run_dir / "manifest.json" if artifact_run_dir else None),
             write_report=not args.no_report,
         )
-        seal_workspace(
-            REPOSITORY_ROOT,
-            run_dir,
-            proofs=object_value(published["_proofs"], "publication proofs"),
-            expected_files=object_value(published["_source_files"], "published source files"),
-        )
+        if not args.no_report:
+            _validate_report_output(run_dir / "test_report.xlsx")
     except (OSError, ValueError, RuntimeError, KeyError, zipfile.BadZipFile) as exc:
-        print(f"Record publication failed; raw workspace retained: {exc}")
+        print(f"Review preparation failed; raw workspace retained: {exc}")
         return _finish_standalone_run(
             artifact_run_dir,
             standalone_manifest,
             pytest_exit or canonical_exit or 2,
         )
 
-    print(f"Case records: {record_root(REPOSITORY_ROOT, chip, ip)}")
+    print(f"Case knowledge: {record_root(REPOSITORY_ROOT, chip, ip)}")
+    print("Knowledge review is pending; current raw files cannot be overwritten before review.")
     return _finish_standalone_run(
         artifact_run_dir,
         standalone_manifest,
@@ -499,10 +498,14 @@ def _execute_ip(args: argparse.Namespace) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
-    if args.within_pipeline:
-        return _execute_ip(args)
-    with environment_lock(REPOSITORY_ROOT):
-        return _execute_ip(args)
+    try:
+        if args.within_pipeline:
+            return _execute_ip(args)
+        with environment_lock(REPOSITORY_ROOT):
+            return _execute_ip(args)
+    except KnowledgeReviewPending as exc:
+        print(str(exc))
+        return 2
 
 
 if __name__ == "__main__":

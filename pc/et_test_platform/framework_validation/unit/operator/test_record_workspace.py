@@ -11,7 +11,7 @@ from types import ModuleType
 
 import pytest
 
-from .test_record_store import incoming, update
+from .test_record_store import make_knowledge
 
 
 @pytest.fixture
@@ -56,21 +56,56 @@ def test_workspace_preserves_unpublished_or_changed_data(
     }
 
 
-# 测试方法：建立真实记录回执后破坏证据包；通过条件：在删除当前工作文件前拒绝复用。
+# 测试方法：建立整理回执后修改知识；通过条件：复用前要求重新确认，不依赖任何证据ZIP。
 def test_workspace_checks_durable_record_proof(workspace: ModuleType, tmp_path: Path) -> None:
-    store = importlib.import_module("record_store")
     checker = importlib.import_module("record_check")
-    record, _ = update(store, tmp_path, incoming(store, 1))
+    document = make_knowledge(tmp_path)
+    record = document.parent.parent
     root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/runs/current/tests/test")
     (root / "session.json").write_bytes(b"sample")
-    proofs = {record.relative_to(tmp_path).as_posix(): checker.check_records(record)["snapshots"]}
+    proofs = {record.relative_to(tmp_path).as_posix(): checker.check_records(record)["files"]}
     workspace.seal_workspace(
         tmp_path, root, proofs=proofs, expected_files={"session.json": workspace.digest(b"sample")}
     )
-    (record / "evidence/TEST_P0_001.zip").write_bytes(b"broken")
-    with pytest.raises((ValueError, workspace.zipfile.BadZipFile)):
+    document.write_text(
+        document.read_text(encoding="utf-8") + "\n新的判断，需复核。\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="reviewed Case knowledge"):
         workspace.prepare_workspace(tmp_path, root)
     assert (root / "session.json").read_bytes() == b"sample"
+
+
+# 测试方法：测试PASS但整理未完成；通过条件：封存不改测试状态，下一轮复用在删除前阻止。
+def test_pending_review_blocks_overwrite_even_after_pass(
+    workspace: ModuleType, tmp_path: Path
+) -> None:
+    root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/runs/current/tests/crc")
+    (root / "session.json").write_bytes(b"PASS raw")
+    workspace.seal_workspace(tmp_path, root, proofs={}, pending_review=True)
+    workspace.seal_pipeline(tmp_path, root.parent.parent, successful=True)
+    assert workspace.verify_publication(tmp_path, root, require_review=False)["pending_review"]
+    for target in (root, root.parent.parent):
+        with pytest.raises(workspace.KnowledgeReviewPending):
+            workspace.prepare_workspace(tmp_path, target)
+    assert (root / "session.json").read_bytes() == b"PASS raw"
+
+
+# 测试方法：完成Case知识后显式确认子工作区；通过条件：父回执同步，整个current可安全复用。
+def test_review_refreshes_parent_receipt(workspace: ModuleType, tmp_path: Path) -> None:
+    checker = importlib.import_module("record_check")
+    document = make_knowledge(tmp_path)
+    root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/runs/current/tests/crc")
+    (root / "session.json").write_bytes(b"source")
+    workspace.seal_workspace(tmp_path, root, proofs={}, pending_review=True)
+    parent = root.parent.parent
+    workspace.seal_pipeline(tmp_path, parent, successful=True)
+    record = document.parent.parent
+    proofs = {record.relative_to(tmp_path).as_posix(): checker.check_records(record)["files"]}
+    workspace.review_workspace(tmp_path, root, proofs=proofs)
+    workspace.verify_publication(tmp_path, parent)
+    workspace.prepare_workspace(tmp_path, parent)
+    assert list(parent.iterdir()) == []
+    assert document.exists()
 
 
 # 测试方法：显式归档未完成现场，破坏归档再恢复；通过条件：仅完整归档可授权下一次复用。
