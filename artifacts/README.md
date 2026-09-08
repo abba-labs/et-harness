@@ -14,13 +14,13 @@ artifacts/
 │  ├─ manifest.json、config/、stages/
 │  ├─ tests/<ip>/
 │  │  ├─ session.json、cases/、pytest.log
-│  │  └─ facts.md、test_report.xlsx、publication.json
+│  │  └─ facts.md、publication.json
 │  └─ publication.json
 ├─ records/<CHIP>/<IP>/
 │  ├─ README.md
 │  ├─ cases/<CASE_ID>.md
 │  └─ attachments/<CASE_ID>/...  # 必要时
-└─ reports/  # 历史或显式一次性导出
+└─ reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx  # 最近生成的Excel
 ```
 
 ## 快速定位
@@ -29,12 +29,14 @@ artifacts/
 |---|---|
 | 当前运行身份、配置和阶段日志 | `runs/current/manifest.json`、`config/`、`stages/` |
 | 当前原始Case事实与附件 | `runs/current/tests/<ip>/session.json`、`cases/` |
-| 当前简短事实摘要和Excel | `runs/current/tests/<ip>/facts.md`、`test_report.xlsx`（启用报告时） |
+| 当前简短事实摘要 | `runs/current/tests/<ip>/facts.md` |
+| 某芯片/IP最近生成的Excel | `reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`（启用报告时更新） |
 | 某芯片/IP知识索引 | `records/<CHIP>/<IP>/README.md` |
 | Case方法、问题与可复用结论 | `records/<CHIP>/<IP>/cases/<CASE_ID>.md` |
 | 正文引用的必要附件 | `records/<CHIP>/<IP>/attachments/<CASE_ID>/` |
 
-旧时间戳目录、旧Excel及旧固定JSON/ZIP仍为只读历史，不是新知识格式的依赖。
+例如：`reports/ET6801/ET6801_CAN测试报告.xlsx`。关闭报告时保留上次文件，运行日志提示本次未更新；报告首页的Run ID、Lane和时间用于确认来源。
+旧时间戳目录、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不是新知识格式的依赖。
 
 ## 知识整理入口
 
@@ -69,4 +71,4 @@ Agent读原始方法与已有知识、处理本次新知识后，显式确认全
 
 旧Session可用`extract --source <历史Session目录>`只读查询；
 已取消旧`update/prune/--refresh-views/--protect-case`流程。
-通用清理工具排除固定工作区、知识树与维护事务。历史删除仍是独立任务。
+通用清理工具排除固定工作区、知识树、维护事务与报告芯片目录。历史删除仍是独立任务。

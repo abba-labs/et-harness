@@ -112,7 +112,11 @@ def build_cleanup_plan(
         if scope == "runs":
             paths.extend(_directory_contents(root / "artifacts" / "runs"))
         elif scope == "reports":
-            paths.extend(_directory_contents(root / "artifacts" / "reports"))
+            paths.extend(
+                path
+                for path in _directory_contents(root / "artifacts" / "reports")
+                if not path.is_dir()
+            )
         elif scope == "tmp":
             paths.extend(_directory_contents(root / "tmp"))
         elif scope == "caches":
@@ -136,6 +140,12 @@ def build_cleanup_plan(
 def execute_cleanup(plan: Iterable[CleanupEntry]) -> None:
     for entry in plan:
         path = entry.path
+        if (
+            path.parent.name == "reports"
+            and path.parent.parent.name == "artifacts"
+            and path.is_dir()
+        ):
+            raise ValueError(f"chip report directories are protected from cleanup: {path}")
         if path.is_symlink() or path.is_file():
             path.unlink(missing_ok=True)
         elif path.exists():

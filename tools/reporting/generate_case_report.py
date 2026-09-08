@@ -243,6 +243,8 @@ def _add_report_sheet(workbook: Any, model: dict[str, Any]) -> None:
             incomplete_format,
         )
 
+    sheet.write(7, 0, "Lane", section_format)
+    sheet.write(7, 1, model.get("report_lane") or "UNKNOWN", metadata_format)
     header_row = 8
     headers = ["编号", "测试Feature", "测试方法", "测试Case ID", "测试结果", "备注"]
     sheet.write_row(header_row, 0, headers, header_format)

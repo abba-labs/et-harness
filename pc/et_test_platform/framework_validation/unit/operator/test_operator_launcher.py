@@ -13,7 +13,6 @@ import subprocess
 import sys
 import zipfile
 from dataclasses import replace
-from datetime import datetime
 from itertools import count
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -1605,7 +1604,9 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
         output_root / "current/tests/crc"
     )
     root = output_root / "current/tests/crc"
-    assert (root / "test_report.xlsx").is_file() is not no_report
+    assert not (root / "test_report.xlsx").exists()
+    report = tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx"
+    assert report.is_file() is not no_report
     assert f"| {status} |" in (root / "facts.md").read_text(encoding="utf-8")
     assert not (tmp_path / "artifacts/records").exists()
     assert json.loads((root / "publication.json").read_text())["pending_review"] is True
@@ -1647,31 +1648,28 @@ def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(
     assert Path(single[single.index("--manifest") + 1]) == tmp_path / "manifest.json"
 
 
-# 测试 Feature：Excel报告集中存放并使用完整时间戳命名。
+# 测试 Feature：Excel报告按芯片/IP固定命名。
 #
-# 测试方法：以固定时间、芯片和IP调用共享报告路径函数。
+# 测试方法：以芯片和IP重复调用共享报告路径函数。
 #
-# 通过条件：输出位于reports根目录，文件名可排序且不依赖本机绝对路径。
-def test_report_output_is_flat_and_timestamped(tmp_path: Path) -> None:
+# 通过条件：同芯片/IP总是同一个路径，已有报告允许安全替换。
+def test_report_output_is_fixed_per_chip_ip(tmp_path: Path) -> None:
 
     output = ARTIFACT_LAYOUT.create_report_output(
         tmp_path,
         chip="et6801",
         ip="uart",
-        now=datetime(2026, 8, 15, 12, 34, 56, 123456),
     )
 
-    assert output == tmp_path / "20260815_123456_123456_ET6801_UART测试报告.xlsx"
-    assert tmp_path.is_dir()
+    assert output == tmp_path / "ET6801/ET6801_UART测试报告.xlsx"
+    assert not output.parent.exists()
 
+    output.parent.mkdir()
     output.touch()
-    with pytest.raises(FileExistsError, match="timestamped report already exists"):
-        ARTIFACT_LAYOUT.create_report_output(
-            tmp_path,
-            chip="et6801",
-            ip="uart",
-            now=datetime(2026, 8, 15, 12, 34, 56, 123456),
-        )
+    assert ARTIFACT_LAYOUT.create_report_output(tmp_path, chip="ET6801", ip="UART") == output
+    for invalid in ("../ET6801", "a/b", "CON", "bad chip"):
+        with pytest.raises(ValueError):
+            ARTIFACT_LAYOUT.create_report_output(tmp_path, chip=invalid, ip="uart")
 
 
 # 测试 Feature：正式运行目录不得重复叠加日期桶或第二个执行时间戳。

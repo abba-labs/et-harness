@@ -18,6 +18,7 @@ for import_root in (REPOSITORY_ROOT, REPOSITORY_ROOT / "pc"):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
+from artifact_layout import publish_latest_report  # noqa: E402
 from record_check import check_records  # noqa: E402
 from record_model import LANES  # noqa: E402
 from record_report import render_facts  # noqa: E402
@@ -120,9 +121,12 @@ def prepare_review(
         if (source / RECEIPT).exists():
             receipt = verify_publication(repository, source, require_review=False)
         incoming = _input(repository, source, chip=chip, ip=ip, lane=lane, manifest=manifest)
+        model = dict(incoming.report_model)
+        model["report_lane"] = lane
+        report_data = xlsx_bytes(model) if write_report else None
         files = {
             "facts.md": render_facts(incoming),
-            "test_report.xlsx": xlsx_bytes(incoming.report_model) if write_report else None,
+            "test_report.xlsx": None,
         }
         count = publish(source, work / "run-output", files)
         hashes = {
@@ -137,6 +141,12 @@ def prepare_review(
                 expected_files=hashes,
                 pending_review=True,
             )
+        report = None
+        if report_data is not None:
+            report, changed = publish_latest_report(
+                repository / "artifacts/reports", chip=chip, ip=ip, data=report_data
+            )
+            count += changed
         return {
             "operation": "prepare_review",
             "changed_files": count,
@@ -145,7 +155,8 @@ def prepare_review(
             if receipt and not receipt.get("pending_review") and receipt["files"] == hashes
             else "PENDING",
             "facts": str(source / "facts.md"),
-            "report": str(source / "test_report.xlsx") if write_report else None,
+            "report": str(report) if report is not None else None,
+            "report_updated": write_report,
         }
 
 

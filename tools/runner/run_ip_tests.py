@@ -467,7 +467,7 @@ def _execute_ip(args: argparse.Namespace) -> int:
     chip = _session_chip(run_dir)
     print("Preparing current facts and report for Case knowledge review...")
     try:
-        prepare_review(
+        prepared = prepare_review(
             REPOSITORY_ROOT,
             run_dir,
             chip=chip,
@@ -478,7 +478,11 @@ def _execute_ip(args: argparse.Namespace) -> int:
             write_report=not args.no_report,
         )
         if not args.no_report:
-            _validate_report_output(run_dir / "test_report.xlsx")
+            report_path = Path(str(prepared["report"]))
+            _validate_report_output(report_path)
+            print(f"Latest report: {report_path}")
+        else:
+            print("Report disabled: latest Excel retained and NOT UPDATED for this run.")
     except (OSError, ValueError, RuntimeError, KeyError, zipfile.BadZipFile) as exc:
         print(f"Review preparation failed; raw workspace retained: {exc}")
         return _finish_standalone_run(

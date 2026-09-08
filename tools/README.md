@@ -54,8 +54,9 @@ Case知识辅助：
 ```
 
 `extract/check/index/review/archive`共用原维护入口。长期入口为
-`artifacts/records/<CHIP>/<IP>/cases/*.md`；当次事实摘要与可选Excel在
-`artifacts/runs/current/tests/<ip>/`。脚本不编写Case正文。
+`artifacts/records/<CHIP>/<IP>/cases/*.md`；当次事实摘要在
+`artifacts/runs/current/tests/<ip>/`，最近生成的Excel在
+`artifacts/reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`。脚本不编写Case正文。
 精确键查询、旧记录只读与显式现场归档示例见
 [产物导航](../artifacts/README.md)，唯一语义见R130与R500第6节。
 

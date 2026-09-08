@@ -160,13 +160,13 @@ artifacts/
 ├─ runs/current/
 │  ├─ manifest.json、config/run_config.snapshot.yaml、stages/<stage>/...
 │  ├─ tests/<ip>/session.json、cases/<case_run_id>/...、pytest.log
-│  ├─ tests/<ip>/facts.md、test_report.xlsx、publication.json
+│  ├─ tests/<ip>/facts.md、publication.json
 │  └─ publication.json
 ├─ records/<CHIP>/<IP>/
 │  ├─ README.md
 │  ├─ cases/<CASE_ID>.md
 │  └─ attachments/<CASE_ID>/...  # 仅正文不能替代的必要附件
-└─ reports/  # 历史或显式一次性导出；不是正式入口的日常输出
+└─ reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx  # 每芯片/IP一份最近生成的报告
 ```
 
 ### 6.1 当前工作区与复用门禁
@@ -175,8 +175,10 @@ artifacts/
 - Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/runs`根。每轮使用`current/tests/<ip>/`，不增加`round_NN`。
 - Pipeline通过`ET_ARTIFACT_RUN_DIR`传递同一工作根；Case只使用注入的`et_artifact_dir`，不得推导知识根。
 - Manifest记录逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target、时间、状态和退出码；配置快照保存真实输入。Lane显式传递，未知身份不得猜测。
-- Session终止后，Runner校验Selection、Canonical Result、原始规范Hash及绑定附件，生成当次`facts.md`和可选`test_report.xlsx`；复用现有Canonical报告模型和三Sheet导出，不重新判定PASS/FAIL。
-- `--no-report`只省略当次Excel，事实摘要和待整理回执仍生成。报告开关变化不得留下旧Excel冒充本次报告。
+- Session终止后，Runner校验Selection、Canonical Result、原始规范Hash及绑定附件，生成当次`facts.md`与待整理回执；可选Excel仅发布到`reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`，芯片/IP大写，不带时间戳或版本后缀，不在`current`保存副本。
+- Excel复用现有Canonical报告模型和三Sheet导出，不重新判定PASS/FAIL。每次只展示该Session；部分执行保留NOT_SELECTED/NOT_EXECUTED，不合并历史PASS。首页明确显示Run ID、Lane、时间和源码/固件身份。
+- 同芯片/IP跨Lane共用最近生成报告。新报告完整生成并校验后才同目录原子替换；测试FAIL也更新真实失败报告。导出、校验或替换失败返回非零，保留旧报告和当前原始现场，不把旧报告声称为本次成功输出。
+- `--no-report`保留最近生成的Excel且明确提示本次未更新；事实摘要和待整理回执仍生成。Excel不进入原始现场复用Hash，后续报告覆盖不得破坏Case知识整理门禁。
 - 当次输出通过`artifacts/runs/record-maintenance/`内的IP锁和可恢复事务发布。外部修改、容量不足、未绑定文件、额外目录和损坏证据必须失败关闭。
 - 输出完成后回执为待整理状态；无论测试PASS或FAIL，都不得自动放行覆盖。Agent先逐个已选Case提炼知识或核对无新知识，再显式调用`review`。
 - `review`复核当前原始文件与目录成员，检查本次全部已选Case Markdown及必要附件，刷新索引并绑定知识文件Hash。首次没有知识文件时必须先整理；`check`、`index`和重复PASS均不能代替整理确认。
@@ -201,7 +203,7 @@ artifacts/
 - 当前单个工作区最多256 MiB；到限停止并保留输入，不截断必需证据。原始事实只有在知识整理确认并通过复用校验后，才允许由下一次正式运行回收。
 - `archive --workspace ... --output ...`只用于人工显式保留/恢复当前现场；目标必须是工作区之外尚不存在的单个ZIP，写前写后均校验成员与Hash。不是日常自动归档或长期知识容器。
 - 每个显式归档目标目录最多16个ZIP、总计1 GiB；超限要求人工管理，不自动换目录绕过限额。
-- 通用`clean_generated_outputs.py`不得处理`runs/current`、`artifacts/records`或`artifacts/runs/record-maintenance`，包括其中缓存。
+- 通用`clean_generated_outputs.py`不得处理`runs/current`、`artifacts/records`、`artifacts/runs/record-maintenance`或`artifacts/reports`下的芯片目录，包括其中缓存。
 - 旧时间戳Run、旧Excel及既有固定JSON/ZIP档案保持只读历史；迁移知识不改写或删除原始输入，不自动批量覆盖旧Case Markdown。历史删除是独立清理任务。
 - 独立诊断脚本的历史目录保持兼容；诊断输出不能冒充Formal Case产品验证，也不能据此为正式入口新增时间戳路径。
 - 生成事实默认不进Git；已审阅Case知识与必要附件按普通逻辑变更显式提交。当前忽略规则下首次加入须精确`git add -f <已审阅文件>`，不得批量强制加入整个records树。后续已跟踪Markdown正常审阅Diff。

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 from types import ModuleType
 
@@ -42,7 +43,10 @@ def test_preparation_does_not_create_long_term_records(cli: ModuleType, tmp_path
     second = cli.prepare_review(tmp_path, current, **kwargs)
     assert second["changed_files"] == 0
     assert not (tmp_path / "artifacts/records").exists()
-    assert (current / "facts.md").is_file() and (current / "test_report.xlsx").is_file()
+    assert (current / "facts.md").is_file()
+    assert Path(second["report"]) == tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx"
+    assert Path(second["report"]).is_file()
+    assert not (current / "test_report.xlsx").exists()
     assert not list(current.rglob("*.zip"))
     assert all((current / name).read_bytes() == value for name, value in raw.items())
 
@@ -83,21 +87,128 @@ def test_first_pass_does_not_close_existing_issue(cli: ModuleType, tmp_path: Pat
     assert "未关闭" in path.read_text(encoding="utf-8")
 
 
-# 测试方法：关闭/开启当前Excel；通过条件：只改变当前派生文件，不创建长期报告和JSON副本。
-def test_report_toggle_is_current_only(cli: ModuleType, tmp_path: Path) -> None:
+# 测试方法：关闭/开启Excel；通过条件：关闭时保留最近生成报告，不创建current副本。
+def test_report_toggle_retains_latest_export(cli: ModuleType, tmp_path: Path) -> None:
     current = current_session(tmp_path)
     path = make_knowledge(tmp_path)
     before = path.read_bytes()
     kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
     cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
     assert not (current / "test_report.xlsx").exists()
-    cli.prepare_review(tmp_path, current, **kwargs, write_report=True)
-    assert (current / "test_report.xlsx").is_file()
-    cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+    generated = cli.prepare_review(tmp_path, current, **kwargs, write_report=True)
+    report = Path(generated["report"])
+    previous = report.read_bytes()
+    disabled = cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+    assert disabled["report"] is None and disabled["report_updated"] is False
+    assert report.read_bytes() == previous
     assert not (current / "test_report.xlsx").exists()
     assert path.read_bytes() == before
     assert not list(path.parent.parent.rglob("*.xlsx"))
     assert not list(path.parent.parent.rglob("*.json"))
+
+
+# 测试方法：模拟Excel占用与导出损坏；通过条件：原报告和原始现场保留，错误向调用方传播。
+@pytest.mark.parametrize("failure", ["locked", "invalid"])
+def test_latest_report_failure_preserves_previous(
+    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    current = current_session(tmp_path)
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    report = Path(cli.prepare_review(tmp_path, current, **kwargs)["report"])
+    before = report.read_bytes()
+    raw = (current / "session.json").read_bytes()
+    layout = importlib.import_module("artifact_layout")
+    if failure == "locked":
+        report.write_bytes(b"previous report")
+        before = report.read_bytes()
+        original_replace = layout.os.replace
+
+        def locked(source: object, destination: object) -> None:
+            if Path(destination) == report:
+                raise PermissionError("Excel has locked the report")
+            original_replace(source, destination)
+
+        monkeypatch.setattr(layout.os, "replace", locked)
+        error = PermissionError
+    else:
+        monkeypatch.setattr(cli, "xlsx_bytes", lambda model: b"broken XLSX")
+        error = cli.zipfile.BadZipFile
+    with pytest.raises(error):
+        cli.prepare_review(tmp_path, current, **kwargs)
+    assert report.read_bytes() == before
+    assert (current / "session.json").read_bytes() == raw
+    assert not list(report.parent.glob("*.pending"))
+
+
+# 测试方法：报告外部更新后确认知识；通过条件：报告不是原始现场Hash的一部分。
+def test_latest_report_is_independent_of_knowledge_receipt(cli: ModuleType, tmp_path: Path) -> None:
+    current = current_session(tmp_path)
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    report = Path(cli.prepare_review(tmp_path, current, **kwargs)["report"])
+    make_knowledge(tmp_path)
+    report.write_bytes(b"newer report from another run")
+    cli.review_records(tmp_path, current, **kwargs)
+    importlib.import_module("record_workspace").verify_publication(tmp_path, current)
+
+
+# 测试方法：报告清理预览含旧平铺文件及芯片目录；通过条件：芯片目录及内部最新报告不进入计划。
+def test_cleanup_preserves_chip_report_directories(cli: ModuleType, tmp_path: Path) -> None:
+    current = current_session(tmp_path)
+    cli.prepare_review(tmp_path, current, chip="ET6801", ip="crc", lane="fpga")
+    (tmp_path / "tools/runner").mkdir(parents=True)
+    (tmp_path / "artifacts/README.md").write_text("navigation")
+    old = tmp_path / "artifacts/reports/old.xlsx"
+    old.write_bytes(b"history")
+    cleanup = importlib.import_module("clean_generated_outputs")
+    plan = cleanup.build_cleanup_plan(tmp_path, ("reports",))
+    assert [entry.path for entry in plan] == [old]
+    chip_dir = tmp_path / "artifacts/reports/ET6801"
+    with pytest.raises(ValueError, match="protected"):
+        cleanup.execute_cleanup([cleanup.CleanupEntry(chip_dir, 1, 1)])
+    assert (chip_dir / "ET6801_CRC测试报告.xlsx").is_file()
+
+
+# 测试方法：PASS后复用已整理现场，再产生失败/未执行Session；通过条件：固定报告覆盖且不沿用历史PASS。
+@pytest.mark.parametrize("missing", [False, True])
+def test_new_session_replaces_pass_without_history_merge(
+    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing: bool
+) -> None:
+    current = current_session(tmp_path)
+    raw = {p.relative_to(current): p.read_bytes() for p in current.rglob("*") if p.is_file()}
+    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+    report = Path(cli.prepare_review(tmp_path, current, **kwargs)["report"])
+    previous = report.read_bytes()
+    make_knowledge(tmp_path)
+    cli.review_records(tmp_path, current, **kwargs)
+    importlib.import_module("record_workspace").prepare_workspace(tmp_path, current)
+    for name, data in raw.items():
+        if missing and name.parts[0] == "cases":
+            continue
+        path = current / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.name in {"session.json", "result.json"}:
+            value = json.loads(data)
+            value["run_id"] = "run-2"
+            if path.name == "session.json":
+                value.update(exitstatus=1, status_counts={} if missing else {"FAIL": 1})
+            else:
+                value["status"] = "FAIL"
+            data = json.dumps(value).encode()
+        path.write_bytes(data)
+    models = []
+    original = cli.xlsx_bytes
+
+    def capture(model: dict[str, object]) -> bytes:
+        models.append(model)
+        return original(model)
+
+    monkeypatch.setattr(cli, "xlsx_bytes", capture)
+    updated = cli.prepare_review(tmp_path, current, **kwargs)
+    assert Path(updated["report"]) == report and report.read_bytes() != previous
+    assert models[0]["session"]["run_id"] == "run-2" and models[0]["report_lane"] == "fpga"
+    statuses = {row["status"] for row in models[0]["cases"]}
+    assert "PASS" not in statuses and "NOT_SELECTED" in statuses
+    assert ("NOT_EXECUTED" in statuses) is missing
 
 
 # 测试方法：历史来源只提取，不允许准备/解锁；通过条件：历史字节和目录成员完全保留。
