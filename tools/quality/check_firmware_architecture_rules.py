@@ -37,6 +37,8 @@ _WRAP_DRIVER_FAMILIES = {
     "crc": {"crc"},
     "crg": {"crg"},
     "dma": {"ahbdma"},
+    # 公共ETIM对应SDK et6x_etimer.h；这是同IP名称映射，不允许其他Timer或Peer。
+    "etim": {"etimer"},
     "gpio": {"gpio"},
     "irq": {"interrupt"},
     "sysctrl": {"sysctrl"},

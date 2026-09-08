@@ -127,6 +127,38 @@ def test_firmware_checker_maps_syscnt_driver_owner(tmp_path: Path) -> None:
         assert any("ETFW201" in error for error in checker.check_wrap_driver_boundary(path))
 
 
+# 测试Feature：公共ETIM与SDK ETIMER名称不同，但仍属于同一IP。
+# 测试方法：ETIM Wrap包含自身公共头及真实SDK头，再逐个加入其他IP依赖。
+# 通过条件：仅ETIMER通过；其他Timer、路由、DMA等依赖仍精确报ETFW201。
+def test_firmware_checker_maps_etim_driver_owner(tmp_path: Path) -> None:
+
+    checker = load_checker()
+    path = tmp_path / "et_etim_wrap.c"
+    own = '#include "et_etim_wrap.h"\n#include "et6x_etimer.h"\n'
+    path.write_text(own, encoding="utf-8")
+    assert checker.check_wrap_driver_boundary(path) == []
+
+    for family in ("stimer", "srpwm", "crg", "sysctrl", "interrupt", "gpio", "uart", "ahbdma"):
+        path.write_text(own + f'#include "et6x_{family}.h"\n', encoding="utf-8")
+        errors = checker.check_wrap_driver_boundary(path)
+        assert len(errors) == 1
+        assert f"ETFW201 wrap etim includes cross-IP driver et6x_{family}.h" in errors[0]
+
+
+# 测试Feature：ETIMER的名称映射不能被其他Wrap继承或通过前缀匹配获得。
+# 测试方法：在其他真实IP及近似名称Wrap中包含ETIMER SDK头。
+# 通过条件：每个非ETIM Wrap均产生一个ETFW201，不扩展跨IP授权。
+def test_firmware_checker_keeps_etimer_exclusive_to_etim(tmp_path: Path) -> None:
+
+    checker = load_checker()
+    for ip in ("stimer", "srpwm", "gpio", "uart", "dma", "etim_extra", "unknown"):
+        path = tmp_path / f"et_{ip}_wrap.c"
+        path.write_text('#include "et6x_etimer.h"\n', encoding="utf-8")
+        errors = checker.check_wrap_driver_boundary(path)
+        assert len(errors) == 1
+        assert f"ETFW201 wrap {ip} includes cross-IP driver et6x_etimer.h" in errors[0]
+
+
 # 测试Feature：所有芯片的Chip Config必须保持为公共Wrap消费的纯编译期事实。
 #
 # 测试方法：
