@@ -77,6 +77,7 @@ report/
 
 ### 计划
 
+- [Case知识贡献机制与三份CAN样稿（待确认，非现行规则）](plans/20260908_case_knowledge_contribution_plan.md)
 - [ET6801 FAIL Case分类整改与复测计划](plans/20260827_et6801_fail_case_remediation_plan.md)
 - [平台公共层冻结前收口实施计划](plans/20260810_platform_freeze_convergence_plan.md)
 - [ET自动化测试平台重构主实施计划](plans/20260806_refactor_master_execution_plan.md)
