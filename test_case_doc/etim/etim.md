@@ -2,6 +2,9 @@
 
 时间：2026-09-06 16:22 CST
 
+2026-09-08 19:02 CST补充：参考测试方法已逐项落实到芯片文档3.8；32个PLAN的开发准备度见芯片文档4.3。
+2026-09-08 20:16 CST修正：开发工作、执行映射和局部未知判据分别处理，不再把未完成适配的29项整体判为不能编码；全部仍未实现、未实测。
+
 当前结论（2026-09-06 22:48 CST）：**本轮范围收敛完成，必测方法有局部资料问题 / NOT_IMPLEMENTED / NOT_EXECUTED**。
 保留45个Feature、32个PLAN，不增加Case数量。验收分母是已确认要求和历史有效测试目的，不是寄存器所有可编码组合或全部理论竞态。
 必测目的、局部待答问题和本轮范围外扩展分别见第五节及芯片Source Item Trace；这不是整个IP Implementation Ready或硬件PASS。
@@ -669,7 +672,7 @@ feature_refs: [ETIM_F_002, ETIM_F_003, ETIM_F_006, ETIM_F_007]
 method:
   inputs:
     - 外部波形矩阵：对Bench声明可独立观测的PWM输出使用A和A_B模式，周期分别选为约0.1毫秒、1毫秒、5毫秒的整数Tick，A模式高宽约25%、50%、75%，A_B使用约25%到75%的高区间；另加入period_ticks为3、4、5的A模式，A固定1，divider覆盖最小及最大合法值，保留单Tick高宽目的而不假定电气最高频率。
-    - 仪器时间基准：使用已校准示波器或时间间隔分析仪，记录时基精度、采样间隔、阈值和探头条件；Expected来自源时钟声明及分频配置，不从DUT捕获反推。
+    - 仪器时间基准：使用已校准示波器，记录时基精度、采样间隔、阈值和探头条件；Expected来自源时钟声明及分频配置，不从DUT捕获反推。
     - 误差预算：周期和高宽的允许误差分别由时钟容差、仪器时基容差及两边沿采样误差上界相加得到，运行前固定，不按实测偏差放宽；单Tick参数要求总误差小于半Tick并满足Bench带宽，不能用更长高宽替换后仍计入该参数。
   steps:
     - 人工门禁与接线：确认目标板、输出端点、共地、允许电平及仪器输入规格，取得本次硬件门禁后连接并保存Bench身份。
@@ -687,7 +690,7 @@ method:
     - 波形矩阵完整：全部声明输出端点、普通参数及3/4/5 Tick周期参数完成；最短高宽实测为1 Tick，未达到仪器分辨条件属于该参数未执行，不把未确认的最高频率或电气限值计入通过。
 timeout: 每输出参数10秒，仪器单次采集等待最多5秒。
 cleanup: [停止PWM输出, 恢复Bench安全输出状态, 停止仪器采集并释放会话, Disable并Clear本轮IRQ]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的PWM输出端点及共地, bench: 已校准示波器或时间间隔分析仪和合适探头}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的PWM输出端点及共地, bench: 已校准示波器和合适探头}
 backend: [FPGA, Silicon]
 evidence: [独立外部原始波形附件, 每周期与高宽Measurement, 预先固定误差预算和仪器身份]
 failure_observations:
@@ -732,7 +735,7 @@ method:
     - 路由模式完整：全部声明输入路由、普通脉冲及近全量程参数在两时间戳模式下完成，并有匹配本通道末槽的真实ISR及STATUS；首槽启动延迟不作相对模式Oracle，长间隔实际等待与原始边沿证据必须齐全。
 timeout: 普通参数每实例10秒；长间隔参数在运行前由独立最慢计数频率计算三段总时长并加10%及5秒余量，固化为有界会话截止时间，PC短事务只查询会话状态，不自动重启长序列。
 cleanup: [先关闭外部信号源, 停止Capture及计数器, 禁用清除本轮IRQ, 恢复输入安全状态并释放仪器]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的外部Capture输入路由及共地, bench: 信号源及已校准示波器或时间间隔分析仪}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认的外部Capture输入路由及共地, bench: 具备所需有限序列能力的函数发生器及已校准示波器}
 backend: [FPGA, Silicon]
 evidence: [DUT端外部刺激原始波形, 逐槽CAPTURE.VALUE及末槽RAW, 误差预算和独立Expected]
 failure_observations:
@@ -942,7 +945,7 @@ method:
     - 预期时间独立：采样周期界及仪器误差来自独立映射，全部刺激满足设计不等式；未映射的分频值不得用实测结果自校准后算PASS。
 timeout: 每实例10秒；各平台最长1秒，超出者不进入本普通矩阵，仪器采集最长5秒。
 cleanup: [先停止并拉低外部刺激, 停止Capture并关闭滤波, 禁用清除本轮IRQ, 释放仪器与输入路由]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认外部捕获输入, bench: 脉冲源和独立示波器及采样时钟范围映射}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认外部捕获输入, bench: 具备所需脉冲能力的函数发生器和独立示波器及采样时钟范围映射}
 backend: [FPGA, Silicon]
 evidence: [实测输入边沿, 旁路与滤波逐阶段槽和RAW, W/T及采样周期上下界]
 failure_observations:
@@ -1239,7 +1242,7 @@ method:
     - 时刻数据正确：全部事件和两电平实例满足Expected代码区间及时间窗口，无丢失、多余完成或触发溢出，不把本Case当作ADC精度认证。
 timeout: 每实例20秒，模拟稳定最长5秒，单轮八事件采集最长5秒，任一接收等待有界。
 cleanup: [先关闭ETIM Event并停止计数, 等待或中止在途ADC转换, 关闭IRQ会话并Clear, 停止模拟刺激和仪器并恢复安全输入]
-resources: {minimum_level: R4, full_coverage_level: R4, board: ADC安全输入及源参考和EOC标记端点, bench: 精密电压源及输入电压测量和多通道示波器}
+resources: {minimum_level: R4, full_coverage_level: R4, board: ADC安全输入及源参考和EOC标记端点, bench: 具备安全DC输出的函数发生器及满足电压误差预算的多通道示波器}
 backend: [Silicon]
 evidence: [ADC逐次原始完成及RESULT, 源参考和EOC服务标记波形, 实测电压与独立代码和时间预算]
 failure_observations:
@@ -1282,7 +1285,7 @@ method:
     - 观测链完整：每次有预装身份、加载端点和外部波形，关闭事件后保持；不将普通功能测量扩写为DAC全量电气指标通过。
 timeout: 每实例20秒，单次连续采集最长5秒，模拟稳定等待按预先映射上界且不超过5秒。
 cleanup: [停止ETIM Event和计数, 停止DAC触发, 恢复安全输出代码, 清完成并释放仪器及Peer]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 独立或内部DAC模拟输出观测路由及源PWM参考且无危险负载, bench: 多通道示波器及参考电压测量}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 独立或内部DAC模拟输出观测路由及源PWM参考且无危险负载, bench: 满足输出及参考电压误差预算的多通道示波器}
 backend: [Silicon]
 evidence: [DAC模拟输出和源参考连续波形, LOADED_CODE及TX_DONE独立Observation, 电平和建立时间Expected]
 failure_observations:
@@ -1323,7 +1326,7 @@ method:
     - 双侧路由独立：当前事件只更新当前侧，另一侧选择及状态保持，交换后仍成立，无软件触发或Ramp参与。
 timeout: 每实例20秒，输入稳定最长5秒，单次接收及比较等待最多三个事件周期加1秒。
 cleanup: [先关闭ETIM Event和计数, 停止两侧DAC触发及比较器, 清完成并恢复安全配置, 停止外部电压源并释放Peer]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认比较器模拟输入及内部DAC参考连接, bench: 精密安全电压源和输入及参考电压测量}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认比较器模拟输入及内部DAC参考连接, bench: 具备安全DC输出的函数发生器和满足输入及参考电压误差预算的示波器}
 backend: [Silicon]
 evidence: [逐侧LOADED_CODE及比较状态前后值, 实测输入参考电压与阈值Expected, 双侧源选择和事件窗口]
 failure_observations:
@@ -1408,7 +1411,7 @@ method:
     - 退出恢复正确：CBC撤销后按周期恢复，ONE_SHOT未Clear保持且合法Clear后恢复，全部恢复周期符合原PWM及独立测量预算。
 timeout: 每实例20秒，单个保持阶段最长四个PWM周期，仪器采集最长5秒；超时先安全停止PWM。
 cleanup: [停止PWM输出, 撤销外部刺激并确认XBAR无效, 清Fault及IRQ并关闭路由, 恢复安全端点并释放仪器]
-resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认双外部Fault输入和独立PWM输出且无功率负载, bench: 双通道安全脉冲源及多通道示波器}
+resources: {minimum_level: R4, full_coverage_level: R4, board: 已确认双外部Fault输入和独立PWM输出且无功率负载, bench: 具备双通道安全脉冲输出的函数发生器及多通道示波器}
 backend: [FPGA, Silicon]
 evidence: [输入及封波恢复原始波形, XBAR实时输出Observation, 自然Fault RAW和Clear窗口]
 failure_observations:
@@ -1595,9 +1598,10 @@ gap: [case_implementation_gap, pwm_peer_action_mapping_gap, peer_capture_clock_m
 
 | Chip | Feature Mapping | Case Adaptation | 当前结论 | Detail |
 |---|---|---|---|---|
-| ET6801 | IMPLEMENTATION_GAP=45 | IMPLEMENTATION_GAP=32 | 本轮范围收敛完成；必要资料问题Q01～Q05局部保留；0个实现、0个实测 | `ET6801_etim.md` |
+| ET6801 | IMPLEMENTATION_GAP=45 | IMPLEMENTATION_GAP=32 | 按实现工作、执行配置及局部判据分别推进；Q01～Q05未关闭；0个实现、0个实测 | `ET6801_etim.md` |
 
 本汇总只统计已准入公共Feature和已定义PLAN，不是硬件PASS覆盖率。
+参考方法与准备度详见[芯片文档](ET6801_etim.md)3.8及4.3。
 未形成完整Oracle的必测目的仍在芯片文档保留；本轮范围外扩展不混入本轮完成Gate，也不改成SKIP或已覆盖。
 
 ## 5. Common Gap / Evolution
@@ -1616,6 +1620,33 @@ gap: [case_implementation_gap, pwm_peer_action_mapping_gap, peer_capture_clock_m
 | EG-10 | MAPPING_GAP | 外部输入/输出Bench端点、仪器精度和计数时钟容差尚未绑定；P2普通测量方法保留，不能因当前未接线删除 |
 | EG-11 | MAPPING_GAP | 必测为内部ETIM、PWM Peer代表路线、外部Capture及XBAR Fault；清单内路线必须落实。其他输入类、全部源乘全部接收通道及非内部同步源穷举为范围外扩展；ADC/DAC/ACMP接收端测试仍保留，不与Capture输入扩展混淆 |
 
-优先顺序：实现基础计数/IRQ及已定义方法；并行准备必测局部问题的适用说明和执行Mapping，硬件执行另需授权。
+优先顺序：先实现基础计数/IRQ/非法比较恢复链路，再按芯片文档4.3推进捕获、PWM及组合功能；接口、IRQ、内部路由和Peer动作缺失属于开发工作，不作为停止整个IP开发的理由。必要Oracle确实未知时只保留受影响目的，不猜测判据或发布完整Formal Case；硬件执行另需授权。
 OUT_OF_SCOPE仅表示经本轮要求/历史目的复核后不进入本轮验收分母，不改变硬件能力、不生成SKIP，不授权删除已实现测试。
 必要Oracle仍UNKNOWN时不得改写为DEFERRED；只有方法确定且仅缺物理资源时才可标记DEFERRED。后续明确增加要求时再纳入范围外扩展。
+
+### 5.1 参考方法落实与开发入口
+
+时间：2026-09-08 19:02 CST。此次只补证据到方法的对应关系和开发顺序，不改变32个PLAN的输入、步骤、Oracle或资源等级。
+
+| 参考测试目的 | 已有公共方法承接 | 不可从参考代码直接继承的部分 |
+|---|---|---|
+| 滤波配置及输入捕获 | P2_004逐实例执行旁路基线、短脉冲抑制、长平台双极性通过 | 字段读回和IRQ出现不能替代短长判据；采样根、实际分频公式和刺激时间界须独立确认 |
+| 输出支路延迟、反相及动态变化 | P2_005静态来源/边沿比较；P2_015无在途延迟的安全窗口更新 | 不照搬MUX编码、延迟时钟或只有循环改比较值的程序；动态比较不是动态死区覆盖 |
+| Fault与互补输出 | P2_003保留旁路CBC/OS正常路径；EG-05保留尚缺Expected的互补目的 | 不把CBC互补程序称为OS互补三阶段验证；两个独立例程不能拼成组合覆盖，待判据确定后再评审如何纳入既有Fault方法 |
+| 同步输出到外部端点 | P2_013软件单次、周期源交换、未选源及外送关闭负对照 | 外送函数名、源选择读回和固定等待不能证明实际开关及可测脉宽 |
+| PWM Peer到捕获端 | P2_018保留非对称高低宽/周期、输入选择交换及未选活动对照 | 历史容差不是误差预算；时钟比、捕获量化界及Peer周期语义须在执行前独立固定 |
+
+准备度按目标芯片记录，不增加机器Schema、Case状态或Registry条目。`ETIM_P0_001`、`ETIM_P0_002`、
+`ETIM_P1_008`可先进入实现方案评审；这是已定义状态Oracle的有限子集，不表示全部Feature已覆盖。
+其中计数分频在P0_001只验证配置读回，不证明实际速率；速率仍由P1_001/P2_001承担。
+状态测试的等待窗也须满足其输入约束，只是不需要精确跨域时钟比或捕获量化Oracle。
+其余Case按目标芯片分别完成实现、执行配置和必要判据。已有SVD与适用继承资料足以支撑的部分继续开发，不把额外手册或RTL作为统一前置条件；机器PLAN有效也不证明未知判据已关闭。
+
+### 5.2 本轮仪器约束
+
+时间：2026-09-08 20:16 CST。用户确认当前外部仪器只有示波器和函数发生器，本轮所有Case构造只使用这两类。
+上述PLAN中的信号源、脉冲源、有限序列源及安全外部电压源均由函数发生器承担；独立外部Observer、边沿、输入和参考电压测量均由示波器承担。
+不假设DMM、精密电压源、校准器、时间间隔分析仪、逻辑分析仪或Companion FPGA可用；片内ETIM/PWM/ADC/DAC/ACMP/DMA Peer不属于新增外部仪器。
+DC、Burst、任意有限序列、双通道独立输出、最短脉宽和长记录并非任意型号都具备：执行前按实际型号、选件和校准资料核对功能、量程、带宽、存储深度、负载和误差预算。
+能力或精度不够时保留受影响参数的未执行原因，不放宽Expected、不缩短近全量程或删去单Tick参数，也不自动换用第三类仪器；这不阻止无关的软件实现。
+ADC的GPIO EOC标记只表示服务/ISR可见时刻，必须包含独立延迟上界，不能当作真实采样时刻；模拟结果仍从ADC结果及示波器实际输入电压交叉判断。
