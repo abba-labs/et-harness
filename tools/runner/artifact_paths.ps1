@@ -1,4 +1,37 @@
-# Resolve the repository-owned artifact run and stage directories for PowerShell tools.
+# Resolve bounded records workspaces; legacy runs are never written or adopted.
+
+function Assert-EtRecordsCurrentPath {
+    param([string]$CodeRoot, [string]$RunRoot, [switch]$PipelineOnly)
+    $records = [System.IO.Path]::GetFullPath((Join-Path $CodeRoot 'artifacts\records'))
+    $full = [System.IO.Path]::GetFullPath($RunRoot)
+    if (-not $full.StartsWith($records + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Artifact workspace must stay inside $records"
+    }
+    $relative = $full.Substring($records.Length + 1).Replace('/', '\')
+    $pattern = if ($PipelineOnly) { '^[A-Z0-9][A-Z0-9_.-]*\\_PIPELINE\\current$' } else {
+        '^(_DIAGNOSTICS|[A-Z0-9][A-Z0-9_.-]*)\\[_A-Z0-9][A-Z0-9_.-]*\\current$'
+    }
+    if ($relative -cnotmatch $pattern) { throw 'Artifact workspace must use a fixed records current path.' }
+    $cursor = $full
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            if ((Get-Item -LiteralPath $cursor).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Linked Artifact path is forbidden: $cursor"
+            }
+        }
+        $cursor = Split-Path -Parent $cursor
+    }
+    return $full
+}
+
+function Invoke-EtDiagnosticWorkspace {
+    param([string]$CodeRoot, [string]$RunRoot, [string]$Operation)
+    $python = Join-Path $CodeRoot '.venv\Scripts\python.exe'
+    $helper = Join-Path $CodeRoot 'tools\runner\record_workspace_cli.py'
+    & $python $helper $Operation --repository $CodeRoot --workspace $RunRoot
+    if ($LASTEXITCODE -ne 0) { throw 'Diagnostic current is not reusable; preserve/review/archive it first.' }
+}
 
 function Get-EtArtifactRunRoot {
     param(
@@ -9,25 +42,22 @@ function Get-EtArtifactRunRoot {
         [string]$RunName
     )
 
-    $artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $CodeRoot 'artifacts\runs'))
+    $artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $CodeRoot 'artifacts\records'))
     if ($env:ET_ARTIFACT_RUN_DIR) {
-        $runRoot = [System.IO.Path]::GetFullPath($env:ET_ARTIFACT_RUN_DIR)
-        if (-not $runRoot.StartsWith($artifactRoot + [System.IO.Path]::DirectorySeparatorChar,
-                [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "ET_ARTIFACT_RUN_DIR must stay inside $artifactRoot"
-        }
+        # Diagnostic wrappers share their current path; PFLASH guards still require Pipeline.
+        $runRoot = Assert-EtRecordsCurrentPath -CodeRoot $CodeRoot -RunRoot $env:ET_ARTIFACT_RUN_DIR
         New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
         return $runRoot
     }
 
     $now = Get-Date
-    $safeName = ($RunName.ToLowerInvariant() -replace '[^a-z0-9_]+', '_').Trim('_')
+    $safeName = ($RunName.ToUpperInvariant() -replace '[^A-Z0-9_]+', '_').Trim('_')
     if ([string]::IsNullOrWhiteSpace($safeName)) {
         throw 'RunName must contain at least one letter or digit.'
     }
-    $runId = '{0}_{1}' -f $now.ToString('yyyyMMdd_HHmmss_ffffff'), $safeName
-    $runRoot = Join-Path $artifactRoot $runId
-    New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+    $runId = [guid]::NewGuid().ToString()
+    $runRoot = Assert-EtRecordsCurrentPath -CodeRoot $CodeRoot -RunRoot (Join-Path $artifactRoot "_DIAGNOSTICS\$safeName\current")
+    Invoke-EtDiagnosticWorkspace -CodeRoot $CodeRoot -RunRoot $runRoot -Operation prepare
     @{
         schema = 'et-artifact-run/v1'
         run_id = $runId
@@ -72,12 +102,7 @@ function Assert-EtPipelineStagePassed {
             "run_test.bat or tools/runner/run_pipeline.py.")
     }
 
-    $artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $CodeRoot 'artifacts\runs'))
-    $runRoot = [System.IO.Path]::GetFullPath($env:ET_ARTIFACT_RUN_DIR)
-    if (-not $runRoot.StartsWith($artifactRoot + [System.IO.Path]::DirectorySeparatorChar,
-            [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "ET_ARTIFACT_RUN_DIR must stay inside $artifactRoot"
-    }
+    $runRoot = Assert-EtRecordsCurrentPath -CodeRoot $CodeRoot -RunRoot $env:ET_ARTIFACT_RUN_DIR -PipelineOnly
     if (-not (Test-Path -LiteralPath $runRoot -PathType Container)) {
         throw "Pipeline run directory does not exist: $runRoot"
     }
@@ -121,4 +146,8 @@ function Complete-EtArtifactRun {
     $temporary = "$manifestPath.tmp"
     $manifest | ConvertTo-Json | Set-Content -LiteralPath $temporary -Encoding UTF8
     Move-Item -LiteralPath $temporary -Destination $manifestPath -Force
+    if ([IO.Directory]::GetParent($RunRoot).Parent.Name -eq '_DIAGNOSTICS' -and $Succeeded) {
+        $codeRoot = [IO.Directory]::GetParent($RunRoot).Parent.Parent.Parent.Parent.FullName
+        Invoke-EtDiagnosticWorkspace -CodeRoot $codeRoot -RunRoot $RunRoot -Operation complete
+    }
 }

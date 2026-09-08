@@ -21,12 +21,14 @@ import yaml
 from artifact_layout import (
     capture_source_identity,
     create_current_directory,
-    resolve_runs_root,
+    resolve_records_root,
+    target_chip,
     utc_timestamp,
     write_manifest,
 )
 from et_test_platform.test_cases.ip_registry import IP_REGISTRY
 from pipeline_profile import resolve_step_dependencies
+from record_store import current_root
 from record_workspace import environment_lock, seal_pipeline
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -491,9 +493,9 @@ def _load_context(config_path: Path) -> PipelineContext:
     output = _mapping(config, "output", field="output")
     _validate_keys(output, {"root"}, field="output")
     output_value = _string(output, "root", field="output.root")
-    output_root = resolve_runs_root(output_value, config_directory=config_path.parent)
-    if output_root != (REPOSITORY_ROOT / "artifacts/runs").resolve():
-        raise ValueError("Formal output.root must be auto or canonical artifacts/runs root")
+    output_root = resolve_records_root(output_value, config_directory=config_path.parent)
+    if output_root != (REPOSITORY_ROOT / "artifacts/records").resolve():
+        raise ValueError("Formal output.root must be auto or canonical artifacts/records root")
     bench_path, bench_environment = _bench_environment(config, config_path)
     return PipelineContext(
         config_path, config, profile_path, profile, bench_path, output_root, bench_environment
@@ -729,7 +731,7 @@ def _test_command(
 ) -> list[str]:
     if repeat_count <= 0 or iteration <= 0 or iteration > repeat_count:
         raise ValueError("test iteration must be inside the configured repeat count")
-    output_root = run_dir / "tests" / ip
+    output_root = current_root(REPOSITORY_ROOT, run_dir.parent.parent.name, ip)
     command = [
         _configured_python(context),
         str(RUN_IP_TESTS),
@@ -787,7 +789,8 @@ def _execute(context: PipelineContext, *, check_only: bool) -> int:
 
     source_revision, source_dirty = capture_source_identity(REPOSITORY_ROOT)
     _reject_sensitive_configuration(context.config)
-    run_dir = create_current_directory(REPOSITORY_ROOT, context.output_root)
+    chip = target_chip(context.bench_path, str(context.config["target"]["logical_name"]))
+    run_dir = create_current_directory(REPOSITORY_ROOT, context.output_root, chip=chip)
     config_dir = run_dir / "config"
     config_dir.mkdir(parents=True, exist_ok=False)
     config_snapshot = config_dir / "run_config.snapshot.yaml"
@@ -804,6 +807,7 @@ def _execute(context: PipelineContext, *, check_only: bool) -> int:
         "started_at": utc_timestamp(),
         "finished_at": None,
         "status": "RUNNING",
+        "test_workspaces": [],
     }
     write_manifest(run_dir, manifest)
     context.environment["ET_ARTIFACT_RUN_DIR"] = str(run_dir)
@@ -841,6 +845,14 @@ def _execute(context: PipelineContext, *, check_only: bool) -> int:
             for iteration in range(1, int(test["repeat"]) + 1):
                 for registration in IP_REGISTRY:
                     ip = registration.ip_id
+                    relative = (
+                        current_root(REPOSITORY_ROOT, chip, ip)
+                        .relative_to(REPOSITORY_ROOT)
+                        .as_posix()
+                    )
+                    if relative not in manifest["test_workspaces"]:
+                        manifest["test_workspaces"].append(relative)
+                        write_manifest(run_dir, manifest)
                     print(f"Running Formal IP tests: {ip} (round {iteration}/{test['repeat']})")
                     exit_code = _run(
                         _test_command(

@@ -64,14 +64,15 @@ def open_serial_port(serial_module: SerialModule, port: str, baudrate: int) -> S
 
 
 def default_output_path(code_root: Path, now: datetime | None = None) -> Path:
-    # 使用稳定时间戳创建一次独立采集目录，避免覆盖历史证据。
-    timestamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S_%f")
+    # 当前采集固定覆盖同一位置；未完成整理/保留的旧现场由复用门禁保护。
+    del now
     return (
         code_root
         / "artifacts"
-        / "runs"
-        / f"{timestamp}_manual_et6801_diagnostics"
-        / "manual"
+        / "records"
+        / "_DIAGNOSTICS"
+        / "MANUAL_ET6801"
+        / "current"
         / "diagnostics.log"
     )
 
@@ -114,7 +115,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--port", required=True, help="Serial port, for example COM5")
     parser.add_argument("--baudrate", type=int, default=DEFAULT_BAUDRATE)
     parser.add_argument("--timeout-s", type=float, default=DEFAULT_TIMEOUT_S)
-    parser.add_argument("--output", type=Path, help="Explicit log file path")
+    parser.add_argument("--output", type=Path, help="Fixed records diagnostic log path")
     parser.add_argument("--end-marker", default=DEFAULT_END_MARKER)
     parser.add_argument(
         "--no-start-trigger",
@@ -132,7 +133,12 @@ def main(argv: list[str] | None = None) -> int:
 
     code_root = Path(__file__).resolve().parents[2]
     output_path = args.output or default_output_path(code_root)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.absolute() != default_output_path(code_root):
+        raise SystemExit("manual capture must use the fixed records diagnostic current path")
+    sys.path.insert(0, str(code_root / "tools/runner"))
+    from record_workspace import prepare_workspace
+
+    prepare_workspace(code_root, output_path.parent)
 
     try:
         import serial

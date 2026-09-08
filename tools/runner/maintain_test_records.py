@@ -23,8 +23,8 @@ from record_check import check_records  # noqa: E402
 from record_model import LANES  # noqa: E402
 from record_report import render_facts  # noqa: E402
 from record_source import RecordInput, load_input  # noqa: E402
-from record_store import record_root, refresh_index, working_root  # noqa: E402
-from record_transaction import digest, file_lock, publish, safe_path  # noqa: E402
+from record_store import current_root, record_root, refresh_index, working_root  # noqa: E402
+from record_transaction import digest, file_lock, publish  # noqa: E402
 from record_workspace import (  # noqa: E402
     RECEIPT,
     archive_workspace,
@@ -47,7 +47,10 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         if name == "archive":
             command.add_argument("--workspace", type=Path, required=True)
             command.add_argument(
-                "--output", type=Path, required=True, help="explicit new archive .zip"
+                "--output",
+                type=Path,
+                required=True,
+                help="fixed sibling recovery.zip (must not exist)",
             )
             continue
         command.add_argument("--chip", required=True)
@@ -76,7 +79,8 @@ def _input(
         ip=ip,
         lane=lane,
         work=working_root(repository, chip, ip),
-        manifest=manifest,
+        manifest=manifest
+        or (source / "manifest.json" if (source / "manifest.json").is_file() else None),
     )
     root = record_root(repository, chip, ip)
     if incoming.chip != root.parent.name or incoming.ip != root.name:
@@ -92,6 +96,10 @@ def _source_files(incoming: RecordInput) -> dict[str, str]:
             for name, sha in snapshot.files.items():
                 if name == "source/pytest.log":
                     files["pytest.log"] = sha
+                elif name == "source/manifest.json":
+                    files["manifest.json"] = sha
+                elif name == "source/configuration.yaml":
+                    files["config/run_config.snapshot.yaml"] = sha
                 elif name == "source/result.json" and snapshot.result is not None:
                     files[f"cases/{snapshot.result['case_run_id']}/result.json"] = sha
                 elif name.startswith("artifacts/"):
@@ -110,10 +118,10 @@ def prepare_review(
     manifest: Path | None = None,
     write_report: bool = True,
 ) -> dict[str, object]:
-    expected = safe_path(repository, f"artifacts/runs/current/tests/{ip.lower()}")
+    expected = current_root(repository, chip, ip)
     if source.absolute() != expected:
         raise ValueError(
-            "review preparation may only write current/tests/IP; historical sources are read-only"
+            "review preparation may only write records/<CHIP>/<IP>/current; historical sources are read-only"
         )
     work = working_root(repository, chip, ip)
     with file_lock(work / "operation.lock"):
@@ -127,6 +135,9 @@ def prepare_review(
         files = {
             "facts.md": render_facts(incoming),
             "test_report.xlsx": None,
+            "specification.md": incoming.blobs[
+                next(iter(incoming.cases.values()))[0].files["source/specification.md"]
+            ],
         }
         count = publish(source, work / "run-output", files)
         hashes = {
@@ -164,10 +175,10 @@ def prepare_review(
 def review_records(
     repository: Path, source: Path, *, chip: str, ip: str, lane: str, manifest: Path | None = None
 ) -> dict[str, object]:
-    expected = safe_path(repository, f"artifacts/runs/current/tests/{ip.lower()}")
+    expected = current_root(repository, chip, ip)
     if source.absolute() != expected:
         raise ValueError(
-            "review only releases current/tests/IP; use extract/check for historical sources"
+            "review only releases records/<CHIP>/<IP>/current; use extract/check for historical sources"
         )
     work = working_root(repository, chip, ip)
     with environment_lock(repository), file_lock(work / "operation.lock"):

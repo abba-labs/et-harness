@@ -81,7 +81,7 @@ def _reports(*, setup=None, call=None, teardown=None) -> dict[str, object]:
     }
 
 
-# 清理工具默认计划只覆盖runs内容，并保留Artifact目录骨架和README。
+# 通用清理不再接受runs；旧历史与Artifact骨架保持不变。
 def test_generated_output_cleanup_preserves_artifact_layout(tmp_path: Path) -> None:
     repository_root = tmp_path / "repository"
     runs_root = repository_root / "artifacts" / "runs"
@@ -95,13 +95,13 @@ def test_generated_output_cleanup_preserves_artifact_layout(tmp_path: Path) -> N
     (runs_root / ".gitkeep").write_text("\n", encoding="utf-8")
     (reports_root / "keep.xlsx").write_bytes(b"report")
 
-    plan = build_cleanup_plan(repository_root, ("runs",))
-
-    assert [entry.path.name for entry in plan] == ["run-one"]
-    assert plan[0].file_count == 1
+    with pytest.raises(ValueError, match="unknown cleanup scopes"):
+        build_cleanup_plan(repository_root, ("runs",))
+    plan = build_cleanup_plan(repository_root, ("caches",))
+    assert plan == []
     execute_cleanup(plan)
     assert runs_root.is_dir()
-    assert [path.name for path in runs_root.iterdir()] == [".gitkeep"]
+    assert (runs_root / "run-one/result.json").read_text(encoding="utf-8") == "{}\n"
     assert (reports_root / "keep.xlsx").is_file()
     assert (repository_root / "artifacts" / "README.md").is_file()
 
@@ -139,6 +139,8 @@ def test_cleanup_preserves_fixed_records_and_transaction_recovery(tmp_path: Path
     protected = (
         root / "artifacts/runs/current",
         root / "artifacts/records/CHIP/IP",
+        root / "artifacts/records/CHIP/IP/current",
+        root / "artifacts/records/CHIP/IP/_maintenance",
         root / "artifacts/runs/record-maintenance/CHIP_IP",
     )
     for directory in protected:
@@ -148,7 +150,7 @@ def test_cleanup_preserves_fixed_records_and_transaction_recovery(tmp_path: Path
     ordinary = root / "tmp/ordinary"
     ordinary.mkdir(parents=True)
     (ordinary / "scratch").write_bytes(b"disposable")
-    plan = build_cleanup_plan(root, ("runs", "reports", "tmp", "caches"))
+    plan = build_cleanup_plan(root, ("reports", "tmp", "caches"))
     assert [entry.path for entry in plan] == [ordinary]
     execute_cleanup(plan)
     assert all((directory / "transaction.json").is_file() for directory in protected)

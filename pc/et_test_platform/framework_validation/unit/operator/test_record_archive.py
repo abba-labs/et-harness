@@ -21,10 +21,10 @@ def workspace(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 # 测试方法：显式归档失败阶段，破坏归档再校验；通过条件：只有完整外部归档允许复用。
 def test_archive_is_explicit_and_verified(workspace: ModuleType, tmp_path: Path) -> None:
-    root = tmp_path / "artifacts/runs/current"
+    root = tmp_path / "artifacts/records/ET6801/_PIPELINE/current"
     root.mkdir(parents=True)
     (root / "stage.log").write_bytes(b"failed stage")
-    output = tmp_path / "milestone.zip"
+    output = root.parent / "recovery.zip"
     workspace.archive_workspace(tmp_path, root, output)
     original = output.read_bytes()
     output.write_bytes(b"damaged")
@@ -37,18 +37,20 @@ def test_archive_is_explicit_and_verified(workspace: ModuleType, tmp_path: Path)
 
 
 # 测试方法：已有归档、工作区内目标和非ZIP目标；通过条件：拒绝覆盖或自引用。
-@pytest.mark.parametrize("kind", ["exists", "inside", "suffix"])
+@pytest.mark.parametrize("kind", ["exists", "inside", "suffix", "other"])
 def test_archive_rejects_unsafe_destination(
     workspace: ModuleType, tmp_path: Path, kind: str
 ) -> None:
-    root = tmp_path / "artifacts/runs/current"
+    root = tmp_path / "artifacts/records/ET6801/_PIPELINE/current"
     root.mkdir(parents=True)
     (root / "stage.log").write_bytes(b"original")
     output = (
         root / "archive.zip"
         if kind == "inside"
-        else tmp_path / ("archive.txt" if kind == "suffix" else "archive.zip")
+        else root.parent / ("archive.txt" if kind == "suffix" else "recovery.zip")
     )
+    if kind == "other":
+        output = tmp_path / "outside.zip"
     if kind == "exists":
         output.write_bytes(b"keep existing archive")
     with pytest.raises(ValueError):

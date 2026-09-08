@@ -45,6 +45,8 @@ def json_object(data: bytes) -> dict[str, object]:
 
 # Windows设备名、绝对路径、分隔符混用和目录穿越在任何平台都拒绝。
 def safe_name(value: str) -> str:
+    if value in {"_PIPELINE", "_TOOLING", "_DIAGNOSTICS", "_maintenance"}:
+        return value
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value):
         raise ValueError(f"unsafe record name: {value!r}")
     if value.endswith(".") or value.split(".")[0].upper() in {

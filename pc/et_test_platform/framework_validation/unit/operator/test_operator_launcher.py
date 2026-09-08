@@ -1256,7 +1256,7 @@ def test_run_ip_tests_rejects_arguments_that_can_override_platform_control(
 
 
 def test_run_ip_tests_defaults_to_project_artifacts() -> None:
-    assert REPOSITORY_ROOT / "artifacts" / "runs" == RUN_IP_TESTS.DEFAULT_OUTPUT_ROOT
+    assert REPOSITORY_ROOT / "artifacts" / "records" == RUN_IP_TESTS.DEFAULT_OUTPUT_ROOT
 
 
 # 测试 Feature：仓库内测试产物不得污染源码脏状态。
@@ -1466,23 +1466,22 @@ def test_bootrom_debug_uses_temporary_project_copy() -> None:
 def test_artifact_output_root_is_repository_local(tmp_path: Path) -> None:
 
     assert (
-        ARTIFACT_LAYOUT.resolve_runs_root("auto", config_directory=REPOSITORY_ROOT)
-        == (REPOSITORY_ROOT / "artifacts/runs").resolve()
+        ARTIFACT_LAYOUT.resolve_records_root("auto", config_directory=REPOSITORY_ROOT)
+        == (REPOSITORY_ROOT / "artifacts/records").resolve()
     )
-    assert (
-        ARTIFACT_LAYOUT.resolve_runs_root("artifacts/runs/custom", config_directory=REPOSITORY_ROOT)
-        == (REPOSITORY_ROOT / "artifacts/runs/custom").resolve()
-    )
+    for value in ("artifacts/runs", "artifacts/records/custom"):
+        with pytest.raises(ValueError, match="canonical artifacts/records"):
+            ARTIFACT_LAYOUT.resolve_records_root(value, config_directory=REPOSITORY_ROOT)
 
-    with pytest.raises(ValueError, match="must stay inside repository artifacts/runs"):
-        ARTIFACT_LAYOUT.resolve_runs_root(str(tmp_path), config_directory=REPOSITORY_ROOT)
+    with pytest.raises(ValueError, match="canonical artifacts/records"):
+        ARTIFACT_LAYOUT.resolve_records_root(str(tmp_path), config_directory=REPOSITORY_ROOT)
 
 
 # 正式入口只用固定current工作区；历史诊断路径函数的兼容性不放宽正式配置。
 def test_formal_artifacts_reject_custom_subdirectory() -> None:
-    with pytest.raises(ValueError, match="canonical artifacts/runs"):
+    with pytest.raises(ValueError, match="canonical artifacts/records"):
         ARTIFACT_LAYOUT.create_current_directory(
-            REPOSITORY_ROOT, REPOSITORY_ROOT / "artifacts/runs/custom"
+            REPOSITORY_ROOT, REPOSITORY_ROOT / "artifacts/runs/custom", chip="ET6801"
         )
 
 
@@ -1515,13 +1514,13 @@ def test_pipeline_writes_consistent_manifest_for_safe_run(
 
     context = replace(
         RUN_PIPELINE._load_context(REPOSITORY_ROOT / "run_config.example.yaml"),
-        output_root=tmp_path / "artifacts/runs",
+        output_root=tmp_path / "artifacts/records",
     )
     monkeypatch.setattr(RUN_PIPELINE, "REPOSITORY_ROOT", tmp_path)
 
     assert RUN_PIPELINE._execute(context, check_only=False) == 0
 
-    run_dir = tmp_path / "artifacts/runs/current"
+    run_dir = tmp_path / "artifacts/records/ET6801/_PIPELINE/current"
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "PASS"
     assert manifest["exit_code"] == 0
@@ -1555,14 +1554,14 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     result_path.write_text(json.dumps(result), encoding="utf-8")
     case_root = tmp_path / "cases"
     document_root = tmp_path / "test_case_doc"
-    output_root = tmp_path / "artifacts/runs"
+    output_root = tmp_path / "artifacts/records"
     (case_root / "crc").mkdir(parents=True)
     bench = tmp_path / "bench.yaml"
-    bench.write_text("targets: {}\n", encoding="utf-8")
+    bench.write_text("targets: {dut: {chip: et6801}}\n", encoding="utf-8")
 
     monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
     monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
-    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RUNS_ROOT", output_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RECORDS_ROOT", output_root)
     monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
     monkeypatch.setattr(RUN_IP_TESTS, "capture_source_identity", lambda root: ("a" * 40, False))
     calls: list[list[str]] = []
@@ -1601,16 +1600,16 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     assert Path(calls[0][1]) == RUN_IP_TESTS.VALIDATE_PC
     pytest_command = calls[1]
     assert Path(pytest_command[pytest_command.index("--et-artifact-dir") + 1]) == (
-        output_root / "current/tests/crc"
+        output_root / "ET6801/CRC/current"
     )
-    root = output_root / "current/tests/crc"
+    root = output_root / "ET6801/CRC/current"
     assert not (root / "test_report.xlsx").exists()
     report = tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx"
     assert report.is_file() is not no_report
     assert f"| {status} |" in (root / "facts.md").read_text(encoding="utf-8")
-    assert not (tmp_path / "artifacts/records").exists()
+    assert not (root.parent / "cases").exists()
     assert json.loads((root / "publication.json").read_text())["pending_review"] is True
-    assert (output_root / "current/publication.json").is_file()
+    assert not (tmp_path / "artifacts/runs/current").exists()
 
 
 # 测试 Feature：默认与多轮执行都使用固定工作目录，轮间由发布回执保护复用。
@@ -1619,7 +1618,7 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
 #
 # 通过条件：始终写入tests/<ip>，并显式传递Lane与原始Manifest。
 @pytest.mark.parametrize("kind,lane", [("renode", "sil"), ("fpga", "fpga"), ("silicon", "hil")])
-def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(
+def test_pipeline_uses_same_fixed_ip_directory_for_every_round(
     tmp_path: Path, kind: str, lane: str
 ) -> None:
 
@@ -1630,22 +1629,25 @@ def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(
     single = RUN_PIPELINE._test_command(
         context,
         "uart",
-        run_dir=tmp_path,
+        run_dir=REPOSITORY_ROOT / "artifacts/records/ET6801/_PIPELINE/current",
         iteration=1,
         repeat_count=1,
     )
     repeated = RUN_PIPELINE._test_command(
         context,
         "uart",
-        run_dir=tmp_path,
+        run_dir=REPOSITORY_ROOT / "artifacts/records/ET6801/_PIPELINE/current",
         iteration=2,
         repeat_count=2,
     )
 
-    assert Path(single[single.index("--output-root") + 1]) == tmp_path / "tests/uart"
-    assert Path(repeated[repeated.index("--output-root") + 1]) == tmp_path / "tests/uart"
+    expected = REPOSITORY_ROOT / "artifacts/records/ET6801/UART/current"
+    assert Path(single[single.index("--output-root") + 1]) == expected
+    assert Path(repeated[repeated.index("--output-root") + 1]) == expected
     assert single[single.index("--lane") + 1] == lane
-    assert Path(single[single.index("--manifest") + 1]) == tmp_path / "manifest.json"
+    assert Path(single[single.index("--manifest") + 1]) == (
+        REPOSITORY_ROOT / "artifacts/records/ET6801/_PIPELINE/current/manifest.json"
+    )
 
 
 # 测试 Feature：Excel报告按芯片/IP固定命名。
@@ -1676,26 +1678,93 @@ def test_report_output_is_fixed_per_chip_ip(tmp_path: Path) -> None:
 #
 # 测试方法：创建一个共享运行目录并检查它相对runs根目录的层级。
 #
-# 通过条件：运行目录是runs根目录的直接子目录，run_id自身包含日期和运行名称。
-def test_artifact_run_directory_uses_one_timestamp_level(tmp_path: Path) -> None:
+# 通过条件：诊断目录固定为records/_DIAGNOSTICS/<TOOL>/current，不含时间戳。
+def test_diagnostic_run_directory_uses_fixed_current(tmp_path: Path) -> None:
 
-    run_dir = ARTIFACT_LAYOUT.create_run_directory(tmp_path, run_name="Local ET6801 FPGA")
+    run_dir = ARTIFACT_LAYOUT.create_run_directory(
+        tmp_path / "artifacts/records", run_name="Local ET6801 FPGA"
+    )
 
-    assert run_dir.parent == tmp_path
-    assert run_dir.name.endswith("_local_et6801_fpga")
-    assert len(run_dir.name.split("_", 3)) == 4
+    assert run_dir == tmp_path / "artifacts/records/_DIAGNOSTICS/LOCAL_ET6801_FPGA/current"
+    assert not (tmp_path / "artifacts/runs").exists()
+
+
+# 测试方法：从本轮Pipeline复制配置，拒绝其他轮/路径；通过条件：IP有自己的配置和逻辑身份。
+def test_ip_pipeline_snapshot_is_bound_to_its_fixed_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
+    parent = tmp_path / "artifacts/records/ET6801/_PIPELINE/current"
+    (parent / "config").mkdir(parents=True)
+    configuration = b"schema: unit\n"
+    (parent / "config/run_config.snapshot.yaml").write_bytes(configuration)
+    source = "a" * 40
+    metadata = {
+        "run_id": "pipeline-1",
+        "source_revision": source,
+        "status": "RUNNING",
+        "configuration_snapshot": "config/run_config.snapshot.yaml",
+        "configuration_sha256": RUN_IP_TESTS._file_sha256(
+            parent / "config/run_config.snapshot.yaml"
+        ),
+    }
+    (parent / "manifest.json").write_text(json.dumps(metadata), encoding="utf-8")
+    args = SimpleNamespace(within_pipeline=True, manifest=parent / "manifest.json")
+    own: dict[str, object] = {}
+    assert RUN_IP_TESTS._pipeline_snapshot(args, "ET6801", source, own) == configuration
+    assert own["pipeline_run_id"] == "pipeline-1"
+    assert own["configuration_snapshot"] == "config/run_config.snapshot.yaml"
+    with pytest.raises(ValueError, match="source/state"):
+        RUN_IP_TESTS._pipeline_snapshot(args, "ET6801", "b" * 40, {})
+    with pytest.raises(ValueError, match="original manifest"):
+        RUN_IP_TESTS._pipeline_snapshot(args, "ET6003", source, {})
+
+
+# 测试方法：只调用PowerShell路径函数，不执行阶段；通过条件：诊断包装器传递路径可用，旧runs被拒绝。
+def test_powershell_diagnostic_wrapper_keeps_fixed_context(tmp_path: Path) -> None:
+    powershell = shutil.which("powershell.exe") or shutil.which("pwsh")
+    if powershell is None:
+        pytest.skip("PowerShell is required for path-only validation")
+    script = REPOSITORY_ROOT / "tools/runner/artifact_paths.ps1"
+    command = f"""
+$ErrorActionPreference = 'Stop'
+. '{str(script).replace("'", "''")}'
+$root = '{str(tmp_path).replace("'", "''")}'
+function Invoke-EtDiagnosticWorkspace {{
+    param($CodeRoot, $RunRoot, $Operation)
+    if ($CodeRoot -ne $root) {{ throw 'incorrect derived repository' }}
+    New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
+    if ($Operation -eq 'complete') {{ $script:completed = $true }}
+}}
+$env:ET_ARTIFACT_RUN_DIR = $null
+$diagnostic = Get-EtArtifactRunRoot -CodeRoot $root -RunName 'unit_diagnostic'
+$env:ET_ARTIFACT_RUN_DIR = $diagnostic
+if ((Get-EtArtifactRunRoot -CodeRoot $root -RunName 'child') -ne $diagnostic) {{ throw 'lost context' }}
+Complete-EtArtifactRun -RunRoot $diagnostic -Succeeded $true
+if (-not $script:completed) {{ throw 'completion not recorded' }}
+$env:ET_ARTIFACT_RUN_DIR = Join-Path $root 'artifacts/runs/current'
+$rejected = $false
+try {{ Get-EtArtifactRunRoot -CodeRoot $root -RunName 'child' }} catch {{ $rejected = $true }}
+if (-not $rejected) {{ throw 'legacy path accepted' }}
+"""
+    completed = subprocess.run(
+        [powershell, "-NoProfile", "-Command", command], capture_output=True, text=True, check=False
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert not (tmp_path / "artifacts/runs").exists()
 
 
 # 测试 Feature：PowerShell独立工具与Python Pipeline使用同一扁平运行目录规则。
 #
-# 测试方法：检查共享PowerShell路径函数直接将run_id连接到artifacts/runs。
+# 测试方法：检查共享PowerShell路径函数使用records固定诊断现场。
 #
 # 通过条件：脚本不再拼接yyyy/MM/dd目录，只保留一个run_id层级。
-def test_powershell_artifact_path_uses_one_timestamp_level() -> None:
+def test_powershell_artifact_path_uses_fixed_current() -> None:
 
     script = (REPOSITORY_ROOT / "tools/runner/artifact_paths.ps1").read_text(encoding="utf-8")
 
-    assert "Join-Path $artifactRoot $runId" in script
+    assert "_DIAGNOSTICS\\$safeName\\current" in script
+    assert "artifacts\\runs" not in script
     assert "ToString('yyyy')" not in script
     assert "ToString('MM')" not in script
     assert "ToString('dd')" not in script
@@ -1725,7 +1794,7 @@ def test_et6801_pflash_requires_same_pipeline_prerequisites(tmp_path: Path) -> N
     if powershell is None:
         pytest.skip("PowerShell is required for the Pipeline stage guard test")
     code_root = tmp_path / "code"
-    run_root = code_root / "artifacts" / "runs" / "unit_guard"
+    run_root = code_root / "artifacts/records/ET6801/_PIPELINE/current"
     bit_stage = run_root / "stages" / "deploy_bitfile"
     boot_stage = run_root / "stages" / "deploy_bootrom"
     bit_stage.mkdir(parents=True)
@@ -1773,8 +1842,8 @@ def test_run_ip_tests_no_report_still_rejects_empty_session(
     (document_root / "crc" / "crc.md").write_text("# CRC\n", encoding="utf-8")
     monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
     monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
-    runs_root = tmp_path / "artifacts/runs"
-    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RUNS_ROOT", runs_root)
+    runs_root = tmp_path / "artifacts/records"
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RECORDS_ROOT", runs_root)
     monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
 
     def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
@@ -1796,6 +1865,8 @@ def test_run_ip_tests_no_report_still_rejects_empty_session(
         return 0
 
     monkeypatch.setattr(RUN_IP_TESTS, "_run", fake_run)
+    bench = tmp_path / "bench.yaml"
+    bench.write_text("targets: {dut: {chip: et6801}}\n", encoding="utf-8")
 
     assert (
         RUN_IP_TESTS.main(
@@ -1803,7 +1874,7 @@ def test_run_ip_tests_no_report_still_rejects_empty_session(
                 "--ip",
                 "crc",
                 "--bench",
-                "bench.yaml",
+                str(bench),
                 "--output-root",
                 str(runs_root),
                 "--no-report",
@@ -1813,8 +1884,8 @@ def test_run_ip_tests_no_report_still_rejects_empty_session(
         )
         == 2
     )
-    assert (runs_root / "current/tests/crc/session.json").is_file()
-    assert not (runs_root / "current/publication.json").exists()
+    assert (runs_root / "ET6801/CRC/current/session.json").is_file()
+    assert not (runs_root / "ET6801/CRC/current/publication.json").exists()
 
 
 # 测试 Feature：pytest返回成功也不能掩盖参数execution结果缺失。

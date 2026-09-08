@@ -10,16 +10,15 @@
 ```text
 artifacts/
 ├─ README.md
-├─ runs/current/
-│  ├─ manifest.json、config/、stages/
-│  ├─ tests/<ip>/
-│  │  ├─ session.json、cases/、pytest.log
-│  │  └─ facts.md、publication.json
-│  └─ publication.json
 ├─ records/<CHIP>/<IP>/
 │  ├─ README.md
 │  ├─ cases/<CASE_ID>.md
-│  └─ attachments/<CASE_ID>/...  # 必要时
+│  ├─ attachments/<CASE_ID>/...  # 必要时
+│  ├─ current/  # 本IP当前一次测试：Manifest、Session、原始附件、事实和回执
+│  └─ _maintenance/  # 固定锁与事务工作区
+├─ records/<CHIP>/_PIPELINE/current/  # 公共阶段、配置和整轮回执
+├─ records/_DIAGNOSTICS/<TOOL>/current/  # 独立诊断
+├─ records/_TOOLING/<TASK>/current/  # 软件验证，主题名不带日期或轮次
 └─ reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx  # 最近生成的Excel
 ```
 
@@ -27,16 +26,16 @@ artifacts/
 
 | 内容 | 位置 |
 |---|---|
-| 当前运行身份、配置和阶段日志 | `runs/current/manifest.json`、`config/`、`stages/` |
-| 当前原始Case事实与附件 | `runs/current/tests/<ip>/session.json`、`cases/` |
-| 当前简短事实摘要 | `runs/current/tests/<ip>/facts.md` |
+| 当前公共阶段身份、配置和日志 | `records/<CHIP>/_PIPELINE/current/` |
+| 当前原始Case事实与附件 | `records/<CHIP>/<IP>/current/session.json`、`cases/` |
+| 当前简短事实摘要 | `records/<CHIP>/<IP>/current/facts.md` |
 | 某芯片/IP最近生成的Excel | `reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`（启用报告时更新） |
 | 某芯片/IP知识索引 | `records/<CHIP>/<IP>/README.md` |
 | Case方法、问题与可复用结论 | `records/<CHIP>/<IP>/cases/<CASE_ID>.md` |
 | 正文引用的必要附件 | `records/<CHIP>/<IP>/attachments/<CASE_ID>/` |
 
 例如：`reports/ET6801/ET6801_CAN测试报告.xlsx`。关闭报告时保留上次文件，运行日志提示本次未更新；报告首页的Run ID、Lane和时间用于确认来源。
-旧时间戳目录、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不是新知识格式的依赖。
+旧`runs`、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不再新增或写入。`current`仅保留本次测试；先逐Case整理知识并确认，再由下一轮校验并覆盖，不按日期或轮次累积。
 
 ## 知识整理入口
 
@@ -44,10 +43,10 @@ artifacts/
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py extract `
-  --chip ET6801 --ip can --lane fpga --source artifacts/runs/current/tests/can
+  --chip ET6801 --ip can --lane fpga --source artifacts/records/ET6801/CAN/current
 # 先列出Case可用键，再追加 --key measurement.<键> 或 --key observation.<键> 查询原始值：
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py extract `
-  --chip ET6801 --ip can --lane fpga --source artifacts/runs/current/tests/can --case CAN_P0_001
+  --chip ET6801 --ip can --lane fpga --source artifacts/records/ET6801/CAN/current --case CAN_P0_001
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py check --chip ET6801 --ip can
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py index --chip ET6801 --ip can
 ```
@@ -56,17 +55,17 @@ Agent读原始方法与已有知识、处理本次新知识后，显式确认全
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py review `
-  --chip ET6801 --ip can --lane fpga --source artifacts/runs/current/tests/can
+  --chip ET6801 --ip can --lane fpga --source artifacts/records/ET6801/CAN/current
 ```
 
 首次需要先写Case Markdown；重复PASS且无新知识时可以正文零修改后确认。
 `check/index`不放行覆盖，脚本不会自动编写分析或关闭问题。
 
-中断现场的人工显式归档（目标为尚不存在的新文件）：
+中断现场的人工显式恢复包（固定目标必须尚不存在，不作日常累积归档）：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py archive `
-  --workspace artifacts/runs/current --output <现场归档.zip>
+  --workspace artifacts/records/ET6801/CAN/current --output artifacts/records/ET6801/CAN/recovery.zip
 ```
 
 旧Session可用`extract --source <历史Session目录>`只读查询；

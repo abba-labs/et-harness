@@ -35,7 +35,8 @@ def test_generated_build_files_stay_in_firmware_build() -> None:
     build_directories = {"Objects", "Listings"}
     build_suffixes = {".o", ".d", ".axf", ".bin", ".hex", ".jou", ".log"}
     firmware_build_root = CODE_ROOT / "firmware" / "build"
-    artifact_root = CODE_ROOT / "artifacts" / "runs"
+    # 新证据只写records；runs仅兼容既有只读历史，固定布局由Runner专项测试约束。
+    artifact_roots = (CODE_ROOT / "artifacts/records", CODE_ROOT / "artifacts/runs")
 
     for path in CODE_ROOT.rglob("*"):
         if any(part in generated_directories for part in path.parts):
@@ -43,7 +44,9 @@ def test_generated_build_files_stay_in_firmware_build() -> None:
         if path.name in build_directories:
             assert path.is_relative_to(firmware_build_root)
         if path.is_file() and path.suffix.lower() in build_suffixes:
-            assert path.is_relative_to(firmware_build_root) or path.is_relative_to(artifact_root)
+            assert path.is_relative_to(firmware_build_root) or any(
+                path.is_relative_to(root) for root in artifact_roots
+            )
 
     generated_project = (
         CODE_ROOT / "firmware" / "build" / "et6801" / "ET6801_Automated_Test.uvprojx"

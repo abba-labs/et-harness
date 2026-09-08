@@ -21,10 +21,11 @@ def record_root(repository: Path, chip: str, ip: str) -> Path:
 
 
 def working_root(repository: Path, chip: str, ip: str) -> Path:
-    return safe_path(
-        repository,
-        f"artifacts/runs/record-maintenance/{safe_name(chip).upper()}_{safe_name(ip).upper()}",
-    )
+    return safe_path(record_root(repository, chip, ip), "_maintenance")
+
+
+def current_root(repository: Path, chip: str, ip: str) -> Path:
+    return safe_path(record_root(repository, chip, ip), "current")
 
 
 # 仅索引有机器区；Case正文永远由人或Agent维护，不能调用此函数生成Case。

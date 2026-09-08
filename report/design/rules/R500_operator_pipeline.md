@@ -49,7 +49,7 @@ run_test.bat / run_config_gui.bat
 | `companions` | 通用配测设备的类型、Profile和基础连接 |
 | `instruments` | 外部仪器Driver选择和基础物理连接 |
 | `test` | 重复轮数和失败停止策略，不选择IP/Case |
-| `output` | `auto`或仓库内`artifacts/runs`根；正式工作区与长期档案按第6节固定布局 |
+| `output` | `auto`或正式`artifacts/records`根；当前事实与长期知识按第6节固定布局 |
 
 未知字段、错误类型、缺失的已启用步骤依赖、Profile/Target不匹配和仓库外输出必须失败关闭。
 
@@ -153,34 +153,36 @@ Runner只能从正式Registry中执行本次明确选中的集合。选择来源
 
 ## 6. 当次运行事实与长期Case知识
 
-正式入口使用一个固定工作区；长期只维护按芯片/IP/Case组织的Markdown知识：
+全部新增证据进入`records`固定工作区；长期只维护按芯片/IP/Case组织的Markdown知识：
 
 ```text
 artifacts/
-├─ runs/current/
-│  ├─ manifest.json、config/run_config.snapshot.yaml、stages/<stage>/...
-│  ├─ tests/<ip>/session.json、cases/<case_run_id>/...、pytest.log
-│  ├─ tests/<ip>/facts.md、publication.json
-│  └─ publication.json
 ├─ records/<CHIP>/<IP>/
 │  ├─ README.md
 │  ├─ cases/<CASE_ID>.md
-│  └─ attachments/<CASE_ID>/...  # 仅正文不能替代的必要附件
+│  ├─ attachments/<CASE_ID>/...  # 仅正文不能替代的必要附件
+│  ├─ current/                  # 仅本IP当前一次测试，不按轮次累积
+│  │  └─ manifest.json、config/、session.json、cases/、pytest.log、specification.md、facts.md、publication.json
+│  └─ _maintenance/             # 固定锁与可恢复事务；完成后不保留历史副本
+├─ records/<CHIP>/_PIPELINE/current/  # 当前公共阶段Manifest、配置、stages和回执
+├─ records/_DIAGNOSTICS/<TOOL>/current/ # 独立诊断现场，不代表Formal Case验证
+├─ records/_TOOLING/<TASK>/current/    # 软件门禁/工具验证；TASK为稳定主题，不用日期或轮次
 └─ reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx  # 每芯片/IP一份最近生成的报告
 ```
 
 ### 6.1 当前工作区与复用门禁
 
-- `artifacts/`根只允许`README.md`、`runs/`、`records/`、`reports/`。时间和UUID写入内容，不按测试次数新增日常目录。
-- Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/runs`根。每轮使用`current/tests/<ip>/`，不增加`round_NN`。
-- Pipeline通过`ET_ARTIFACT_RUN_DIR`传递同一工作根；Case只使用注入的`et_artifact_dir`，不得推导知识根。
+- `artifacts/`根只允许`README.md`、`records/`、`reports/`及既有只读`runs/`历史。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。
+- Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/records`根。Bench目标芯片决定`<CHIP>/<IP>/current`，Session芯片必须复核一致。不同芯片/IP互不覆盖；同芯片/IP跨Lane共用当前现场。
+- Pipeline通过`ET_ARTIFACT_RUN_DIR`传递`<CHIP>/_PIPELINE/current`阶段根，Manifest引用本轮各IP固定工作区，不复制它们。Case只使用注入的`et_artifact_dir`，不得推导知识根。每个IP自带Manifest、配置快照和Pipeline逻辑ID；整轮整理完成前不得先复用其中一个IP而破坏其他IP的复核。
 - Manifest记录逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target、时间、状态和退出码；配置快照保存真实输入。Lane显式传递，未知身份不得猜测。
 - Session终止后，Runner校验Selection、Canonical Result、原始规范Hash及绑定附件，生成当次`facts.md`与待整理回执；可选Excel仅发布到`reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`，芯片/IP大写，不带时间戳或版本后缀，不在`current`保存副本。
 - Excel复用现有Canonical报告模型和三Sheet导出，不重新判定PASS/FAIL。每次只展示该Session；部分执行保留NOT_SELECTED/NOT_EXECUTED，不合并历史PASS。首页明确显示Run ID、Lane、时间和源码/固件身份。
 - 同芯片/IP跨Lane共用最近生成报告。新报告完整生成并校验后才同目录原子替换；测试FAIL也更新真实失败报告。导出、校验或替换失败返回非零，保留旧报告和当前原始现场，不把旧报告声称为本次成功输出。
 - `--no-report`保留最近生成的Excel且明确提示本次未更新；事实摘要和待整理回执仍生成。Excel不进入原始现场复用Hash，后续报告覆盖不得破坏Case知识整理门禁。
-- 当次输出通过`artifacts/runs/record-maintenance/`内的IP锁和可恢复事务发布。外部修改、容量不足、未绑定文件、额外目录和损坏证据必须失败关闭。
+- 当次输出通过`records/<CHIP>/<IP>/_maintenance/`内的IP锁和可恢复事务发布。外部修改、容量不足、未绑定文件、额外目录和损坏证据必须失败关闭。
 - 输出完成后回执为待整理状态；无论测试PASS或FAIL，都不得自动放行覆盖。Agent先逐个已选Case提炼知识或核对无新知识，再显式调用`review`。
+- Agent可以在测试过程中增量提炼已确认的方法、问题和结论；每轮结束必须完成全部已选Case的整理核对。`review`只接受终止且完整的Session，进行中的增量笔记不能提前放行覆盖。
 - `review`复核当前原始文件与目录成员，检查本次全部已选Case Markdown及必要附件，刷新索引并绑定知识文件Hash。首次没有知识文件时必须先整理；`check`、`index`和重复PASS均不能代替整理确认。
 - 下一次复用前同时验证原始现场和已确认知识的Hash、目录成员及回执状态。知识发生后续修改时须再次显式确认，不能仅凭旧回执释放。
 - 多轮无人值守运行在下一次复用未整理工作区时停止并保留现场；不得为了连续运行跳过知识贡献门禁。
@@ -192,7 +194,7 @@ artifacts/
 - 每Case固定一份`cases/<CASE_ID>.md`，IP的`README.md`仅为索引。正文由Agent维护，不设置自动结果机器区；知识内容和适用性归R130。
 - 正文按实际知识选用章节，不强制空模板。最小结构包含Case标题、芯片/Lane适用基线、源码或版本说明（未知须明示）、CST更新时间及至少一段非空知识内容。
 - 每份Case Markdown最多16 KiB；整理时保留关键结论与未关闭问题，不追加流水账。历史判断发生改变时保留简短、带时间的修正说明，不伪造过去结论。
-- 只有波形、截图等无法由简短正文替代的必要材料才进入`attachments/<CASE_ID>/`并从正文显式引用；每Case引用附件合计不超过25 MiB。正文不得依赖旧evidence JSON/ZIP、results.json或旧报告才能读懂。
+- 只有波形、截图等无法由简短正文替代的必要材料才进入`attachments/<CASE_ID>/`并从正文显式引用；每Case引用附件合计不超过25 MiB。正文不得依赖旧evidence JSON/ZIP、results.json、旧报告或可覆盖的`current`/`_maintenance`才能读懂。
 - `extract`只读当前或历史Session，按Case/精确键提取事实；不会迁移、修改或删除输入。`check`只做最小结构、容量、链接和附件检查，不验证分析正确性。`index`仅显式刷新IP索引并保留索引外说明。
 - `review`表示调用者已完成知识整理或确认无新知识，机器只验证完整性；脚本不得自动调用自己作出此判断，不得因PASS自动确认。
 - 不生成长期`results.json`、每Case证据JSON/ZIP、累计次数、保护快照或第二套状态历史。旧自动档案可被识别并提示尚未整理，不能作为本次知识确认依据。
@@ -201,11 +203,10 @@ artifacts/
 ### 6.3 历史、恢复与容量
 
 - 当前单个工作区最多256 MiB；到限停止并保留输入，不截断必需证据。原始事实只有在知识整理确认并通过复用校验后，才允许由下一次正式运行回收。
-- `archive --workspace ... --output ...`只用于人工显式保留/恢复当前现场；目标必须是工作区之外尚不存在的单个ZIP，写前写后均校验成员与Hash。不是日常自动归档或长期知识容器。
-- 每个显式归档目标目录最多16个ZIP、总计1 GiB；超限要求人工管理，不自动换目录绕过限额。
-- 通用`clean_generated_outputs.py`不得处理`runs/current`、`artifacts/records`、`artifacts/runs/record-maintenance`或`artifacts/reports`下的芯片目录，包括其中缓存。
+- `archive --workspace ... --output ...`只用于人工显式保留/恢复当前现场；目标固定为该`current`同级尚不存在的`recovery.zip`，写前写后均校验成员与Hash。已有恢复包时停止，要求人工处理；不换名、不按轮次累积，也不自动覆盖恢复包。这不是日常归档或长期知识容器。
+- 通用`clean_generated_outputs.py`不得处理`artifacts/runs`、`artifacts/records`或`artifacts/reports`下的芯片目录，包括其中缓存；默认只预览缓存。
 - 旧时间戳Run、旧Excel及既有固定JSON/ZIP档案保持只读历史；迁移知识不改写或删除原始输入，不自动批量覆盖旧Case Markdown。历史删除是独立清理任务。
-- 独立诊断脚本的历史目录保持兼容；诊断输出不能冒充Formal Case产品验证，也不能据此为正式入口新增时间戳路径。
+- 独立诊断新输出同样只使用`records/_DIAGNOSTICS/<TOOL>/current`。缺少完成回执的现场保持阻塞，须人工保留/恢复；诊断输出不能冒充Formal Case产品验证。软件验证新日志使用`records/_TOOLING/<TASK>/current`，保留当前批次而非多轮副本。
 - 生成事实默认不进Git；已审阅Case知识与必要附件按普通逻辑变更显式提交。当前忽略规则下首次加入须精确`git add -f <已审阅文件>`，不得批量强制加入整个records树。后续已跟踪Markdown正常审阅Diff。
 - 单文件超过25 MiB不得直接提交普通Git；大文件需团队确认LFS或外部归档。`artifacts/README.md`只提供导航，不建立第二套语义。
 

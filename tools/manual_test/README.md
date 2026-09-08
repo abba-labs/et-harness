@@ -27,5 +27,6 @@ python tools/manual_test/capture_serial_log.py --port COM12 --baudrate 115200 --
 捕获工具沿用正式自动化平台的串口配置：打开端口前将 DTR、RTS 设为低电平，再发送启动触发符 `R`。
 
 默认日志和 manifest 写入
-`artifacts/runs/<timestamp>_manual_et6801_diagnostics/manual/diagnostics.log`。
+`artifacts/records/_DIAGNOSTICS/MANUAL_ET6801/current/diagnostics.log`（Manifest同目录）。
+固定现场不按轮次累积；已有未整理现场时拒绝覆盖，需按[R500](../../report/design/rules/R500_operator_pipeline.md)人工保留/恢复。旧`runs`只读。
 结束标记未出现时工具返回非零状态，不能把超时误判为测试完成。

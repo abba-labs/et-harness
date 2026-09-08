@@ -67,8 +67,15 @@ def _historical_specification(data: bytes, current: bytes, expected: str) -> byt
 
 
 # 当前文档Hash不匹配时只查本地精确提交；查不到就停止，不能拿新方法解释旧结果。
-def _specification(repository: Path, document: Path, session: dict[str, object]) -> bytes:
+def _specification(
+    repository: Path, document: Path, session: dict[str, object], *, snapshot: Path | None = None
+) -> bytes:
     expected = text_value(session.get("spec_sha256"), "spec_sha256")
+    if snapshot is not None and snapshot.is_file():
+        saved = _bounded_read(snapshot)
+        if digest(saved) != expected:
+            raise ValueError("current specification snapshot hash mismatch")
+        return saved
     current = _bounded_read(document)
     if digest(current) == expected:
         return current
@@ -190,7 +197,9 @@ def load_input(
     chip = safe_name(text_value(session.get("chip_id"), "chip_id")).upper()
     chosen, results, raw = _selected_results(source, session, ip)
     document = repository / "test_case_doc" / ip / f"{ip}.md"
-    spec_bytes = _specification(repository, document, session)
+    spec_bytes = _specification(
+        repository, document, session, snapshot=safe_path(source, "specification.md")
+    )
     work.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="method-", dir=work) as directory:
         method_path = Path(directory) / f"{ip}.md"

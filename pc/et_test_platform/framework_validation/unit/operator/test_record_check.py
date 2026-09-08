@@ -101,6 +101,22 @@ def test_check_rejects_invalid_links(checker: ModuleType, tmp_path: Path, link: 
         checker.check_records(path.parent.parent, cases=("CRC_P1_001",))
 
 
+# 测试方法：正文引用本IP或其他IP的可覆盖现场；通过条件：文件存在也不能充当长期依据。
+@pytest.mark.parametrize(
+    "relative", ["../current/raw.log", "../_maintenance/raw.log", "../../UART/current/raw.log"]
+)
+def test_knowledge_rejects_replaceable_record_links(
+    checker: ModuleType, tmp_path: Path, relative: str
+) -> None:
+    path = make_knowledge(tmp_path)
+    target = (path.parent / relative).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"temporary evidence")
+    path.write_text(path.read_text(encoding="utf-8") + f"\n[依据]({relative})\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="replaceable current/maintenance"):
+        checker.check_records(path.parent.parent)
+
+
 # 测试方法：知识正文超出边界；通过条件：提示提炼，不自动截断。
 def test_check_rejects_oversized_knowledge(checker: ModuleType, tmp_path: Path) -> None:
     path = make_knowledge(tmp_path, finding="x" * 17000)

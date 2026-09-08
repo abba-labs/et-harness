@@ -83,8 +83,7 @@ HIL前必须逐项核对：`Case Adaptation -> Runtime Gate -> Case主体第一�
 - 证据目录或Evidence索引；
 - 本次运行是否能够证明Exact committed SHA。
 
-芯片文档必须使用唯一的`ET_CHIP_TEST_STATUS`区域保存当前测试状态。该区域记录当前结论，完整历史仍由
-`artifacts/runs/`、`artifacts/reports/`和正式HIL报告保存；禁止在芯片文档中不断追加历次原始日志。
+芯片文档必须使用唯一的`ET_CHIP_TEST_STATUS`区域保存当前测试状态。该区域记录当前结论，当前事实与报告按R500固定保留，长期经验提炼为Case知识；旧`artifacts/runs/`与既有正式HIL报告保持只读历史。禁止累积每轮原始日志。
 
 ```markdown
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
@@ -96,7 +95,7 @@ HIL前必须逐项核对：`Case Adaptation -> Runtime Gate -> Case主体第一�
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-24 18:30 CST` | `0123456789abcdef...` | `false` | `artifacts/runs/<run_id>/` |
+| FPGA | `2026-08-24 18:30 CST` | `0123456789abcdef...` | `false` | `artifacts/records/<CHIP>/UART/current/` |
 
 ### 当前结果汇总
 
@@ -108,7 +107,7 @@ HIL前必须逐项核对：`Case Adaptation -> Runtime Gate -> Case主体第一�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `UART_P1_008` | FPGA | SKIP | `UART_F_xxx` / Framing Error IRQ | 未产生Framing Error状态 | 当前连接不能稳定制造错误帧 | 接入可控帧格式激励后重测 | `artifacts/runs/<run_id>/...` |
+| `UART_P1_008` | FPGA | SKIP | `UART_F_xxx` / Framing Error IRQ | 未产生Framing Error状态 | 当前连接不能稳定制造错误帧 | 接入可控帧格式激励后重测 | `artifacts/records/<CHIP>/UART/current/...` |
 <!-- ET_CHIP_TEST_STATUS_END -->
 ```
 
@@ -122,7 +121,7 @@ HIL前必须逐项核对：`Case Adaptation -> Runtime Gate -> Case主体第一�
 6. 非PASS表记录当前FAIL、SKIP和仍需闭环的NOT_EXECUTED。没有这些状态时保留表头并写一行`— / NONE`，不得把未执行写成SKIP。
 7. FAIL必须记录实际硬件现象、原因分析和复测条件；SKIP必须记录缺失的外部物理条件、已观察现象和解除条件；NOT_EXECUTED必须记录尚未执行的原因与实现缺口。
 8. 公共`<ip>.md`禁止保存芯片实测状态；状态只进入对应`<CHIP>_<ip>.md`。
-9. 同一Lane的新权威运行替换当前状态；旧结论不从Artifact和正式HIL报告中删除。
+9. 同一Lane的新权威运行替换当前状态；旧原始事实按R500在知识整理确认后回收。可覆盖Evidence必须核对Run ID/版本，不能把后一次current当成先前结论的原始证明；既有历史与正式HIL报告不自动删除。
 
 Runner的`PASS`只表示当前Execution中的断言通过，不会自动把`MAPPING_GAP`或`NEEDS_VERIFICATION`升级为`ADAPTED`。如果一个Gap Case产生PASS，必须先裁决：
 

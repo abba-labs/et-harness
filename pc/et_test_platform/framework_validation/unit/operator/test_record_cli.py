@@ -28,7 +28,7 @@ def cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
 def current_session(tmp_path: Path) -> Path:
     source = importlib.import_module("record_source")
     original = make_session(source, tmp_path)
-    current = tmp_path / "artifacts/runs/current/tests/crc"
+    current = tmp_path / "artifacts/records/ET6801/CRC/current"
     current.parent.mkdir(parents=True)
     original.rename(current)
     return current
@@ -42,7 +42,8 @@ def test_preparation_does_not_create_long_term_records(cli: ModuleType, tmp_path
     assert cli.prepare_review(tmp_path, current, **kwargs)["knowledge_review"] == "PENDING"
     second = cli.prepare_review(tmp_path, current, **kwargs)
     assert second["changed_files"] == 0
-    assert not (tmp_path / "artifacts/records").exists()
+    assert not (current.parent / "cases").exists()
+    assert not (tmp_path / "artifacts/runs/current").exists()
     assert (current / "facts.md").is_file()
     assert Path(second["report"]) == tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx"
     assert Path(second["report"]).is_file()
@@ -57,7 +58,7 @@ def test_review_requires_curated_knowledge_and_is_explicit(cli: ModuleType, tmp_
     current = current_session(tmp_path)
     kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
     cli.prepare_review(tmp_path, current, **kwargs)
-    with pytest.raises(ValueError, match="knowledge directory"):
+    with pytest.raises(ValueError, match="missing Case knowledge"):
         cli.review_records(tmp_path, current, **kwargs)
     path = make_knowledge(tmp_path)
     before = path.read_bytes()
@@ -87,6 +88,48 @@ def test_first_pass_does_not_close_existing_issue(cli: ModuleType, tmp_path: Pat
     assert "未关闭" in path.read_text(encoding="utf-8")
 
 
+# 测试方法：同IP连续20轮完成事实准备和显式整理；通过条件：只保留本次原始事实，其他IP不变。
+def test_twenty_reviewed_rounds_do_not_accumulate(cli: ModuleType, tmp_path: Path) -> None:
+    workspace = importlib.import_module("record_workspace")
+    current = current_session(tmp_path)
+    raw = {p.relative_to(current): p.read_bytes() for p in current.rglob("*") if p.is_file()}
+    knowledge = make_knowledge(tmp_path)
+    other = tmp_path / "artifacts/records/ET6003/CRC/current/keep.log"
+    other.parent.mkdir(parents=True)
+    other.write_bytes(b"other chip untouched")
+    other_ip = current.parents[1] / "UART/current/keep.log"
+    other_ip.parent.mkdir(parents=True)
+    other_ip.write_bytes(b"other IP untouched")
+    for iteration in range(20):
+        if iteration:
+            workspace.prepare_workspace(tmp_path, current)
+            assert list(current.iterdir()) == []
+        for name, data in raw.items():
+            path = current / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(data) if path.suffix == ".json" else None
+            if payload is not None:
+                payload["run_id"] = f"round-{iteration}"
+                data = json.dumps(payload).encode()
+            path.write_bytes(data)
+        kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+        cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+        with pytest.raises(workspace.KnowledgeReviewPending):
+            workspace.prepare_workspace(tmp_path, current)
+        cli.review_records(tmp_path, current, **kwargs)
+        assert json.loads((current / "session.json").read_bytes())["run_id"] == f"round-{iteration}"
+    assert {p.name for p in current.parent.iterdir()} == {
+        "current",
+        "cases",
+        "README.md",
+        "_maintenance",
+    }
+    assert knowledge.is_file() and not list(current.parent.rglob("*.zip"))
+    assert other.read_bytes() == b"other chip untouched"
+    assert other_ip.read_bytes() == b"other IP untouched"
+    assert not list((tmp_path / "artifacts/runs").rglob("*"))
+
+
 # 测试方法：关闭/开启Excel；通过条件：关闭时保留最近生成报告，不创建current副本。
 def test_report_toggle_retains_latest_export(cli: ModuleType, tmp_path: Path) -> None:
     current = current_session(tmp_path)
@@ -104,7 +147,7 @@ def test_report_toggle_retains_latest_export(cli: ModuleType, tmp_path: Path) ->
     assert not (current / "test_report.xlsx").exists()
     assert path.read_bytes() == before
     assert not list(path.parent.parent.rglob("*.xlsx"))
-    assert not list(path.parent.parent.rglob("*.json"))
+    assert not list(path.parent.rglob("*.json"))
 
 
 # 测试方法：模拟Excel占用与导出损坏；通过条件：原报告和原始现场保留，错误向调用方传播。

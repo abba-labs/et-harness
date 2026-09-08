@@ -26,7 +26,7 @@ FIRMWARE_RECORD_TOOL = REPOSITORY_ROOT / "tools/firmware/materialize_keil_valida
 REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
 TASK_CONTEXT_TOOL = REPOSITORY_ROOT / "tools/governance/compile_task_context.py"
 TASK_CONTEXT_PATH = REPOSITORY_ROOT / "project-governance/runtime/current_task_context.json"
-GENERATED_SCOPE_PREFIXES = ("artifacts/runs/", "artifacts/reports/")
+GENERATED_SCOPE_PREFIXES = ("artifacts/runs/", "artifacts/reports/", "artifacts/records/")
 
 
 # 发现全部芯片 Firmware Manifest；新增芯片不需要修改公共验证入口。

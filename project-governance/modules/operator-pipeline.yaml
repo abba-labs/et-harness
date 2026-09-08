@@ -6,7 +6,8 @@ parameters:
   optional: []
 architecture_chain:
   - run_config.yaml -> Operator Launcher -> Pipeline Profile -> Build/Deploy/Test/Report
-  - Logical Run UUID -> current facts + reports/<CHIP>/latest IP Excel -> Agent review -> records/<CHIP>/<IP>/cases Markdown
+  - Logical Run UUID -> records/<CHIP>/<IP>/current + reports/<CHIP>/latest IP Excel -> Agent review -> fixed current reuse
+  - Agent incremental distillation -> records/<CHIP>/<IP>/cases Markdown + necessary attachments
 
 always:
   read:

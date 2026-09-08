@@ -135,4 +135,4 @@ tabs:
           - {path: test.stop_on_failure, label: 遇到失败立即停止, type: bool}
       - label: 产物
         fields:
-          - {path: output.root, label: 产物根（auto或artifacts/runs）, type: directory_or_auto, required: true}
+          - {path: output.root, label: 产物根（auto或artifacts/records）, type: directory_or_auto, required: true}

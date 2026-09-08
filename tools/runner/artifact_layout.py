@@ -16,7 +16,6 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts"
-DEFAULT_RUNS_ROOT = ARTIFACT_ROOT / "runs"
 DEFAULT_REPORTS_ROOT = ARTIFACT_ROOT / "reports"
 DEFAULT_RECORDS_ROOT = ARTIFACT_ROOT / "records"
 
@@ -67,37 +66,54 @@ def safe_component(value: str, *, field: str) -> str:
 
 
 # Resolve output.root and reject paths outside the repository-owned artifacts tree.
-def resolve_runs_root(value: str, *, config_directory: Path) -> Path:
+def resolve_records_root(value: str, *, config_directory: Path) -> Path:
     if value == "auto":
-        return DEFAULT_RUNS_ROOT.resolve()
+        return DEFAULT_RECORDS_ROOT.resolve()
     supplied = Path(value)
     resolved = (supplied if supplied.is_absolute() else config_directory / supplied).resolve()
-    runs_root = DEFAULT_RUNS_ROOT.resolve()
-    try:
-        resolved.relative_to(runs_root)
-    except ValueError as exc:
+    records_root = DEFAULT_RECORDS_ROOT.resolve()
+    if resolved != records_root:
         raise ValueError(
-            f"output.root must stay inside repository artifacts/runs/: {runs_root}"
-        ) from exc
+            f"output.root must be auto or canonical artifacts/records root: {records_root}"
+        )
     return resolved
 
 
-# 保留历史独立诊断入口；正式Case入口使用create_current_directory。
-def create_run_directory(runs_root: Path, *, run_name: str) -> Path:
-    now = datetime.now()
-    run_id = f"{now:%Y%m%d_%H%M%S_%f}_{safe_component(run_name, field='run name')}"
-    run_dir = runs_root / run_id
-    run_dir.mkdir(parents=True, exist_ok=False)
-    return run_dir
+# 诊断也使用固定现场；没有有效完成回执时必须先保留/整理，不改换时间戳目录。
+def create_run_directory(records_root: Path, *, run_name: str) -> Path:
+    return create_current_directory(
+        records_root.parent.parent,
+        records_root,
+        chip="_DIAGNOSTICS",
+        ip=safe_component(run_name, field="run name").upper(),
+    )
 
 
 # 调用方必须持有环境锁；只有发布证明完整的固定工作区可以被复用。
-def create_current_directory(repository: Path, runs_root: Path) -> Path:
+def create_current_directory(
+    repository: Path, records_root: Path, *, chip: str, ip: str = "_PIPELINE"
+) -> Path:
+    from record_store import current_root
     from record_workspace import prepare_workspace
 
-    if runs_root.resolve() != (repository / "artifacts/runs").resolve():
-        raise ValueError("Formal runs require canonical artifacts/runs root (output.root: auto)")
-    return prepare_workspace(repository, runs_root / "current")
+    if records_root.resolve() != (repository / "artifacts/records").resolve():
+        raise ValueError("Formal runs require canonical artifacts/records root (output.root: auto)")
+    return prepare_workspace(repository, current_root(repository, chip, ip))
+
+
+# 仅读取Bench中的目标身份，不打开Transport；实际Session身份仍必须独立复核。
+def target_chip(bench: Path, target: str) -> str:
+    import yaml
+    from record_transaction import safe_name
+
+    profile = yaml.safe_load(bench.read_text(encoding="utf-8-sig"))
+    try:
+        chip = profile["targets"][target]["chip"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError("Bench must declare the selected target chip before recording") from exc
+    if not isinstance(chip, str) or chip.startswith("_"):
+        raise ValueError("Bench target chip must be an explicit chip identifier")
+    return safe_name(chip).upper()
 
 
 # 返回固定最新报告路径；只允许受控芯片/IP标识，不改写非法输入或创建目录。

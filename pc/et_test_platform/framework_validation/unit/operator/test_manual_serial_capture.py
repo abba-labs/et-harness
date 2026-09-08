@@ -107,9 +107,10 @@ def test_default_output_path_uses_artifacts_run_layout() -> None:
     assert output == (
         code_root
         / "artifacts"
-        / "runs"
-        / "20260824_123456_123456_manual_et6801_diagnostics"
-        / "manual"
+        / "records"
+        / "_DIAGNOSTICS"
+        / "MANUAL_ET6801"
+        / "current"
         / "diagnostics.log"
     )
 

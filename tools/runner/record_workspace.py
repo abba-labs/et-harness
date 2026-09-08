@@ -12,12 +12,18 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 
 from record_model import MAX_IP_BYTES, list_value, object_value, text_value
-from record_transaction import atomic_write, digest, file_lock, json_bytes, json_object, safe_path
+from record_transaction import (
+    atomic_write,
+    digest,
+    file_lock,
+    json_bytes,
+    json_object,
+    safe_name,
+    safe_path,
+)
 
 RECEIPT = "publication.json"
-WORKSPACE_SCHEMA = "et.run-workspace.v2"
-MAX_ARCHIVES = 16
-MAX_ARCHIVE_DIRECTORY_BYTES = 1024 * 1024 * 1024
+WORKSPACE_SCHEMA = "et.run-workspace.v3"
 
 
 class KnowledgeReviewPending(ValueError):
@@ -29,11 +35,19 @@ def environment_lock(repository: Path) -> AbstractContextManager[None]:
 
 
 def _validate_root(repository: Path, root: Path) -> None:
-    relative = root.absolute().relative_to((repository / "artifacts/runs").absolute()).as_posix()
-    safe_path(repository / "artifacts/runs", relative)
+    try:
+        relative = (
+            root.absolute().relative_to((repository / "artifacts/records").absolute()).as_posix()
+        )
+    except ValueError as exc:
+        raise ValueError("managed workspace must be records/<CHIP>/<IP>/current") from exc
+    safe_path(repository / "artifacts/records", relative)
     parts = Path(relative).parts
-    if parts != ("current",) and not (len(parts) == 3 and parts[:2] == ("current", "tests")):
-        raise ValueError("managed workspace must be artifacts/runs/current[/tests/IP]")
+    if len(parts) != 3 or parts[-1] != "current":
+        raise ValueError("managed workspace must be records/<CHIP>/<IP>/current")
+    for part in parts[:2]:
+        if safe_name(part).upper() != part:
+            raise ValueError("managed workspace chip/IP must use canonical uppercase names")
 
 
 def workspace_files(root: Path) -> dict[str, bytes]:
@@ -159,6 +173,17 @@ def prepare_workspace(repository: Path, root: Path) -> Path:
     _validate_root(repository, root)
     if root.exists() and any(root.iterdir()):
         receipt = verify_publication(repository, root)
+        parent = root.parent.parent / "_PIPELINE/current"
+        if (
+            root != parent
+            and (root / "manifest.json").is_file()
+            and (parent / "manifest.json").is_file()
+        ):
+            child = json_object(safe_path(root, "manifest.json").read_bytes())
+            pipeline = json_object(safe_path(parent, "manifest.json").read_bytes())
+            if child.get("pipeline_run_id") and child["pipeline_run_id"] == pipeline.get("run_id"):
+                # 其他IP仍待整理时，不能先覆盖已整理子现场，破坏整轮可复核性。
+                verify_publication(repository, parent)
         for name in object_value(receipt["files"], "workspace files"):
             safe_path(root, name).unlink()
         safe_path(root, RECEIPT).unlink()
@@ -205,11 +230,21 @@ def seal_workspace(
 
 
 def seal_pipeline(repository: Path, root: Path, *, successful: bool) -> None:
+    _validate_root(repository, root)
+    if root.parent.name != "_PIPELINE":
+        raise ValueError("pipeline evidence requires a _PIPELINE/current workspace")
+    manifest = json_object(safe_path(root, "manifest.json").read_bytes())
+    references = list_value(manifest.get("test_workspaces", []), "pipeline test workspaces")
     proofs: dict[str, object] = {}
     pending = False
-    for path in sorted((root / "tests").glob("*")):
-        if not path.is_dir():
-            raise ValueError("unexpected entry in pipeline tests directory")
+    for relative in references:
+        path = safe_path(repository, text_value(relative, "test workspace"))
+        _validate_root(repository, path)
+        if path.parent.parent != root.parent.parent or path.parent.name.startswith("_"):
+            raise ValueError("pipeline test workspace must belong to the same chip")
+        child = json_object(safe_path(path, "manifest.json").read_bytes())
+        if child.get("pipeline_run_id") != manifest.get("run_id"):
+            raise ValueError("IP workspace belongs to a different pipeline; preserve current")
         receipt = verify_publication(repository, path, require_review=False)
         proofs.update(object_value(receipt.get("records"), "Case publication proofs"))
         pending = pending or receipt.get("pending_review") is True
@@ -218,15 +253,20 @@ def seal_pipeline(repository: Path, root: Path, *, successful: bool) -> None:
     )
 
 
-# 只能由显式review入口调用；原始现场不变，知识文件必须已由人/Agent整理并通过检查。
+# 显式review后仅刷新同一逻辑Pipeline的回执，不改写其阶段日志或其他IP。
 def review_workspace(repository: Path, root: Path, *, proofs: dict[str, object]) -> None:
     receipt = verify_publication(repository, root, require_review=False, verify_knowledge=False)
-    parent = root.parent.parent if root.parent.name == "tests" else None
+    parent = root.parent.parent / "_PIPELINE/current"
     parent_receipt = None
-    if parent is not None and (parent / RECEIPT).exists():
-        parent_receipt = verify_publication(
-            repository, parent, require_review=False, verify_knowledge=False
-        )
+    if (parent / RECEIPT).exists() and (root / "manifest.json").exists():
+        manifest = json_object(safe_path(parent, "manifest.json").read_bytes())
+        child = json_object(safe_path(root, "manifest.json").read_bytes())
+        if child.get("pipeline_run_id") == manifest.get("run_id") and root.relative_to(
+            repository
+        ).as_posix() in manifest.get("test_workspaces", []):
+            parent_receipt = verify_publication(
+                repository, parent, require_review=False, verify_knowledge=False
+            )
     if not proofs:
         raise ValueError("review requires the selected Case knowledge files")
     seal_workspace(
@@ -242,12 +282,8 @@ def review_workspace(repository: Path, root: Path, *, proofs: dict[str, object])
 def archive_workspace(repository: Path, root: Path, output: Path) -> dict[str, object]:
     _validate_root(repository, root)
     safe_path(output.parent, output.name)
-    if (
-        output.suffix.lower() != ".zip"
-        or output.exists()
-        or output.resolve().is_relative_to(root.resolve())
-    ):
-        raise ValueError("workspace archive requires a new .zip outside current workspace")
+    if output.absolute() != (root.parent / "recovery.zip").absolute() or output.exists():
+        raise ValueError("workspace archive requires the unused fixed sibling recovery.zip")
     files = workspace_files(root)
     if not files:
         raise ValueError("workspace has no files to archive")
@@ -264,12 +300,6 @@ def archive_workspace(repository: Path, root: Path, output: Path) -> dict[str, o
             archive.writestr(entry, data)
     data = stream.getvalue()
     _verify_archive(data)
-    siblings = list(output.parent.glob("*.zip"))
-    if (
-        len(siblings) >= MAX_ARCHIVES
-        or sum(path.stat().st_size for path in siblings) + len(data) > MAX_ARCHIVE_DIRECTORY_BYTES
-    ):
-        raise ValueError("archive destination budget exceeded")
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("xb") as destination:
         destination.write(data)

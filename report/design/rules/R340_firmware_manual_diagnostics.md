@@ -178,7 +178,7 @@ tools/manual_test/capture_serial_log.py
 1. 从命令行接收串口号、波特率、超时和输出路径；
 2. 原样捕获Firmware打印并附加主机时间戳；
 3. 在明确结束标记、用户中止或超时后关闭串口；
-4. 把日志保存到`artifacts/runs/<run_id>/`下的本次手动诊断目录。
+4. 把日志保存到`artifacts/records/_DIAGNOSTICS/MANUAL_ET6801/current/`固定现场；复用与保留门禁按R500，不新增时间戳或轮次目录。
 
 它禁止发送ET-Frame、调用自动化PC Driver、重新判断硬件PASS/FAIL、生成Canonical Result或Excel报告。
 工具可以显示Firmware打印的`[RESULT]`，但不得修改该结果。

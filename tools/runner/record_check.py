@@ -32,6 +32,10 @@ def _links(path: Path, body: str, repository: Path, root: Path) -> dict[str, str
         except ValueError as exc:
             raise ValueError(f"knowledge link escapes repository: {reference}") from exc
         target = safe_path(repository, relative)
+        if relative.startswith("artifacts/records/") and any(
+            part in {"current", "_maintenance"} for part in Path(relative).parts[2:]
+        ):
+            raise ValueError("knowledge must not depend on replaceable current/maintenance files")
         if not target.is_file():
             raise ValueError(f"missing knowledge link: {path.name}: {reference}")
         if target.is_relative_to(root):

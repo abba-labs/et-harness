@@ -13,6 +13,7 @@
 - 公共Case、Driver、Firmware Service和Wrap必须芯片中立；芯片事实只能进入Profile、Capability、Board、Execution Mapping、Chip Driver和芯片文档。
 - 禁止把未执行的软件、Keil、FPGA或HIL测试写成PASS，不同后端证据不得互相替代。
 - 真实硬件、擦写、烧录、Option Byte、OTP/NVR/Fuse、电源和调试解锁必须遵守外层项目`AGENTS.md`的人工门禁。
+- 新测试、诊断及软件验证证据统一按R500写入`artifacts/records/`固定`current`，每轮整理后复用，不写入旧`runs`或累积日期/轮次目录；长期Case知识和最近Excel亦由R500路由。
 
 ## 1. 固定任务链路
 

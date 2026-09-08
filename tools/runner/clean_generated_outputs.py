@@ -14,13 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCOPES = ("runs", "reports", "caches", "tmp")
+SCOPES = ("reports", "caches", "tmp")
 CACHE_DIRECTORY_NAMES = frozenset({"__pycache__", ".pytest_cache", ".ruff_cache"})
 CACHE_SCAN_EXCLUSIONS = frozenset({".git", ".venv", "artifacts", "third_part"})
 PRESERVED_DIRECTORY_ENTRIES = frozenset({".gitkeep"})
-PROTECTED_RECORD_PATHS = frozenset(
-    {"artifacts/runs/current", "artifacts/records", "artifacts/runs/record-maintenance"}
-)
+PROTECTED_RECORD_PATHS = frozenset({"artifacts/runs", "artifacts/records"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,9 +107,7 @@ def build_cleanup_plan(
 
     paths: list[Path] = []
     for scope in requested:
-        if scope == "runs":
-            paths.extend(_directory_contents(root / "artifacts" / "runs"))
-        elif scope == "reports":
+        if scope == "reports":
             paths.extend(
                 path
                 for path in _directory_contents(root / "artifacts" / "reports")
@@ -170,7 +166,7 @@ def _argument_parser() -> argparse.ArgumentParser:
         "--scope",
         action="append",
         choices=SCOPES,
-        help="cleanup scope; repeat as needed (default: runs)",
+        help="cleanup scope; repeat as needed (default: caches)",
     )
     parser.add_argument(
         "--execute",
@@ -185,10 +181,10 @@ def _argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# 默认仅预览runs；任何真实删除都要求显式--execute。
+# 默认仅预览缓存；records和历史runs不属于通用清理范围。
 def main() -> int:
     args = _argument_parser().parse_args()
-    scopes = tuple(args.scope or ("runs",))
+    scopes = tuple(args.scope or ("caches",))
     plan = build_cleanup_plan(REPOSITORY_ROOT, scopes)
     total_files = sum(entry.file_count for entry in plan)
     total_bytes = sum(entry.byte_count for entry in plan)

@@ -17,19 +17,19 @@ from pathlib import Path
 from uuid import uuid4
 
 from artifact_layout import (
-    DEFAULT_RUNS_ROOT,
+    DEFAULT_RECORDS_ROOT,
     capture_source_identity,
-    create_current_directory,
+    target_chip,
     utc_timestamp,
     write_manifest,
 )
 from maintain_test_records import prepare_review
-from record_store import record_root
+from record_store import current_root, record_root
+from record_transaction import json_object, safe_path
 from record_workspace import (
     KnowledgeReviewPending,
     environment_lock,
     prepare_workspace,
-    seal_pipeline,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -37,8 +37,8 @@ FORMAL_CASE_ROOT = REPOSITORY_ROOT / "pc/et_test_platform/test_cases"
 DOCUMENT_ROOT = REPOSITORY_ROOT / "test_case_doc"
 REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
 VALIDATE_PC = REPOSITORY_ROOT / "tools/validate_pc.py"
-DEFAULT_OUTPUT_ROOT = DEFAULT_RUNS_ROOT
-ARTIFACT_RUNS_ROOT = DEFAULT_RUNS_ROOT
+DEFAULT_OUTPUT_ROOT = DEFAULT_RECORDS_ROOT
+ARTIFACT_RECORDS_ROOT = DEFAULT_RECORDS_ROOT
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -53,7 +53,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-root",
         default=str(DEFAULT_OUTPUT_ROOT),
-        help="canonical runs root, or fixed current/tests/IP directory within pipeline",
+        help="canonical records root, or fixed records/CHIP/IP/current within pipeline",
     )
     parser.add_argument(
         "--pytest-arg",
@@ -101,15 +101,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def _normalize_ip(value: str) -> str:
     normalized = value.strip().lower()
-    if not normalized or not normalized.replace("_", "").isalnum():
+    if not normalized or normalized.startswith("_") or not normalized.replace("_", "").isalnum():
         raise ValueError(f"invalid IP name: {value!r}")
     return normalized
 
 
-# Reject direct invocations that try to scatter Formal Case output outside artifacts/runs.
+# Reject direct invocations that try to scatter Formal Case output outside records.
 def _validated_output_root(value: str) -> Path:
     output_root = Path(value).resolve()
-    allowed_root = ARTIFACT_RUNS_ROOT.resolve()
+    allowed_root = ARTIFACT_RECORDS_ROOT.resolve()
     try:
         output_root.relative_to(allowed_root)
     except ValueError as exc:
@@ -362,13 +362,6 @@ def _finish_standalone_run(
         }
     )
     write_manifest(artifact_run_dir, manifest)
-    try:
-        seal_pipeline(REPOSITORY_ROOT, artifact_run_dir, successful=exit_code == 0)
-    except (OSError, ValueError, RuntimeError) as exc:
-        print(f"Workspace retained without reuse permission: {exc}")
-        manifest.update({"status": "FAIL", "exit_code": exit_code or 2})
-        write_manifest(artifact_run_dir, manifest)
-        return exit_code or 2
     return exit_code
 
 
@@ -380,6 +373,28 @@ def _run_software_preflight(*, within_pipeline: bool) -> int:
     if exit_code != 0:
         print(f"Software preflight failed with exit code {exit_code}.")
     return exit_code
+
+
+# 从本轮Pipeline复制身份与配置到独立IP现场，之后公共阶段复用不影响IP事实。
+def _pipeline_snapshot(
+    args: argparse.Namespace, chip: str, source_revision: str, manifest: dict[str, object]
+) -> bytes | None:
+    if not args.within_pipeline:
+        return None
+    pipeline_root = current_root(REPOSITORY_ROOT, chip, "_PIPELINE")
+    if args.manifest is None or args.manifest.absolute() != pipeline_root / "manifest.json":
+        raise ValueError("pipeline invocation requires its original manifest")
+    parent = json_object(safe_path(pipeline_root, "manifest.json").read_bytes())
+    if parent.get("source_revision") != source_revision or parent.get("status") != "RUNNING":
+        raise ValueError("pipeline manifest source/state does not match this invocation")
+    manifest["pipeline_run_id"] = parent["run_id"]
+    snapshot = parent.get("configuration_snapshot")
+    if isinstance(snapshot, str):
+        configuration = safe_path(pipeline_root, snapshot).read_bytes()
+        manifest["configuration_snapshot"] = "config/run_config.snapshot.yaml"
+        manifest["configuration_sha256"] = parent["configuration_sha256"]
+        return configuration
+    return None
 
 
 def _execute_ip(args: argparse.Namespace) -> int:
@@ -412,28 +427,29 @@ def _execute_ip(args: argparse.Namespace) -> int:
         return preflight_exit
 
     output_root = _validated_output_root(args.output_root)
-    artifact_run_dir: Path | None = None
-    standalone_manifest: dict[str, object] | None = None
-    if args.within_pipeline:
-        if args.manifest is None:
-            raise ValueError("pipeline invocation requires its original manifest")
-        run_dir = prepare_workspace(REPOSITORY_ROOT, output_root)
-    else:
-        artifact_run_dir = create_current_directory(REPOSITORY_ROOT, output_root)
-        run_dir = artifact_run_dir / "tests" / ip
-        run_dir.mkdir(parents=True, exist_ok=False)
-        standalone_manifest = {
-            "schema": "et-artifact-run/v1",
-            "run_id": str(uuid4()),
-            "run_name": f"{ip}_formal_cases",
-            "target_kind": {"sil": "renode", "fpga": "fpga", "hil": "silicon"}[args.lane],
-            "source_revision": source_revision,
-            "source_dirty": source_dirty,
-            "started_at": utc_timestamp(),
-            "finished_at": None,
-            "status": "RUNNING",
-        }
-        write_manifest(artifact_run_dir, standalone_manifest)
+    chip = target_chip(Path(args.bench), args.target)
+    run_dir = current_root(REPOSITORY_ROOT, chip, ip)
+    expected_output = run_dir if args.within_pipeline else ARTIFACT_RECORDS_ROOT.resolve()
+    if output_root != expected_output:
+        raise ValueError("Formal output must use the fixed records chip/IP current workspace")
+    standalone_manifest: dict[str, object] = {
+        "schema": "et-artifact-run/v1",
+        "run_id": str(uuid4()),
+        "run_name": f"{ip}_formal_cases",
+        "target_kind": {"sil": "renode", "fpga": "fpga", "hil": "silicon"}[args.lane],
+        "source_revision": source_revision,
+        "source_dirty": source_dirty,
+        "started_at": utc_timestamp(),
+        "finished_at": None,
+        "status": "RUNNING",
+    }
+    configuration = _pipeline_snapshot(args, chip, source_revision, standalone_manifest)
+    prepare_workspace(REPOSITORY_ROOT, run_dir)
+    if configuration is not None:
+        (run_dir / "config").mkdir()
+        (run_dir / "config/run_config.snapshot.yaml").write_bytes(configuration)
+    write_manifest(run_dir, standalone_manifest)
+    artifact_run_dir = run_dir
     pytest_command = _pytest_command(
         ip=ip,
         bench=args.bench,
@@ -464,7 +480,12 @@ def _execute_ip(args: argparse.Namespace) -> int:
         evidence_complete = False
 
     canonical_exit = 0 if evidence_complete else 2
-    chip = _session_chip(run_dir)
+    if _session_chip(run_dir) != chip:
+        print(
+            "Actual Session chip differs from the Bench evidence destination; raw files retained."
+        )
+        return _finish_standalone_run(artifact_run_dir, standalone_manifest, pytest_exit or 2)
+    _finish_standalone_run(artifact_run_dir, standalone_manifest, pytest_exit or canonical_exit)
     print("Preparing current facts and report for Case knowledge review...")
     try:
         prepared = prepare_review(
@@ -473,8 +494,7 @@ def _execute_ip(args: argparse.Namespace) -> int:
             chip=chip,
             ip=ip,
             lane=args.lane,
-            manifest=args.manifest
-            or (artifact_run_dir / "manifest.json" if artifact_run_dir else None),
+            manifest=run_dir / "manifest.json",
             write_report=not args.no_report,
         )
         if not args.no_report:
@@ -485,19 +505,11 @@ def _execute_ip(args: argparse.Namespace) -> int:
             print("Report disabled: latest Excel retained and NOT UPDATED for this run.")
     except (OSError, ValueError, RuntimeError, KeyError, zipfile.BadZipFile) as exc:
         print(f"Review preparation failed; raw workspace retained: {exc}")
-        return _finish_standalone_run(
-            artifact_run_dir,
-            standalone_manifest,
-            pytest_exit or canonical_exit or 2,
-        )
+        return pytest_exit or canonical_exit or 2
 
     print(f"Case knowledge: {record_root(REPOSITORY_ROOT, chip, ip)}")
     print("Knowledge review is pending; current raw files cannot be overwritten before review.")
-    return _finish_standalone_run(
-        artifact_run_dir,
-        standalone_manifest,
-        pytest_exit or canonical_exit,
-    )
+    return pytest_exit or canonical_exit
 
 
 def main(argv: Sequence[str] | None = None) -> int:

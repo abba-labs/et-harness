@@ -108,6 +108,6 @@ test:
   repeat: 1
   stop_on_failure: true
 
-# 9. 产物策略：auto固定写入仓库内artifacts/runs；自定义路径也必须位于artifacts内。
+# 9. 产物策略：auto固定写入artifacts/records/<CHIP>/<IP>/current；不接受其他根目录。
 output:
   root: auto
