@@ -1,6 +1,8 @@
 # ET6801 CAN / CAN FD 分析与测试适配
 
-更新时间：2026-09-08 01:14 CST
+更新时间：2026-09-08 08:37 CST
+
+快速索引：[逐Case适配与记录](#can-case-adaptation) · [当前测试状态](#can-test-status) · [Non-ISO分析](#can-diagnosis-non-iso) · [ECC分析](#can-diagnosis-ecc) · [外部回环暂缓](#can-diagnosis-loopback) · [测试记录总入口](#can-record-index)
 
 当前结论见唯一`ET_CHIP_TEST_STATUS`区域：本轮31项已注册Case完整执行，148 Execution为139 PASS、9 FAIL；报告已生成。以下旧日期开发记录保留为历史，不代表当前执行状态。第五章和6.2按本轮直接证据同步；ADAPTED不等于硬件PASS。
 
@@ -475,48 +477,52 @@ CAN盒子优先满足普通帧收发，但不是仪器限制。需要位级刺�
 | P2_009、P3_002～005高级目标 | 指定位错误、受控延迟、窄脉冲或位级时间捕获/引脚激励 | 公共0.5已分别列协议/脉冲/延迟发生器和示波器端点；只有P3_003同步判据仍需设计确认，不是全部没有测试方法 |
 | P2_010、P2_011 | 前者需被测FPGA RAM应答延迟钩子；后者由DUT任Time Master，Peer按参考帧定时回复 | 两项方法已PLAN；前者不是外部总线盒子功能，后者无需盒子有TTCAN协议栈但需定时能力 |
 
+<a id="can-case-adaptation"></a>
+
 ### 6.2 Case逐项适配
+
+每行的“参数记录”跳转至本次FPGA运行的对应Case结果索引；未执行目标不生成结果链接。
 
 | Public Case | Adaptation | Reason / Gap |
 |---|---|---|
-| CAN_P0_001 | ADAPTED | INIT下500/250 kbit/s时序真实写入，CCE开/关保护及再次复位均FPGA PASS |
-| CAN_P0_002 | ADAPTED | 500 kbit/s、两帧8-byte内部回环；FPGA PASS（2组数据） |
-| CAN_P0_003 | ADAPTED | 2026-09-07重接硬件后FPGA PASS：500 kbit/s正常模式，CAN0与盒子CAN1双向各两帧完整收到，无Lost/Bus Off；旧ACK失败Run保留，详见6.4 |
-| CAN_P1_001 | ADAPTED | 6种格式×2个ID边界，每组DLC0～15及双Pattern；FPGA PASS |
-| CAN_P1_002 | ADAPTED | 标准Range/Dual/Mask、首匹配、路由、未匹配和High Priority状态；FPGA PASS |
-| CAN_P1_003 | ADAPTED | 扩展Range/Dual/Mask、XIDAM、29-bit高位、首匹配和High Priority状态；FPGA PASS |
-| CAN_P1_004 | ADAPTED | 标准/扩展Remote允许、拒绝及同ID数据恢复；FPGA PASS |
-| CAN_P1_005 | ADAPTED | FIFO0/1深度4、水位2、Full/New/Watermark Raw及六帧索引环回；FPGA PASS |
-| CAN_P1_006 | ADAPTED | FIFO0/1 Blocking/Overwrite满后序列和恢复；Overwrite Lost不作无依据断言；FPGA PASS |
-| CAN_P1_007 | ADAPTED | Buffer 0/31/32/63边界数据、NDAT分组清除和再次置位；FPGA PASS |
-| CAN_P1_008 | ADAPTED | 三种TX组织预装读回、单次TXBAR、RX顺序/完整payload/最终状态；按SVD修正Queue TFFL后FPGA PASS |
-| CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS |
-| CAN_P1_010 | ADAPTED | 8/16-bit各两条完整Marker、A/B回环RX、DAR对应事件类型2及100ms排空检查；本轮2 Execution FPGA PASS |
-| CAN_P1_011 | ADAPTED | 2026-09-07 11:13内部/外部回环/Normal各两参数全部PASS；外部Peer正常ACK，DUT模式读回、完整帧、实际ISR双线路与独立W1C均核对。旧只听超时不因此计为解决 |
-| CAN_P1_012 | ADAPTED | 人工确认FPGA输入分频bypass，固定40MHz五Classic/四FD组合；NBTP/DBTP实读及双向四帧全部PASS；不包含CRG分频或输入频率实测 |
-| CAN_P1_013 | ADAPTED | 40MHz输入配置，125k仲裁分频1/2/16；命令63内部源清零实读与100ms包围预算、锁存及自然回卷；本轮3 Execution FPGA PASS |
-| CAN_P1_014 | ADAPTED | TOP1000、分频1、500k；连续重装、FIFO互斥刺激、真实ISR与禁用后非空对照；本轮4 Execution FPGA PASS |
-| CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS |
-| CAN_P1_016 | ADAPTED | 单实例16KiB完整模式/March C-及重建回环FPGA PASS；CPU窗口不能解释为多实例独占容量 |
+| CAN_P0_001 | ADAPTED | INIT下500/250 kbit/s时序真实写入，CCE开/关保护及再次复位均FPGA PASS；[参数记录](#can-records-p0-001) |
+| CAN_P0_002 | ADAPTED | 500 kbit/s、两帧8-byte内部回环；FPGA PASS（2组数据）；[参数记录](#can-records-p0-002) |
+| CAN_P0_003 | ADAPTED | 2026-09-07重接硬件后FPGA PASS：500 kbit/s正常模式，CAN0与盒子CAN1双向各两帧完整收到，无Lost/Bus Off；旧ACK失败Run保留，详见6.4；[参数记录](#can-records-p0-003) |
+| CAN_P1_001 | ADAPTED | 6种格式×2个ID边界，每组DLC0～15及双Pattern；FPGA PASS；[参数记录](#can-records-p1-001) |
+| CAN_P1_002 | ADAPTED | 标准Range/Dual/Mask、首匹配、路由、未匹配和High Priority状态；FPGA PASS；[参数记录](#can-records-p1-002) |
+| CAN_P1_003 | ADAPTED | 扩展Range/Dual/Mask、XIDAM、29-bit高位、首匹配和High Priority状态；FPGA PASS；[参数记录](#can-records-p1-003) |
+| CAN_P1_004 | ADAPTED | 标准/扩展Remote允许、拒绝及同ID数据恢复；FPGA PASS；[参数记录](#can-records-p1-004) |
+| CAN_P1_005 | ADAPTED | FIFO0/1深度4、水位2、Full/New/Watermark Raw及六帧索引环回；FPGA PASS；[参数记录](#can-records-p1-005) |
+| CAN_P1_006 | ADAPTED | FIFO0/1 Blocking/Overwrite满后序列和恢复；Overwrite Lost不作无依据断言；FPGA PASS；[参数记录](#can-records-p1-006) |
+| CAN_P1_007 | ADAPTED | Buffer 0/31/32/63边界数据、NDAT分组清除和再次置位；FPGA PASS；[参数记录](#can-records-p1-007) |
+| CAN_P1_008 | ADAPTED | 三种TX组织预装读回、单次TXBAR、RX顺序/完整payload/最终状态；按SVD修正Queue TFFL后FPGA PASS；[参数记录](#can-records-p1-008) |
+| CAN_P1_009 | ADAPTED | 深度4、水位2、满后Event Lost、前四项内容/Ack及排空后恢复；FPGA PASS；[参数记录](#can-records-p1-009) |
+| CAN_P1_010 | ADAPTED | 8/16-bit各两条完整Marker、A/B回环RX、DAR对应事件类型2及100ms排空检查；本轮2 Execution FPGA PASS；[参数记录](#can-records-p1-010) |
+| CAN_P1_011 | ADAPTED | 2026-09-07 11:13内部/外部回环/Normal各两参数全部PASS；外部Peer正常ACK，DUT模式读回、完整帧、实际ISR双线路与独立W1C均核对。旧只听超时不因此计为解决；[参数记录](#can-records-p1-011) |
+| CAN_P1_012 | ADAPTED | 人工确认FPGA输入分频bypass，固定40MHz五Classic/四FD组合；NBTP/DBTP实读及双向四帧全部PASS；不包含CRG分频或输入频率实测；[参数记录](#can-records-p1-012) |
+| CAN_P1_013 | ADAPTED | 40MHz输入配置，125k仲裁分频1/2/16；命令63内部源清零实读与100ms包围预算、锁存及自然回卷；本轮3 Execution FPGA PASS；[参数记录](#can-records-p1-013) |
+| CAN_P1_014 | ADAPTED | TOP1000、分频1、500k；连续重装、FIFO互斥刺激、真实ISR与禁用后非空对照；本轮4 Execution FPGA PASS；[参数记录](#can-records-p1-014) |
+| CAN_P1_015 | ADAPTED | CCCR.CSR请求/CSA应答/INIT及新帧恢复；PC有界等待，未关闭CRG时钟；FPGA PASS；[参数记录](#can-records-p1-015) |
+| CAN_P1_016 | ADAPTED | 单实例16KiB完整模式/March C-及重建回环FPGA PASS；CPU窗口不能解释为多实例独占容量；[参数记录](#can-records-p1-016) |
 | CAN_P1_017 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P1_018 | ADAPTED | 内部时间基及4/16分频归一、EXTS→ATB→TS0逐bit一致、软件转交STIMER样本及New/Lost均直接验证；本轮4 Execution PASS；不是STIMER到CAN硬连线或绝对时钟精度证据 |
+| CAN_P1_018 | ADAPTED | 内部时间基及4/16分频归一、EXTS→ATB→TS0逐bit一致、软件转交STIMER样本及New/Lost均直接验证；本轮4 Execution PASS；不是STIMER到CAN硬连线或绝对时钟精度证据；[参数记录](#can-records-p1-018) |
 | CAN_P1_019 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P1_020 | ADAPTED | 四格式组合×16/64-byte及ISO恢复链已接通；本轮ISO/ISO两节点PASS，Non-ISO相关六节点FAIL；NISO实读与Peer发送失败保留，详见6.4 |
-| CAN_P1_021 | ADAPTED | 40MHz TDC时序Profile、2/5M双向64-byte及独立接收元数据；本轮2 Execution FPGA PASS，不覆盖高级延迟极限 |
-| CAN_P2_001 | ADAPTED | DMU TX及RX0/RX1请求/端点、整元素DMA状态、原始头/完整payload和队列计数均实际验证；本轮2 Execution FPGA PASS |
-| CAN_P2_002 | ADAPTED | 两word TX Event整元素DMA、队列推进、ID/Marker/精确事件类型及计数均实际验证；本轮FPGA PASS；不覆盖TSU附加格式 |
-| CAN_P2_003 | ADAPTED | 三实例ECC会话/共享线路与Force/Mask/Clear接口已接通；本轮两节点在Force Raw判据FAIL，未完成后续全部ISR矩阵；不代表真实RAM纠错 |
-| CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；按UT6及实测修正并存切片后，全实例数据、配置及Guard均FPGA PASS；原失败证据保留 |
-| CAN_P2_005 | ADAPTED | 正常ACK正对照及内部静默通过，外部回环只听捕获超时、Peer错误0x4；本轮FPGA FAIL，保留独立外部捕获判据 |
+| CAN_P1_020 | ADAPTED | 四格式组合×16/64-byte及ISO恢复链已接通；本轮ISO/ISO两节点PASS，Non-ISO相关六节点FAIL；NISO实读与Peer发送失败保留，详见6.4；[参数记录](#can-records-p1-020)、[分析/后续条件](#can-diagnosis-non-iso) |
+| CAN_P1_021 | ADAPTED | 40MHz TDC时序Profile、2/5M双向64-byte及独立接收元数据；本轮2 Execution FPGA PASS，不覆盖高级延迟极限；[参数记录](#can-records-p1-021) |
+| CAN_P2_001 | ADAPTED | DMU TX及RX0/RX1请求/端点、整元素DMA状态、原始头/完整payload和队列计数均实际验证；本轮2 Execution FPGA PASS；[参数记录](#can-records-p2-001) |
+| CAN_P2_002 | ADAPTED | 两word TX Event整元素DMA、队列推进、ID/Marker/精确事件类型及计数均实际验证；本轮FPGA PASS；不覆盖TSU附加格式；[参数记录](#can-records-p2-002) |
+| CAN_P2_003 | ADAPTED | 三实例ECC会话/共享线路与Force/Mask/Clear接口已接通；本轮两节点在Force Raw判据FAIL，未完成后续全部ISR矩阵；不代表真实RAM纠错；[参数记录](#can-records-p2-003)、[分析/后续条件](#can-diagnosis-ecc) |
+| CAN_P2_004 | ADAPTED | 首测同偏移Filter覆盖FAIL；按UT6及实测修正并存切片后，全实例数据、配置及Guard均FPGA PASS；原失败证据保留；[参数记录](#can-records-p2-004) |
+| CAN_P2_005 | ADAPTED | 正常ACK正对照及内部静默通过，外部回环只听捕获超时、Peer错误0x4；本轮FPGA FAIL，保留独立外部捕获判据；[参数记录](#can-records-p2-005)、[分析/后续条件](#can-diagnosis-loopback) |
 | CAN_P2_006 | NEEDS_VERIFICATION | 有注入位但注入作用于哪次RAM写/读、影响哪实例及单次/持续语义未闭合；ECC Force不是替代。 |
-| CAN_P2_007 | ADAPTED | 九类受限错误刺激、单次消费Raw、独立DMU ISR及复位后完整DMA数据恢复均实测；本轮9 Execution FPGA PASS |
-| CAN_P2_008 | ADAPTED | DMUC.TTS受保护配置实读、RX0/RX1与TTS开关、原始末word/TS0比较及满payload覆盖恢复均实测；本轮5 Execution FPGA PASS |
+| CAN_P2_007 | ADAPTED | 九类受限错误刺激、单次消费Raw、独立DMU ISR及复位后完整DMA数据恢复均实测；本轮9 Execution FPGA PASS；[参数记录](#can-records-p2-007) |
+| CAN_P2_008 | ADAPTED | DMUC.TTS受保护配置实读、RX0/RX1与TTS开关、原始末word/TS0比较及满payload覆盖恢复均实测；本轮5 Execution FPGA PASS；[参数记录](#can-records-p2-008) |
 | CAN_P2_009 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
-| CAN_P2_010 | ADAPTED | 已批准的WDC=1真实WDI/ISR、WDC=0负对照、W1C与复位后数据恢复均实测PASS；STIMER停止前读末值；精确8/32周期RAM应答矩阵仍未覆盖 |
+| CAN_P2_010 | ADAPTED | 已批准的WDC=1真实WDI/ISR、WDC=0负对照、W1C与复位后数据恢复均实测PASS；STIMER停止前读末值；精确8/32周期RAM应答矩阵仍未覆盖；[参数记录](#can-records-p2-010) |
 | CAN_P2_011 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P2_012 | IMPLEMENTATION_GAP | 已有PLAN；AUX源/分频Driver、PAD/电平/FPGA路径和外部源映射待补；未接线不阻止保留历史需求 |
 | CAN_P2_013 | NEEDS_VERIFICATION | 原P2_008的TX Event附加部分独立保留；TTS有效字数、timestamp位置及结束地址尚缺准确格式，见公共5.2。 |
-| CAN_P3_001 | ADAPTED | 40MHz Profile对应1M/5M，TDC offset=6/filter=0；TX/RX FIFO各32项64-byte元素，20轮各方向640帧完整数据及终态实测PASS；不代表极限压力 |
+| CAN_P3_001 | ADAPTED | 40MHz Profile对应1M/5M，TDC offset=6/filter=0；TX/RX FIFO各32项64-byte元素，20轮各方向640帧完整数据及终态实测PASS；不代表极限压力；[参数记录](#can-records-p3-001) |
 | CAN_P3_002 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
 | CAN_P3_003 | NEEDS_VERIFICATION | 已设计脉冲发生器/AWG加双通道示波器，1/3 tq×过滤开关四节点；仍须确认TEST采样点与硬同步的唯一对应，仪器目标预算0.1 tq，见公共5.3。 |
 | CAN_P3_004 | IMPLEMENTATION_GAP | 完整方法见公共PLAN及本文件3.4；资源R4；尚需Driver/Mapping/台架能力适配，未执行 |
@@ -551,12 +557,14 @@ GPIO依赖同步：公共GPIO功能新增CAN_RX/CAN_TX，ET6801映射为GPIO58_M
 
 PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、不可变配置Model及CanDriver已实现。20项专项软件测试验证精确Wire、独立读回、非法参数无请求、Deadline、GPIO CAN信号和CRG CAN类别编码；无真实CAN收发，不能作为正式Case通过证据。
 
+<a id="can-test-status"></a>
+
 ### 6.4 当前测试状态
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-08 01:14 CST`
+状态更新时间：`2026-09-08 08:37 CST`
 
 本轮完整CAN回归已结束，原始148份Canonical Result与Excel报告闭合。31项注册Case为28 PASS、3 FAIL，不宣称CAN全通过；失败未改为SKIP。
 
@@ -598,9 +606,9 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CAN_P1_020` | FPGA | FAIL | Non-ISO / CAN_F_037 | 8节点中ISO/ISO两节点PASS；4节点DUT NISO写1读0，另2节点Peer发送accepted=0 | NEEDS_DECISION：DUT配置保持/RTL能力及Peer Non-ISO实际发送能力未定，不能据实测反定义规格 | 明确NISO配置/保持语义与当前RTL支持、核对Peer能力后定向复测；保留格式实读及双向判据 | 最新Run `tests/can/`，参数True-True、True-False及False-True |
-| `CAN_P2_003` | FPGA | FAIL | ECC IRQ / CAN_F_027 | 两源Force后Raw仅为当前Enable源，两参数均在Raw等值断言失败 | NEEDS_DECISION：当前Oracle要求未Enable源也产生Raw，Enable/Force关系仍需规格确认；不是实际RAM纠错失败结论 | 取得明确的EN/Force/Raw硬件定义后裁决；不把任意Raw接受为PASS | 最新Run `tests/can/`，参数1/2 |
-| `CAN_P2_005` | FPGA | FAIL | 回环边界 / CAN_F_002 | Normal ACK正对照及内部静默通过；外部回环Peer只听接收超时，错误0x4 | NEEDS_DECISION：只听捕获/外部回环位流条件未闭合；普通ACK收发通过不能替代此Oracle | 核对只听模式位流及外部回环条件，必要时独立总线观测；不增加无依据Timeout | 最新Run `tests/can/` |
+| `CAN_P1_020` | FPGA | FAIL | Non-ISO / CAN_F_037 | 8节点中ISO/ISO两节点PASS；4节点DUT NISO写1读0，另2节点Peer发送accepted=0 | NEEDS_DECISION：Bosch支持Non-ISO，但当前FPGA的iso_only_g未知；Peer发送失败单独保留，详见6.8.1 | 核对当前FPGA综合配置及NISO写入生效/保持情况，另核对Peer真实刺激；不关闭Capability掩盖FAIL | 最新Run `tests/can/`；6.8.4列出六个失败参数及Result；[参数记录](#can-records-p1-020)、[分析](#can-diagnosis-non-iso) |
+| `CAN_P2_003` | FPGA | FAIL | ECC IRQ / CAN_F_027 | 两源Force后Raw仅为当前Enable源，两参数均在can0的Raw等值断言失败 | NEEDS_VERIFICATION：ET外围EN/Force/Raw关系未明确；当前表现与测试要求Raw=3冲突，不代表真实RAM纠错失败，详见6.8.2 | 取得ET6801中断封装逻辑后裁决契约/实现；复测需覆盖两源、全部实例及完整ISR/Clear链 | 最新Run `tests/can/`；6.8.4列出参数1/2的Result；[参数记录](#can-records-p2-003)、[分析](#can-diagnosis-ecc) |
+| `CAN_P2_005` | FPGA | FAIL | 回环边界 / CAN_F_002、CAN_F_003 | Normal ACK正对照及内部静默通过；外部回环DUT本地RX通过，Peer只听接收超时、错误0x4 | 按用户要求暂缓排查；连接CAN盒子是现有拓扑，不是已确认根因；Bosch外部回环忽略ACK错误，详见6.8.3 | 用户恢复排查后再核对物理TX与Peer只听捕获；本轮不复测、不改PASS/SKIP、不放宽Timeout | 最新Run `tests/can/`；6.8.4列出Result；[参数记录](#can-records-p2-005)、[分析](#can-diagnosis-loopback) |
 
 ### 未注册目标与本轮排除范围
 
@@ -712,3 +720,121 @@ SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致�
 设计结论：39 PLAN + 3 DESIGN_GAP，共42个目标；新增1个目标来自DMU原混合目标拆分，不是重复统计参数节点。剩余3项硬件语义和6.3所列覆盖扩展仍未闭合，不能宣布全部设计审核通过。公共及芯片文件的Feature/Case映射一并维护。
 
 验证时间：2026-09-04 21:50 CST。Task Context范围、Public IP边界、Chip映射、PLAN格式、Case方法专项检查通过；另独立核对42个唯一Case目标与42条芯片适配记录完全对应，39个PLAN及3个缺口集合准确。本批`tools/validate_pc.py`退出码0；日志为`artifacts/runs/20260904_192700_000000_can_analysis/stages/software_gate_case_review.log`，未覆盖旧日志。没有硬件操作；软件门禁不能证明这些CAN Case已经实现或通过真机测试。实际工作树仅CAN两份文档变更，未修改规则、公共层或其他IP代码，未提交/推送。
+
+### 6.8 三项失败Case资料复盘与处理边界
+
+记录时间：2026-09-08 07:09 CST。文档记录遵循工作区根目录`DOCUMENTATION_RULES.md`；本节按时间线追加分析，不回改旧运行记录。当前测试状态仍唯一保存在6.4的`ET_CHIP_TEST_STATUS`区域。
+
+本次操作/方法：对照既有Canonical Result、Bosch M_TTCAN v3.3.0手册、ET6801寄存器资料与软件责任链，登记前序只读分析结论；本次仅文档回写，没有新增运行、驱动修复或断言修改。复盘对象为6.4的FPGA运行，不是Silicon实测。运行Source为`e0f70ef9f353f4d8a239bbd3778c735c01897d0b`、`source_dirty=false`；当前文档编辑基线为`c63167a58c3a924cb332ead96e1b83bf16f34b4a`。`bitstream_id=null`仍是身份缺口，不能从固件Build ID推定FPGA综合参数。
+
+用户处理决定：外部回环先不处理，保留当前FAIL及现场证据；优先保留Non-ISO、ECC两项待闭环事项。暂缓不等于已证明CAN盒子是根因，也不授权修改Capability、扩大SKIP或执行新硬件操作。
+
+<a id="can-diagnosis-non-iso"></a>
+
+#### 6.8.1 CAN_P1_020：Non-ISO配置及Peer发送
+
+- 现象/结果：四组格式乘16/64-byte，共8个Execution。ISO/ISO两个通过；DUT请求Non-ISO的四个节点在格式实读时得到false而失败；DUT ISO、Peer Non-ISO的两个节点在Peer发送接受数为0处失败。六个失败不能未经验证合并为同一根因。
+- 已确认资料事实：Bosch手册§2.3.7（印刷页13）定义`CCCR.NISO[15]`；综合参数`iso_only_g=1`时该位保留且读0。IP支持Non-ISO不证明当前FPGA实例启用Non-ISO。§3.1.1（印刷页77）说明INIT/CCE保护行为，CCE切换本身不是NISO自动清零的依据。
+- 已检查软件边界：ET6801位号与驱动掩码一致；Case等待INIT后配置，Service/Wrap传参未发现明显布尔值或实例转换错误。NISO读回发生在后续RAM/Filter/Loopback/Bus配置之后，不是写入瞬间快照，因此现有记录不能区分“写入未生效”与“后续被覆盖”。同轮P1_010的WMM16通过且使用相同写保护辅助函数，削弱了通用CCE写保护路径全部失效的解释，但不能单独证明NISO写入正确。
+- 当前判断（未证实）：优先核对当前FPGA的`iso_only_g`及NISO配置生效/保持情况；尚未取得对应实例化配置，不能认定ET6801硬件不支持，也未确认驱动缺陷。安装包的ZLG ISO/Non-ISO枚举与适配器设置一致，但API配置成功不能代替Peer真实发送证据。
+- 后续闭环条件：取得当前bitstream对应的综合配置；若配置禁用而目标规格要求支持，应由FPGA侧处理。若配置开放，应按现有人工门禁补充NISO写入前、写入后及各后续配置步骤的INIT/CCE/NISO读回，定位具体失效位置。Peer的两个失败独立检查实际发送能力。修复后按本Case八个节点验证同格式双向收发、失配错误与ISO恢复，不以配置读回单独宣告修复。
+
+<a id="can-diagnosis-ecc"></a>
+
+#### 6.8.2 CAN_P2_003：ET ECC中断封装与Oracle关系
+
+- 现象/结果：Corrected/Uncorrected两个参数均在首个目标can0的masked阶段失败。写FORCE=3、MASK=3时，EN=1得到RAW=1，EN=2得到RAW=2；STATUS均为0。Case当前期望RAW=3。100 ms观察内未记录ISR投递；后续unmask、ISR、Clear、再次Force以及can1/can2目标轮转尚未完成，不能宣称三实例ECC链全部验证。
+- 已确认资料边界：Bosch手册§2.3.17（印刷页23）的`IR.BEC/BEU`接收可选外部Message RAM parity/ECC逻辑的错误指示；ET的`MISC.MTTCAN_INT_EN/MASK/FORCE/CLR/RSTATUS/MSTATUS`是集成外围控制，不能用Bosch内核文档直接推导ET的FORCE是否绕过EN。
+- 已检查软件边界：Chip Driver对FORCE单写请求源，RAW直接读取RSTATUS并截取两源位，未在软件中按EN过滤；当前失败不能解释为PC显示时丢掉另一源。ET6801 SVD说明字段用途与FORCE自清，但未给出EN/FORCE/RAW的完整逻辑关系。
+- 当前判断（未证实）：现象与“EN参与强制Raw产生”相符，但不能仅凭两个样本建立硬件真值表。公共Case目前要求未Enable的另一源也保留Raw；若ET规格不支持这种构造，应经契约评审调整刺激方法并保留独立Mask/ISR/Clear覆盖，而不是直接把Expected从3改成当前实测值。
+- 后续闭环条件：取得ET6801 ECC中断封装RTL或明确逻辑说明；必要时另经人工门禁验证MASK=3、每点先Clear的EN=0/1/2/3与FORCE=1/2/3矩阵，记录RAW/STATUS及ISR计数。根据规格裁决Case构造或FPGA实现，再完整复测两源与全部实例。此Case不向Message RAM注入错误，任何结果都不能替代真实ECC纠错/不可纠错检测测试。
+
+<a id="can-diagnosis-loopback"></a>
+
+#### 6.8.3 CAN_P2_005：外部回环暂缓排查
+
+- 现象/结果：相同接线下Normal正对照捕获成功；内部回环本地收发和静默窗口通过；外部回环首帧本地RX通过，但CAN盒子只听捕获超时，错误标志0x4，未完成外部两帧完整Oracle。
+- 资料复盘修正：Bosch手册§3.1.9.1（印刷页83）规定外部回环忽略ACK错误，实际RX引脚输入被忽略，TX内部反馈并保留引脚输出。因此“无ACK导致DUT外部回环失败”不是成立解释；本地RX通过也不能证明物理TX/收发器/总线输出正确。已安装ZLG头文件将0x4定义为CAN_PASSIVE标志，单个错误标志不证明当前持续处于error-passive状态。
+- 当前判断：未定位根因；Normal捕获正对照降低静态接线/固定速率错误的嫌疑，但不能替代切换后的物理TX与只听接收证据。用户明确暂缓，本轮不继续测试、不修改Case或盒子配置；原FAIL保留。
+- 恢复条件：用户重新要求排查后，先明确独立物理TX观察与Peer只听接收的验证方案，并按硬件人工门禁执行；不能靠增加Timeout、移除外部捕获或改用普通ACK模式使本Case通过。
+
+#### 6.8.4 关联文件与证据定位
+
+以下路径相对正式仓库根。运行事实根目录为`artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/`；运行身份见其`session.json`，下表Result路径均相对该根。参数格式为`dut_non_iso-peer_non_iso-length`，true表示请求Non-ISO；ECC参数1/2对应Corrected/Uncorrected。
+
+| Case / 参数 | Canonical Result路径 |
+|---|---|
+| P1_020 / True-True-16 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/5659970d-3755-4ae9-81a8-1f747d4da0ce/result.json) |
+| P1_020 / True-True-64 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6a4b1468-2b2e-4de8-b497-92d13838d9d0/result.json) |
+| P1_020 / True-False-16 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9799bb71-5a52-434c-8b29-ce16bdc5bcf5/result.json) |
+| P1_020 / True-False-64 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/68ee5c53-8c8c-44c8-adf0-f1867c13b0e0/result.json) |
+| P1_020 / False-True-16 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/77f1a241-a356-46e7-bec9-e4ce07d69114/result.json) |
+| P1_020 / False-True-64 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/80cf4180-130a-4c84-829e-1c6b98493b92/result.json) |
+| P2_003 / 1 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9bd76b61-b30b-4605-98b8-233c522cc237/result.json) |
+| P2_003 / 2 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8a77dae7-b282-4e55-acb1-3ef963949326/result.json) |
+| P2_005 / 单节点 | [result.json](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/eca3a7d3-6183-48eb-9e7b-dbb6b81bf0cf/result.json) |
+
+资料/源码定位（分析来源，不是新增运行Evidence）：
+
+- Bosch原文：`artifacts/runs/20260904_192700_000000_can_analysis/stages/mttcan_v330.pdf`，SHA256=`E9C9CD0F6324FE2BEE0B48B5037359FFA53E26D8F7DF2F927F0E9FB5765432D3`；本节只引用机制与章节，不复制长篇资料。
+- ET6801寄存器资料：`D:/lihuan/vibe_code/code/SDK/git/6801/et6801-verification/Tools/RegGen/svd/mttcan_cfg.svd`、同目录`mttcan_misc.svd`。本次尚缺当前FPGA综合配置与ET6801 ECC封装逻辑定义；不能用其他芯片资料替代。
+- 软件责任链：`pc/et_test_platform/test_cases/can/test_can_p1_format.py`、`test_can_p2_ecc.py`；`firmware/services/src/et_can_service.c`、`firmware/wrap/src/et_can_wrap.c`、`firmware/chips/et6801/sdk/ET6x_Driver/Src/et6x_can.c`。公共Case语义仍以`test_case_doc/can/can.md`对应SPEC为准。
+- ZLG来源：现用ET tool GUI SDK的`platform/vendor/zlg_can/sdk/windows-x64/zlgCANLib/zlgcan.h`与`bundle/windows-x64/kerneldlls/devices_property/usbcanfd-200u.xml`；来源由当前`run_config.yaml`的vendor库路径定位，未修改该外部项目。
+
+本轮未执行项：固件构建、烧录、新增FPGA/HIL及Silicon测试均为`NOT_EXECUTED`；这是文档任务的执行边界，不改变既有Case的FAIL。没有提交或推送。
+
+<a id="can-record-index"></a>
+
+### 6.9 测试记录与继续开发索引
+
+索引核对时间：2026-09-08 08:37 CST。本节只提供路径导航，不保存第二份当前测试状态，不复制原始日志；结论仍见6.4，失败分析见6.8。对应FPGA运行的148份Result已按Session中的Case ID、parameter_id和run_id核对，覆盖31个已执行Case。
+
+| 入口 | 用途 |
+|---|---|
+| [运行Manifest](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/manifest.json) | 本次运行阶段及最终状态；不是单Case硬件Observation |
+| [配置快照](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/config/run_config.snapshot.yaml) | 该次实际运行配置；恢复开发时不要用当前配置冒充旧配置 |
+| [CAN Session](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/session.json) | Source、Build、Registry身份和完整Selection |
+| [全部Case原始目录](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/) | 每个execution的result.json及其登记附件；以下按Case直接索引 |
+| [CAN Excel报告](../../artifacts/reports/20260908_011244_444000_ET6801_CAN测试报告.xlsx) | 人读派生报告；原因分析优先回到Canonical Observation/Measurement |
+| [最新全局软件门禁](../../artifacts/runs/20260907_can_planned_development/stages/global_software_gate_20260908_0730.log) | 2026-09-08 08:11 CST完成，1866 PASS、17 Native编译器条件SKIP、exit_code=0；不是新增HIL |
+| [原测试前软件门禁](../../artifacts/runs/20260907_can_planned_development/stages/watchdog_sample_gate_0101.log) | 该轮CAN FPGA测试前的软件检查记录 |
+
+这些文件当前保存在本机正式仓库的artifacts目录；目录受Git忽略规则管理，文档提交不等于原始证据已上传或备份。后续清理artifacts或换机器前应另行归档保留本节引用的Run、报告与门禁日志；本次没有执行归档、上传或删除。
+
+继续开发入口：先在6.2找到Case并点击参数记录，再读对应result.json的error、observations、measurements和artifacts。需要附件时只沿Result已登记的相对路径查找；公共Oracle仍以[CAN公共契约](can.md)为准，不能据失败实测反定义规格。Non-ISO优先确认FPGA配置和写入生效位置；ECC优先确认ET封装逻辑；外部回环保持暂缓，详见各自分析。
+
+下表固定索引2026-09-08 01:06 CST开始的Run，链接文字保留真实parameter_id；“单节点”表示parameter_id为空。表中数量只是文件入口数，不另行判定或汇总PASS/FAIL。点击“Case源码”打开Session记录的测试文件，具体函数名保存在Session的node_id。
+
+| Case / 源码 | 参数级Canonical Result（点击参数打开） |
+|---|---|
+| <a id="can-records-p0-001"></a>CAN_P0_001（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p0.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/251077a6-ee3b-4a10-a18e-8d0761f0d852/result.json) |
+| <a id="can-records-p0-002"></a>CAN_P0_002（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p0.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/d70fad3b-c311-4765-acbd-191bdbda33eb/result.json) |
+| <a id="can-records-p0-003"></a>CAN_P0_003（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p0.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f6d2fa4c-8565-4437-bc44-6a579842bfaf/result.json) |
+| <a id="can-records-p1-001"></a>CAN_P1_001（12） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [minimum-classic_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/5e903965-2e2a-47e6-a2d0-3f2b315550dd/result.json) · [minimum-classic_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/707b4721-113e-41f1-a912-5b3ad612087b/result.json) · [minimum-fd_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6627fe69-0a11-4a51-a63c-8f7005b9092d/result.json) · [minimum-fd_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/850cfdff-9d8f-4a28-b3f9-870d657c4936/result.json) · [minimum-fd_brs_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/2e81b4b9-0601-48e1-8c92-d2ceec23e22f/result.json) · [minimum-fd_brs_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/b17c513f-29d2-4749-b5d3-5f615a467eb1/result.json) · [maximum-classic_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ba1b9896-8d4e-4e2b-a3d5-0f3a050e05fd/result.json) · [maximum-classic_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/cd147ef2-71a8-4136-b289-7c7608d0c21e/result.json) · [maximum-fd_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ca549f5c-2538-4b3b-9522-4e93dd5facda/result.json) · [maximum-fd_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/94e1443e-53eb-446e-8cc8-10b2f3ba0825/result.json) · [maximum-fd_brs_std](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/7ec47a37-049a-4b21-9b30-76c013613aaa/result.json) · [maximum-fd_brs_ext](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/12c9ba42-ceb9-4805-b4dc-26847b9f5ffa/result.json) |
+| <a id="can-records-p1-002"></a>CAN_P1_002（20） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [range_below](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/4988d7d1-704f-4a80-bbef-740800bf6bd8/result.json) · [range_lower](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/61db01ff-e2cc-4342-b6ef-c42f9ff4898d/result.json) · [range_middle](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8f66725b-3bd0-4908-9714-206ad21b6335/result.json) · [range_upper](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/87277e7a-5eb1-48d2-8b3d-b3232d8fd0f3/result.json) · [range_above](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c48a2c86-e28e-445b-afc3-272384ba6978/result.json) · [dual_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/80da61a5-9a2f-4efb-95b4-7fa9200b99b7/result.json) · [dual_second](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c8549188-c5af-4d20-90c0-478077f1bbe9/result.json) · [dual_miss](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/343dac17-1a6b-46ba-8e45-bfa6fdd4c8c2/result.json) · [mask_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/3addef58-47ce-4fa4-98c5-0a9aed5c2b7e/result.json) · [mask_last](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/2facc3e7-414c-46f6-81ad-c38a79f6f687/result.json) · [mask_miss](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/e2d9ef45-83d2-46b8-bc0e-d2eca24ba87a/result.json) · [matched_fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6680e1f2-b08f-4df6-ba26-c83ac6de5d69/result.json) · [matched_reject](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/84f56562-397a-40cc-84fd-58fbcbb0a68b/result.json) · [unmatched_fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/0c4aecc1-45cd-4904-8f21-da80e9f35fb9/result.json) · [unmatched_fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/13032724-f824-45ea-8765-824cab286be2/result.json) · [unmatched_reject](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/1cf105a0-d64e-4e27-8c26-81a10365267e/result.json) · [overlap_fifo0_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/23795ada-d91f-4cea-8938-6a49ca480d1a/result.json) · [overlap_fifo1_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8e5f2c9c-9439-4f31-9c7f-91c7c32154dc/result.json) · [overlap_first_disabled](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/4e956462-53d6-408c-944b-53bdccb801f1/result.json) · [high_priority_fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6e3e7ab0-7e6f-4d08-b3cb-572e74a76ef8/result.json) |
+| <a id="can-records-p1-003"></a>CAN_P1_003（35） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [range_below](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/dba1f547-5d6e-4d83-aaf2-57f0d5d2bdbc/result.json) · [range_lower](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ae410fb7-8279-4595-a6ae-3447959e6feb/result.json) · [range_middle](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/2fe929b7-6a94-44b0-a48d-4e149c27db1b/result.json) · [range_upper](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ad2d5200-b5ea-48eb-88e9-fa984944eb70/result.json) · [range_above](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/1256f8cd-29dd-4b84-9e33-f42a8c3e878a/result.json) · [dual_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/410a711a-467d-4059-b9e2-096c6e698e15/result.json) · [dual_second](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/353f0bb9-7c5d-457a-b22f-958da1130be4/result.json) · [dual_miss](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ef4c33f7-b16c-4a1d-869c-22f845859a46/result.json) · [mask_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/df64e458-4635-4c07-993e-635296696b8e/result.json) · [mask_last](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/420f3e51-123a-4f48-997b-1bc1c300724a/result.json) · [mask_miss](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/a1acf23e-632d-4064-bf68-7068f3a05726/result.json) · [xidam_full_120](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/72234665-8072-4bf4-acdf-d822ea3ecb4c/result.json) · [xidam_full_121](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/10d57558-3514-4a41-88a8-20ae98823b3e/result.json) · [xidam_full_12f](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/18130ff6-fb20-4121-9a77-4b0ce54ee859/result.json) · [xidam_full_130](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/75ebb7fc-698a-4fc4-946f-eee59cc9cef1/result.json) · [xidam_low_nibble_120](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/e2357a3d-bb67-401a-8207-03463d3a85cc/result.json) · [xidam_low_nibble_121](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/85d9a9ce-5b5b-412a-b086-3fe4678d9454/result.json) · [xidam_low_nibble_12f](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/21452494-26e9-4bab-aceb-1db7730368e2/result.json) · [xidam_low_nibble_130](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9b5c5238-603e-4846-a67e-bfdc9ba4e7bd/result.json) · [range_no_mask_120](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/3a09550f-3f61-4128-beff-3d112e06b21c/result.json) · [range_no_mask_121](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/1afbad97-9d9e-4368-abf8-ad2fe2db7872/result.json) · [range_no_mask_12f](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/d8838f77-dc2d-4813-a236-5bef2dc8ccb0/result.json) · [range_no_mask_130](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/4657d328-41ae-4202-9999-816c5f6ab87a/result.json) · [high_id_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/b90c97e0-aa47-4ddf-9a96-d93ad5aa6f3d/result.json) · [high_id_second](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/aee6bb07-7243-4714-a460-ea0c3173d88e/result.json) · [high_id_low_alias_miss](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/aaac5d0d-438a-469c-9e3c-fe0badb2c8e0/result.json) · [matched_fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/0c4cacb5-d737-43fa-80cd-cca7b7578173/result.json) · [matched_reject](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/600c991e-257d-47a7-8e87-354b100a859f/result.json) · [unmatched_fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/7415ba88-9407-4fe2-ab30-cf15f9209300/result.json) · [unmatched_fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f0cb4642-7eb4-49cb-9122-1e000a521960/result.json) · [unmatched_reject](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6ed62160-9eea-4991-85ce-b9ca510380cb/result.json) · [overlap_fifo0_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/adcdf3a3-95eb-4816-a8d3-f04e4f493d41/result.json) · [overlap_fifo1_first](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/371d1a60-fed3-499e-aabf-902db5316eeb/result.json) · [overlap_first_disabled](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/da78c530-7ba0-40a8-8c85-2a41f70d88a4/result.json) · [high_priority_fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c7ecad66-a555-4e0e-88a3-423c563628f0/result.json) |
+| <a id="can-records-p1-004"></a>CAN_P1_004（4） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [dlc0-standard](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9a767315-0c3e-43ba-8f67-76a9fa310566/result.json) · [dlc0-extended](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/dfbe5377-3fc5-48b0-b59c-6e496d31ec58/result.json) · [dlc8-standard](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6443d585-43b9-40d5-94fa-494fb3e6ff8e/result.json) · [dlc8-extended](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/780cd416-a4dc-4b93-9909-ae39b0a0f40b/result.json) |
+| <a id="can-records-p1-005"></a>CAN_P1_005（2） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/3225b769-02c2-4018-9c22-d46452df5f57/result.json) · [fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/49705aa7-c10e-440d-98fb-3b5474d68123/result.json) |
+| <a id="can-records-p1-006"></a>CAN_P1_006（4） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [blocking-fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/87f19a4d-b957-458e-8838-aff0e11b2d44/result.json) · [blocking-fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/061298db-5cef-49ef-a01c-eb2a9a0cf36c/result.json) · [overwrite-fifo0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/57c17084-cad5-441b-b4fe-87f1521c2613/result.json) · [overwrite-fifo1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/d0f012b6-45be-4c32-a489-2f729194ccec/result.json) |
+| <a id="can-records-p1-007"></a>CAN_P1_007（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/447ebb8f-44ee-4c5e-965d-87a797e7914e/result.json) |
+| <a id="can-records-p1-008"></a>CAN_P1_008（3） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [buffer](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/307eb2c7-7097-4662-9688-037aefbecfca/result.json) · [fifo](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/3cc11d85-eaf8-49dd-a1ce-8e5edc773a5a/result.json) · [queue](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f3ee3731-5e5d-4a48-9083-bf8e4323d03c/result.json) |
+| <a id="can-records-p1-009"></a>CAN_P1_009（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/e9acd7fc-f67c-4526-ae34-819cba889aea/result.json) |
+| <a id="can-records-p1-010"></a>CAN_P1_010（2） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_marker.py) | [8](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/77464b9b-d2be-4825-970e-a24888222586/result.json) · [16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/86409cc0-a0c8-49b3-9668-08821d427685/result.json) |
+| <a id="can-records-p1-011"></a>CAN_P1_011（6） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [0-internal](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/127f87cf-3aeb-464b-bb7b-2c870a0cd76b/result.json) · [0-external](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/08b33dc4-bc04-473b-8538-82206b529362/result.json) · [0-normal](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/0c6acc79-7203-49f6-bd0e-6479249c9f1f/result.json) · [1-internal](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c96cac21-a75a-4de9-8031-9a2f6d1163eb/result.json) · [1-external](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/44e8948a-8e08-40de-83fe-98a54826546a/result.json) · [1-normal](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/92b421f7-b856-41ac-a01b-588b30dcc677/result.json) |
+| <a id="can-records-p1-012"></a>CAN_P1_012（9） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_rates.py) | [125000-None](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/2830d3f5-bda4-43ff-9d3e-d055da6f4a89/result.json) · [250000-None](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/51a697b3-97f2-4b8b-8188-a1a09453edb4/result.json) · [500000-None](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f647991d-93b5-4b6b-b633-d1ea9d0e1675/result.json) · [800000-None](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ce82b696-6bf5-455a-a506-3ea4d3a93e1a/result.json) · [1000000-None](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/bad090fd-13f7-43d6-a1bc-0a3c024ddf1c/result.json) · [500000-2000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f8031754-cb54-484e-99a7-b2236b588d2e/result.json) · [500000-5000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9510bbc1-c587-488f-9db7-372deaf4c1c2/result.json) · [1000000-2000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/79ad50ce-c69e-4925-88e0-a1e03acb2319/result.json) · [1000000-5000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/4286e035-d2c7-47a7-a077-27c1356ecf8e/result.json) |
+| <a id="can-records-p1-013"></a>CAN_P1_013（3） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_timestamp.py) | [1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/1ed826e6-e22d-4dc5-bc3c-5b9434b26129/result.json) · [2](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f404e9aa-5b2c-49a1-ad55-022efbf3075f/result.json) · [16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/a9360d13-6c3f-4fc0-b74e-05c5b3c33e43/result.json) |
+| <a id="can-records-p1-014"></a>CAN_P1_014（4） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_timeout.py) | [0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/94b9348c-10a7-460a-8a7f-7c7db798cecf/result.json) · [1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/3e3c7964-f07b-4de0-bc25-34f040cbc4a3/result.json) · [2](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/82ef92f7-51fb-4932-883f-653d213359f8/result.json) · [3](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c4f35a27-3363-44dc-982c-d0cb0e8fb0f2/result.json) |
+| <a id="can-records-p1-015"></a>CAN_P1_015（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/00f09c14-bfee-4670-a3ff-cb26aa990a8b/result.json) |
+| <a id="can-records-p1-016"></a>CAN_P1_016（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/4773847c-e078-4e30-aeb2-e49b4a516ae7/result.json) |
+| <a id="can-records-p1-018"></a>CAN_P1_018（4） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_tsu.py) | [internal](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6fa94693-c5ff-435a-8526-fd993f3d2dec/result.json) · [305419896](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/624ae27f-1b8e-4dd3-875e-e9802f8af1f3/result.json) · [2309737967](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f8d632a9-2552-47b4-81d7-59603ba4bd69/result.json) · [stimer](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/367c4606-8327-4264-92ee-34d73ee5cb4b/result.json) |
+| <a id="can-records-p1-020"></a>CAN_P1_020（8） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_format.py) | [False-False-16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/5ef6ab10-3dab-4c2f-8832-247084cb00c8/result.json) · [False-False-64](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f8c9799f-fc32-481c-9268-b4e054891f3e/result.json) · [True-True-16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/5659970d-3755-4ae9-81a8-1f747d4da0ce/result.json) · [True-True-64](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6a4b1468-2b2e-4de8-b497-92d13838d9d0/result.json) · [False-True-16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/77f1a241-a356-46e7-bec9-e4ce07d69114/result.json) · [False-True-64](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/80cf4180-130a-4c84-829e-1c6b98493b92/result.json) · [True-False-16](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9799bb71-5a52-434c-8b29-ce16bdc5bcf5/result.json) · [True-False-64](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/68ee5c53-8c8c-44c8-adf0-f1867c13b0e0/result.json) |
+| <a id="can-records-p1-021"></a>CAN_P1_021（2） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p1_tdc.py) | [2000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/b9fa21f5-bb77-4d62-9806-75435c01c2df/result.json) · [5000000](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ff37979e-f52c-4983-8991-ee82a0cdf72e/result.json) |
+| <a id="can-records-p2-001"></a>CAN_P2_001（2） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_dmu.py) | [rx0](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/1ee3e103-6622-4f0a-9eaa-62a3b1750ecf/result.json) · [rx1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/babf03f0-0903-4424-bea6-8c153867b94b/result.json) |
+| <a id="can-records-p2-002"></a>CAN_P2_002（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_dmu.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/57c6f1b5-4249-4291-bc58-0a62a3f0b644/result.json) |
+| <a id="can-records-p2-003"></a>CAN_P2_003（2） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_ecc.py) | [1](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/9bd76b61-b30b-4605-98b8-233c522cc237/result.json) · [2](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8a77dae7-b282-4e55-acb1-3ef963949326/result.json) |
+| <a id="can-records-p2-004"></a>CAN_P2_004（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ac5c3404-a940-4462-9b38-900ca9c97c93/result.json) |
+| <a id="can-records-p2-005"></a>CAN_P2_005（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_loopback.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/eca3a7d3-6183-48eb-9e7b-dbb6b81bf0cf/result.json) |
+| <a id="can-records-p2-007"></a>CAN_P2_007（9） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_dmu_errors.py) | [tx_read](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/e07ae96c-80d8-47ed-9a55-b6419024d360/result.json) · [rx1_write](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/c611edc2-e4ad-46c1-9a1a-181693da76f2/result.json) · [event_write](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/52cefab4-eb58-451f-817d-cf18fe47e6f0/result.json) · [rx1_empty](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/95cba857-ba70-4025-aae8-c47e6024fa87/result.json) · [event_empty](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/a1308511-84ca-4b38-88b0-f6e7b8519c9f/result.json) · [tx_dlc](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/173f777a-fb24-450b-88af-d0bbdb988494/result.json) · [configuration](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/bfccdc8d-9373-4232-9bc2-37de0351ac6f/result.json) · [tx_start](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/32df4422-267d-4f8c-afb7-9b12dfdc1951/result.json) · [tx_sequence](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8fbee176-9576-44d2-90e3-64538aeab09a/result.json) |
+| <a id="can-records-p2-008"></a>CAN_P2_008（5） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_dmu_tsu.py) | [rx0_plain](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/6e5fee7c-0f51-4183-b8d2-69b8c7fc30b1/result.json) · [rx0_tsu](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/5d95f7a1-94cc-48b4-9632-32ace407aee4/result.json) · [rx1_plain](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/8f34fdce-aa83-40f3-9dd7-3760206fe069/result.json) · [rx1_tsu](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/892359c7-f6bf-4c17-b2f3-28e6c9d9a311/result.json) · [rx1_overwrite_recover](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/f7d28790-8b3b-47cc-b282-672612f28d17/result.json) |
+| <a id="can-records-p2-010"></a>CAN_P2_010（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p2_watchdog.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/7f64ba5b-8d31-44fe-abd9-50979dd132da/result.json) |
+| <a id="can-records-p3-001"></a>CAN_P3_001（1） / [Case源码](../../pc/et_test_platform/test_cases/can/test_can_p3.py) | [单节点](../../artifacts/runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/cases/ce14fa74-7c19-42c9-8f3e-9b3a500dcf8f/result.json) |
