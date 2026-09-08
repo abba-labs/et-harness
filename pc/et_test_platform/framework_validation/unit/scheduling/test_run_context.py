@@ -130,6 +130,30 @@ def test_generated_output_cleanup_cache_scope_is_bounded(tmp_path: Path) -> None
     assert artifact_cache.is_dir()
 
 
+# 固定工作区和维护事务不是可随意删除的临时文件；所有通用清理范围均须排除。
+def test_cleanup_preserves_fixed_records_and_transaction_recovery(tmp_path: Path) -> None:
+    root = tmp_path / "repository"
+    (root / "tools/runner").mkdir(parents=True)
+    (root / "artifacts").mkdir()
+    (root / "artifacts/README.md").write_text("artifact rules", encoding="utf-8")
+    protected = (
+        root / "artifacts/runs/current",
+        root / "artifacts/records/CHIP/IP",
+        root / "artifacts/runs/record-maintenance/CHIP_IP",
+    )
+    for directory in protected:
+        (directory / "__pycache__").mkdir(parents=True)
+        (directory / "__pycache__/unique.pyc").write_bytes(b"keep")
+        (directory / "transaction.json").write_bytes(b"unique recovery data")
+    ordinary = root / "tmp/ordinary"
+    ordinary.mkdir(parents=True)
+    (ordinary / "scratch").write_bytes(b"disposable")
+    plan = build_cleanup_plan(root, ("runs", "reports", "tmp", "caches"))
+    assert [entry.path for entry in plan] == [ordinary]
+    execute_cleanup(plan)
+    assert all((directory / "transaction.json").is_file() for directory in protected)
+
+
 def test_case_result_requires_explicitly_registered_evidence(tmp_path: Path) -> None:
     item = _FakeItem()
     item.user_properties = [("required_evidence_sources", ["dut", "peer"])]

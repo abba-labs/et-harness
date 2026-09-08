@@ -41,6 +41,19 @@ CAN盒子人工诊断：`tools/runner/can_box.py`；配置和设备能力边界�
 .\.venv\Scripts\python.exe tools\validate_pc.py
 ```
 
+固定Case档案维护：
+
+```powershell
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py check --chip ET6801 --ip can
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py update `
+  --chip ET6801 --ip can --lane fpga --source <Session目录> --manifest <原Manifest文件>
+```
+
+`update/check/archive/prune`共用这一入口。档案位于`artifacts/records/<CHIP>/<IP>`，
+正式Runner自动调用更新；`--no-report`只省略Excel，`--protect-case`可重复指定验收基线Case。
+显式阶段归档、中断工作区归档和预览优先的保护释放示例见
+[产物导航](../artifacts/README.md)，唯一语义见R500第6节。
+
 Firmware平台自有C源码格式化与检查：
 
 ```powershell

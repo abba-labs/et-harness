@@ -10,7 +10,7 @@
 artifacts/
 ├─ README.md
 ├─ runs/
-│  └─ <YYYYMMDD_HHMMSS_microseconds>_<run-name>/
+│  └─ current/
 │     ├─ manifest.json
 │     ├─ config/
 │     │  └─ run_config.snapshot.yaml
@@ -19,54 +19,62 @@ artifacts/
 │     └─ tests/
 │        └─ <ip>/
 │           ├─ session.json
-│           └─ cases/
-└─ reports/
-   └─ <YYYYMMDD_HHMMSS_microseconds>_<CHIP>_<IP>测试报告.xlsx
+│           ├─ cases/
+│           └─ publication.json
+├─ records/<CHIP>/<IP>/
+│  ├─ README.md
+│  ├─ results.json
+│  ├─ test_report.xlsx
+│  ├─ cases/<CASE_ID>.md
+│  └─ evidence/<CASE_ID>.json、<CASE_ID>.zip
+└─ reports/  # 历史或显式一次性导出
 ```
 
-`runs/`按一次运行归档原始证据。`run_id`已包含完整时间，因此新运行可以直接按
-`runs/<run_id>/`查找，不需要先进入年月日目录。
-
-默认单轮结果位于`tests/<ip>/`；配置多轮执行后，各轮结果位于`round_<NN>/`。
-
-`reports/`集中保存从Canonical Result生成的人读Excel报告，文件名以完整时间戳开头，
-可直接按文件名排序。
+`runs/current`是正式入口的固定工作区；每轮发布档案后由回执保护复用。
+`records/<CHIP>/<IP>`是长期查阅入口，参数与测试时间写在文件内容中。
+原始附件在每Case的ZIP内按SHA256定位，对应文件名映射位于同名JSON。
 
 ## 快速定位
 
 | 需要查找的内容 | 位置 |
 |---|---|
-| 本次运行身份与最终状态 | `runs/<run_id>/manifest.json` |
-| 本次实际配置 | `runs/<run_id>/config/` |
-| 编译、部署和启动阶段证据 | `runs/<run_id>/stages/` |
-| 某个IP的原始测试结果 | `runs/<run_id>/tests/<ip>/` |
-| 人读Excel测试报告 | `reports/<timestamp>_<CHIP>_<IP>测试报告.xlsx` |
+| 最近工作区身份与状态 | `runs/current/manifest.json` |
+| 最近工作区配置与阶段日志 | `runs/current/config/`、`runs/current/stages/` |
+| 某芯片/IP当前索引 | `records/<CHIP>/<IP>/README.md` |
+| Case方法、结果与人工分析 | `records/<CHIP>/<IP>/cases/<CASE_ID>.md` |
+| 当前及受保护原始证据 | `records/<CHIP>/<IP>/evidence/<CASE_ID>.json`、同名ZIP |
+| 人读Excel测试报告 | `records/<CHIP>/<IP>/test_report.xlsx`（启用报告时） |
 
-旧年月日目录是规则收口前的历史证据；新产物只按上面的稳定路径查找。
+旧时间戳/年月日目录和Excel保留为历史；独立诊断输出不代替Formal Case。
 
-## 上传前清理
+## 档案维护入口
 
-清理工具默认只预览`runs/`内容，不会立即删除：
-
-```powershell
-.\.venv\Scripts\python.exe tools\runner\clean_generated_outputs.py
-```
-
-预览默认只显示总数和空间；需要逐项核对时追加`--verbose`。
-
-确认预览后，清空`runs/`内容但保留目录结构和本README：
+以下命令从正式仓库根执行；操作语义和限额见R500第6节。
 
 ```powershell
-.\.venv\Scripts\python.exe tools\runner\clean_generated_outputs.py --execute
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py check --chip ET6801 --ip can
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py update `
+  --chip ET6801 --ip can --lane fpga --source <Session目录> --manifest <原Manifest文件>
 ```
 
-报告、Python缓存（包括`__pycache__`、`.pytest_cache`、`.ruff_cache`和`*.egg-info`）
-以及`tmp/`必须显式选择；多个范围可组合：
+报告显示算法升级后的显式重建：在`check`命令后追加`--refresh-views`。
+该操作只重建派生视图，先验证原始证据；普通`check`不修改文件。
+
+阶段归档与保护释放（归档目标须人工指定新文件名；释放默认预览）：
 
 ```powershell
-.\.venv\Scripts\python.exe tools\runner\clean_generated_outputs.py `
-  --scope runs --scope reports --scope caches --scope tmp --execute
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py archive `
+  --chip ET6801 --ip can --output <阶段归档.zip>
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py prune `
+  --chip ET6801 --ip can --archive <阶段归档.zip> --case <CASE_ID>
 ```
 
-`.venv/`、第三方依赖和Firmware构建目录不属于本工具的删除范围。它们由`.gitignore`
-阻止上传，避免每次清理后重复安装环境或重新生成工程。
+中断工作区归档后，下一次正式运行才可验证并复用它：
+
+```powershell
+.\.venv\Scripts\python.exe tools\runner\maintain_test_records.py archive `
+  --workspace artifacts/runs/current --output <现场归档.zip>
+```
+
+通用清理工具`clean_generated_outputs.py`默认只预览历史Run；它排除固定工作区、
+档案与维护事务。历史删除另行审阅并显式执行；本次迁移不清理旧证据。

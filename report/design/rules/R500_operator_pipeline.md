@@ -24,7 +24,7 @@ run_test.bat / run_config_gui.bat
   -> Pipeline Profile中的受控脚本
   -> tools/runner/run_ip_tests.py
   -> Formal Case Registry
-  -> Canonical Result / Excel Report
+  -> Canonical Result -> maintain_test_records.py -> 固定Case档案 / Excel
 ```
 
 ## 2. 单一配置源
@@ -49,7 +49,7 @@ run_test.bat / run_config_gui.bat
 | `companions` | 通用配测设备的类型、Profile和基础连接 |
 | `instruments` | 外部仪器Driver选择和基础物理连接 |
 | `test` | 重复轮数和失败停止策略，不选择IP/Case |
-| `output` | 仓库内`artifacts/runs`原始运行证据根策略；Excel报告固定进入`artifacts/reports` |
+| `output` | `auto`或仓库内`artifacts/runs`根；正式工作区与长期档案按第6节固定布局 |
 
 未知字段、错误类型、缺失的已启用步骤依赖、Profile/Target不匹配和仓库外输出必须失败关闭。
 
@@ -153,53 +153,58 @@ Runner只能从正式Registry中执行本次明确选中的集合。选择来源
 
 ## 6. 原始运行证据与人读报告
 
-非`check-only`调用必须只创建一个原始运行根，并把Excel派生报告集中输出：
+正式入口使用一个固定工作区和按芯片/IP固定的长期档案，不按测试次数增加目录：
 
 ```text
 artifacts/
-├─ runs/<run_id>/
+├─ runs/current/
 │  ├─ manifest.json
 │  ├─ config/run_config.snapshot.yaml
 │  ├─ stages/<stage>/...
-│  └─ tests/<ip>/...
-└─ reports/
-   └─ <YYYYMMDD_HHMMSS_microseconds>_<CHIP>_<IP>测试报告.xlsx
+│  ├─ tests/<ip>/session.json、cases/<case_run_id>/...、pytest.log
+│  └─ publication.json
+├─ records/<CHIP>/<IP>/
+│  ├─ README.md、results.json、test_report.xlsx
+│  ├─ cases/<CASE_ID>.md
+│  └─ evidence/<CASE_ID>.json、<CASE_ID>.zip
+└─ reports/  # 历史或显式一次性导出；不是正式入口的日常输出
 ```
 
-固定规则：
+### 6.1 工作区和发布
 
-- `artifacts/`根目录只允许`README.md`、`runs/`和`reports/`；不得新建平行的
-  `case_runs/`、`firmware_build/`、`flash_run/`或其他顶层产物分类；
-- `run_id`直接位于`runs/`下，不增加年月日桶或第二层执行时间戳；
-- 默认`test.repeat: 1`时，IP结果直接写入`tests/<ip>/`，不得增加`round_01`；只有显式多轮执行时才使用`round_<NN>`隔离各轮原始结果；
-- Pipeline通过`ET_ARTIFACT_RUN_DIR`把同一目录传给所有子步骤；
-- Manifest至少记录配置引用与Hash、源码Revision/Dirty状态、目标形态、开始/结束时间、状态和退出码；
-- 配置快照保存实际输入，Manifest使用可移植引用，不固化个人绝对路径；
-- Case只使用注入的`et_artifact_dir`，不得推导仓库根或另建产物分类；
-- 日志、Canonical Result、波形和截图只进入本Run目录；
-- Excel报告只从Canonical Result只读生成，统一放入扁平的`artifacts/reports/`并使用完整时间戳命名，不在报告目录复制原始证据；
-- 人工结论另存`report/`并引用对应Run证据或Excel报告。
+- `artifacts/`根只允许`README.md`、`runs/`、`records/`、`reports/`。芯片/IP/Case使用稳定标识；时间和UUID写入内容，不写入日常档案目录名。
+- Pipeline与独立`run_ip_tests.py`共用单机环境锁。`output.root`只接受`auto`或正式`artifacts/runs`根；不得通过自定义子目录恢复按Run增长。
+- 每轮结果均写入`current/tests/<ip>/`；先发布上一轮，再复用同一路径，不增加`round_NN`。Case内部临时UUID目录不进入长期档案。
+- Pipeline通过`ET_ARTIFACT_RUN_DIR`传递同一工作根；Case只使用注入的`et_artifact_dir`，不得推导档案根。
+- Manifest记录独立逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target形态、时间、状态和退出码；配置快照保存真实输入。Lane由目标形态显式传递，不根据固件名称猜测。
+- `maintain_test_records.py update`是档案更新入口。Session必须终止；校验原始规范Hash、Selection、Canonical Result和已绑定附件后，只增量更新本次Case/参数。
+- 更新在`artifacts/runs/record-maintenance/`暂存并持有IP锁；多文件发布使用可恢复事务。中断后先恢复、再校验旧档案；外部修改、容量不足或证据损坏必须失败关闭。
+- 工作区复用前必须验证`publication.json`：文件Hash和目录成员未变，所需Case快照仍在档案内，或现场已被显式归档完整覆盖。未绑定文件、额外目录、未完成Session不得静默丢弃。
+- 已发布Case的普通工作日志可在下一次运行时回收；无Case的成功普通阶段可标记复用。失败的前置阶段、未发布或损坏现场必须保留，直到人工显式归档；不得仅凭PASS文字清空。
 
-当本次配置同时启用Formal Case和报告阶段时，Pipeline成功必须同时满足：
+### 6.2 固定档案
 
-```text
-pytest/Canonical Session完成
-+ 每个选中IP的Canonical Result完整
-+ 每个选中IP的Excel报告成功生成
-+ Run Manifest状态与最终阶段退出码一致
-```
+- 每Case固定一份Markdown、一份结构化证据JSON和一个扁平Hash附件ZIP；同Case的参数/Lane放在文件内部，不再建子目录。
+- JSON保留实际Canonical事实；ZIP保存被引用的原始Session、Result、规范、配置/Manifest（有提供时）和附件字节。Markdown机器区、IP汇总和Excel只读派生，结果语义归R130。
+- `cases/*.md`机器区只由工具更新；Agent仅维护标记外的方法补充、问题分析、下一步和最近3条关键变化。人工区最多16 KiB，不追加每轮流水账；需保留的旧结论先显式归档。
+- 测试前Agent读取目标Case当前记录、原始方法和未关闭问题；测试后先更新并检查档案，再补充证据支持的分析。不得手工改机器结果、删除失败快照或将分析猜测写成已验证结论。
+- `--no-report`或关闭报告阶段只省略Excel，JSON与Markdown仍须发布；开关变化与其他派生文件在同一事务中处理，不能留下旧Excel冒充当前报告。
+- `check`默认只读；显示算法升级或派生视图损坏时，可显式`check --refresh-views`。必须先通过目录成员、容量、原始记录与附件Hash校验，只重建派生文件并保留人工区，禁止修补原始事实；完整检查通过才提交事务，失败回滚。
+- 开启报告时，Pipeline成功要求pytest成功、选中execution完整、证据满足、档案检查通过、Excel成功生成且Manifest退出码一致。报告生成失败必须保留工作区并返回非零；测试FAIL仍应发布真实失败记录。
+- 手工导入旧证据或重新生成Excel不能回写旧Manifest，也不能把历史FAIL变成新的Pipeline/HIL PASS。
 
-测试PASS但报告缺失、报告字段无法解析、报告生成异常或Manifest与实际阶段状态矛盾时，本次Pipeline必须失败。
-修复报告代码后手工重生Excel只能证明只读转换器已经恢复，不能回写旧Manifest或把旧失败Run改成正式PASS；
-需要发布完整流水线PASS时，必须对受影响阶段或完整Pipeline重新执行并产生新的Run证据。
+### 6.3 容量、归档和整理
 
-产物生命周期规则：
-
-- 正式测试产物允许提交Git；缓存、临时锁和可重新生成的中间文件不得进入`artifacts/`；
-- 单文件超过25 MiB时不得直接提交普通Git历史；大波形、bitstream等应裁剪、压缩或经团队确认后使用Git LFS，并在Manifest中保留说明；
-- 旧仓库外产物不迁移、不复制，也不作为新运行输入；现存年月日桶只作为只读历史，不得继续追加；
-- 删除历史运行必须是独立、可审阅的清理变更，不得混入功能开发；
-- `artifacts/README.md`只提供本契约的目录使用导航，不得定义新的强制语义；发生冲突时以本契约为唯一权威。
+- 每Case最多64个受保护快照；Case结构化记录加解压附件最多25 MiB；每IP当前档案与单个工作区最多256 MiB。达到上限时停止发布并保留输入，不截断必需证据、不自动淘汰未解决失败。
+- 日常成功复测只保留当前快照及累计次数；失败、首次修复和显式基线的保护语义归R130。不存在无限历史列表、自动阶段归档或第二套结果数据库。
+- `archive`只能写入人工明确指定、尚不存在的单个ZIP，必须在当前档案/工作区之外；写前和写后均校验成员与Hash，禁止覆盖归档。
+- 每个显式归档目标目录最多16个ZIP、总计1 GiB；超限要求人工管理，不自动换目录绕过限额。
+- `prune --archive <file> --case <id>`默认只预览；只有追加`--execute`且归档覆盖该Case全部待释放保护快照时才释放。保留当前快照、累计计数与人工分析，不改变结果。
+- 通用`clean_generated_outputs.py`不得处理`runs/current`、`artifacts/records`或`artifacts/runs/record-maintenance`，包括其中的缓存；中断工作区只能经维护入口的显式归档恢复。
+- 旧时间戳/年月日Run和Excel保持只读，可经显式`update --source`校验导入，迁移不得修改或删除源目录。删除历史运行是独立清理任务，不得混入功能开发。
+- 现有独立诊断脚本的时间戳目录保留兼容；其输出不是Formal Case档案，不能冒充产品验证。不得据此为正式入口新增时间戳路径。
+- 生成证据默认不进Git；显式审阅后才可提交必要证据。单文件超过25 MiB不得直接提交普通Git；大文件需团队确认LFS或外部归档。
+- `artifacts/README.md`只提供目录与命令导航，不建立第二套强制语义。
 
 ## 7. 扩展规则
 
@@ -216,7 +221,8 @@ pytest/Canonical Session完成
 本契约由以下证据共同保护：
 
 - `test_operator_launcher.py`：配置、GUI、环境检查、硬件确认、Profile参数、注册表、
-  Manifest、顶层目录分类、默认单轮扁平路径、多轮隔离、报告时间戳与防覆盖、报告失败语义和可移植路径；
+  Manifest、固定工作区、多轮复用、Lane传递、报告开关、发布失败语义和可移植路径；
+- `test_record_*.py`：增量、幂等、原始字节、受保护证据、容量、事务恢复、只读检查和显式归档/释放；
 - Result/Report专项回归：Canonical JSON类型边界、参数化字段闭合、人工展示格式和Excel导出；
 - `tools/quality/validate_rule_governance.py`：本契约Owner与生命周期；
 - `tools/validate_pc.py`：完整软件回归。

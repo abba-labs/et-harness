@@ -249,6 +249,19 @@ large/raw evidence -> independent file + canonical relative reference
 
 不得把数据库、Web事件流或未来Analyzer设计提前写成当前稳定Contract。
 
+### 8.1 有界Case档案的派生边界
+
+- 固定档案只是Canonical事实的有界保存与视图，不新增可写入`result.json`的状态，也不替代Session或公共Case规范。
+- 更新键为芯片/IP/Case下的`Lane + Target + parameter_id`。最近记录保留原始时间、Run身份、Source/Dirty、方法Hash、固件/Bitstream及设备身份；未知值保持未知。
+- 未选Case和参数完全不更新；已选但未执行的参数保存终止Session及派生`NOT_EXECUTED`，不伪造Result。SKIP、FAIL、EVIDENCE_MISSING保持原始语义，不能沿用历史PASS。
+- 多次执行汇总必须明确标注“各场景最近观测，不代表同一版本完整回归”。版本或方法变化不能自动继承验证适用性；Agent须对照实际版本决定复测范围，工具不猜测影响关系。
+- 相同快照重复导入幂等；同Run身份内容冲突、旧时间记录覆盖新记录必须拒绝。累计次数/状态计数只对新执行递增，不用日志行数估算。
+- 当前快照始终保留；被替换的非PASS关键快照和其后首次PASS自动保护，显式基线/验收Case可通过`--protect-case`保护本次输入。
+- 只有结果、版本、参数及绑定附件语义一致的重复非PASS才能合并为计数；不同失败不得凭错误摘要相同而合并。受保护快照不因后续PASS自动消失。
+- 原始Session、Result、实际方法版本与绑定附件必须按Hash完整保留；人读摘要不是原始证据的替代物。目录中的未绑定文件不能自动晋升为Case Evidence。
+- Markdown机器区、results.json与Excel从同一记录派生；人工分析与机器结果区分开。整理人工问题说明不能更改原始执行状态或宣称已修复。
+- 容量、发布回执、原子更新、显式归档和保护释放由R500规定。归档释放不改变当前结果、执行计数或被归档事实。
+
 ## 9. 回归与变更规则
 
 当前Owner由现有行为回归保护：

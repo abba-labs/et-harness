@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -13,16 +14,20 @@ import zipfile
 from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
+from uuid import uuid4
 
 from artifact_layout import (
-    DEFAULT_REPORTS_ROOT,
+    DEFAULT_RECORDS_ROOT,
     DEFAULT_RUNS_ROOT,
     capture_source_identity,
-    create_report_output,
-    create_run_directory,
+    create_current_directory,
     utc_timestamp,
     write_manifest,
 )
+from maintain_test_records import update_records
+from record_model import object_value
+from record_store import record_root
+from record_workspace import environment_lock, prepare_workspace, seal_pipeline, seal_workspace
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FORMAL_CASE_ROOT = REPOSITORY_ROOT / "pc/et_test_platform/test_cases"
@@ -31,7 +36,7 @@ REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
 VALIDATE_PC = REPOSITORY_ROOT / "tools/validate_pc.py"
 DEFAULT_OUTPUT_ROOT = DEFAULT_RUNS_ROOT
 ARTIFACT_RUNS_ROOT = DEFAULT_RUNS_ROOT
-REPORTS_ROOT = DEFAULT_REPORTS_ROOT
+REPORTS_ROOT = DEFAULT_RECORDS_ROOT
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -41,10 +46,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ip", required=True, help="IP package name, for example crc")
     parser.add_argument("--bench", required=True, help="bench topology YAML path")
     parser.add_argument("--target", default="dut", help="logical target name in the bench")
+    parser.add_argument("--lane", required=True, choices=("sil", "fpga", "hil"))
+    parser.add_argument("--manifest", type=Path, help=argparse.SUPPRESS)
     parser.add_argument(
         "--output-root",
         default=str(DEFAULT_OUTPUT_ROOT),
-        help="canonical runs root for standalone execution, or exact round directory in pipeline",
+        help="canonical runs root, or fixed current/tests/IP directory within pipeline",
     )
     parser.add_argument(
         "--pytest-arg",
@@ -227,9 +234,30 @@ def _report_command(*, document: Path, run_dir: Path, output: Path, chip: str) -
     ]
 
 
-def _run(command: Sequence[str]) -> int:
-    completed = subprocess.run(command, cwd=REPOSITORY_ROOT, check=False)
-    return int(completed.returncode)
+def _run(command: Sequence[str], *, log_path: Path | None = None) -> int:
+    if log_path is None:
+        completed = subprocess.run(command, cwd=REPOSITORY_ROOT, check=False)
+        return int(completed.returncode)
+    with (
+        log_path.open("w", encoding="utf-8") as stream,
+        subprocess.Popen(
+            command,
+            cwd=REPOSITORY_ROOT,
+            env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1"},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        ) as process,
+    ):
+        if process.stdout is None:
+            raise RuntimeError("pytest did not expose stdout")
+        for line in process.stdout:
+            print(line, end="")
+            stream.write(line)
+            stream.flush()
+        return int(process.wait())
 
 
 def _load_json_object(path: Path, *, label: str) -> dict[str, object]:
@@ -332,6 +360,13 @@ def _finish_standalone_run(
         }
     )
     write_manifest(artifact_run_dir, manifest)
+    try:
+        seal_pipeline(REPOSITORY_ROOT, artifact_run_dir, successful=exit_code == 0)
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"Workspace retained without reuse permission: {exc}")
+        manifest.update({"status": "FAIL", "exit_code": exit_code or 2})
+        write_manifest(artifact_run_dir, manifest)
+        return exit_code or 2
     return exit_code
 
 
@@ -345,8 +380,7 @@ def _run_software_preflight(*, within_pipeline: bool) -> int:
     return exit_code
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = _parse_args(argv)
+def _execute_ip(args: argparse.Namespace) -> int:
     ip = _normalize_ip(args.ip)
     pytest_args = (
         *_selection_pytest_args(
@@ -379,16 +413,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     artifact_run_dir: Path | None = None
     standalone_manifest: dict[str, object] | None = None
     if args.within_pipeline:
-        run_dir = output_root
-        run_dir.mkdir(parents=True, exist_ok=False)
+        if args.manifest is None:
+            raise ValueError("pipeline invocation requires its original manifest")
+        run_dir = prepare_workspace(REPOSITORY_ROOT, output_root)
     else:
-        artifact_run_dir = create_run_directory(output_root, run_name=f"{ip}_formal_cases")
+        artifact_run_dir = create_current_directory(REPOSITORY_ROOT, output_root)
         run_dir = artifact_run_dir / "tests" / ip
         run_dir.mkdir(parents=True, exist_ok=False)
         standalone_manifest = {
             "schema": "et-artifact-run/v1",
-            "run_id": artifact_run_dir.name,
+            "run_id": str(uuid4()),
             "run_name": f"{ip}_formal_cases",
+            "target_kind": {"sil": "renode", "fpga": "fpga", "hil": "silicon"}[args.lane],
             "source_revision": source_revision,
             "source_dirty": source_dirty,
             "started_at": utc_timestamp(),
@@ -409,7 +445,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(f"Run artifacts: {run_dir}")
     print("Starting pytest...")
-    pytest_exit = _run(pytest_command)
+    pytest_exit = _run(pytest_command, log_path=run_dir / "pytest.log")
 
     if not (run_dir / "session.json").is_file():
         print("Canonical session.json was not produced; review report was not generated.")
@@ -426,43 +462,47 @@ def main(argv: Sequence[str] | None = None) -> int:
         evidence_complete = False
 
     canonical_exit = 0 if evidence_complete else 2
-    if args.no_report:
-        return _finish_standalone_run(
-            artifact_run_dir,
-            standalone_manifest,
-            pytest_exit or canonical_exit,
-        )
-
     chip = _session_chip(run_dir)
-    report_output = create_report_output(REPORTS_ROOT, chip=chip, ip=ip)
-    print("Generating review report...")
-    report_exit = _run(
-        _report_command(document=document, run_dir=run_dir, output=report_output, chip=chip)
-    )
-    if report_exit != 0:
-        print(f"Report generation failed with exit code {report_exit}.")
-        return _finish_standalone_run(
-            artifact_run_dir,
-            standalone_manifest,
-            pytest_exit or report_exit,
-        )
-
+    print("Publishing fixed Case records...")
     try:
-        _validate_report_output(report_output)
-    except ValueError as exc:
-        print(f"Report validation failed: {exc}")
+        published = update_records(
+            REPOSITORY_ROOT,
+            run_dir,
+            chip=chip,
+            ip=ip,
+            lane=args.lane,
+            manifest=args.manifest
+            or (artifact_run_dir / "manifest.json" if artifact_run_dir else None),
+            write_report=not args.no_report,
+        )
+        seal_workspace(
+            REPOSITORY_ROOT,
+            run_dir,
+            proofs=object_value(published["_proofs"], "publication proofs"),
+            expected_files=object_value(published["_source_files"], "published source files"),
+        )
+    except (OSError, ValueError, RuntimeError, KeyError, zipfile.BadZipFile) as exc:
+        print(f"Record publication failed; raw workspace retained: {exc}")
         return _finish_standalone_run(
             artifact_run_dir,
             standalone_manifest,
             pytest_exit or canonical_exit or 2,
         )
 
-    print(f"Review report: {report_output}")
+    print(f"Case records: {record_root(REPOSITORY_ROOT, chip, ip)}")
     return _finish_standalone_run(
         artifact_run_dir,
         standalone_manifest,
         pytest_exit or canonical_exit,
     )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+    if args.within_pipeline:
+        return _execute_ip(args)
+    with environment_lock(REPOSITORY_ROOT):
+        return _execute_ip(args)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,9 @@ SCOPES = ("runs", "reports", "caches", "tmp")
 CACHE_DIRECTORY_NAMES = frozenset({"__pycache__", ".pytest_cache", ".ruff_cache"})
 CACHE_SCAN_EXCLUSIONS = frozenset({".git", ".venv", "artifacts", "third_part"})
 PRESERVED_DIRECTORY_ENTRIES = frozenset({".gitkeep"})
+PROTECTED_RECORD_PATHS = frozenset(
+    {"artifacts/runs/current", "artifacts/records", "artifacts/runs/record-maintenance"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +84,10 @@ def _cache_directories(repository_root: Path) -> list[Path]:
         directory_names[:] = [
             name
             for name in directory_names
-            if name not in CACHE_SCAN_EXCLUSIONS and not (directory_path / name).is_symlink()
+            if name not in CACHE_SCAN_EXCLUSIONS
+            and not (directory_path / name).is_symlink()
+            and (directory_path / name).relative_to(repository_root).as_posix()
+            not in PROTECTED_RECORD_PATHS
         ]
         for name in tuple(directory_names):
             if _is_cache_directory_name(name):
@@ -114,6 +120,8 @@ def build_cleanup_plan(
 
     plan: list[CleanupEntry] = []
     for path in dict.fromkeys(paths):
+        if path.relative_to(root).as_posix() in PROTECTED_RECORD_PATHS:
+            continue
         resolved_parent = path.parent.resolve()
         try:
             resolved_parent.relative_to(root)

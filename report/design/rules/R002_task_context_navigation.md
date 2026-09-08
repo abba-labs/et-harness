@@ -96,7 +96,7 @@ Task Context必须在第一次写入前由干净Git工作树编译。编译器�
 
 Scope检查以Task Context编译时的干净Git工作树快照为基线，只接受`write_scope.allowed`内的变化。
 `write_scope.protected`优先于`allowed`：任一已选模块声明为保护范围的路径，即使另一模块给出宽泛允许范围，
-本任务仍必须拒绝。`artifacts/runs/`和`artifacts/reports/`属于生成证据，不进入源码范围检查。
+本任务仍必须拒绝。`artifacts/runs/`、`artifacts/reports/`和`artifacts/records/`属于生成证据，不进入源码范围检查；其发布和保留边界仍受R500约束。
 
 Task Context中的任务声明、仓库身份、输入摘要、规则Owner、读写范围和验证入口必须由编译器写入完整性摘要；
 `check`必须在任何治理输入豁免前验证该摘要。Scope baseline必须保存编译时的`write_scope`并与Context完整性摘要交叉校验；

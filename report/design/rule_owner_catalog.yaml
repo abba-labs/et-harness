@@ -126,6 +126,9 @@ owners:
       - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
       - pc/et_test_platform/framework_validation/unit/core/test_result_integrity_gate.py
       - pc/et_test_platform/framework_validation/unit/results/test_case_report.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_source.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_store.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_report.py
 
   - id: ip_analysis_workflow
     number: R140
@@ -189,6 +192,11 @@ owners:
     checkers: []
     tests:
       - pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_transaction.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_check.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_archive.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_cli.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_workspace.py
 
   - id: public_ip_semantics
     number: R100

@@ -34,7 +34,11 @@ def _load_tool(name: str, path: Path) -> ModuleType:
         raise RuntimeError(f"cannot load tool module: {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(path.parent))
     return module
 
 
@@ -1254,7 +1258,7 @@ def test_run_ip_tests_rejects_arguments_that_can_override_platform_control(
 
 def test_run_ip_tests_defaults_to_project_artifacts() -> None:
     assert REPOSITORY_ROOT / "artifacts" / "runs" == RUN_IP_TESTS.DEFAULT_OUTPUT_ROOT
-    assert REPOSITORY_ROOT / "artifacts" / "reports" == RUN_IP_TESTS.REPORTS_ROOT
+    assert REPOSITORY_ROOT / "artifacts" / "records" == RUN_IP_TESTS.REPORTS_ROOT
 
 
 # 测试 Feature：仓库内测试产物不得污染源码脏状态。
@@ -1280,6 +1284,8 @@ def test_source_identity_excludes_repository_owned_artifacts(tmp_path: Path) -> 
     (repository / "artifacts/runs/current/manifest.json").write_text("{}\n", encoding="utf-8")
     (repository / "artifacts/reports").mkdir(parents=True)
     (repository / "artifacts/reports/report.xlsx").write_text("report\n", encoding="utf-8")
+    (repository / "artifacts/records/CHIP/IP").mkdir(parents=True)
+    (repository / "artifacts/records/CHIP/IP/results.json").write_text("{}", encoding="utf-8")
     (repository / "tmp").mkdir()
     (repository / "tmp/run.lock").write_text("0", encoding="utf-8")
     after = ARTIFACT_LAYOUT.capture_source_identity(repository)
@@ -1474,6 +1480,14 @@ def test_artifact_output_root_is_repository_local(tmp_path: Path) -> None:
         ARTIFACT_LAYOUT.resolve_runs_root(str(tmp_path), config_directory=REPOSITORY_ROOT)
 
 
+# 正式入口只用固定current工作区；历史诊断路径函数的兼容性不放宽正式配置。
+def test_formal_artifacts_reject_custom_subdirectory() -> None:
+    with pytest.raises(ValueError, match="canonical artifacts/runs"):
+        ARTIFACT_LAYOUT.create_current_directory(
+            REPOSITORY_ROOT, REPOSITORY_ROOT / "artifacts/runs/custom"
+        )
+
+
 # 测试 Feature：artifacts 顶层分类稳定，目录README不形成第二套规则。
 #
 # 测试方法：检查受版本控制的目录入口，并确认README把唯一规则Owner指向R500。
@@ -1483,7 +1497,7 @@ def test_artifacts_root_uses_one_run_taxonomy() -> None:
 
     artifact_root = REPOSITORY_ROOT / "artifacts"
     entries = {path.name for path in artifact_root.iterdir()}
-    assert entries <= {"README.md", "runs", "reports"}
+    assert entries <= {"README.md", "runs", "reports", "records"}
     rules = (artifact_root / "README.md").read_text(encoding="utf-8")
     assert "R500_operator_pipeline.md" in rules
     assert "唯一权威规则" in rules
@@ -1503,89 +1517,68 @@ def test_pipeline_writes_consistent_manifest_for_safe_run(
 
     context = replace(
         RUN_PIPELINE._load_context(REPOSITORY_ROOT / "run_config.example.yaml"),
-        output_root=tmp_path,
+        output_root=tmp_path / "artifacts/runs",
     )
-    monkeypatch.setattr(
-        RUN_PIPELINE,
-        "create_run_directory",
-        lambda root, *, run_name: root / "20260813_120000_safe_run",
-    )
+    monkeypatch.setattr(RUN_PIPELINE, "REPOSITORY_ROOT", tmp_path)
 
     assert RUN_PIPELINE._execute(context, check_only=False) == 0
 
-    run_dir = tmp_path / "20260813_120000_safe_run"
+    run_dir = tmp_path / "artifacts/runs/current"
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "PASS"
     assert manifest["exit_code"] == 0
+    assert manifest["run_id"] != "current"
     assert (run_dir / "config/run_config.snapshot.yaml").is_file()
+    assert (run_dir / "publication.json").is_file()
 
 
+@pytest.mark.parametrize("no_report", [False, True])
+@pytest.mark.parametrize("status", ["PASS", "FAIL"])
 def test_run_ip_tests_generates_report_even_when_pytest_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    no_report: bool,
+    status: str,
 ) -> None:
+    import importlib
+
+    from .test_record_source import make_session
+
+    source = importlib.import_module("record_source")
+    original = make_session(source, tmp_path)
+    session_path = original / "session.json"
+    session = json.loads(session_path.read_text())
+    expected_exit = 1 if status == "FAIL" else 0
+    session.update({"exitstatus": expected_exit, "status_counts": {status: 1}})
+    session_path.write_text(json.dumps(session), encoding="utf-8")
+    result_path = next((original / "cases").glob("*/result.json"))
+    result = json.loads(result_path.read_text())
+    result["status"] = status
+    result_path.write_text(json.dumps(result), encoding="utf-8")
     case_root = tmp_path / "cases"
-    document_root = tmp_path / "docs"
-    output_root = tmp_path / "runs"
-    reports_root = tmp_path / "reports"
+    document_root = tmp_path / "test_case_doc"
+    output_root = tmp_path / "artifacts/runs"
     (case_root / "crc").mkdir(parents=True)
-    (document_root / "crc").mkdir(parents=True)
-    (document_root / "crc" / "crc.md").write_text("# CRC\n", encoding="utf-8")
     bench = tmp_path / "bench.yaml"
     bench.write_text("targets: {}\n", encoding="utf-8")
 
     monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
     monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
     monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RUNS_ROOT", output_root)
-    monkeypatch.setattr(RUN_IP_TESTS, "REPORTS_ROOT", reports_root)
-    monkeypatch.setattr(
-        RUN_IP_TESTS,
-        "create_run_directory",
-        lambda root, *, run_name: root / "20260812_120000_crc_formal_cases",
-    )
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
+    monkeypatch.setattr(RUN_IP_TESTS, "capture_source_identity", lambda root: ("a" * 40, False))
     calls: list[list[str]] = []
 
-    def fake_run(command: list[str]) -> int:
+    def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
         calls.append(command)
         if Path(command[1]) == RUN_IP_TESTS.VALIDATE_PC:
             return 0
         if "pytest" in command:
             artifact_dir = Path(command[command.index("--et-artifact-dir") + 1])
-            case_dir = artifact_dir / "cases" / "case-1"
-            case_dir.mkdir(parents=True, exist_ok=True)
-            (artifact_dir / "session.json").write_text(
-                json.dumps(
-                    {
-                        "chip_id": "ET6801",
-                        "run_id": "unit",
-                        "finished_at": "2026-08-20T00:00:00Z",
-                        "exitstatus": 1,
-                        "selection": {
-                            "selected_executions": [{"case_id": "crc_p0_001", "parameter_id": None}]
-                        },
-                    }
-                ),
-                encoding="utf-8",
-            )
-            (case_dir / "result.json").write_text(
-                json.dumps(
-                    {
-                        "run_id": "unit",
-                        "case_run_id": "case-1",
-                        "case_id": "crc_p0_001",
-                        "parameter_id": None,
-                        "status": "FAIL",
-                    }
-                ),
-                encoding="utf-8",
-            )
-            return 1
-        report_output = Path(command[command.index("--output") + 1])
-        report_output.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(report_output, "w") as archive:
-            archive.writestr("[Content_Types].xml", "<Types />")
-            archive.writestr("xl/workbook.xml", "<workbook />")
-        return 0
+            assert log_path == artifact_dir / "pytest.log"
+            shutil.copytree(original, artifact_dir, dirs_exist_ok=True)
+            return expected_exit
+        raise AssertionError("unexpected subprocess")
 
     monkeypatch.setattr(RUN_IP_TESTS, "_run", fake_run)
 
@@ -1599,31 +1592,39 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
             "dut",
             "--output-root",
             str(output_root),
+            "--lane",
+            "fpga",
+            *(["--no-report"] if no_report else []),
         ]
     )
 
-    assert exit_code == 1
-    assert len(calls) == 3
+    assert exit_code == expected_exit
+    assert len(calls) == 2
     assert Path(calls[0][1]) == RUN_IP_TESTS.VALIDATE_PC
     pytest_command = calls[1]
     assert Path(pytest_command[pytest_command.index("--et-artifact-dir") + 1]) == (
-        output_root / "20260812_120000_crc_formal_cases/tests/crc"
+        output_root / "current/tests/crc"
     )
-    report_command = calls[2]
-    assert report_command[report_command.index("--chip") + 1] == "ET6801"
-    report_output = Path(report_command[report_command.index("--output") + 1])
-    assert report_output.parent == reports_root
-    assert report_output.name.endswith("_ET6801_CRC测试报告.xlsx")
+    root = tmp_path / "artifacts/records/ET6801/CRC"
+    assert (root / "test_report.xlsx").is_file() is not no_report
+    assert json.loads((root / "results.json").read_text())["executions"][0]["status"] == status
+    assert (output_root / "current/publication.json").is_file()
 
 
-# 测试 Feature：默认单轮IP结果目录保持扁平，多轮时才增加必要的轮次隔离。
+# 测试 Feature：默认与多轮执行都使用固定工作目录，轮间由发布回执保护复用。
 #
 # 测试方法：分别构造repeat=1和repeat=2的Pipeline测试命令并读取产物参数。
 #
-# 通过条件：单轮直接写入tests/<ip>；多轮写入round_NN且不会覆盖上一轮。
-def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(tmp_path: Path) -> None:
+# 通过条件：始终写入tests/<ip>，并显式传递Lane与原始Manifest。
+@pytest.mark.parametrize("kind,lane", [("renode", "sil"), ("fpga", "fpga"), ("silicon", "hil")])
+def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(
+    tmp_path: Path, kind: str, lane: str
+) -> None:
 
     context = RUN_PIPELINE._load_context(REPOSITORY_ROOT / "run_config.example.yaml")
+    context = replace(
+        context, config={**context.config, "target": {**context.config["target"], "kind": kind}}
+    )
     single = RUN_PIPELINE._test_command(
         context,
         "uart",
@@ -1640,7 +1641,9 @@ def test_pipeline_uses_flat_ip_directory_unless_repeat_requires_isolation(tmp_pa
     )
 
     assert Path(single[single.index("--output-root") + 1]) == tmp_path / "tests/uart"
-    assert Path(repeated[repeated.index("--output-root") + 1]) == (tmp_path / "tests/uart/round_02")
+    assert Path(repeated[repeated.index("--output-root") + 1]) == tmp_path / "tests/uart"
+    assert single[single.index("--lane") + 1] == lane
+    assert Path(single[single.index("--manifest") + 1]) == tmp_path / "manifest.json"
 
 
 # 测试 Feature：Excel报告集中存放并使用完整时间戳命名。
@@ -1760,7 +1763,7 @@ def test_et6801_pflash_requires_same_pipeline_prerequisites(tmp_path: Path) -> N
     assert passed.returncode == 0
 
 
-def test_run_ip_tests_can_skip_report_generation(
+def test_run_ip_tests_no_report_still_rejects_empty_session(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1771,9 +1774,11 @@ def test_run_ip_tests_can_skip_report_generation(
     (document_root / "crc" / "crc.md").write_text("# CRC\n", encoding="utf-8")
     monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
     monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
-    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RUNS_ROOT", tmp_path)
+    runs_root = tmp_path / "artifacts/runs"
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RUNS_ROOT", runs_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
 
-    def fake_run(command: list[str]) -> int:
+    def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
         if Path(command[1]) == RUN_IP_TESTS.VALIDATE_PC:
             return 0
         artifact_dir = Path(command[command.index("--et-artifact-dir") + 1])
@@ -1795,10 +1800,22 @@ def test_run_ip_tests_can_skip_report_generation(
 
     assert (
         RUN_IP_TESTS.main(
-            ["--ip", "crc", "--bench", "bench.yaml", "--output-root", str(tmp_path), "--no-report"]
+            [
+                "--ip",
+                "crc",
+                "--bench",
+                "bench.yaml",
+                "--output-root",
+                str(runs_root),
+                "--no-report",
+                "--lane",
+                "fpga",
+            ]
         )
-        == 0
+        == 2
     )
+    assert (runs_root / "current/tests/crc/session.json").is_file()
+    assert not (runs_root / "current/publication.json").exists()
 
 
 # 测试 Feature：pytest返回成功也不能掩盖参数execution结果缺失。

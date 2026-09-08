@@ -1273,7 +1273,7 @@ def test_authorized_source_change_cannot_hide_repository_identity_change(
 #
 # 测试方法：读取Task Context编译器的固定工作树排除项。
 #
-# 通过条件：runs和reports两个正式生成目录均被排除，其他源码目录不被放宽。
+# 通过条件：runs、reports、records三个正式生成目录均被排除，其他源码目录不被放宽。
 def test_task_scope_excludes_only_formal_generated_artifacts() -> None:
 
     compiler = _load_compiler()
@@ -1281,6 +1281,7 @@ def test_task_scope_excludes_only_formal_generated_artifacts() -> None:
     assert compiler.WORKTREE_EXCLUDES == (
         "artifacts/runs/**",
         "artifacts/reports/**",
+        "artifacts/records/**",
     )
 
 

@@ -11,21 +11,23 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 from typing import Any
+from uuid import uuid4
 
 import yaml
 from artifact_layout import (
     capture_source_identity,
-    create_run_directory,
+    create_current_directory,
     resolve_runs_root,
     utc_timestamp,
     write_manifest,
 )
 from et_test_platform.test_cases.ip_registry import IP_REGISTRY
 from pipeline_profile import resolve_step_dependencies
+from record_workspace import environment_lock, seal_pipeline
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = REPOSITORY_ROOT.parent
@@ -490,6 +492,8 @@ def _load_context(config_path: Path) -> PipelineContext:
     _validate_keys(output, {"root"}, field="output")
     output_value = _string(output, "root", field="output.root")
     output_root = resolve_runs_root(output_value, config_directory=config_path.parent)
+    if output_root != (REPOSITORY_ROOT / "artifacts/runs").resolve():
+        raise ValueError("Formal output.root must be auto or canonical artifacts/runs root")
     bench_path, bench_environment = _bench_environment(config, config_path)
     return PipelineContext(
         config_path, config, profile_path, profile, bench_path, output_root, bench_environment
@@ -709,36 +713,8 @@ def _run(
 
 
 # 单机文件锁替代开发环境专用资源脚本；进程退出时操作系统自动释放锁。
-@contextmanager
-def _pipeline_lock():
-    lock_root = PROJECT_ROOT / "tmp"
-    lock_root.mkdir(parents=True, exist_ok=True)
-    lock_path = lock_root / "run_pipeline.lock"
-    with lock_path.open("a+b") as stream:
-        stream.seek(0)
-        if stream.read(1) == b"":
-            stream.write(b"0")
-            stream.flush()
-        stream.seek(0)
-        try:
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as exc:
-            raise RuntimeError("another ET test pipeline is already running") from exc
-        try:
-            yield
-        finally:
-            stream.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+def _pipeline_lock() -> AbstractContextManager[None]:
+    return environment_lock(REPOSITORY_ROOT)
 
 
 def _test_command(
@@ -754,8 +730,6 @@ def _test_command(
     if repeat_count <= 0 or iteration <= 0 or iteration > repeat_count:
         raise ValueError("test iteration must be inside the configured repeat count")
     output_root = run_dir / "tests" / ip
-    if repeat_count > 1:
-        output_root /= f"round_{iteration:02d}"
     command = [
         _configured_python(context),
         str(RUN_IP_TESTS),
@@ -772,6 +746,10 @@ def _test_command(
         "--output-root",
         str(output_root),
         "--within-pipeline",
+        "--lane",
+        {"renode": "sil", "fpga": "fpga", "silicon": "hil"}[context.config["target"]["kind"]],
+        "--manifest",
+        str(run_dir / "manifest.json"),
         "--source-revision",
         source_revision,
         "--source-state",
@@ -782,6 +760,17 @@ def _test_command(
     ):
         command.append("--no-report")
     return command
+
+
+def _seal_completed_pipeline(run_dir: Path, manifest: dict[str, object], *, exit_code: int) -> None:
+    try:
+        seal_pipeline(REPOSITORY_ROOT, run_dir, successful=exit_code == 0)
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"Workspace retained without reuse permission: {exc}")
+        if exit_code == 0:
+            manifest.update({"status": "FAIL", "exit_code": 2})
+            write_manifest(run_dir, manifest)
+            raise RuntimeError("pipeline publication is incomplete") from exc
 
 
 def _execute(context: PipelineContext, *, check_only: bool) -> int:
@@ -798,14 +787,14 @@ def _execute(context: PipelineContext, *, check_only: bool) -> int:
 
     source_revision, source_dirty = capture_source_identity(REPOSITORY_ROOT)
     _reject_sensitive_configuration(context.config)
-    run_dir = create_run_directory(context.output_root, run_name=str(identity["name"]))
+    run_dir = create_current_directory(REPOSITORY_ROOT, context.output_root)
     config_dir = run_dir / "config"
     config_dir.mkdir(parents=True, exist_ok=False)
     config_snapshot = config_dir / "run_config.snapshot.yaml"
     config_snapshot.write_bytes(context.config_path.read_bytes())
     manifest = {
         "schema": "et-artifact-run/v1",
-        "run_id": run_dir.name,
+        "run_id": str(uuid4()),
         "configuration": _portable_path_reference(context.config_path),
         "configuration_sha256": _file_sha256(context.config_path),
         "configuration_snapshot": config_snapshot.relative_to(run_dir).as_posix(),
@@ -882,6 +871,7 @@ def _execute(context: PipelineContext, *, check_only: bool) -> int:
         manifest["exit_code"] = exit_code
         manifest["finished_at"] = utc_timestamp()
         write_manifest(run_dir, manifest)
+        _seal_completed_pipeline(run_dir, manifest, exit_code=exit_code)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

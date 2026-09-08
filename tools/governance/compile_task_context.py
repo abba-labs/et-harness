@@ -23,7 +23,7 @@ DEFAULT_OUTPUT = ROOT / "project-governance" / "runtime" / "current_task_context
 ACTIVE_TASK = ROOT.parent / "project-control" / "work" / "ACTIVE.md"
 SUPPORTED_TOKENS = {"ip", "chip", "chip_upper"}
 TASK_PARAMETER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
-WORKTREE_EXCLUDES = ("artifacts/runs/**", "artifacts/reports/**")
+WORKTREE_EXCLUDES = ("artifacts/runs/**", "artifacts/reports/**", "artifacts/records/**")
 HARDWARE_EXECUTION_LANES = {"fpga", "hil"}
 T = TypeVar("T")
 

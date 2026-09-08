@@ -50,6 +50,7 @@ run_config.yaml
 # Generated test evidence stays local by default. Explicitly reviewed evidence can use git add -f.
 artifacts/runs/**
 artifacts/reports/**
+artifacts/records/**
 !artifacts/runs/.gitkeep
 !artifacts/reports/.gitkeep
 

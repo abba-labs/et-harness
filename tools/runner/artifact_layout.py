@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts"
 DEFAULT_RUNS_ROOT = ARTIFACT_ROOT / "runs"
 DEFAULT_REPORTS_ROOT = ARTIFACT_ROOT / "reports"
+DEFAULT_RECORDS_ROOT = ARTIFACT_ROOT / "records"
 
 
 # Return one UTC timestamp in the stable format used by run manifests.
@@ -40,6 +41,7 @@ def capture_source_identity(repository_root: Path = REPOSITORY_ROOT) -> tuple[st
             ".",
             ":(exclude)artifacts/runs/**",
             ":(exclude)artifacts/reports/**",
+            ":(exclude)artifacts/records/**",
             ":(exclude)tmp/**",
         ],
         cwd=repository_root,
@@ -76,13 +78,22 @@ def resolve_runs_root(value: str, *, config_directory: Path) -> Path:
     return resolved
 
 
-# Create one immutable run directory directly below the canonical runs root.
+# 保留历史独立诊断入口；正式Case入口使用create_current_directory。
 def create_run_directory(runs_root: Path, *, run_name: str) -> Path:
     now = datetime.now()
     run_id = f"{now:%Y%m%d_%H%M%S_%f}_{safe_component(run_name, field='run name')}"
     run_dir = runs_root / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
+
+
+# 调用方必须持有环境锁；只有发布证明完整的固定工作区可以被复用。
+def create_current_directory(repository: Path, runs_root: Path) -> Path:
+    from record_workspace import prepare_workspace
+
+    if runs_root.resolve() != (repository / "artifacts/runs").resolve():
+        raise ValueError("Formal runs require canonical artifacts/runs root (output.root: auto)")
+    return prepare_workspace(repository, runs_root / "current")
 
 
 # Reserve one flat, timestamped Excel report path under the dedicated reports directory.
