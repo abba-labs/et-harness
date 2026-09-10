@@ -253,7 +253,7 @@ artifact = {
 write_json_result(final_path, artifact)  # 当前execution只发布一次最终Snapshot。
 ```
 
-参数化Case按单个`parameter_id` execution独立满足上述规则；不同execution可以复用同一逻辑文件名，因为Canonical Result会按`case_run_id`隔离。
+参数化Case按单个`parameter_id` execution独立满足上述规则；不同execution可以复用同一逻辑文件名，因为Canonical Result会按 Formal slot 目录`cases/<CASE_ID>/<SLOT>/`隔离同名附件。
 
 同一稳定Case的每个参数execution还必须独立产生R120声明的公共报告Evidence。分支专属事实可以额外记录，
 但不得用`None`、空结构或其他参数分支的结果补足本分支缺失的必要事实。

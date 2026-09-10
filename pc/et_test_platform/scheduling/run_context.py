@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from ..results.recorder import normalize_json_value, write_json_result
@@ -23,6 +24,76 @@ EVIDENCE_PROPERTY = "evidence_sources"
 REQUIRED_EVIDENCE_PROPERTY = "required_evidence_sources"
 OBSERVATION_PROPERTY = "et_observation"
 ALLOWED_EVIDENCE_SOURCES = frozenset({"dut", "peer", "fpga", "instrument", "observer"})
+DEFAULT_SLOT = "noparam"
+RESERVED_SLOTS = frozenset({DEFAULT_SLOT, "artifacts"})
+_WINDOWS_DEVICE_NAMES = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(10)),
+        *(f"LPT{i}" for i in range(10)),
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionIdentity:
+    layout: Literal["nested", "uuid"]
+    case_id: str | None
+    ip_id: str | None
+    parameter_id: str | None
+    slot: str | None
+    case_run_id: str
+    execution_dir: Path
+
+
+def _safe_component(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value):
+        raise ValueError(f"unsafe execution path component: {value!r}")
+    if value.endswith(".") or value.split(".")[0].upper() in _WINDOWS_DEVICE_NAMES:
+        raise ValueError(f"reserved execution path component: {value!r}")
+    return value
+
+
+def case_dir_name(case_id: str) -> str:
+    return _safe_component(case_id).upper()
+
+
+def execution_slot(parameter_id: str | None) -> str:
+    if parameter_id is None:
+        return DEFAULT_SLOT
+    name = _safe_component(parameter_id)
+    if name.casefold() in {item.casefold() for item in RESERVED_SLOTS}:
+        raise ValueError(f"parameter_id {parameter_id!r} collides with a reserved slot")
+    return name
+
+
+def filesystem_execution_key(case_id: str, parameter_id: str | None) -> tuple[str, str]:
+    return case_dir_name(case_id).casefold(), execution_slot(parameter_id).casefold()
+
+
+def stable_case_run_id(case_id: str, parameter_id: str | None) -> str:
+    return f"{case_dir_name(case_id)}--{execution_slot(parameter_id)}"
+
+
+def execution_dir(artifact_dir: Path, case_id: str, parameter_id: str | None) -> Path:
+    return Path(artifact_dir) / "cases" / case_dir_name(case_id) / execution_slot(parameter_id)
+
+
+def uuid_identity(artifact_dir: Path, case_run_id: str) -> ExecutionIdentity:
+    if Path(case_run_id).name != case_run_id or case_run_id in {"", ".", ".."}:
+        raise ValueError("case_run_id must be a single safe path component")
+    return ExecutionIdentity(
+        layout="uuid",
+        case_id=None,
+        ip_id=None,
+        parameter_id=None,
+        slot=None,
+        case_run_id=case_run_id,
+        execution_dir=Path(artifact_dir) / "cases" / case_run_id,
+    )
 
 
 # 读取已安装平台版本；源码未安装为 Package 时返回 ``unpackaged``。
@@ -129,6 +200,7 @@ class RunContext:
     _status_counts: dict[str, int] = field(default_factory=dict, init=False)
     _finished_at: str | None = field(default=None, init=False)
     _session_metadata: dict[str, Any] = field(default_factory=dict, init=False)
+    _execution_keys: set[tuple[str, str]] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         self.artifact_dir = Path(self.artifact_dir).resolve()
@@ -158,18 +230,36 @@ class RunContext:
 
         return self.artifact_dir / "session.json"
 
-    # 为一次收集到的 Case 分配独立 UUID；不改变 Case 的测试语义或执行顺序。
-    def allocate_case(self) -> str:
+    # 为一次收集到的 execution 分配目录身份；Formal 用稳定 Case/slot，其余仍 UUID 隔离。
+    def allocate_execution(self, item: object) -> ExecutionIdentity:
 
-        return str(uuid4())
+        case_id, ip_id = _case_identity(item)
+        parameter_id = _case_parameters(item).get("parameter_id")
+        if isinstance(parameter_id, str) and not parameter_id:
+            parameter_id = None
+        if ip_id is not None:
+            key = filesystem_execution_key(case_id, parameter_id)
+            if key in self._execution_keys:
+                raise ValueError(
+                    "duplicate Formal execution directory for "
+                    f"case_id={case_id!r} parameter_id={parameter_id!r}"
+                )
+            self._execution_keys.add(key)
+            return ExecutionIdentity(
+                layout="nested",
+                case_id=case_id,
+                ip_id=ip_id,
+                parameter_id=parameter_id,
+                slot=execution_slot(parameter_id),
+                case_run_id=stable_case_run_id(case_id, parameter_id),
+                execution_dir=execution_dir(self.artifact_dir, case_id, parameter_id),
+            )
+        return uuid_identity(self.artifact_dir, str(uuid4()))
 
-    # 把当前 execution 产生的附件固化到专属 Case 目录，并返回 Run-relative 路径。
-    # 源附件必须位于本次 Run 内；复制出本 Case artifacts 后删除源，避免 Session 根残留阻断 seal。
-    # 源已在本 Case artifacts 下则不删除。参数化复用同名源文件时，下一发重新创建源。
-    def bind_case_artifact(self, case_run_id: str, artifact_path: str | Path) -> str:
-
-        if Path(case_run_id).name != case_run_id or case_run_id in {"", ".", ".."}:
-            raise ValueError("case_run_id must be a single safe path component")
+    # 把当前 execution 产生的附件固化到专属目录，并返回 Run-relative 路径。
+    # 源附件必须位于本次 Run 内；复制出本 execution artifacts 后删除源，避免 Session 根残留阻断 seal。
+    # 源已在本 execution artifacts 下则不删除。参数化复用同名源文件时，下一发重新创建源。
+    def bind_case_artifact(self, identity: ExecutionIdentity, artifact_path: str | Path) -> str:
 
         source = Path(artifact_path)
         if not source.is_absolute():
@@ -182,7 +272,7 @@ class RunContext:
                 raise ValueError(f"case artifact does not exist: {source}") from exc
             raise ValueError("case artifact must be located inside the current run") from exc
 
-        destination_root = self.artifact_dir / "cases" / case_run_id / "artifacts"
+        destination_root = identity.execution_dir / "artifacts"
         try:
             source.relative_to(destination_root)
         except ValueError:
@@ -273,14 +363,14 @@ class RunContext:
         self.write_session()
 
     # 把一个 Case 的统一结果写入专属目录，并提取首个可用目标元数据到 Session。
-    def write_case_result(self, case_run_id: str, result: dict[str, Any]) -> Path:
+    def write_case_result(self, identity: ExecutionIdentity, result: dict[str, Any]) -> Path:
 
         payload = dict(result)
         payload.setdefault("schema_version", SCHEMA_VERSION)
         payload["run_id"] = self.run_id
-        payload["case_run_id"] = case_run_id
+        payload["case_run_id"] = identity.case_run_id
         self._update_session_metadata(payload)
-        output = self.artifact_dir / "cases" / case_run_id / "result.json"
+        output = identity.execution_dir / "result.json"
         return write_json_result(output, payload)
 
     # Copy only first-available target metadata into the run record.

@@ -19,12 +19,19 @@ import pytest
 
 from et_test_platform.results.recorder import bind_result_artifact_sink, write_json_result
 from et_test_platform.scheduling.run_context import (
+    DEFAULT_SLOT,
+    ExecutionIdentity,
     RunContext,
+    case_dir_name,
     case_evidence_sources,
     case_result_payload,
+    execution_slot,
+    filesystem_execution_key,
     record_evidence,
     record_observation,
     require_evidence,
+    stable_case_run_id,
+    uuid_identity,
 )
 from tools.runner.clean_generated_outputs import build_cleanup_plan, execute_cleanup
 
@@ -312,16 +319,20 @@ def test_write_json_result_can_bind_artifact_to_case_context(tmp_path: Path) -> 
     assert recorded == [output.resolve()]
 
 
+def _uuid(context: RunContext, name: str) -> ExecutionIdentity:
+    return uuid_identity(context.artifact_dir, name)
+
+
 # 参数化 execution 即使复用同一个源文件名，也必须固化为互不覆盖的 Run-relative 附件。
 def test_run_context_binds_reused_artifact_name_to_each_case_execution(tmp_path: Path) -> None:
     context = RunContext(tmp_path / "artifacts")
     source = context.artifact_dir / "shared.json"
 
     write_json_result(source, {"parameter": "first"})
-    first = context.bind_case_artifact("case-first", source)
+    first = context.bind_case_artifact(_uuid(context, "case-first"), source)
     assert not source.exists()
     write_json_result(source, {"parameter": "second"})
-    second = context.bind_case_artifact("case-second", source)
+    second = context.bind_case_artifact(_uuid(context, "case-second"), source)
     assert not source.exists()
 
     assert first == "cases/case-first/artifacts/shared.json"
@@ -341,7 +352,7 @@ def test_bind_case_artifact_unlinks_session_root_source(tmp_path: Path) -> None:
     source = context.artifact_dir / "shared.json"
     write_json_result(source, {"parameter": "only"})
 
-    relative = context.bind_case_artifact("case-root", source)
+    relative = context.bind_case_artifact(_uuid(context, "case-root"), source)
     bound = context.artifact_dir / relative
 
     assert relative == "cases/case-root/artifacts/shared.json"
@@ -357,7 +368,7 @@ def test_bind_case_artifact_keeps_source_already_under_case_artifacts(tmp_path: 
     source = context.artifact_dir / "cases" / case_run_id / "artifacts" / "already.json"
     write_json_result(source, {"value": 1})
 
-    relative = context.bind_case_artifact(case_run_id, source)
+    relative = context.bind_case_artifact(_uuid(context, case_run_id), source)
 
     assert relative == f"cases/{case_run_id}/artifacts/already.json"
     assert source.is_file()
@@ -371,10 +382,10 @@ def test_bind_case_artifact_rebinding_consumed_source_returns_existing_copy(
     context = RunContext(tmp_path / "artifacts")
     source = context.artifact_dir / "shared.json"
     write_json_result(source, {"value": 1})
-    first = context.bind_case_artifact("case-1", source)
+    first = context.bind_case_artifact(_uuid(context, "case-1"), source)
     assert not source.exists()
 
-    second = context.bind_case_artifact("case-1", source)
+    second = context.bind_case_artifact(_uuid(context, "case-1"), source)
 
     assert first == second == "cases/case-1/artifacts/shared.json"
     assert (context.artifact_dir / first).is_file()
@@ -386,7 +397,7 @@ def test_run_context_rejects_artifact_outside_current_run(tmp_path: Path) -> Non
     write_json_result(external, {"value": 1})
 
     with pytest.raises(ValueError, match="inside the current run"):
-        context.bind_case_artifact("case-external", external)
+        context.bind_case_artifact(_uuid(context, "case-external"), external)
 
 
 def test_external_observation_requires_stable_device_identity() -> None:
@@ -556,7 +567,7 @@ def test_session_uses_first_available_target_metadata_without_fabrication(
 ) -> None:
     context = RunContext(tmp_path / "artifacts")
     context.write_case_result(
-        "case-4",
+        _uuid(context, "case-4"),
         {
             "chip_id": "et6801",
             "firmware_build_id": "build-test",
@@ -606,7 +617,7 @@ def test_case_result_identity_is_owned_by_run_context(tmp_path: Path) -> None:
     context = RunContext(tmp_path / "artifacts")
 
     context.write_case_result(
-        "actual-case-run",
+        _uuid(context, "actual-case-run"),
         {
             "run_id": "stale-run",
             "case_run_id": "stale-case-run",
@@ -803,3 +814,92 @@ def test_pytest_plugin_records_setup_and_teardown_failures(tmp_path: Path) -> No
     results = [json.loads(path.read_text(encoding="utf-8")) for path in result_files]
     assert all(result["status"] == "FAIL" for result in results)
     assert all(result["error"] for result in results)
+
+
+def test_nested_path_helpers_accept_legal_ids_and_reject_collisions() -> None:
+    assert case_dir_name("crc_p0_002") == "CRC_P0_002"
+    assert execution_slot(None) == DEFAULT_SLOT
+    assert execution_slot("crc32") == "crc32"
+    assert stable_case_run_id("crc_p0_002", None) == "CRC_P0_002--noparam"
+    assert stable_case_run_id("crc_p0_002", "crc32") == "CRC_P0_002--crc32"
+    with pytest.raises(ValueError, match="reserved"):
+        execution_slot("noparam")
+    with pytest.raises(ValueError, match="reserved"):
+        execution_slot("artifacts")
+    with pytest.raises(ValueError, match="unsafe"):
+        execution_slot("has space")
+    with pytest.raises(ValueError, match="unsafe"):
+        execution_slot("[crc8]")
+    with pytest.raises(ValueError, match="unsafe"):
+        execution_slot("x" * 129)
+    assert filesystem_execution_key("crc_p0_002", "crc32") == filesystem_execution_key(
+        "CRC_P0_002", "CRC32"
+    )
+
+
+class _FakeFormalItem:
+    nodeid = "pc/et_test_platform/test_cases/crc/test_crc_p0.py::test_crc_p0_002[crc32]"
+    originalname = "test_crc_p0_002"
+    name = "test_crc_p0_002[crc32]"
+    user_properties: list[tuple[str, object]] = []
+
+    def __init__(self, parameter_id: str | None) -> None:
+        self.name = (
+            f"test_crc_p0_002[{parameter_id}]" if parameter_id is not None else "test_crc_p0_002"
+        )
+        self.callspec = SimpleNamespace(id=parameter_id) if parameter_id is not None else None
+
+    def iter_markers(self, name: str):
+        if name == "ip":
+            yield SimpleNamespace(args=("crc",), kwargs={})
+
+
+def test_allocate_execution_uses_nested_identity_and_detects_casefold_collision(
+    tmp_path: Path,
+) -> None:
+    context = RunContext(tmp_path / "artifacts")
+    first = context.allocate_execution(_FakeFormalItem("crc32"))
+    assert first.layout == "nested"
+    assert first.case_run_id == "CRC_P0_002--crc32"
+    assert first.execution_dir == tmp_path / "artifacts" / "cases" / "CRC_P0_002" / "crc32"
+    with pytest.raises(ValueError, match="duplicate Formal execution directory"):
+        context.allocate_execution(_FakeFormalItem("CRC32"))
+
+
+def test_formal_collected_slots_are_safe_and_unique(tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    project_pc = Path(__file__).parents[4]
+    repository = project_pc.parent
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(project_pc), str(repository), env.get("PYTHONPATH", "")]
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            str(project_pc / "et_test_platform" / "test_cases"),
+            "-p",
+            "et_test_platform.pytest_plugin",
+            "--et-artifact-dir",
+            str(artifact_dir),
+        ],
+        cwd=repository,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    session = json.loads((artifact_dir / "session.json").read_text(encoding="utf-8"))
+    keys = [
+        filesystem_execution_key(entry["case_id"], entry.get("parameter_id"))
+        for entry in session["selection"]["selected_executions"]
+    ]
+    assert keys
+    assert len(keys) == len(set(keys))
+    for entry in session["selection"]["selected_executions"]:
+        execution_slot(entry.get("parameter_id"))

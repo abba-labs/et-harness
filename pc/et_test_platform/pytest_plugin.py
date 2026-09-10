@@ -14,6 +14,7 @@ import pytest
 
 from .results.recorder import bind_result_artifact_sink
 from .scheduling.run_context import (
+    ExecutionIdentity,
     RunContext,
     case_result_payload,
 )
@@ -44,7 +45,10 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, object, None]:
         return
 
     def record_artifact(path: Path) -> None:
-        relative_path = context.bind_case_artifact(str(state["case_run_id"]), path)
+        identity = state["identity"]
+        if not isinstance(identity, ExecutionIdentity):
+            raise RuntimeError("pytest Case execution identity is invalid")
+        relative_path = context.bind_case_artifact(identity, path)
         property_value = ("measurement_artifact_result", relative_path)
         if property_value not in item.user_properties:
             item.user_properties.append(property_value)
@@ -151,8 +155,12 @@ def pytest_collection_modifyitems(
         deselected_count=len(selection.deselected),
     )
     for item in items:
+        try:
+            identity = context.allocate_execution(item)
+        except ValueError as exc:
+            raise pytest.UsageError(str(exc)) from exc
         item.stash[_CASE_STATE_KEY] = {
-            "case_run_id": context.allocate_case(),
+            "identity": identity,
             "reports": {},
             "written": False,
         }
@@ -185,12 +193,18 @@ def pytest_runtest_makereport(
         if name.endswith("_result"):
             if not isinstance(value, (str, Path)):
                 raise RuntimeError(f"Case artifact property {name!r} must contain a path")
-            value = context.bind_case_artifact(str(state["case_run_id"]), value)
+            identity = state["identity"]
+            if not isinstance(identity, ExecutionIdentity):
+                raise RuntimeError("pytest Case execution identity is invalid")
+            value = context.bind_case_artifact(identity, value)
         property_value = (name, value)
         if property_value not in normalized_properties:
             normalized_properties.append(property_value)
     item.user_properties[:] = normalized_properties
 
+    identity = state["identity"]
+    if not isinstance(identity, ExecutionIdentity):
+        raise RuntimeError("pytest Case execution identity is invalid")
     framework = item.funcargs.get("framework_communication")
     config = item.config
     options = config.option
@@ -200,10 +214,10 @@ def pytest_runtest_makereport(
         framework=framework,
         target_id=getattr(options, "et_target", None),
         bench_path=getattr(options, "et_bench", None),
-        case_run_id=str(state["case_run_id"]),
+        case_run_id=identity.case_run_id,
         run_id=context.run_id,
     )
-    context.write_case_result(str(state["case_run_id"]), payload)
+    context.write_case_result(identity, payload)
     context.record_status(str(payload["status"]))
 
     if payload["status"] == "EVIDENCE_MISSING":

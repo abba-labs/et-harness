@@ -27,7 +27,7 @@ artifacts/
 | 内容 | 位置 |
 |---|---|
 | 当前公共阶段身份、配置和日志 | `records/<CHIP>/_PIPELINE/current/` |
-| 当前原始Case事实与附件 | `records/<CHIP>/<IP>/current/session.json`、`cases/` |
+| 当前原始Case事实与附件 | `records/<CHIP>/<IP>/current/session.json`、`cases/<CASE_ID>/<SLOT>/` |
 | 当前简短事实摘要 | `records/<CHIP>/<IP>/current/facts.md` |
 | 某芯片/IP最近生成的Excel | `reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`（启用报告时更新） |
 | 某芯片/IP知识索引 | `records/<CHIP>/<IP>/README.md` |

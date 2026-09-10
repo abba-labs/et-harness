@@ -18,6 +18,8 @@ from et_test_platform.results.case_report import (
     _format_observation_value,
     _format_value,
     build_case_report_model,
+    classify_canonical_result,
+    iter_canonical_results,
 )
 
 
@@ -917,3 +919,48 @@ cases:
     assert "RPT_AES_STS.FINISH（STATUS.FINISH实际值）" in row["remark"]
     assert "RESULT_DOUT0~RESULT_DOUT3（RESULT_DOUT[0..3]实际输出）" in row["remark"]
     assert "RPT_AES_INT_STATUS.COMPLETE（IRQ_STATUS.COMPLETE实际值）" in row["remark"]
+
+
+def test_iter_canonical_results_treats_bound_artifacts_result_json_as_legacy(
+    tmp_path: Path,
+) -> None:
+    cases_root = tmp_path / "cases"
+    uuid = "06bd50ed-5154-4d57-ae75-78dded033a70"
+    canonical = cases_root / uuid / "result.json"
+    bound = cases_root / uuid / "artifacts" / "result.json"
+    canonical.parent.mkdir(parents=True)
+    bound.parent.mkdir(parents=True)
+    canonical.write_text("{}", encoding="utf-8")
+    bound.write_text("{}", encoding="utf-8")
+    assert classify_canonical_result(canonical, cases_root) == "legacy"
+    assert classify_canonical_result(bound, cases_root) is None
+    layout, paths = iter_canonical_results(cases_root)
+    assert layout == "legacy"
+    assert paths == [canonical]
+
+
+def test_case_report_loads_nested_formal_results(tmp_path: Path) -> None:
+    document = tmp_path / "CRC.md"
+    results_root = tmp_path / "run"
+    _write_document(document)
+    _write_json(
+        results_root / "session.json",
+        {
+            "schema_version": 1,
+            "run_id": "run-1",
+            "chip_id": "ET6801",
+            "finished_at": "2026-08-12T12:00:00Z",
+            "exitstatus": 0,
+        },
+    )
+    result = _result(
+        "CRC_P1_001",
+        "PASS",
+        parameter_id="crc32",
+        measurements={"expected_crc": 1, "actual_crc": 1},
+    )
+    result["case_run_id"] = "CRC_P1_001--crc32"
+    _write_json(results_root / "cases" / "CRC_P1_001" / "crc32" / "result.json", result)
+    model = build_case_report_model(document, results_root)
+    assert model["cases"][0]["case_id"] == "CRC_P1_001"
+    assert model["summary"]["execution_count"] == 1

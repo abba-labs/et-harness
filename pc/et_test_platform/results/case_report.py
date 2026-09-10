@@ -152,12 +152,53 @@ def _load_report_notes(document_path: Path, text: str) -> dict[str, dict[str, An
     return notes
 
 
+def classify_canonical_result(path: Path, cases_root: Path) -> str | None:
+    try:
+        relative = path.relative_to(cases_root)
+    except ValueError:
+        return None
+    parts = relative.parts
+    if "artifacts" in parts:
+        return None
+    if parts[-1] != "result.json":
+        return None
+    if len(parts) == 2:
+        return "legacy"
+    if len(parts) == 3 and parts[1] != "artifacts":
+        return "nested"
+    return "unknown"
+
+
+def iter_canonical_results(cases_root: Path) -> tuple[str, list[Path]]:
+    if not cases_root.is_dir():
+        return "legacy", []
+    legacy: list[Path] = []
+    nested: list[Path] = []
+    unknown: list[Path] = []
+    for path in sorted(cases_root.glob("**/result.json")):
+        kind = classify_canonical_result(path, cases_root)
+        if kind == "legacy":
+            legacy.append(path)
+        elif kind == "nested":
+            nested.append(path)
+        elif kind == "unknown":
+            unknown.append(path)
+    if unknown:
+        raise ValueError(f"unsupported result.json placement: {unknown!r}")
+    if legacy and nested:
+        raise ValueError("mixed canonical case layouts; preserve the workspace")
+    if nested:
+        return "nested", nested
+    return "legacy", legacy
+
+
 def _load_case_results(results_root: Path) -> list[dict[str, Any]]:
     cases_root = results_root / "cases"
     if not cases_root.is_dir():
         return []
+    _layout, paths = iter_canonical_results(cases_root)
     results: list[dict[str, Any]] = []
-    for path in sorted(cases_root.glob("*/result.json")):
+    for path in paths:
         result = _read_json(path)
         result["_result_path"] = str(path.relative_to(results_root))
         result["_results_root"] = str(results_root.resolve())

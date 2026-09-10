@@ -37,7 +37,8 @@ def make_session(
     result = _result("CRC_P1_001", "PASS", measurements={"expected_crc": 1, "actual_crc": 1})
     result["ip_id"] = "crc"
     result["chip_id"] = chip_id
-    relative = f"cases/{result['case_run_id']}/trace.log"
+    result["case_run_id"] = "CRC_P1_001--noparam"
+    relative = "cases/CRC_P1_001/noparam/artifacts/trace.log"
     result["artifacts"] = {"trace": relative}
     session = {
         "schema_version": 1,
@@ -61,9 +62,10 @@ def make_session(
     (run / "session.json").write_bytes(transaction.json_bytes(session))
     (run / "pytest.log").write_bytes(b"synthetic console\n")
     if not missing:
-        case = run / "cases" / str(result["case_run_id"])
+        case = run / "cases" / "CRC_P1_001" / "noparam"
         case.mkdir(parents=True)
         (case / "result.json").write_bytes(transaction.json_bytes(result))
+        (run / relative).parent.mkdir(parents=True, exist_ok=True)
         (run / relative).write_bytes(b"trace bytes\n")
     return run
 
@@ -147,3 +149,50 @@ def test_source_recovers_only_exact_historical_line_endings(
     else:
         assert source._specification(tmp_path, path, session) == original
     assert path.read_bytes() == current
+
+
+def test_source_loads_legacy_uuid_tree_even_when_artifacts_contain_result_json(
+    source: ModuleType, tmp_path: Path
+) -> None:
+    transaction = importlib.import_module("record_transaction")
+    document = tmp_path / "test_case_doc/crc/crc.md"
+    document.parent.mkdir(parents=True)
+    _write_document(document)
+    run = tmp_path / "artifacts/runs/legacy"
+    case_run_id = "06bd50ed-5154-4d57-ae75-78dded033a70"
+    result = _result("CRC_P1_001", "PASS", measurements={"expected_crc": 1, "actual_crc": 1})
+    result["ip_id"] = "crc"
+    result["chip_id"] = "et6801"
+    result["case_run_id"] = case_run_id
+    result["artifacts"] = {"trace": f"cases/{case_run_id}/artifacts/result.json"}
+    session = {
+        "schema_version": 1,
+        "run_id": "run-1",
+        "chip_id": "et6801",
+        "target_id": "dut",
+        "finished_at": "2026-09-08T01:00:00Z",
+        "exitstatus": 0,
+        "source_revision": "a" * 40,
+        "source_dirty": False,
+        "spec_sha256": source.digest(document.read_bytes()),
+        "status_counts": {"PASS": 1},
+        "selection": {
+            "collected_count": 1,
+            "selected_count": 1,
+            "deselected_count": 0,
+            "selected_case_ids": ["crc_p1_001"],
+            "selected_executions": [{"case_id": "crc_p1_001", "parameter_id": None}],
+        },
+    }
+    case = run / "cases" / case_run_id
+    case.mkdir(parents=True)
+    (run / "session.json").write_bytes(transaction.json_bytes(session))
+    (run / "pytest.log").write_bytes(b"legacy console\n")
+    (case / "result.json").write_bytes(transaction.json_bytes(result))
+    (case / "artifacts").mkdir()
+    (case / "artifacts" / "result.json").write_bytes(b'{"not": "canonical"}\n')
+    incoming = source.load_input(tmp_path, run, ip="crc", lane="fpga", work=tmp_path / "work")
+    snapshot = incoming.cases["CRC_P1_001"][0]
+    assert snapshot.status == "PASS"
+    assert snapshot.result is not None
+    assert snapshot.result["_result_path"] == f"cases/{case_run_id}/result.json"

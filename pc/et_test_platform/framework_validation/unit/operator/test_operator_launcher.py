@@ -1549,7 +1549,7 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     expected_exit = 1 if status == "FAIL" else 0
     session.update({"exitstatus": expected_exit, "status_counts": {status: 1}})
     session_path.write_text(json.dumps(session), encoding="utf-8")
-    result_path = next((original / "cases").glob("*/result.json"))
+    result_path = next((original / "cases").glob("*/*/result.json"))
     result = json.loads(result_path.read_text())
     result["status"] = status
     result_path.write_text(json.dumps(result), encoding="utf-8")
@@ -1620,7 +1620,7 @@ def test_binding_session_root_measurement_allows_prepare_review_to_seal(
     tmp_path: Path,
 ) -> None:
     from et_test_platform.results.recorder import write_json_result
-    from et_test_platform.scheduling.run_context import RunContext
+    from et_test_platform.scheduling.run_context import ExecutionIdentity, RunContext
 
     from .test_record_source import make_session
 
@@ -1631,9 +1631,22 @@ def test_binding_session_root_measurement_allows_prepare_review_to_seal(
     original.rename(current)
     leftover = current / "measurement.json"
     write_json_result(leftover, {"measurement_schema": "et.measurement.v1", "value": 1})
-    case_dir = next(path for path in (current / "cases").iterdir() if path.is_dir())
-    relative = RunContext(current).bind_case_artifact(case_dir.name, leftover)
-    result_path = case_dir / "result.json"
+    execution_dir = next(
+        path
+        for path in (current / "cases").glob("*/*")
+        if path.is_dir() and path.name != "artifacts"
+    )
+    identity = ExecutionIdentity(
+        layout="nested",
+        case_id="crc_p1_001",
+        ip_id="crc",
+        parameter_id=None,
+        slot=execution_dir.name,
+        case_run_id="CRC_P1_001--noparam",
+        execution_dir=execution_dir,
+    )
+    relative = RunContext(current).bind_case_artifact(identity, leftover)
+    result_path = execution_dir / "result.json"
     result = json.loads(result_path.read_text(encoding="utf-8"))
     result["artifacts"]["measurement"] = relative
     result_path.write_text(json.dumps(result), encoding="utf-8")
@@ -2056,7 +2069,7 @@ def test_run_ip_tests_no_report_still_rejects_empty_session(
 def test_run_ip_tests_rejects_incomplete_parameter_execution_results(tmp_path: Path) -> None:
 
     run_dir = tmp_path / "run"
-    case_dir = run_dir / "cases" / "case-a"
+    case_dir = run_dir / "cases" / "AES_P0_002" / "ecb128"
     case_dir.mkdir(parents=True)
     (run_dir / "session.json").write_text(
         json.dumps(
@@ -2078,7 +2091,7 @@ def test_run_ip_tests_rejects_incomplete_parameter_execution_results(tmp_path: P
         json.dumps(
             {
                 "run_id": "run-1",
-                "case_run_id": "case-a",
+                "case_run_id": "AES_P0_002--ecb128",
                 "case_id": "aes_p0_002",
                 "parameter_id": "ecb128",
                 "status": "PASS",
@@ -2090,13 +2103,13 @@ def test_run_ip_tests_rejects_incomplete_parameter_execution_results(tmp_path: P
     with pytest.raises(ValueError, match="do not match selected executions"):
         RUN_IP_TESTS._validate_canonical_run(run_dir, pytest_exit=0)
 
-    missing_evidence_dir = run_dir / "cases" / "case-b"
+    missing_evidence_dir = run_dir / "cases" / "AES_P0_002" / "cbc128"
     missing_evidence_dir.mkdir()
     (missing_evidence_dir / "result.json").write_text(
         json.dumps(
             {
                 "run_id": "run-1",
-                "case_run_id": "case-b",
+                "case_run_id": "AES_P0_002--cbc128",
                 "case_id": "aes_p0_002",
                 "parameter_id": "cbc128",
                 "status": "EVIDENCE_MISSING",
@@ -2106,6 +2119,41 @@ def test_run_ip_tests_rejects_incomplete_parameter_execution_results(tmp_path: P
     )
 
     assert RUN_IP_TESTS._validate_canonical_run(run_dir, pytest_exit=0) is False
+
+
+def test_validate_canonical_run_rejects_legacy_uuid_layout(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    case_dir = run_dir / "cases" / "06bd50ed-5154-4d57-ae75-78dded033a70"
+    case_dir.mkdir(parents=True)
+    (run_dir / "session.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-1",
+                "finished_at": "2026-08-20T00:00:00Z",
+                "exitstatus": 0,
+                "selection": {
+                    "selected_executions": [
+                        {"case_id": "crc_p0_002", "parameter_id": "crc32"},
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (case_dir / "result.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-1",
+                "case_run_id": case_dir.name,
+                "case_id": "crc_p0_002",
+                "parameter_id": "crc32",
+                "status": "PASS",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="nested"):
+        RUN_IP_TESTS._validate_canonical_run(run_dir, pytest_exit=0)
 
 
 # 测试 Feature：报告命令返回0后仍必须存在有效XLSX容器。

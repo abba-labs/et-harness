@@ -11,7 +11,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from et_test_platform.results.case_report import build_case_report_model
+from et_test_platform.results.case_report import build_case_report_model, iter_canonical_results
+from et_test_platform.scheduling.run_context import (
+    case_dir_name,
+    execution_slot,
+    stable_case_run_id,
+)
 from record_model import MAX_IP_BYTES, Snapshot, list_value, object_value, text_value, timestamp
 from record_transaction import digest, json_object, safe_name, safe_path
 
@@ -132,19 +137,41 @@ def _selected_results(
     _validate_selection(selection, chosen)
     results: dict[tuple[str, object], dict[str, object]] = {}
     raw: dict[tuple[str, object], bytes] = {}
-    for path in sorted((source / "cases").glob("*/result.json")):
+    _layout, paths = iter_canonical_results(source / "cases")
+    for path in paths:
         safe_path(source, path.relative_to(source).as_posix())
         data = _bounded_read(path)
         result = json_object(data)
         if result.get("parameter_id") is not None and not isinstance(result["parameter_id"], str):
             raise ValueError("parameter_id must be text or null")
         key = (text_value(result.get("case_id"), "case_id").lower(), result.get("parameter_id"))
-        if result.get("schema_version") != 1 or result.get("case_run_id") != path.parent.name:
+        if result.get("schema_version") != 1:
             raise ValueError(f"invalid canonical result identity: {path}")
+        if _layout == "legacy":
+            if result.get("case_run_id") != path.parent.name:
+                raise ValueError(f"invalid canonical result identity: {path}")
+        else:
+            parameter_id = result.get("parameter_id")
+            if parameter_id is not None and not isinstance(parameter_id, str):
+                raise ValueError("parameter_id must be text or null")
+            try:
+                expected_case = case_dir_name(text_value(result.get("case_id"), "case_id"))
+                expected_slot = execution_slot(parameter_id if isinstance(parameter_id, str) else None)
+                expected_run = stable_case_run_id(
+                    text_value(result.get("case_id"), "case_id"),
+                    parameter_id if isinstance(parameter_id, str) else None,
+                )
+            except ValueError as exc:
+                raise ValueError(f"invalid canonical result identity: {path}") from exc
+            if path.parent.name != expected_slot or path.parent.parent.name != expected_case:
+                raise ValueError(f"invalid canonical result identity: {path}")
+            if result.get("case_run_id") != expected_run:
+                raise ValueError(f"invalid canonical result identity: {path}")
         if key not in chosen or key in results or result.get("ip_id") != ip:
             raise ValueError(f"unselected, duplicate or wrong-IP result: {path}")
         if result.get("chip_id") not in {None, session.get("chip_id")}:
             raise ValueError("result chip identity conflicts with Session")
+        result["_result_path"] = path.relative_to(source).as_posix()
         results[key], raw[key] = result, data
     counts = dict(Counter(str(result.get("status")) for result in results.values()))
     declared = object_value(session.get("status_counts"), "Session status_counts")

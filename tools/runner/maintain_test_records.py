@@ -101,7 +101,10 @@ def _source_files(incoming: RecordInput) -> dict[str, str]:
                 elif name == "source/configuration.yaml":
                     files["config/run_config.snapshot.yaml"] = sha
                 elif name == "source/result.json" and snapshot.result is not None:
-                    files[f"cases/{snapshot.result['case_run_id']}/result.json"] = sha
+                    relative = snapshot.result.get("_result_path")
+                    if not isinstance(relative, str) or not relative.endswith("/result.json"):
+                        raise ValueError("canonical result is missing its workspace path")
+                    files[relative] = sha
                 elif name.startswith("artifacts/"):
                     files[name.removeprefix("artifacts/")] = sha
     return files

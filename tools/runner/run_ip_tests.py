@@ -34,6 +34,17 @@ from record_workspace import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+for _import_root in (REPOSITORY_ROOT, REPOSITORY_ROOT / "pc"):
+    if str(_import_root) not in sys.path:
+        sys.path.insert(0, str(_import_root))
+from et_test_platform.results.case_report import iter_canonical_results  # noqa: E402
+from et_test_platform.scheduling.run_context import (  # noqa: E402
+    case_dir_name,
+    execution_slot,
+    filesystem_execution_key,
+    stable_case_run_id,
+)
+
 FORMAL_CASE_ROOT = REPOSITORY_ROOT / "pc/et_test_platform/test_cases"
 DOCUMENT_ROOT = REPOSITORY_ROOT / "test_case_doc"
 REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
@@ -299,7 +310,13 @@ def _validate_canonical_run(run_dir: Path, *, pytest_exit: int) -> bool:
     actual: Counter[tuple[str, str | None]] = Counter()
     evidence_complete = True
     run_id = session.get("run_id")
-    case_results = sorted((run_dir / "cases").glob("*/result.json"))
+    layout, case_results = iter_canonical_results(run_dir / "cases")
+    if layout != "nested" and case_results:
+        raise ValueError(
+            "Formal current must use nested cases/<CASE_ID>/<SLOT>/result.json; "
+            f"found {layout} layout under {run_dir / 'cases'}"
+        )
+    seen_keys: set[tuple[str, str]] = set()
     for result_path in case_results:
         result = _load_json_object(result_path, label="canonical case result")
         case_id = result.get("case_id")
@@ -313,8 +330,28 @@ def _validate_canonical_run(run_dir: Path, *, pytest_exit: int) -> bool:
             raise ValueError(f"canonical case identity is invalid: {result_path}")
         if result.get("run_id") != run_id:
             raise ValueError(f"canonical case run_id does not match session: {result_path}")
-        if result.get("case_run_id") != result_path.parent.name:
+        try:
+            expected_case = case_dir_name(case_id)
+            expected_slot = execution_slot(parameter_id if isinstance(parameter_id, str) else None)
+            expected_run = stable_case_run_id(
+                case_id, parameter_id if isinstance(parameter_id, str) else None
+            )
+            fs_key = filesystem_execution_key(
+                case_id, parameter_id if isinstance(parameter_id, str) else None
+            )
+        except ValueError as exc:
+            raise ValueError(f"canonical case identity is invalid: {result_path}") from exc
+        expected_path = run_dir / "cases" / expected_case / expected_slot / "result.json"
+        if result_path.resolve() != expected_path.resolve():
+            raise ValueError(
+                f"canonical result path does not match nested layout: {result_path}; "
+                f"expected path cases/{expected_case}/{expected_slot}/result.json"
+            )
+        if result.get("case_run_id") != expected_run:
             raise ValueError(f"canonical case_run_id does not match its directory: {result_path}")
+        if expected_slot.casefold() == "artifacts" or fs_key in seen_keys:
+            raise ValueError(f"canonical case identity is invalid: {result_path}")
+        seen_keys.add(fs_key)
         if status not in {"PASS", "FAIL", "SKIP", "EVIDENCE_MISSING"}:
             raise ValueError(f"canonical case status is invalid: {result_path}")
         actual[(case_id.lower(), parameter_id)] += 1

@@ -162,7 +162,7 @@ artifacts/
 │  ├─ cases/<CASE_ID>.md
 │  ├─ attachments/<CASE_ID>/...  # 仅正文不能替代的必要附件
 │  ├─ current/                  # 仅本IP当前一次测试，不按轮次累积
-│  │  └─ manifest.json、config/、session.json、cases/、pytest.log、specification.md、facts.md、publication.json
+│  │  └─ manifest.json、config/、session.json、cases/<CASE_ID>/<SLOT>/result.json、pytest.log、specification.md、facts.md、publication.json
 │  └─ _maintenance/             # 固定锁与可恢复事务；完成后不保留历史副本
 ├─ records/<CHIP>/_PIPELINE/current/  # 当前公共阶段Manifest、配置、stages和回执
 ├─ records/_DIAGNOSTICS/<TOOL>/current/ # 独立诊断现场，不代表Formal Case验证
@@ -172,7 +172,7 @@ artifacts/
 
 ### 6.1 当前工作区与复用门禁
 
-- `artifacts/`根只允许`README.md`、`records/`、`reports/`及既有只读`runs/`历史。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。
+- `artifacts/`根只允许`README.md`、`records/`、`reports/`及既有只读`runs/`历史。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。Formal `current/cases` 第一层为大写`case_id`，第二层为`parameter_id`经`safe_name`得到的 slot（无参数为`noparam`）；不得省略 slot，也不得用`case_run_id`当路径分量。
 - Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/records`根。Bench目标芯片决定`<CHIP>/<IP>/current`，Session芯片必须复核一致。不同芯片/IP互不覆盖；同芯片/IP跨Lane共用当前现场。
 - Pipeline通过`ET_ARTIFACT_RUN_DIR`传递`<CHIP>/_PIPELINE/current`阶段根，Manifest引用本轮各IP固定工作区，不复制它们。Case只使用注入的`et_artifact_dir`，不得推导知识根。每个IP自带Manifest、配置快照和Pipeline逻辑ID。整轮测试seal完成前（父或任一目标IP unpublished）不得复用。整轮仅pending时允许覆盖。Agent仍应整轮一起review。
 - Manifest记录逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target、时间、状态和退出码；配置快照保存真实输入。Lane显式传递，未知身份不得猜测。

@@ -19,7 +19,7 @@ rule_ids: [ET-RULE-CANONICAL-RESULT-EVIDENCE]
 pytest_plugin.py
 -> scheduling/run_context.py
 -> results/recorder.py
--> session.json / cases/<case_run_id>/result.json
+-> session.json / Formal cases/<CASE_ID>/<SLOT>/result.json
 -> results/case_report.py（只读派生）
 ```
 
@@ -90,6 +90,8 @@ evidence_sources
 evidence_complete
 missing_evidence_sources
 ```
+
+Formal 的 `case_run_id` 是 `{CASE_ID}--{SLOT}`，只在单次 Session 内唯一，不是目录名、不是跨 Session 主键，禁止按 `--` 拆开还原身份。无注册表诊断输出仍使用 UUID `case_run_id` 作为第一层目录名。
 
 当前写入层直接产生的 Canonical Status 只有：
 
@@ -243,7 +245,8 @@ Canonical JSON 使用同目录临时文件写入后原子替换，避免正常�
 
 ```text
 one Session -> one session.json
-one execution -> cases/<case_run_id>/result.json
+one Formal execution -> cases/<CASE_ID>/<SLOT>/result.json
+Formal case_run_id -> {CASE_ID}--{SLOT}（仅 Session 内校验，不是目录名、不是跨 Session 主键）
 large/raw evidence -> independent file + canonical relative reference
 ```
 
