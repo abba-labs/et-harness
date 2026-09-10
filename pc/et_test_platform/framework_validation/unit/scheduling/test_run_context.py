@@ -319,8 +319,10 @@ def test_run_context_binds_reused_artifact_name_to_each_case_execution(tmp_path:
 
     write_json_result(source, {"parameter": "first"})
     first = context.bind_case_artifact("case-first", source)
+    assert not source.exists()
     write_json_result(source, {"parameter": "second"})
     second = context.bind_case_artifact("case-second", source)
+    assert not source.exists()
 
     assert first == "cases/case-first/artifacts/shared.json"
     assert second == "cases/case-second/artifacts/shared.json"
@@ -331,6 +333,51 @@ def test_run_context_binds_reused_artifact_name_to_each_case_execution(tmp_path:
     assert json.loads((context.artifact_dir / second).read_text(encoding="utf-8")) == {
         "parameter": "second"
     }
+
+
+# 源在 Session 根时，绑定必须留下 Case 副本并删除源，避免 seal 把残留当 extra。
+def test_bind_case_artifact_unlinks_session_root_source(tmp_path: Path) -> None:
+    context = RunContext(tmp_path / "artifacts")
+    source = context.artifact_dir / "shared.json"
+    write_json_result(source, {"parameter": "only"})
+
+    relative = context.bind_case_artifact("case-root", source)
+    bound = context.artifact_dir / relative
+
+    assert relative == "cases/case-root/artifacts/shared.json"
+    assert bound.is_file()
+    assert json.loads(bound.read_text(encoding="utf-8")) == {"parameter": "only"}
+    assert not source.exists()
+
+
+# 已经位于本 Case artifacts 下的附件不得因再次绑定被删除。
+def test_bind_case_artifact_keeps_source_already_under_case_artifacts(tmp_path: Path) -> None:
+    context = RunContext(tmp_path / "artifacts")
+    case_run_id = "case-bound"
+    source = context.artifact_dir / "cases" / case_run_id / "artifacts" / "already.json"
+    write_json_result(source, {"value": 1})
+
+    relative = context.bind_case_artifact(case_run_id, source)
+
+    assert relative == f"cases/{case_run_id}/artifacts/already.json"
+    assert source.is_file()
+    assert json.loads(source.read_text(encoding="utf-8")) == {"value": 1}
+
+
+# teardown 会用已删除的 Session 根路径再次绑定；必须命中已固化副本而不是报源文件丢失。
+def test_bind_case_artifact_rebinding_consumed_source_returns_existing_copy(
+    tmp_path: Path,
+) -> None:
+    context = RunContext(tmp_path / "artifacts")
+    source = context.artifact_dir / "shared.json"
+    write_json_result(source, {"value": 1})
+    first = context.bind_case_artifact("case-1", source)
+    assert not source.exists()
+
+    second = context.bind_case_artifact("case-1", source)
+
+    assert first == second == "cases/case-1/artifacts/shared.json"
+    assert (context.artifact_dir / first).is_file()
 
 
 def test_run_context_rejects_artifact_outside_current_run(tmp_path: Path) -> None:
@@ -677,6 +724,7 @@ def test_plugin_preserves_parameterized_artifacts_and_relative_references(tmp_pa
         payload = json.loads((artifact_dir / str(reference)).read_text(encoding="utf-8"))
         expected = 1 if result["parameter_id"] == "first" else 2
         assert payload == {"value": expected}
+    assert not (artifact_dir / "shared.json").exists()
 
 
 # Normal unit runs must not create result files unless explicitly opted in.

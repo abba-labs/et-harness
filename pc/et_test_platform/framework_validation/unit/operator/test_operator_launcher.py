@@ -1614,6 +1614,100 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     assert "Actual Session chip differs" not in capsys.readouterr().out
 
 
+# 测试方法：Session 根写入测量 JSON 后 bind 再 prepare_review。
+# 通过条件：源文件删除、Case 下有副本、publication/Excel 都能生成。
+def test_binding_session_root_measurement_allows_prepare_review_to_seal(
+    tmp_path: Path,
+) -> None:
+    from et_test_platform.results.recorder import write_json_result
+    from et_test_platform.scheduling.run_context import RunContext
+
+    from .test_record_source import make_session
+
+    source = importlib.import_module("record_source")
+    original = make_session(source, tmp_path, chip_id="et6801")
+    current = tmp_path / "artifacts/records/ET6801/CRC/current"
+    current.parent.mkdir(parents=True)
+    original.rename(current)
+    leftover = current / "measurement.json"
+    write_json_result(leftover, {"measurement_schema": "et.measurement.v1", "value": 1})
+    case_dir = next(path for path in (current / "cases").iterdir() if path.is_dir())
+    relative = RunContext(current).bind_case_artifact(case_dir.name, leftover)
+    result_path = case_dir / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["artifacts"]["measurement"] = relative
+    result_path.write_text(json.dumps(result), encoding="utf-8")
+
+    prepared = RUN_IP_TESTS.prepare_review(tmp_path, current, chip="ET6801", ip="crc", lane="fpga")
+
+    assert not leftover.exists()
+    assert (current / relative).is_file()
+    assert (current / "facts.md").is_file()
+    assert (current / "publication.json").is_file()
+    assert json.loads((current / "publication.json").read_text(encoding="utf-8"))["pending_review"]
+    assert Path(str(prepared["report"])).is_file()
+
+
+# 测试方法：pytest 已写出 Session，但根上残留未绑定 JSON。
+# 通过条件：prepare_review/seal 失败必须非零退出并明确日志，不得当测试绿而静默跳过报告。
+def test_run_ip_tests_fails_closed_when_unbound_root_json_blocks_seal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from .test_record_source import make_session
+
+    source = importlib.import_module("record_source")
+    original = make_session(source, tmp_path, chip_id="et6801")
+    case_root = tmp_path / "cases"
+    document_root = tmp_path / "test_case_doc"
+    output_root = tmp_path / "artifacts/records"
+    (case_root / "crc").mkdir(parents=True)
+    bench = tmp_path / "bench.yaml"
+    bench.write_text("targets: {dut: {chip: et6801}}\n", encoding="utf-8")
+
+    monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RECORDS_ROOT", output_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
+    monkeypatch.setattr(RUN_IP_TESTS, "capture_source_identity", lambda root: ("a" * 40, False))
+
+    def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
+        if Path(command[1]) == RUN_IP_TESTS.VALIDATE_PC:
+            return 0
+        if "pytest" in command:
+            artifact_dir = Path(command[command.index("--et-artifact-dir") + 1])
+            shutil.copytree(original, artifact_dir, dirs_exist_ok=True)
+            (artifact_dir / "leftover.json").write_text('{"value": 1}', encoding="utf-8")
+            return 0
+        raise AssertionError("unexpected subprocess")
+
+    monkeypatch.setattr(RUN_IP_TESTS, "_run", fake_run)
+
+    exit_code = RUN_IP_TESTS.main(
+        [
+            "--ip",
+            "crc",
+            "--bench",
+            str(bench),
+            "--target",
+            "dut",
+            "--output-root",
+            str(output_root),
+            "--lane",
+            "fpga",
+        ]
+    )
+
+    root = output_root / "ET6801/CRC/current"
+    captured = capsys.readouterr().out
+    assert exit_code == 2
+    assert "publication/report was not sealed" in captured
+    assert (root / "session.json").is_file()
+    assert not (root / "publication.json").exists()
+    assert not (tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx").exists()
+
+
 # 测试 Feature：Session 与 Bench 目标芯片真不一致时必须跳过发布。
 #
 # 测试方法：合成 session.chip_id=et9999，Bench 目标仍为 et6801，走独立 IP runner。

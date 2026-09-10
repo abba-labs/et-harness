@@ -27,6 +27,7 @@ from maintain_test_records import prepare_review
 from record_store import current_root, record_root
 from record_transaction import json_object, safe_name, safe_path
 from record_workspace import (
+    RECEIPT,
     KnowledgeReviewPending,
     environment_lock,
     prepare_workspace,
@@ -83,7 +84,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-report",
         action="store_true",
-        help="run pytest without generating the Excel review report",
+        help=("explicitly skip Excel update; facts.md and publication.json are still required"),
     )
     parser.add_argument(
         "--within-pipeline",
@@ -498,14 +499,27 @@ def _execute_ip(args: argparse.Namespace) -> int:
             manifest=run_dir / "manifest.json",
             write_report=not args.no_report,
         )
+        facts_path = run_dir / "facts.md"
+        publication_path = run_dir / RECEIPT
+        if not facts_path.is_file() or not publication_path.is_file():
+            raise ValueError("review preparation did not produce facts.md and publication.json")
         if not args.no_report:
-            report_path = Path(str(prepared["report"]))
+            report_value = prepared.get("report")
+            if not report_value:
+                raise ValueError("review preparation did not produce the Excel report")
+            report_path = Path(str(report_value))
             _validate_report_output(report_path)
             print(f"Latest report: {report_path}")
         else:
-            print("Report disabled: latest Excel retained and NOT UPDATED for this run.")
+            print(
+                "Report disabled: latest Excel retained and NOT UPDATED for this run; "
+                "facts.md and publication.json were still written."
+            )
     except (OSError, ValueError, RuntimeError, KeyError, zipfile.BadZipFile) as exc:
-        print(f"Review preparation failed; raw workspace retained: {exc}")
+        print(
+            "Review preparation failed; Case session exists but publication/report was not sealed."
+        )
+        print(f"Raw workspace retained: {exc}")
         return pytest_exit or canonical_exit or 2
 
     print(f"Case knowledge: {record_root(REPOSITORY_ROOT, chip, ip)}")

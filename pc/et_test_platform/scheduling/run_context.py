@@ -164,7 +164,8 @@ class RunContext:
         return str(uuid4())
 
     # 把当前 execution 产生的附件固化到专属 Case 目录，并返回 Run-relative 路径。
-    # 源附件必须位于本次 Run 内；参数化 Case 即使复用源文件名，也会因 case_run_id 不同而隔离。
+    # 源附件必须位于本次 Run 内；复制出本 Case artifacts 后删除源，避免 Session 根残留阻断 seal。
+    # 源已在本 Case artifacts 下则不删除。参数化复用同名源文件时，下一发重新创建源。
     def bind_case_artifact(self, case_run_id: str, artifact_path: str | Path) -> str:
 
         if Path(case_run_id).name != case_run_id or case_run_id in {"", ".", ".."}:
@@ -174,11 +175,11 @@ class RunContext:
         if not source.is_absolute():
             source = self.artifact_dir / source
         source = source.resolve()
-        if not source.is_file():
-            raise ValueError(f"case artifact does not exist: {source}")
         try:
             source_relative = source.relative_to(self.artifact_dir)
         except ValueError as exc:
+            if not source.is_file():
+                raise ValueError(f"case artifact does not exist: {source}") from exc
             raise ValueError("case artifact must be located inside the current run") from exc
 
         destination_root = self.artifact_dir / "cases" / case_run_id / "artifacts"
@@ -186,11 +187,17 @@ class RunContext:
             source.relative_to(destination_root)
         except ValueError:
             destination = destination_root / source_relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            temporary = destination.with_name(f"{destination.name}.tmp")
-            shutil.copyfile(source, temporary)
-            temporary.replace(destination)
+            if source.is_file():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                temporary = destination.with_name(f"{destination.name}.tmp")
+                shutil.copyfile(source, temporary)
+                temporary.replace(destination)
+                source.unlink()
+            elif not destination.is_file():
+                raise ValueError(f"case artifact does not exist: {source}") from None
         else:
+            if not source.is_file():
+                raise ValueError(f"case artifact does not exist: {source}")
             destination = source
 
         return destination.relative_to(self.artifact_dir).as_posix()
