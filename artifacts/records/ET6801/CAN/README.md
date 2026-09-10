@@ -1,6 +1,6 @@
 # ET6801 CAN Case知识
 
-更新时间：2026-09-08 16:08 CST。
+更新时间：2026-09-10 21:48 CST。
 
 本目录长期保留每Case一份提炼型Markdown，由Agent审阅事实后维护；脚本只检查与生成导航，不自动编写结论。适用范围、问题、修复依据与未执行边界见各Case。当前运行结果仍在运行工作区，不能用这里的历史PASS替代当前回归。
 
@@ -56,7 +56,7 @@
 - [Canonical Session](../../../runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/session.json)及同目录`cases/*/result.json`保留原始事实；[Manifest](../../../runs/20260908_010653_004554_local_et6801_fpga_atp_testing/manifest.json)保存运行身份和配置定位。
 - [芯片文档](../../../../test_case_doc/can/ET6801_can.md#can-record-index)保留原测试状态、失败分析与参数级结果导航。
 
-未闭环问题：[Non-ISO](cases/CAN_P1_020.md)、[ECC中断封装](cases/CAN_P2_003.md)；[外部回环](cases/CAN_P2_005.md)按用户决定暂缓。没有新增硬件测试或已验证修复。
+未闭环问题：[Non-ISO](cases/CAN_P1_020.md)、[ECC中断封装](cases/CAN_P2_003.md)；[外部回环](cases/CAN_P2_005.md)仍按用户暂停，本轮仅复测仍 FAIL。没有已验证修复。
 
 ## 冗余文件候选
 
@@ -65,6 +65,8 @@
 [精确路径、Hash与保留边界](../../../runs/tooling/can-knowledge-migration-20260908/cleanup-audit.md)。其中规范内容可从固定Source Git版本恢复；精确字节恢复依赖历史混合换行，删除前必须再次验证，而非仅凭文件名清理。
 
 ## 关键变化
+
+- 2026-09-10 21:48 CST：对照本轮 Session（`7106a1562269da95d060e2cd756d53eef7e156d4`，source_dirty=true，139 PASS / 9 FAIL）更新三份 FAIL 证据；PASS Case 仅记脏树不得外推。
 
 - 2026-09-08 12:18 CST：建立固定Case档案，导入31个Case/148个参数执行（139 PASS、9 FAIL）；迁移已有三项失败分析，未关闭问题、未删除旧证据。
 - 2026-09-08 16:08 CST：31个Case全部改为Agent提炼知识，保留历史版本、日期、失败与暂停决定；只列出64个冗余候选，原始运行只读保留。
