@@ -1534,6 +1534,7 @@ def test_pipeline_writes_consistent_manifest_for_safe_run(
 def test_run_ip_tests_generates_report_even_when_pytest_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
     no_report: bool,
     status: str,
 ) -> None:
@@ -1542,7 +1543,7 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     from .test_record_source import make_session
 
     source = importlib.import_module("record_source")
-    original = make_session(source, tmp_path)
+    original = make_session(source, tmp_path, chip_id="et6801")
     session_path = original / "session.json"
     session = json.loads(session_path.read_text())
     expected_exit = 1 if status == "FAIL" else 0
@@ -1610,6 +1611,71 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     assert not (root.parent / "cases").exists()
     assert json.loads((root / "publication.json").read_text())["pending_review"] is True
     assert not (tmp_path / "artifacts/runs/current").exists()
+    assert "Actual Session chip differs" not in capsys.readouterr().out
+
+
+# 测试 Feature：Session 与 Bench 目标芯片真不一致时必须跳过发布。
+#
+# 测试方法：合成 session.chip_id=et9999，Bench 目标仍为 et6801，走独立 IP runner。
+#
+# 通过条件：打印芯片不一致、不写 facts/publication/Excel，原始 session 保留。
+def test_run_ip_tests_skips_review_when_session_chip_differs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import importlib
+
+    from .test_record_source import make_session
+
+    source = importlib.import_module("record_source")
+    original = make_session(source, tmp_path, chip_id="et9999")
+    case_root = tmp_path / "cases"
+    document_root = tmp_path / "test_case_doc"
+    output_root = tmp_path / "artifacts/records"
+    (case_root / "crc").mkdir(parents=True)
+    bench = tmp_path / "bench.yaml"
+    bench.write_text("targets: {dut: {chip: et6801}}\n", encoding="utf-8")
+
+    monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RECORDS_ROOT", output_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
+    monkeypatch.setattr(RUN_IP_TESTS, "capture_source_identity", lambda root: ("a" * 40, False))
+
+    def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
+        if Path(command[1]) == RUN_IP_TESTS.VALIDATE_PC:
+            return 0
+        if "pytest" in command:
+            artifact_dir = Path(command[command.index("--et-artifact-dir") + 1])
+            shutil.copytree(original, artifact_dir, dirs_exist_ok=True)
+            return 0
+        raise AssertionError("unexpected subprocess")
+
+    monkeypatch.setattr(RUN_IP_TESTS, "_run", fake_run)
+
+    exit_code = RUN_IP_TESTS.main(
+        [
+            "--ip",
+            "crc",
+            "--bench",
+            str(bench),
+            "--target",
+            "dut",
+            "--output-root",
+            str(output_root),
+            "--lane",
+            "fpga",
+        ]
+    )
+
+    assert exit_code == 2
+    root = output_root / "ET6801/CRC/current"
+    assert (root / "session.json").is_file()
+    assert not (root / "facts.md").exists()
+    assert not (root / "publication.json").exists()
+    assert not (tmp_path / "artifacts/reports/ET6801/ET6801_CRC测试报告.xlsx").exists()
+    assert "Actual Session chip differs" in capsys.readouterr().out
 
 
 # 测试 Feature：默认与多轮执行都使用固定工作目录，轮间由发布回执保护复用。

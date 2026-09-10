@@ -21,7 +21,13 @@ def source(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return importlib.import_module("record_source")
 
 
-def make_session(source: ModuleType, repository: Path, *, missing: bool = False) -> Path:
+def make_session(
+    source: ModuleType,
+    repository: Path,
+    *,
+    missing: bool = False,
+    chip_id: str = "et6801",
+) -> Path:
     transaction = importlib.import_module("record_transaction")
     document = repository / "test_case_doc/crc/crc.md"
     document.parent.mkdir(parents=True)
@@ -30,12 +36,13 @@ def make_session(source: ModuleType, repository: Path, *, missing: bool = False)
     run.mkdir(parents=True)
     result = _result("CRC_P1_001", "PASS", measurements={"expected_crc": 1, "actual_crc": 1})
     result["ip_id"] = "crc"
+    result["chip_id"] = chip_id
     relative = f"cases/{result['case_run_id']}/trace.log"
     result["artifacts"] = {"trace": relative}
     session = {
         "schema_version": 1,
         "run_id": "run-1",
-        "chip_id": "ET6801",
+        "chip_id": chip_id,
         "target_id": "dut",
         "finished_at": "2026-09-08T01:00:00Z",
         "exitstatus": 2 if missing else 0,

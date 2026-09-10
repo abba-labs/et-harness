@@ -25,7 +25,7 @@ from artifact_layout import (
 )
 from maintain_test_records import prepare_review
 from record_store import current_root, record_root
-from record_transaction import json_object, safe_path
+from record_transaction import json_object, safe_name, safe_path
 from record_workspace import (
     KnowledgeReviewPending,
     environment_lock,
@@ -480,7 +480,8 @@ def _execute_ip(args: argparse.Namespace) -> int:
         evidence_complete = False
 
     canonical_exit = 0 if evidence_complete else 2
-    if _session_chip(run_dir) != chip:
+    # HELLO chip_id is often lowercase; destination identity is already safe_name().upper().
+    if safe_name(_session_chip(run_dir)).upper() != chip:
         print(
             "Actual Session chip differs from the Bench evidence destination; raw files retained."
         )
