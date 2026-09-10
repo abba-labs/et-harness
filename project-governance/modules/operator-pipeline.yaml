@@ -180,3 +180,25 @@ changes:
       - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
     validation:
       - python -m pytest -q pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
+
+  knowledge-review:
+    required_parameters: [chip, ip]
+    read:
+      - path: report/design/rules/R130_canonical_result_evidence.md
+        reason: 当次事实与长期Case知识
+        required: true
+      - path: report/design/rules/R500_operator_pipeline.md
+        reason: 工作区、review、覆盖
+        required: true
+      - path: artifacts/records/{chip_upper}/{ip}/current
+        reason: 当次 seal 现场（缺失不当 pending）
+        required: false
+    rules:
+      - canonical_result_evidence
+      - operator_pipeline
+    write_scopes:
+      - artifacts/records/{chip_upper}/{ip}/cases/**
+      - artifacts/records/{chip_upper}/{ip}/attachments/**
+      - artifacts/records/{chip_upper}/{ip}/README.md
+    validation:
+      - python tools/runner/maintain_test_records.py check --chip {chip_upper} --ip {ip} --source artifacts/records/{chip_upper}/{ip}/current

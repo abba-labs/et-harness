@@ -151,6 +151,7 @@ def test_multi_ip_context_round_trip_and_scope_guards(
 ) -> None:
 
     compiler = _load_compiler()
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
     state = {"available": True, "branch": "test", "head": "a" * 40, "dirty": False}
     monkeypatch.setattr(compiler, "_git_state", lambda: dict(state))
     monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: {})
@@ -1057,15 +1058,19 @@ def test_every_registered_module_change_compiles_to_a_closed_context() -> None:
         module_id = module_entry["id"]
         profile = compiler._load_yaml(compiler._safe_repository_path(module_entry["profile"]))
         for change in profile["changes"]:
+            knowledge_review = change == "knowledge-review"
             context = compiler.build_task_context(
                 task_id=f"ROUTE-{module_id}-{change}",
                 intent=f"验证{module_id}/{change}模块路由",
                 modules=[module_id],
                 changes=[change],
-                ip="uart" if module_id == "ip-package" else None,
+                ip=(
+                    "UART" if knowledge_review else ("uart" if module_id == "ip-package" else None)
+                ),
                 chip=(
                     "et6801"
-                    if module_id in {"ip-package", "pc-platform", "firmware-platform"}
+                    if knowledge_review
+                    or module_id in {"ip-package", "pc-platform", "firmware-platform"}
                     else None
                 ),
             )
@@ -1361,3 +1366,543 @@ def test_unified_software_gate_rejects_source_changes_without_task_context(
 
     with pytest.raises(RuntimeError, match="require a compiled Task Context"):
         validator._validate_current_task_context("python")
+
+
+# 把 records 探测根指到临时目录，避免正式 pending 工作区污染治理编译回归。
+def _isolate_record_currents(
+    compiler: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Path:
+
+    root = tmp_path / "records"
+
+    def current_dir(chip: str, ip: str) -> Path:
+        return root / chip.upper() / ip.upper() / "current"
+
+    monkeypatch.setattr(compiler, "_record_current_dir", current_dir)
+    return root
+
+
+# 编译回归使用受控干净 Git 状态，不依赖真实工作树是否 dirty。
+def _clean_git(compiler: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+
+    monkeypatch.setattr(
+        compiler,
+        "_git_state",
+        lambda: {"available": True, "branch": "test", "head": "a" * 40, "dirty": False},
+    )
+    monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: {})
+
+
+# 写入最小 publication.json，只表达 pending_review 布尔值。
+def _write_publication(current: Path, *, pending: bool) -> Path:
+
+    current.mkdir(parents=True, exist_ok=True)
+    path = current / "publication.json"
+    path.write_text(
+        json.dumps({"pending_review": pending, "records": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return path
+
+
+# 构造指向临时输出的 compile CLI 参数。
+def _compile_args(
+    compiler: ModuleType,
+    tmp_path: Path,
+    *,
+    task_id: str,
+    intent: str,
+    module: str,
+    change: str,
+    ip: str | None = None,
+    chip: str | None = None,
+    lane: str | None = None,
+    ip_scopes: list[str] | None = None,
+    extra_changes: list[str] | None = None,
+) -> SimpleNamespace:
+
+    argv = [
+        "compile",
+        "--task-id",
+        task_id,
+        "--intent",
+        intent,
+        "--module",
+        module,
+        "--change",
+        change,
+        "--output",
+        str(tmp_path / "context.json"),
+    ]
+    for extra in extra_changes or []:
+        argv.extend(["--change", extra])
+    if ip is not None:
+        argv.extend(["--ip", ip])
+    if chip is not None:
+        argv.extend(["--chip", chip])
+    if lane is not None:
+        argv.extend(["--lane", lane])
+    for scope in ip_scopes or []:
+        argv.extend(["--ip-scope", scope])
+    return compiler._parse_args(argv)
+
+
+# 测试Feature：目标 pending 且非 knowledge-review 时 compile 失败关闭且不写 JSON。
+#
+# 测试方法：隔离 records，写入 CRC pending 回执，编译 ip-package/driver。
+#
+# 通过条件：抛出 pending 错误并带补救命令；context JSON 与 baseline 均不存在。
+def test_pending_review_blocks_non_review_compile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    receipt = _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=True)
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="CRC-DRIVER-PENDING",
+        intent="在待整理现场上改 Driver",
+        module="ip-package",
+        change="driver",
+        ip="crc",
+        chip="et6801",
+    )
+
+    with pytest.raises(ValueError, match="knowledge review is pending for ET6801/CRC") as caught:
+        compiler.compile_task_context(args)
+
+    message = str(caught.value)
+    assert receipt.name in message or "publication.json" in message
+    assert "knowledge-review" in message
+    assert "fpga" in message
+    assert not (tmp_path / "context.json").exists()
+    assert not (tmp_path / "context.json.baseline.json").exists()
+
+
+# 测试Feature：pending 目标上唯一的 knowledge-review 可从干净树编译。
+#
+# 测试方法：CRC pending，编译 operator-pipeline/knowledge-review，不带硬件 lane。
+#
+# 通过条件：写出 Context；写入范围不含 Runner；必读 R130/R500。
+def test_knowledge_review_compile_succeeds_while_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=True)
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="CRC-KNOWLEDGE-REVIEW",
+        intent="补救整理 CRC 知识",
+        module="operator-pipeline",
+        change="knowledge-review",
+        ip="CRC",
+        chip="et6801",
+        lane="tooling",
+    )
+
+    path = compiler.compile_task_context(args)
+    context = json.loads(path.read_text(encoding="utf-8"))
+    allowed = context["write_scope"]["allowed"]
+    paths = [entry["path"] for entry in context["must_read"]]
+
+    assert context["task"]["changes"] == ["knowledge-review"]
+    assert "artifacts/records/ET6801/CRC/cases/**" in allowed
+    assert not any("tools/runner" in scope for scope in allowed)
+    assert "report/design/rules/R130_canonical_result_evidence.md" in paths
+    assert "report/design/rules/R500_operator_pipeline.md" in paths
+
+
+# 测试Feature：缺少 publication.json 的 unpublished 现场不当 pending。
+#
+# 测试方法：隔离 records 且不写回执，编译带 chip/ip 的 Driver 任务。
+#
+# 通过条件：compile 成功并写出 Context JSON。
+def test_missing_publication_is_not_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="CRC-DRIVER-UNPUBLISHED",
+        intent="unpublished 不当 pending",
+        module="ip-package",
+        change="driver",
+        ip="crc",
+        chip="et6801",
+    )
+
+    path = compiler.compile_task_context(args)
+    assert path.is_file()
+
+
+# 测试Feature：Hash mismatch 不是 compile pending 闸门。
+#
+# 测试方法：回执 pending_review=false 且带无关 files 字段，编译 Driver。
+#
+# 通过条件：只读 JSON 后 compile 成功，不调用 verify_publication。
+def test_hash_mismatch_is_not_the_compile_pending_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    current = compiler._record_current_dir("et6801", "CRC")
+    current.mkdir(parents=True, exist_ok=True)
+    (current / "publication.json").write_text(
+        json.dumps(
+            {
+                "pending_review": False,
+                "files": {"facts.md": "deadbeef"},
+                "directories": ["cases"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="CRC-DRIVER-HASH",
+        intent="Hash mismatch 仍归 Runner",
+        module="ip-package",
+        change="driver",
+        ip="crc",
+        chip="et6801",
+    )
+
+    assert compiler.compile_task_context(args).is_file()
+    source = COMPILER.read_text(encoding="utf-8")
+    assert "verify_publication" not in source
+    assert "record_workspace" not in source
+
+
+# 测试Feature：--ip-scope 无 --ip 时仍把 scope 键当作 pending 目标。
+#
+# 测试方法：CRC pending，编译 --ip-scope crc:driver 且不传 --ip。
+#
+# 通过条件：失败关闭并指向 CRC 回执。
+def test_ip_scope_without_ip_still_checks_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=True)
+    args = compiler._parse_args(
+        [
+            "compile",
+            "--task-id",
+            "CRC-SCOPE-PENDING",
+            "--intent",
+            "scope 键也是目标",
+            "--module",
+            "ip-package",
+            "--chip",
+            "et6801",
+            "--ip-scope",
+            "crc:driver",
+            "--output",
+            str(tmp_path / "context.json"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="pending for ET6801/CRC"):
+        compiler.compile_task_context(args)
+    assert not (tmp_path / "context.json").exists()
+
+
+# 测试Feature：firmware-platform/application 无 chip/ip 必须点名目标，不得扫全树。
+#
+# 测试方法：隔离 records 为空，编译 firmware-platform/application。
+#
+# 通过条件：失败要求声明 --chip/--ip；探测函数不被调用。
+def test_firmware_application_without_targets_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    probed: list[tuple[str, str]] = []
+    original = compiler._record_current_dir
+
+    def current_dir(chip: str, ip: str) -> Path:
+        probed.append((chip, ip))
+        return original(chip, ip)
+
+    monkeypatch.setattr(compiler, "_record_current_dir", current_dir)
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="FW-APP-NO-TARGET",
+        intent="无目标不得跳过闸门",
+        module="firmware-platform",
+        change="application",
+    )
+
+    with pytest.raises(ValueError, match="declare --chip and --ip"):
+        compiler.compile_task_context(args)
+    assert probed == []
+    assert not (tmp_path / "context.json").exists()
+
+
+# 测试Feature：governance 与仅 docs change 豁免 pending 探测。
+#
+# 测试方法：不隔离真实 records，编译 governance/navigation 与 operator-pipeline/docs。
+#
+# 通过条件：compile 成功；_record_current_dir 零调用。
+@pytest.mark.parametrize(
+    ("module", "change"),
+    [
+        ("governance", "navigation"),
+        ("operator-pipeline", "docs"),
+        ("pc-platform", "docs"),
+        ("firmware-platform", "docs"),
+    ],
+)
+def test_governance_and_docs_routes_skip_pending_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    module: str,
+    change: str,
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    probed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        compiler,
+        "_record_current_dir",
+        lambda chip, ip: probed.append((chip, ip)) or Path("unused"),
+    )
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id=f"EXEMPT-{module}-{change}",
+        intent="豁免路径不读 pending",
+        module=module,
+        change=change,
+    )
+
+    assert compiler.compile_task_context(args).is_file()
+    assert probed == []
+
+
+# 测试Feature：脏树即使目标也 pending，仍先报 dirty；knowledge-review 不豁免。
+#
+# 测试方法：CRC pending，Git dirty，分别编译 Driver 与 knowledge-review。
+#
+# 通过条件：两次都是 worktree must be clean，且不写 JSON。
+@pytest.mark.parametrize(
+    ("module", "change", "ip"),
+    [
+        ("ip-package", "driver", "crc"),
+        ("operator-pipeline", "knowledge-review", "CRC"),
+    ],
+)
+def test_dirty_worktree_wins_over_pending_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    module: str,
+    change: str,
+    ip: str,
+) -> None:
+
+    compiler = _load_compiler()
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=True)
+    monkeypatch.setattr(
+        compiler,
+        "_git_state",
+        lambda: {"available": True, "branch": "test", "head": "a" * 40, "dirty": True},
+    )
+    monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: {})
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="DIRTY-PENDING",
+        intent="脏树优先",
+        module=module,
+        change=change,
+        ip=ip,
+        chip="et6801",
+    )
+
+    with pytest.raises(ValueError, match="worktree must be clean"):
+        compiler.compile_task_context(args)
+    assert not (tmp_path / "context.json").exists()
+
+
+# 测试Feature：knowledge-review 使用 hil 必须失败，且不得因此带上 pipeline。
+#
+# 测试方法：build_task_context 传入 knowledge-review 与 hil lane。
+#
+# 通过条件：错误针对 FPGA/HIL lanes，而不是要求 operator-pipeline/pipeline。
+def test_knowledge_review_rejects_hardware_lanes() -> None:
+
+    compiler = _load_compiler()
+
+    with pytest.raises(ValueError, match="cannot use FPGA/HIL lanes") as caught:
+        compiler.build_task_context(
+            task_id="KR-HIL",
+            intent="禁止硬件 lane",
+            modules=["operator-pipeline"],
+            changes=["knowledge-review"],
+            ip="CRC",
+            chip="et6801",
+            lanes=["hil"],
+        )
+    assert "hardware tasks require" not in str(caught.value)
+
+    with pytest.raises(ValueError, match="must be the only change kind"):
+        compiler.build_task_context(
+            task_id="KR-MIXED",
+            intent="禁止混编 pipeline",
+            modules=["operator-pipeline"],
+            changes=["knowledge-review", "pipeline"],
+            ip="CRC",
+            chip="et6801",
+        )
+
+
+# 测试Feature：仅 --chip 时读 Pipeline test_workspaces，父 unpublished 不当 pending。
+#
+# 测试方法：_PIPELINE 无 publication 但有 manifest 列出 CRC；CRC pending；编译 firmware application。
+#
+# 通过条件：因子 IP pending 失败；无子 pending 时可通过。
+def test_chip_only_reads_pipeline_workspaces_not_unpublished_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    _isolate_record_currents(compiler, monkeypatch, tmp_path)
+    pipeline = compiler._record_current_dir("et6801", "_PIPELINE")
+    pipeline.mkdir(parents=True, exist_ok=True)
+    (pipeline / "manifest.json").write_text(
+        json.dumps(
+            {
+                "test_workspaces": [
+                    "artifacts/records/ET6801/CRC/current",
+                    "artifacts/records/ET6801/UART/current",
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=True)
+    _write_publication(compiler._record_current_dir("et6801", "UART"), pending=False)
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="CHIP-ONLY-PENDING",
+        intent="chip 范围看 Pipeline 子 IP",
+        module="firmware-platform",
+        change="application",
+        chip="et6801",
+    )
+
+    with pytest.raises(ValueError, match="pending for ET6801/CRC"):
+        compiler.compile_task_context(args)
+
+    _write_publication(compiler._record_current_dir("et6801", "CRC"), pending=False)
+    assert compiler.compile_task_context(args).is_file()
+
+
+# 测试Feature：有 IP 无 chip 时失败要求补 --chip，不猜芯片、不扫全树。
+#
+# 测试方法：编译 ip-package/driver --ip crc，不传 --chip。
+#
+# 通过条件：错误要求 --chip；探测函数零调用。
+def test_ip_without_chip_fails_closed_without_scanning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    probed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        compiler,
+        "_record_current_dir",
+        lambda chip, ip: probed.append((chip, ip)) or Path("unused"),
+    )
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="IP-NO-CHIP",
+        intent="有 IP 必须带 chip",
+        module="ip-package",
+        change="driver",
+        ip="crc",
+    )
+
+    with pytest.raises(ValueError, match="requires --chip"):
+        compiler.compile_task_context(args)
+    assert probed == []
+
+
+# 测试Feature：harness-project-plugin 无 Formal 目标时不读 pending 也不扫全树。
+#
+# 测试方法：编译 harness-project-plugin/integration，监视 records 探测。
+#
+# 通过条件：compile 成功且零探测。
+def test_harness_plugin_without_targets_does_not_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    compiler = _load_compiler()
+    _clean_git(compiler, monkeypatch)
+    probed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        compiler,
+        "_record_current_dir",
+        lambda chip, ip: probed.append((chip, ip)) or Path("unused"),
+    )
+    args = _compile_args(
+        compiler,
+        tmp_path,
+        task_id="HARNESS-NO-TARGET",
+        intent="无 Formal 目标",
+        module="harness-project-plugin",
+        change="integration",
+    )
+
+    assert compiler.compile_task_context(args).is_file()
+    assert probed == []
+
+
+# 测试Feature：pytest / run_ip_tests / run_pipeline 不得调用 pending 预检。
+#
+# 测试方法：读取人测循环入口源码，搜索 compile 与 pending 预检符号。
+#
+# 通过条件：这些文件零引用 compile_task_context 与 _reject_pending_knowledge_review。
+def test_human_test_loops_do_not_call_pending_precheck() -> None:
+
+    needles = (
+        "compile_task_context",
+        "_reject_pending_knowledge_review",
+        "_publication_pending",
+        "KNOWLEDGE_REVIEW_CHANGE",
+    )
+    sources = [
+        ROOT / "tools" / "runner" / "run_ip_tests.py",
+        ROOT / "tools" / "runner" / "run_pipeline.py",
+        ROOT / "tools" / "runner" / "bootstrap.py",
+        ROOT / "pc" / "et_test_platform" / "scheduling" / "fixtures.py",
+        ROOT / "run_test.bat",
+    ]
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        for needle in needles:
+            assert needle not in text, f"{path} must not reference {needle}"

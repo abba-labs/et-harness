@@ -25,6 +25,25 @@ SUPPORTED_TOKENS = {"ip", "chip", "chip_upper"}
 TASK_PARAMETER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 WORKTREE_EXCLUDES = ("artifacts/runs/**", "artifacts/reports/**", "artifacts/records/**")
 HARDWARE_EXECUTION_LANES = {"fpga", "hil"}
+KNOWLEDGE_REVIEW_CHANGE = "knowledge-review"
+PIPELINE_RECORD_IP = "_PIPELINE"
+PENDING_REVIEW_EXEMPT_MODULES = frozenset({"governance"})
+PENDING_REVIEW_EXEMPT_DOCS = frozenset(
+    {
+        ("operator-pipeline", "docs"),
+        ("pc-platform", "docs"),
+        ("firmware-platform", "docs"),
+    }
+)
+PENDING_REVIEW_NAMED_TARGET_MODULES = frozenset(
+    {
+        "ip-package",
+        "firmware-platform",
+        "pc-platform",
+        "operator-pipeline",
+        "companion-platform",
+    }
+)
 T = TypeVar("T")
 
 
@@ -193,6 +212,29 @@ def _validate_hardware_execution_route(
             "FPGA/HIL hardware tasks require module 'operator-pipeline' and "
             "change 'pipeline' so the governed R500 execution path is routed"
         )
+
+
+# Keep knowledge-review as a unique clean-tree remedy; never widen it via hardware lanes.
+def _validate_knowledge_review_route(
+    *,
+    lanes: Sequence[str],
+    changes: Sequence[str],
+    ip: str | None,
+) -> None:
+
+    if KNOWLEDGE_REVIEW_CHANGE not in changes:
+        return
+    if set(changes) != {KNOWLEDGE_REVIEW_CHANGE}:
+        raise ValueError(
+            "knowledge-review must be the only change kind; "
+            "do not mix it with pipeline or other changes"
+        )
+    if set(lanes) & HARDWARE_EXECUTION_LANES:
+        raise ValueError(
+            "knowledge-review cannot use FPGA/HIL lanes; omit --lane or use docs/tooling only"
+        )
+    if ip is not None and ip != ip.upper():
+        raise ValueError(f"knowledge-review --ip must be the on-disk uppercase IP name, got {ip!r}")
 
 
 # Return branch, revision and dirty state without mutating the repository.
@@ -875,6 +917,7 @@ def build_task_context(
     if unknown_modules:
         raise ValueError(f"unknown module(s): {unknown_modules}")
     all_changes = list(dict.fromkeys(chain(changes, *scoped_ips.values())))
+    _validate_knowledge_review_route(lanes=lanes, changes=all_changes, ip=ip)
     _validate_hardware_execution_route(
         lanes=lanes,
         modules=canonical_modules,
@@ -1006,6 +1049,177 @@ def build_task_context(
     return context
 
 
+# Locate one CHIP/IP current workspace without scanning the records tree.
+def _record_current_dir(chip: str, ip: str) -> Path:
+
+    return ROOT / "artifacts" / "records" / chip.upper() / ip.upper() / "current"
+
+
+# Read only pending_review; missing, unreadable or non-bool values are not pending.
+def _publication_pending(path: Path) -> bool:
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and payload.get("pending_review") is True
+
+
+# Parse one Pipeline test_workspaces entry into an IP name; skip unusable shapes.
+def _ip_from_test_workspace(chip: str, value: object) -> str | None:
+
+    if not isinstance(value, str) or not value:
+        return None
+    parts = PurePosixPath(value.replace("\\", "/")).parts
+    if (
+        len(parts) != 5
+        or parts[0] != "artifacts"
+        or parts[1] != "records"
+        or parts[2].upper() != chip.upper()
+        or parts[4] != "current"
+        or parts[3] in {"", PIPELINE_RECORD_IP}
+    ):
+        return None
+    return parts[3].upper()
+
+
+# Collect IPs listed by a chip Pipeline manifest; absent or invalid files yield none.
+def _pipeline_workspace_ips(chip: str) -> list[str]:
+
+    manifest_path = _record_current_dir(chip, PIPELINE_RECORD_IP) / "manifest.json"
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    workspaces = payload.get("test_workspaces")
+    if not isinstance(workspaces, list):
+        return []
+    ips: list[str] = []
+    for item in workspaces:
+        ip = _ip_from_test_workspace(chip, item)
+        if ip is not None:
+            ips.append(ip)
+    return list(dict.fromkeys(ips))
+
+
+# Collect CHIP/IP names already bound on this compiled task; never scan the tree.
+def _task_target_ips(task: Mapping[str, Any]) -> list[str]:
+
+    targets: list[str] = []
+    ip = task.get("ip")
+    if isinstance(ip, str) and ip:
+        targets.append(ip.upper())
+    scopes = task.get("ip_scopes")
+    if isinstance(scopes, Mapping):
+        for name in scopes:
+            if isinstance(name, str) and name:
+                targets.append(name.upper())
+    return list(dict.fromkeys(targets))
+
+
+# True when every selected module/change is on the pending-review exemption allowlist.
+def _pending_gate_exempt(matched: Mapping[str, Any]) -> bool:
+
+    if not matched:
+        return False
+    for module_id, changes in matched.items():
+        if not isinstance(changes, list) or not changes:
+            return False
+        for change in changes:
+            if module_id in PENDING_REVIEW_EXEMPT_MODULES:
+                continue
+            if (str(module_id), str(change)) in PENDING_REVIEW_EXEMPT_DOCS:
+                continue
+            return False
+    return True
+
+
+# True when the selected route can write Driver/Firmware/Case/Runner without naming a target.
+def _requires_named_compile_targets(matched: Mapping[str, Any]) -> bool:
+
+    for module_id, changes in matched.items():
+        if module_id not in PENDING_REVIEW_NAMED_TARGET_MODULES or not isinstance(changes, list):
+            continue
+        for change in changes:
+            if module_id in PENDING_REVIEW_EXEMPT_MODULES:
+                continue
+            if (str(module_id), str(change)) in PENDING_REVIEW_EXEMPT_DOCS:
+                continue
+            return True
+    return False
+
+
+# Build the unique knowledge-review compile line Agents must use as the skip remedy.
+def _knowledge_review_remedy(chip: str | None, ip: str | None) -> str:
+
+    chip_token = chip or "<CHIP>"
+    ip_token = ip or "<IP>"
+    return (
+        "python tools/governance/compile_task_context.py compile "
+        '--task-id <id> --intent "<intent>" '
+        "--module operator-pipeline --change knowledge-review "
+        f"--chip {chip_token} --ip {ip_token} "
+        "(no --lane fpga/hil, no extra --change pipeline)"
+    )
+
+
+# Fail closed when a named target still has pending_review and this is not the remedy change.
+def _reject_pending_knowledge_review(context: Mapping[str, Any]) -> None:
+
+    task = context.get("task")
+    if not isinstance(task, Mapping):
+        raise ValueError("compiled Task Context task must be a mapping")
+    matched = task.get("matched_changes_by_module")
+    if not isinstance(matched, Mapping):
+        matched = {}
+    selected_changes: set[str] = set()
+    for changes in matched.values():
+        if isinstance(changes, list):
+            selected_changes.update(str(item) for item in changes)
+    if selected_changes == {KNOWLEDGE_REVIEW_CHANGE}:
+        return
+    if _pending_gate_exempt(matched):
+        return
+    chip_value = task.get("chip")
+    chip = chip_value.upper() if isinstance(chip_value, str) and chip_value else None
+    target_ips = _task_target_ips(task)
+    if chip is None and target_ips:
+        raise ValueError(
+            "pending-review compile gate requires --chip to locate "
+            f"records for IP(s) {target_ips}; do not guess the chip and do not "
+            "scan artifacts/records"
+        )
+    if chip is None:
+        if _requires_named_compile_targets(matched):
+            raise ValueError(
+                "this module/change can write Driver, Firmware, Case or Runner files; "
+                "declare --chip and --ip or --ip-scope so pending knowledge review "
+                "can be checked. Do not skip the gate by omitting targets"
+            )
+        return
+    probe_ips = list(target_ips)
+    if not probe_ips:
+        probe_ips.append(PIPELINE_RECORD_IP)
+        probe_ips.extend(_pipeline_workspace_ips(chip))
+        probe_ips = list(dict.fromkeys(probe_ips))
+    for ip in probe_ips:
+        receipt = _record_current_dir(chip, ip) / "publication.json"
+        if not _publication_pending(receipt):
+            continue
+        try:
+            display = receipt.relative_to(ROOT).as_posix()
+        except ValueError:
+            display = receipt.as_posix()
+        raise ValueError(
+            f"knowledge review is pending for {chip}/{ip} at {display}; "
+            "non-knowledge-review compile is closed until review. "
+            f"From a clean worktree, compile the remedy change only: "
+            f"{_knowledge_review_remedy(chip, ip)}"
+        )
+
+
 # Write one compiled Task Context atomically enough for a local single-agent workflow.
 def compile_task_context(args: argparse.Namespace) -> Path:
 
@@ -1024,6 +1238,7 @@ def compile_task_context(args: argparse.Namespace) -> Path:
             "Git worktree must be clean before compiling Task Context; "
             "do not adopt existing source changes into a new task baseline"
         )
+    _reject_pending_knowledge_review(context)
     output = Path(args.output).resolve() if args.output else DEFAULT_OUTPUT
     output.parent.mkdir(parents=True, exist_ok=True)
     baseline_path = output.with_suffix(output.suffix + ".baseline.json")

@@ -27,6 +27,8 @@
   [--ip <ip>] [--chip <chip>] [--lane <lane>]
 ```
 
+一轮知识整理见 R130 §8.1 与 R500 §6；目标工作区 pending_review 时，非知识整理任务的 compile_task_context 失败关闭。
+
 只读取Task Context路由的模块入口、Owner正文、目标代码及相邻责任链。路由缺失必须失败关闭，不得凭文件名、历史文档或对话记忆猜测。
 开发完成、运行验证前必须执行`compile_task_context.py scope-check`，确认本任务新增变化没有越过
 `write_scope.allowed`。任务扩围时先检查已有变化，再编译扩围后的新上下文。

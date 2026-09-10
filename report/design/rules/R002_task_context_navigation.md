@@ -150,6 +150,18 @@ python tools/governance/compile_task_context.py compile `
 - `lane`只记录并校验任务通道，不代替`module/change`授权；允许值由`system-map.yaml`唯一登记。
 - 选择`fpga`或`hil` Lane且任务不只是回写`test-result`时，必须同时选择
   `operator-pipeline/pipeline`，使R500、统一入口和硬件执行边界进入Task Context；编译器必须失败关闭。
+- 目标 CHIP/IP 的 `current/publication.json` 为 `pending_review=true`，且本次不是唯一的
+  `operator-pipeline/knowledge-review` 时，compile 必须失败关闭且不得写入 Context JSON。
+  探测只读该 JSON：缺文件不当 pending；禁止 `verify_publication`，禁止全树扫描。
+  目标来自 `--ip` / `--ip-scope` / 仅 `--chip` 时的 `_PIPELINE` 与 `test_workspaces`。
+  `governance` 与已有 `*/docs` 豁免；能写 Driver/Firmware/Case/Runner 的模块无点名目标时必须失败。
+  `knowledge-review` 只作跳过补救，不豁免干净树，禁止 fpga/hil 与其它 change 混编：
+```powershell
+.\.venv\Scripts\python.exe tools\governance\compile_task_context.py compile `
+  --task-id <id> --intent "<intent>" `
+  --module operator-pipeline --change knowledge-review `
+  --chip <CHIP> --ip <IP>
+```
 - 新IP必须先单独执行`ip-package/analysis`创建并审核公共契约，之后才能编译Case、Driver、Service、Wrap或Capability任务。
 - 简单事实回答和不检查、不改变工程状态的状态说明可以豁免；代码、配置、规则、工具、架构和持久文档变更不得豁免。
 
