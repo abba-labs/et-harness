@@ -174,18 +174,18 @@ artifacts/
 
 - `artifacts/`根只允许`README.md`、`records/`、`reports/`及既有只读`runs/`历史。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。
 - Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/records`根。Bench目标芯片决定`<CHIP>/<IP>/current`，Session芯片必须复核一致。不同芯片/IP互不覆盖；同芯片/IP跨Lane共用当前现场。
-- Pipeline通过`ET_ARTIFACT_RUN_DIR`传递`<CHIP>/_PIPELINE/current`阶段根，Manifest引用本轮各IP固定工作区，不复制它们。Case只使用注入的`et_artifact_dir`，不得推导知识根。每个IP自带Manifest、配置快照和Pipeline逻辑ID；整轮整理完成前不得先复用其中一个IP而破坏其他IP的复核。
+- Pipeline通过`ET_ARTIFACT_RUN_DIR`传递`<CHIP>/_PIPELINE/current`阶段根，Manifest引用本轮各IP固定工作区，不复制它们。Case只使用注入的`et_artifact_dir`，不得推导知识根。每个IP自带Manifest、配置快照和Pipeline逻辑ID。整轮测试seal完成前（父或任一目标IP unpublished）不得复用。整轮仅pending时允许覆盖。Agent仍应整轮一起review。
 - Manifest记录逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target、时间、状态和退出码；配置快照保存真实输入。Lane显式传递，未知身份不得猜测。
 - Session终止后，Runner校验Selection、Canonical Result、原始规范Hash及绑定附件，生成当次`facts.md`与待整理回执；可选Excel仅发布到`reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx`，芯片/IP大写，不带时间戳或版本后缀，不在`current`保存副本。
 - Excel复用现有Canonical报告模型和三Sheet导出，不重新判定PASS/FAIL。每次只展示该Session；部分执行保留NOT_SELECTED/NOT_EXECUTED，不合并历史PASS。首页明确显示Run ID、Lane、时间和源码/固件身份。
 - 同芯片/IP跨Lane共用最近生成报告。新报告完整生成并校验后才同目录原子替换；测试FAIL也更新真实失败报告。导出、校验或替换失败返回非零，保留旧报告和当前原始现场，不把旧报告声称为本次成功输出。
 - `--no-report`保留最近生成的Excel且明确提示本次未更新；事实摘要和待整理回执仍生成。Excel不进入原始现场复用Hash，后续报告覆盖不得破坏Case知识整理门禁。
 - 当次输出通过`records/<CHIP>/<IP>/_maintenance/`内的IP锁和可恢复事务发布。外部修改、容量不足、未绑定文件、额外目录和损坏证据必须失败关闭。
-- 输出完成后回执为待整理状态；无论测试PASS或FAIL，都不得自动放行覆盖。Agent先逐个已选Case提炼知识或核对无新知识，再显式调用`review`。
-- Agent可以在测试过程中增量提炼已确认的方法、问题和结论；每轮结束必须完成全部已选Case的整理核对。`review`只接受终止且完整的Session，进行中的增量笔记不能提前放行覆盖。
+- 输出完成后回执为待整理状态；脚本不得自动`review`。无论测试PASS或FAIL，`prepare_workspace`可以覆盖Hash完好的pending `current/`。人可以不review。Agent必须review。不得把未review的一轮当作知识闭环。
+- Agent可以在测试过程中增量提炼已确认的方法、问题和结论；每轮结束必须完成全部已选Case的整理核对。`review`只接受终止且完整的Session。覆盖看完整性；`review`看知识回执。进行中的增量笔记不能提前完成`review`。
 - `review`复核当前原始文件与目录成员，检查本次全部已选Case Markdown及必要附件，刷新索引并绑定知识文件Hash。首次没有知识文件时必须先整理；`check`、`index`和重复PASS均不能代替整理确认。
-- 下一次复用前同时验证原始现场和已确认知识的Hash、目录成员及回执状态。知识发生后续修改时须再次显式确认，不能仅凭旧回执释放。
-- 多轮无人值守运行在下一次复用未整理工作区时停止并保留现场；不得为了连续运行跳过知识贡献门禁。
+- 复用前验证原始现场Hash与目录成员。已确认知识Hash仅当`records`非空时验证。pending且`records={}`时没有知识证明可验。知识被改后须再次`review`才能覆盖已review的工作区。
+- 人的无人值守连跑可以覆盖已seal且Hash完好的pending工作区。Agent无人值守循环必须在每轮之间review。不得为了连续运行跳过Agent知识贡献。
 - 无Case的成功普通阶段可标记复用；失败前置阶段、缺少/损坏回执及未完成Session只能保留，或经人工明确指定的完整现场归档恢复，不因PASS文字清空。
 - 测试退出状态与知识整理状态独立。pytest失败仍应输出真实事实；输出失败返回非零并保留工作区。知识确认不是新测试、问题关闭或HIL PASS。
 
@@ -202,7 +202,7 @@ artifacts/
 
 ### 6.3 历史、恢复与容量
 
-- 当前单个工作区最多256 MiB；到限停止并保留输入，不截断必需证据。原始事实只有在知识整理确认并通过复用校验后，才允许由下一次正式运行回收。
+- 当前单个工作区最多256 MiB；到限停止并保留输入，不截断必需证据。已seal且Hash完好的pending `current/`对人可覆盖，回收不依赖`review`。unpublished、Hash或目录成员变化、容量超限、环境锁冲突和已有`recovery.zip`仍拒绝回收。Agent仍须review才算知识闭环。
 - `archive --workspace ... --output ...`只用于人工显式保留/恢复当前现场；目标固定为该`current`同级尚不存在的`recovery.zip`，写前写后均校验成员与Hash。已有恢复包时停止，要求人工处理；不换名、不按轮次累积，也不自动覆盖恢复包。这不是日常归档或长期知识容器。
 - 通用`clean_generated_outputs.py`不得处理`artifacts/runs`、`artifacts/records`或`artifacts/reports`下的芯片目录，包括其中缓存；默认只预览缓存。
 - 旧时间戳Run、旧Excel及既有固定JSON/ZIP档案保持只读历史；迁移知识不改写或删除原始输入，不自动批量覆盖旧Case Markdown。历史删除是独立清理任务。

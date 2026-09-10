@@ -1,5 +1,5 @@
 # 固定运行目录的知识整理回执与安全复用。
-# 职责：整理确认前保留原始现场，确认后校验Case知识和文件Hash再允许覆盖。
+# 职责：未发布或Hash损坏的现场拒绝清空；已seal且Hash完好的pending工作区允许覆盖；已review后校验Case知识Hash。
 # 边界：不碰旧时间戳Run，不扫描设备，不根据PASS自动确认已无新知识。
 # 依赖：标准库、文件事务及延迟加载的记录检查器。
 
@@ -172,7 +172,7 @@ def verify_publication(
 def prepare_workspace(repository: Path, root: Path) -> Path:
     _validate_root(repository, root)
     if root.exists() and any(root.iterdir()):
-        receipt = verify_publication(repository, root)
+        receipt = verify_publication(repository, root, require_review=False)
         parent = root.parent.parent / "_PIPELINE/current"
         if (
             root != parent
@@ -182,8 +182,8 @@ def prepare_workspace(repository: Path, root: Path) -> Path:
             child = json_object(safe_path(root, "manifest.json").read_bytes())
             pipeline = json_object(safe_path(parent, "manifest.json").read_bytes())
             if child.get("pipeline_run_id") and child["pipeline_run_id"] == pipeline.get("run_id"):
-                # 其他IP仍待整理时，不能先覆盖已整理子现场，破坏整轮可复核性。
-                verify_publication(repository, parent)
+                # 父Pipeline未完成或回执损坏时拒绝覆盖子现场；pending不再互锁。
+                verify_publication(repository, parent, require_review=False)
         for name in object_value(receipt["files"], "workspace files"):
             safe_path(root, name).unlink()
         safe_path(root, RECEIPT).unlink()

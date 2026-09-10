@@ -35,7 +35,7 @@ artifacts/
 | 正文引用的必要附件 | `records/<CHIP>/<IP>/attachments/<CASE_ID>/` |
 
 例如：`reports/ET6801/ET6801_CAN测试报告.xlsx`。关闭报告时保留上次文件，运行日志提示本次未更新；报告首页的Run ID、Lane和时间用于确认来源。
-旧`runs`、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不再新增或写入。`current`仅保留本次测试；先逐Case整理知识并确认，再由下一轮校验并覆盖，不按日期或轮次累积。
+旧`runs`、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不再新增或写入。`current`仅保留本次测试。人可不review即覆盖Hash完好的pending现场。Agent必须review。不按日期或轮次累积。
 
 ## 知识整理入口
 
@@ -51,7 +51,7 @@ artifacts/
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py index --chip ET6801 --ip can
 ```
 
-Agent读原始方法与已有知识、处理本次新知识后，显式确认全部已选Case：
+Agent读原始方法与已有知识、处理本次新知识后，必须显式确认全部已选Case；人连跑不依赖该命令：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py review `
@@ -59,7 +59,7 @@ Agent读原始方法与已有知识、处理本次新知识后，显式确认全
 ```
 
 首次需要先写Case Markdown；重复PASS且无新知识时可以正文零修改后确认。
-`check/index`不放行覆盖，脚本不会自动编写分析或关闭问题。
+`check/index`不绑知识回执。脚本不会自动编写分析或关闭问题。覆盖Hash完好的pending `current/`不依赖`review`。
 
 中断现场的人工显式恢复包（固定目标必须尚不存在，不作日常累积归档）：
 

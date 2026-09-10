@@ -52,7 +52,7 @@ def test_preparation_does_not_create_long_term_records(cli: ModuleType, tmp_path
     assert all((current / name).read_bytes() == value for name, value in raw.items())
 
 
-# 测试方法：PASS后先只读check，再显式review；通过条件：check不解锁，review才放行且不改知识。
+# 测试方法：PASS后先只读check，再显式review；通过条件：check不绑proofs，覆盖不依赖review，review仍是显式知识回执。
 def test_review_requires_curated_knowledge_and_is_explicit(cli: ModuleType, tmp_path: Path) -> None:
     workspace = importlib.import_module("record_workspace")
     current = current_session(tmp_path)
@@ -63,8 +63,10 @@ def test_review_requires_curated_knowledge_and_is_explicit(cli: ModuleType, tmp_
     path = make_knowledge(tmp_path)
     before = path.read_bytes()
     assert cli.main(["check", "--chip", "ET6801", "--ip", "crc"]) == 0
-    with pytest.raises(workspace.KnowledgeReviewPending):
-        workspace.prepare_workspace(tmp_path, current)
+    receipt = json.loads((current / "publication.json").read_text(encoding="utf-8"))
+    assert receipt["pending_review"] is True
+    assert receipt["records"] == {}
+    workspace.verify_publication(tmp_path, current, require_review=False)
     cli.review_records(tmp_path, current, **kwargs)
     workspace.verify_publication(tmp_path, current)
     receipt = (current / "publication.json").read_bytes()
@@ -114,8 +116,6 @@ def test_twenty_reviewed_rounds_do_not_accumulate(cli: ModuleType, tmp_path: Pat
             path.write_bytes(data)
         kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
         cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
-        with pytest.raises(workspace.KnowledgeReviewPending):
-            workspace.prepare_workspace(tmp_path, current)
         cli.review_records(tmp_path, current, **kwargs)
         assert json.loads((current / "session.json").read_bytes())["run_id"] == f"round-{iteration}"
     assert {p.name for p in current.parent.iterdir()} == {
@@ -124,6 +124,46 @@ def test_twenty_reviewed_rounds_do_not_accumulate(cli: ModuleType, tmp_path: Pat
         "README.md",
         "_maintenance",
     }
+    assert knowledge.is_file() and not list(current.parent.rglob("*.zip"))
+    assert other.read_bytes() == b"other chip untouched"
+    assert other_ip.read_bytes() == b"other IP untouched"
+    assert not list((tmp_path / "artifacts/runs").rglob("*"))
+
+
+# 测试方法：同IP连续20轮只prepare_review、不review；通过条件：不累积目录，知识Markdown仍在。
+def test_twenty_pending_rounds_do_not_accumulate(cli: ModuleType, tmp_path: Path) -> None:
+    workspace = importlib.import_module("record_workspace")
+    current = current_session(tmp_path)
+    raw = {p.relative_to(current): p.read_bytes() for p in current.rglob("*") if p.is_file()}
+    knowledge = make_knowledge(tmp_path)
+    other = tmp_path / "artifacts/records/ET6003/CRC/current/keep.log"
+    other.parent.mkdir(parents=True)
+    other.write_bytes(b"other chip untouched")
+    other_ip = current.parents[1] / "UART/current/keep.log"
+    other_ip.parent.mkdir(parents=True)
+    other_ip.write_bytes(b"other IP untouched")
+    for iteration in range(20):
+        if iteration:
+            workspace.prepare_workspace(tmp_path, current)
+            assert list(current.iterdir()) == []
+        for name, data in raw.items():
+            path = current / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(data) if path.suffix == ".json" else None
+            if payload is not None:
+                payload["run_id"] = f"round-{iteration}"
+                data = json.dumps(payload).encode()
+            path.write_bytes(data)
+        kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
+        cli.prepare_review(tmp_path, current, **kwargs, write_report=False)
+        assert json.loads((current / "session.json").read_bytes())["run_id"] == f"round-{iteration}"
+    assert {p.name for p in current.parent.iterdir()} <= {
+        "current",
+        "cases",
+        "README.md",
+        "_maintenance",
+    }
+    assert "current" in {p.name for p in current.parent.iterdir()}
     assert knowledge.is_file() and not list(current.parent.rglob("*.zip"))
     assert other.read_bytes() == b"other chip untouched"
     assert other_ip.read_bytes() == b"other IP untouched"

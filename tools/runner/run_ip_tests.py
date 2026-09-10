@@ -523,7 +523,10 @@ def _execute_ip(args: argparse.Namespace) -> int:
         return pytest_exit or canonical_exit or 2
 
     print(f"Case knowledge: {record_root(REPOSITORY_ROOT, chip, ip)}")
-    print("Knowledge review is pending; current raw files cannot be overwritten before review.")
+    print(
+        "Knowledge review is pending; humans may start the next run, "
+        "Agent must review before the next Agent task."
+    )
     return pytest_exit or canonical_exit
 
 

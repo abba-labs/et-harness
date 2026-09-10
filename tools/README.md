@@ -48,7 +48,7 @@ Case知识辅助：
   --chip ET6801 --ip can --lane fpga --source artifacts/records/ET6801/CAN/current
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py check --chip ET6801 --ip can
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py index --chip ET6801 --ip can
-# Agent逐Case整理或确认无新知识后，显式确认当前现场可以复用：
+# Agent必须确认；人连跑不依赖该命令：
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py review `
   --chip ET6801 --ip can --lane fpga --source artifacts/records/ET6801/CAN/current
 ```

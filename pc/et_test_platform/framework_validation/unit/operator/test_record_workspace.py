@@ -96,20 +96,24 @@ def test_workspace_checks_durable_record_proof(workspace: ModuleType, tmp_path: 
     assert (root / "session.json").read_bytes() == b"sample"
 
 
-# 测试方法：测试PASS但整理未完成；通过条件：封存不改测试状态，下一轮复用在删除前阻止。
-def test_pending_review_blocks_overwrite_even_after_pass(
+# 测试方法：测试PASS但整理未完成；通过条件：Hash完好的pending工作区可覆盖，知识Markdown仍在。
+def test_pending_review_allows_overwrite_when_hashes_match(
     workspace: ModuleType, tmp_path: Path
 ) -> None:
+    document = make_knowledge(tmp_path)
+    before = document.read_bytes()
     root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/records/ET6801/CRC/current")
     (root / "session.json").write_bytes(b"PASS raw")
     parent = pipeline_for(tmp_path, root)
     workspace.seal_workspace(tmp_path, root, proofs={}, pending_review=True)
     workspace.seal_pipeline(tmp_path, parent, successful=True)
     assert workspace.verify_publication(tmp_path, root, require_review=False)["pending_review"]
+    with pytest.raises(workspace.KnowledgeReviewPending):
+        workspace.verify_publication(tmp_path, root)
     for target in (root, parent):
-        with pytest.raises(workspace.KnowledgeReviewPending):
-            workspace.prepare_workspace(tmp_path, target)
-    assert (root / "session.json").read_bytes() == b"PASS raw"
+        workspace.prepare_workspace(tmp_path, target)
+        assert list(target.iterdir()) == []
+    assert document.read_bytes() == before
 
 
 # 测试方法：完成Case知识后显式确认子工作区；通过条件：父回执同步，整个current可安全复用。
@@ -157,8 +161,8 @@ def test_workspace_refuses_legacy_paths(workspace: ModuleType, tmp_path: Path) -
         workspace.prepare_workspace(tmp_path, root)
 
 
-# 测试方法：一IP已整理、同Pipeline另一IP待整理；通过条件：已整理IP也不能提前覆盖。
-def test_pipeline_pending_sibling_blocks_child_reuse(workspace: ModuleType, tmp_path: Path) -> None:
+# 测试方法：一IP已整理、同Pipeline另一IP待整理；通过条件：pending兄弟可覆盖，知识Markdown仍在。
+def test_pipeline_pending_sibling_allows_child_reuse(workspace: ModuleType, tmp_path: Path) -> None:
     checker = importlib.import_module("record_check")
     document = make_knowledge(tmp_path)
     root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/records/ET6801/CRC/current")
@@ -176,6 +180,22 @@ def test_pipeline_pending_sibling_blocks_child_reuse(workspace: ModuleType, tmp_
     record = document.parent.parent
     proofs = {record.relative_to(tmp_path).as_posix(): checker.check_records(record)["files"]}
     workspace.review_workspace(tmp_path, root, proofs=proofs)
-    with pytest.raises(workspace.KnowledgeReviewPending):
+    workspace.prepare_workspace(tmp_path, root)
+    assert list(root.iterdir()) == []
+    assert (sibling / "manifest.json").is_file()
+    workspace.prepare_workspace(tmp_path, sibling)
+    assert list(sibling.iterdir()) == []
+    assert document.exists()
+
+
+# 测试方法：子IP已seal、父Pipeline unpublished；通过条件：拒绝覆盖子现场并保留字节。
+def test_unpublished_pipeline_parent_blocks_child_reuse(
+    workspace: ModuleType, tmp_path: Path
+) -> None:
+    root = workspace.prepare_workspace(tmp_path, tmp_path / "artifacts/records/ET6801/CRC/current")
+    pipeline_for(tmp_path, root)
+    (root / "session.json").write_bytes(b"child sealed")
+    workspace.seal_workspace(tmp_path, root, proofs={}, pending_review=True)
+    with pytest.raises(ValueError, match="unpublished"):
         workspace.prepare_workspace(tmp_path, root)
-    assert (root / "manifest.json").is_file() and (sibling / "manifest.json").is_file()
+    assert (root / "session.json").read_bytes() == b"child sealed"
