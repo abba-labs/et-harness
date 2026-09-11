@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "chip": "et6801",
-  "manifest": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\project.yaml",
-  "template": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\keil\\templates\\base.uvprojx",
-  "template_root": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing",
+  "manifest": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\project.yaml",
+  "template": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\keil\\templates\\base.uvprojx",
+  "template_root": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing",
   "sdk_root": null,
-  "output": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvprojx",
+  "output": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvprojx",
   "sha256": "d4cf9b005b924799e390c2e455bd873e9a15cd8d9bf0fb4042af6cd5cec2278a",
   "targets": [
     {
@@ -19,7 +19,7 @@
         "ET_TARGET_FPGA",
         "ET_ENABLE_TEST_DRIVER_EXTENSIONS"
       ],
-      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_itcm.sct",
+      "scatter_file": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_itcm.sct",
       "project_includes": []
     },
     {
@@ -33,7 +33,7 @@
         "ET_TARGET_SILICON",
         "ET_ENABLE_TEST_DRIVER_EXTENSIONS"
       ],
-      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_pflash1.sct",
+      "scatter_file": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_pflash1.sct",
       "project_includes": []
     },
     {
@@ -48,7 +48,7 @@
         "ET_ENABLE_TEST_DRIVER_EXTENSIONS",
         "ET_CORE1_PEER_IPCM"
       ],
-      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_itcm.sct",
+      "scatter_file": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_itcm.sct",
       "project_includes": []
     },
     {
@@ -63,19 +63,19 @@
         "ET_ENABLE_TEST_DRIVER_EXTENSIONS",
         "ET_CORE1_PEER_IPCM"
       ],
-      "scatter_file": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_pflash1.sct",
+      "scatter_file": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\linker\\link_core1_pflash1.sct",
       "project_includes": []
     }
   ],
   "support_files": {
     "keil_options": {
-      "source": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\keil\\templates\\base.uvoptx",
-      "output": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvoptx",
+      "source": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\keil\\templates\\base.uvoptx",
+      "output": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\ET6801_Core1_Peer.uvoptx",
       "sha256": "679ece277108c9499aea4b3688dcaf15364658c05f1b2031c3c49006f5334be9"
     },
     "jlink_settings": {
-      "source": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\debug\\JLinkSettings.ini",
-      "output": "D:\\lihuan\\vibe_code\\codex\\projects\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\JLinkSettings.ini",
+      "source": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\chips\\et6801\\core1_peer\\debug\\JLinkSettings.ini",
+      "output": "D:\\lihuan\\vibe_code\\et-harness\\workspace\\ET_ATP_Testing\\firmware\\build\\et6801\\core1_peer\\JLinkSettings.ini",
       "sha256": "66edd662d932ad3eaaf2ba20195461ef7119fb0d66f7d3b8b0b286b17ffbc52c"
     }
   }
