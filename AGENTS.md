@@ -2,6 +2,9 @@
 
 本文件是仓库宪法和Agent唯一入口。它只定义不可违背的总约束与规则路由，不复制专项规则正文。
 
+> **开工前必读**：若无本会话的项目上下文，先阅读 `project-governance/PROJECT_COGNITION.yaml`，
+> 并沿它路由到项目框架与目的、开发/代码/测试规则、经验区。已有上下文可跳过。
+
 ## 0. 不可违反
 
 - 仓库：`Abba-shenfu/Automated_Testing_Platform`。

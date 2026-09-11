@@ -1,0 +1,124 @@
+# 项目认知入口（Project Cognition）
+#
+# 本文件是 Agent 建立本项目认知的【唯一入口路由】。它不是规则正文，不复制任何 Rxxx 内容，
+# 只回答三个问题：这是什么项目、怎么开发、去哪看经验。
+#
+# 读取策略：新会话/无项目上下文时必须先读本文件并沿路由阅读；已有本会话上下文可跳过。
+# 权威顺序：AGENTS.md > report/design/rules/Rxxx_*.md > 本文件 > 其它。
+# 本文件的每个 path 都必须真实存在；链接失效即为缺陷，须立即修正。
+
+schema: et.project-cognition.v1
+version: 1
+updated: 2026-09-11
+read_policy: required_without_context
+
+project:
+  name: ET Automated Testing Platform
+  purpose: >
+    面向 ET 系列 MCU 的自动化测试平台。PC 侧下发命令、观测 DUT 事实并形成可审计证据；
+    固件侧受控执行单个 IP 动作。核心目标不是"跑通测试"，而是让每条测试结论都可追溯到
+    真实硬件观测，禁止把未执行项写成 PASS。
+  boundary: 芯片中立的公共层 + 按芯片适配的 Profile/Capability/Board/Execution Mapping。
+
+# ── 1. 项目框架与目的 ────────────────────────────────────────────────
+orientation:
+  what_is_this:
+    - path: README.md
+      note: 仓库根定位、目录职责、快速开始与权威规则索引
+    - path: AGENTS.md
+      note: 仓库宪法：不可违反约束、固定架构、变更安全与完成条件（§4 是三段架构的唯一速览）
+  architecture:
+    - path: report/final/20260811_public_layer_freeze_closure.md
+      note: 公共层冻结模型与变更规则（当前基线 codex_dev@1e584956）
+    - path: project-governance/system-map.yaml
+      note: 模块总图：ip-package / pc-platform / firmware-platform / operator-pipeline /
+            companion-platform / governance，及模块间依赖方向
+  runtime_chain: "Case -> Driver -> TargetClient -> Transport(串口/VISA)"
+  firmware_chain: "Router -> Own Service -> Own Wrap -> Own Chip Driver"
+  evidence_chain: "Assertion -> Observation/Evidence -> Canonical Result -> Report"
+
+# ── 2. 规则（开发 / 代码与注释 / 测试）────────────────────────────────
+rules:
+  # 治理与导航：任何任务的第一步
+  governance:
+    - {id: R001, note: 规则编号、Owner、生命周期与写作规范}
+    - {id: R002, note: 任务到代码/规则/验证的强制导航；Task Context 编译与失败关闭}
+    - {id: R004, note: 批量Bug修复的范围、定位与验证节奏}
+
+  # 开发规则：分层、边界与契约
+  development:
+    - {id: R100, note: 公共IP语义与芯片适配边界}
+    - {id: R110, note: 文档与代码同步（公共语义改必须同步公共IP文档）}
+    - {id: R140, note: IP分析、Feature与Case规划}
+    - {id: R200, note: PC分层责任与固定依赖方向}
+    - {id: R300, note: Firmware Service 责任}
+    - {id: R310, note: Firmware Wrap 与 Chip Config}
+    - {id: R410, note: Capability v2}
+
+  # 代码编写与注释规则
+  code_style:
+    - {id: R220, note: Python 样式、注释与质量（含公共API责任注释要求）}
+    - {id: R330, note: Firmware C 源码风格与注释}
+    - {id: R320, note: IRQ 子系统约定}
+    - {id: R400, note: ET-Frame v1 线格式}
+
+  # 测试规则
+  testing:
+    - {id: R120, note: ET_CASE_SPEC / PLAN / REPORT 机器契约}
+    - {id: R130, note: Result / Observation / Evidence 唯一事实链与知识整理}
+    - {id: R210, note: Formal Case 责任、拆分与断言规则}
+    - {id: R500, note: Runner / Run Config / Artifact 与执行级别（回归与调试节奏见 §5.1/§5.4）}
+
+  catalog:
+    - path: report/design/rule_owner_catalog.yaml
+      note: 每条活动规则的唯一 Owner 与唯一权威正文（机器索引）
+  index:
+    - path: report/README.md
+      note: report/ 的人读索引与目录职责
+
+# ── 3. 经验区（踩过的坑，不要再踩）──────────────────────────────────
+experience:
+  root: artifacts/experience/
+  authority:
+    - path: artifacts/experience/RULES.md
+      note: 经验库唯一约束正文：分类、命名、结构、维护与归档
+    - path: artifacts/experience/README.md
+      note: 全量经验索引（每次增删改后同步）
+  must_read_before_regression:
+    - path: artifacts/experience/workflow/test_execution_runbook.md
+      note: 全链路 HIL 执行 SOP：正确入口、禁止手拼、单IP走run_ip_tests、
+            整轮会跑注册表全集
+    - path: artifacts/experience/workflow/gate_and_entry_antipattern.md
+      note: 门禁重复执行与绕过 run_pipeline 的代价（含实测耗时归因）
+    - path: artifacts/experience/workflow/evidence_review_loop.md
+      note: 证据回路与 current 工作区复用闸门
+    - path: artifacts/experience/workflow/deploy_chain_mechanism.md
+      note: 五级部署机制与 hardware_action 确认
+  environment:
+    - path: artifacts/experience/environment/ps5_gbk_console_encoding.md
+      note: PS5.1/GBK 控制台编码与 PYTHONUTF8 启动清单
+    - path: artifacts/experience/environment/sandbox_and_file_tools.md
+      note: 沙箱下被拒的 cmdlet、cwd 与管道坑
+    - path: artifacts/experience/environment/artifact_location_discipline.md
+      note: 临时/日志/备份必须留在仓库内，禁止写系统盘
+  governance:
+    - path: artifacts/experience/governance/case_list_authority.md
+      note: 注册表是 Case 清单唯一权威（双源核对）
+
+# ── 4. 执行入口（不要手拼低层工具）──────────────────────────────────
+entrypoints:
+  authoritative: artifacts/experience/workflow/test_execution_runbook.md
+  full_run: "run_test.bat / GUI -> bootstrap.py -> run_pipeline.py -> 注册表全部 IP"
+  single_ip_or_case: "tools/runner/run_ip_tests.py --ip <ip> [--include-case <id>]"
+  software_gate: "tools/validate_pc.py（人工指定，同一源码状态只跑一次）"
+  rule: >
+    禁止用手写循环调用 run_ip_tests.py 代替整轮回归；禁止手拼 openocd/JLink/UV4/裸 pytest。
+    执行级别、门禁时机与调试节奏由 R500 §5.1/§5.3/§5.4 定义。
+
+# ── 5. 本文件维护 ───────────────────────────────────────────────────
+maintenance:
+  update_when:
+    - 新增/废弃规则 Owner（同步 rule_owner_catalog.yaml）
+    - 新增模块（同步 system-map.yaml）
+    - 经验区新增高优先级必读文档（同步 experience 索引）
+  consistency: 所有 path 必须存在；validate 时若失效须立即修正，不得留空断链。
