@@ -479,3 +479,21 @@ SVD把`RBR/THR/SRBR/STHR`数据字段定义为16 bit：普通UART路径使用低
 | `UART_P1_012` | FPGA | SKIP | `UART_F_027`、`UART_F_028` / Busy Detect中断及清除 | 正常启用FIFO并持续发送期间修改LCR，限定触发窗口内未形成确定性的Busy Detect中断 | 当前刺激不能稳定满足Busy Detect的硬件触发时序；现有结果不足以判定Feature PASS或FAIL | 取得ET6801 Busy Detect准确触发时序，或使用可控制发送与LCR写入相位的刺激后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
 | `UART_P3_009` | FPGA | SKIP | `UART_F_044` / Direct FIFO访问 | Capability读取结果表明Direct FIFO Access不可用，Case未执行FAR/TFR/RFW访问 | ET6801当前UART组件参数未声明Direct FIFO Access支持，目标芯片不具备该可执行能力 | 仅当后续RTL/芯片Capability明确支持Direct FIFO Access时复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/uart/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
+
+<a id="uart-record-index"></a>
+
+### 6.2 测试记录与知识索引
+
+2026-09-09 10:13 CST补充：[33个已注册Case的提炼型知识](../../artifacts/records/ET6801/UART/README.md)已从人读历史报告与本文件状态块迁移，保留方法要点、修复史与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session（2026-08-28 `runs/20260828_170737_043300_local_et6801_fpga`与2026-08-13 `operator_hil/20260813_gui_pipeline`）已随早期清理不在仓库，参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
+
+| 入口 | 用途 |
+|---|---|
+| [UART Case知识索引](../../artifacts/records/ET6801/UART/README.md) | 33个已注册Case的提炼型知识（方法/结果边界/修复史）；历史来源与证据缺失声明见其"历史来源与版本" |
+| [全量HIL报告 2026-08-10](../../report/validation/dut/20260810_et6801_pc_firmware_freeze_full_hil.md) | Framework/UART/DMA冻结全量HIL（118 PASS/3 SKIP/0 FAIL） |
+| [GUI Pipeline UART HIL报告 2026-08-13](../../report/hil/20260813_et6801_gui_pipeline_uart_hil_report.md) | UART 33项 30 PASS/3 SKIP/0 FAIL；轮次环境身份以该报告为准 |
+| [P2-010与P3-007独立HIL 2026-08-05](../../report/validation/dut/20260805_uart_split_cases_hil.md) | P2_010两次FAIL定位记录与P3_007实测（CPR=0x13DF2） |
+| [9-bit地址中断Driver修复HIL 2026-08-05](../../report/validation/dut/20260805_uart_address_irq_driver_fix_hil.md) | P2_010修复后PASS与IRQ影响回归 |
+| [正式PFLASH启动与UART公共框架HIL 2026-07-26](../../report/validation/dut/20260726_et6801_formal_flash_uart_hil.md) | 早期链路层验证（协议可靠性+1000轮混合载荷压力） |
+| [公共UART契约](uart.md) | 各Case `ET_CASE_SPEC`方法权威 |
+
+继续开发入口：先读本节索引对应Case的知识Markdown，再回[公共UART契约](uart.md)核对`ET_CASE_SPEC`；下一次真实运行后按R500在`artifacts/records/ET6801/UART/current/`建立当次工作区，本节链接的历史结论不替代当前回归。

@@ -353,3 +353,12 @@ AES_P1_009 OUTPUT_CONFLICT
 |---|---|---|---|---|---|---|---|
 | — | FPGA | NONE | — | — | — | — | — |
 <!-- ET_CHIP_TEST_STATUS_END -->
+
+<a id="aes-record-index"></a>
+### 测试记录与知识索引
+2026-09-09 11:30 CST补充：[26个已注册Case的提炼型知识](../../artifacts/records/ET6801/AES/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session（artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/aes/）已随早期清理不在仓库，参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
+| 入口 | 用途 |
+|---|---|
+| [AES Case知识索引](../../artifacts/records/ET6801/AES/README.md) | 26个已注册Case知识；历史来源与证据缺失声明见其"历史来源与版本" |
+| [公共AES契约](aes.md) | 各Case `ET_CASE_SPEC`方法权威 |
+继续开发入口：先读对应Case知识Markdown，再回公共契约核对`ET_CASE_SPEC`；下一次真实运行后按R500建立`records/ET6801/AES/current/`工作区。

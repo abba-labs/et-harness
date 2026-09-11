@@ -657,3 +657,15 @@ Current-SHA Silicon HIL:
 |---|---|---|---|---|---|---|---|
 | `CRC_P1_012` | FPGA | FAIL | `CRC_F_014` / CRC FIFO Overflow状态 | `FIFO_TRHD=1`并连续写入7次后，`FIFO.OVERFLOW`仍由`false`保持为`false`；恢复轮CRC实际值与期望值均为`0x140B8DD8`，剩余输入计数为0 | 人工已确认刺激方法有效；当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题，CRC计算与恢复路径正常 | RTL/bit修复`FIFO_OVF`后，使用相同紧凑写入和恢复流程复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/` |
 <!-- ET_CHIP_TEST_STATUS_END -->
+
+<a id="crc-record-index"></a>
+### 测试记录与知识索引
+
+2026-09-09 11:30 CST补充：[23个已注册Case的提炼型知识](../../artifacts/records/ET6801/CRC/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点、FIFO_OVF失败归因与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session（artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/）已随早期清理不在仓库，参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
+
+| 入口 | 用途 |
+|---|---|
+| [CRC Case知识索引](../../artifacts/records/ET6801/CRC/README.md) | 23个已注册Case知识；历史来源与证据缺失声明见其"历史来源与版本" |
+| [公共CRC契约](crc.md) | 各Case `ET_CASE_SPEC`方法权威 |
+
+继续开发入口：先读对应Case知识Markdown，再回公共契约核对`ET_CASE_SPEC`；下一次真实运行后按R500建立`records/ET6801/CRC/current/`工作区。
