@@ -102,6 +102,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help=argparse.SUPPRESS,
     )
+    # 总软件门禁只在人工明确要求时执行，不由每次IP运行自动触发。
+    parser.add_argument(
+        "--software-preflight",
+        action="store_true",
+        help="run the full software gate (tools/validate_pc.py) before this IP run",
+    )
     parser.add_argument("--source-revision", help=argparse.SUPPRESS)
     parser.add_argument(
         "--source-state",
@@ -427,8 +433,9 @@ def _finish_standalone_run(
     return exit_code
 
 
-def _run_software_preflight(*, within_pipeline: bool) -> int:
-    if within_pipeline:
+# 按需运行总软件门禁；默认不在每个IP运行时重复执行。
+def _run_software_preflight(*, requested: bool) -> int:
+    if not requested:
         return 0
     print("Running canonical software preflight...")
     exit_code = _run([sys.executable, str(VALIDATE_PC)])
@@ -484,7 +491,7 @@ def _execute_ip(args: argparse.Namespace) -> int:
         source_revision = str(args.source_revision)
         source_dirty = args.source_state == "dirty"
 
-    preflight_exit = _run_software_preflight(within_pipeline=bool(args.within_pipeline))
+    preflight_exit = _run_software_preflight(requested=bool(args.software_preflight))
     if preflight_exit != 0:
         return preflight_exit
 
