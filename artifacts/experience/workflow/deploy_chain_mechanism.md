@@ -4,7 +4,8 @@
 适用范围：ET6801 FPGA lane（XC7VX980T 原型）；脚本位于 `tools/fpga/et6801/` 与 `tools/firmware/`。单核 Profile `et6801_fpga.yaml`；双核/IPCM 另绑 `run_et6801_formal_dualcore.ps1`。
 最后核验：2026-09-10
 
-操作入口与禁止手拼见 [test_execution_runbook](test_execution_runbook.md)。本文只讲部署阶段机制，不写 Case 选择。
+操作入口与禁止手拼见 [test_execution_runbook](test_execution_runbook.md)。本文只讲部署阶段机制，不写 Case 选择；
+哪些 IP 需要哪种部署形态见 [multiform_deployment_matrix](multiform_deployment_matrix.md)。
 
 ## 链路总览
 

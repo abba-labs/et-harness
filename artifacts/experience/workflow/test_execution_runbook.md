@@ -86,7 +86,7 @@ Get-Process UV4,JLink -ErrorAction SilentlyContinue   # 必须无
 
 - [`run_config.example.yaml`](../../../run_config.example.yaml)：Git 跟踪模板，安全默认全关、`confirm_hardware_actions: false`。**禁止当正式配置烧板。**
 - `run_config.yaml`：唯一生效本机配置（`.gitignore`）。首次 `run_test.bat` 从 example 复制后立刻退出，须填本机路径再跑。GUI 首次复制后打开界面。
-- `target.pipeline_profile`：单核 Formal 用 `tools/profiles/pipeline/et6801_fpga.yaml`；双核才用 `et6801_fpga_dualcore.yaml`。本机当前选了哪个 **不是** 仓库默认。
+- `target.pipeline_profile`：单核 Formal 用 `tools/profiles/pipeline/et6801_fpga.yaml`；双核才用 `et6801_fpga_dualcore.yaml`（SPINLOCK）或 `et6801_fpga_ipcm.yaml`（IPCM）。本机当前选了哪个 **不是** 仓库默认。**13 个 IP 分属三种互斥形态，一轮部署跑不完**，见 [multiform_deployment_matrix](multiform_deployment_matrix.md)。
 - 固定：`confirm_hardware_actions: true`（非 Renode 且选了硬件阶段或 `run_tests`）；`execute.start_target: false` 当本轮要 `deploy.firmware`。
 - 开关矩阵（R500 §5.2；只按实际 Diff，禁止「准备测试就全烧」）：
   - **固件有变、全链路**：`build.firmware: true`，三级 `deploy.*: true`，`start_target: false`，`run_tests` 仅当用户要立刻测。

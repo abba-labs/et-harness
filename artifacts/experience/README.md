@@ -23,6 +23,7 @@
 - [deploy_chain_mechanism](workflow/deploy_chain_mechanism.md) — 五级部署机制：同轮bit+ROM+PFLASH、firmware/start_target互斥、双核脚本、禁止直调.ps1（active）
 - [evidence_review_loop](workflow/evidence_review_loop.md) — 证据回路与现场生命周期：facts/回执/review/复用闸门/未发布现场解阻（active）
 - [gate_and_entry_antipattern](workflow/gate_and_entry_antipattern.md) — 门禁重复41次与绕过run_pipeline的代价：执行级别选择、后台作业不得空等（active）
+- [multiform_deployment_matrix](workflow/multiform_deployment_matrix.md) — 13个IP分属三种互斥部署形态（单核/双核SPINLOCK/双核IPCM），一次部署只能覆盖同形态IP（active）
 
 ## governance — 治理与权威源实践教训
 
