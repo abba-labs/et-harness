@@ -37,10 +37,30 @@ ET6801 FPGA IPCM 双核 Peer：Profile [`et6801_fpga_ipcm.yaml`](profiles/pipeli
   --check-only
 ```
 
-软件总门禁：
+软件总门禁（人工指定执行，同一源码状态只跑一次）：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\validate_pc.py
+```
+
+工作区体检（只读；回归前确认无阻塞、review 时核对回执覆盖）：
+
+```powershell
+.\.venv\Scripts\python.exe tools\quality\audit_record_workspaces.py --chip ET6801 --recovery-zip
+```
+
+等待一次部署结束（只读日志，命中成功/失败标志即退出）：
+
+```powershell
+.\.venv\Scripts\python.exe tools\runner\watch_pipeline_log.py ^
+  artifacts\records\ET6801\_PIPELINE\current\stages\pipeline\pipeline.log
+```
+
+Core1 Peer Mailbox 只读诊断（判定 IPCM 部署后是否 Peer Ready）：
+
+```powershell
+.\.venv\Scripts\python.exe tools\runner\ipcm_peer_mailbox_probe.py ^
+  --label after_deploy --output artifacts\records\ET6801\_PIPELINE\current\stages\peer_mailbox.json
 ```
 
 Case知识辅助：
