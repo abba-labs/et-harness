@@ -1600,9 +1600,9 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     )
 
     assert exit_code == expected_exit
-    assert len(calls) == 2
-    assert Path(calls[0][1]) == RUN_IP_TESTS.VALIDATE_PC
-    pytest_command = calls[1]
+    # 总软件门禁改为人工显式指定：默认不再自动执行，只调用一次pytest。
+    assert len(calls) == 1
+    pytest_command = calls[0]
     assert Path(pytest_command[pytest_command.index("--et-artifact-dir") + 1]) == (
         output_root / "ET6801/CRC/current"
     )
@@ -1615,6 +1615,78 @@ def test_run_ip_tests_generates_report_even_when_pytest_fails(
     assert json.loads((root / "publication.json").read_text())["pending_review"] is True
     assert not (tmp_path / "artifacts/runs/current").exists()
     assert "Actual Session chip differs" not in capsys.readouterr().out
+
+
+# 测试 Feature：总软件门禁只由人工显式指定执行。
+#
+# 测试方法：在同一个独立运行入口上分别传与不传 --software-preflight，记录实际子进程调用序列。
+#
+# 通过条件：不传时只调用pytest一次；传入时先调用一次validate_pc.py，再调用pytest。
+def test_run_ip_tests_gate_is_explicit_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from .test_record_source import make_session
+
+    source = importlib.import_module("record_source")
+    original = make_session(source, tmp_path, chip_id="et6801")
+    case_root = tmp_path / "cases"
+    document_root = tmp_path / "test_case_doc"
+    output_root = tmp_path / "artifacts/records"
+    (case_root / "crc").mkdir(parents=True)
+    bench = tmp_path / "bench.yaml"
+    bench.write_text("targets: {dut: {chip: et6801}}\n", encoding="utf-8")
+
+    monkeypatch.setattr(RUN_IP_TESTS, "FORMAL_CASE_ROOT", case_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "DOCUMENT_ROOT", document_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "ARTIFACT_RECORDS_ROOT", output_root)
+    monkeypatch.setattr(RUN_IP_TESTS, "REPOSITORY_ROOT", tmp_path)
+    monkeypatch.setattr(RUN_IP_TESTS, "capture_source_identity", lambda root: ("a" * 40, False))
+
+    def run_with(*, preflight: bool) -> list[list[str]]:
+        calls: list[list[str]] = []
+
+        def fake_run(command: list[str], *, log_path: Path | None = None) -> int:
+            calls.append(command)
+            if Path(command[1]) == RUN_IP_TESTS.VALIDATE_PC:
+                return 0
+            if "pytest" in command:
+                shutil.copytree(
+                    original,
+                    Path(command[command.index("--et-artifact-dir") + 1]),
+                    dirs_exist_ok=True,
+                )
+                return 0
+            raise AssertionError("unexpected subprocess")
+
+        monkeypatch.setattr(RUN_IP_TESTS, "_run", fake_run)
+        RUN_IP_TESTS.main(
+            [
+                "--ip",
+                "crc",
+                "--bench",
+                str(bench),
+                "--target",
+                "dut",
+                "--output-root",
+                str(output_root),
+                "--lane",
+                "fpga",
+                "--no-report",
+                *(["--software-preflight"] if preflight else []),
+            ]
+        )
+        return calls
+
+    default_calls = run_with(preflight=False)
+    assert len(default_calls) == 1
+    assert "pytest" in default_calls[0]
+
+    opt_in_calls = run_with(preflight=True)
+    assert len(opt_in_calls) == 2
+    assert Path(opt_in_calls[0][1]) == RUN_IP_TESTS.VALIDATE_PC
+    assert "pytest" in opt_in_calls[1]
 
 
 # 测试方法：Session 根写入测量 JSON 后 bind 再 prepare_review。
