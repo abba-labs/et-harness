@@ -22,18 +22,40 @@
 
 ## 解法/操作
 
+### 硬禁令（用户指令 2026-09-11）
+
+**不准向仓库外部输出任何文件。** 包括探针脚本、日志、备份、临时目录——一律不得写到
+`C:\` 或其他仓库外路径。`TEMP/TMP` 若需重定向，只允许指到 `<repo>/tmp/` 或
+`records/_TOOLING/<TASK>/current/`。
+
 | 产物类型 | 正确位置 | 依据 |
 |---|---|---|
-| pytest 缓存、一次性探针 | `<repo>/tmp/`（已 gitignore） | `.gitignore` / `pyproject.toml` |
+| pytest 缓存、运行期临时目录 | `<repo>/tmp/`（已 gitignore） | `.gitignore` / `pyproject.toml` |
 | 软件门禁、工具验证日志 | `artifacts/records/_TOOLING/<TASK>/current/` | R500 §6.3 |
+| 该轮的临时脚本 | `records/_TOOLING/<TASK>/current/scripts/` | 见下方生命周期 |
 | 独立诊断现场 | `artifacts/records/_DIAGNOSTICS/<TOOL>/current/` | R500 §6.3 |
 | Formal Case 证据 | `artifacts/records/<CHIP>/<IP>/current/` | R500 §6.1 |
-
-**禁止**把任何项目产物写到仓库外的系统盘路径。
 
 仓库根目录**只允许**出现固定分类目录（`firmware/pc/companion/tools/test_case_doc/report/
 artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（如 graphflow 的 `*-out/`）
 出现在根目录会让 `test_repository_layout.py` 失败，应确保它们被 gitignore 且不长期滞留。
+
+### 临时脚本的两个去向（必须二选一，不得滞留）
+
+写脚本前先判断它属于哪一类：
+
+1. **长期固化 → `tools/`**：会被反复使用、有稳定职责的（如批量知识更新、现场审计、流水线监控），
+   按仓库工具规范放入 `tools/<area>/`，成为正式工具。**优先复用已有工具，不要重复造。**
+2. **本轮临时 → `records/_TOOLING/<TASK>/current/scripts/`**：只服务本轮任务的一次性脚本。
+   **该任务 review 时必须清理**，否则该目录会无限膨胀。
+
+判断标准：如果下一个任务还会用到 → `tools/`；如果只有本轮用 → 临时目录，并在 review 时删掉。
+
+### `_TOOLING` 目录的容量纪律
+
+`records/_TOOLING/<TASK>/current/` 承载本轮的日志、脚本与小结，**它同样是会被覆盖的
+"当前工作区"而非长期仓库**。每轮 review 时同步清理：一次性脚本删除、过时日志删除，
+只保留本轮的结论性文件（如 `REPORT.md`）。单任务累积到数十个文件即说明清理没做。
 
 ## 边界与不适用
 
@@ -48,3 +70,9 @@ artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（
 - 2026-09-11 18:00 CST：由当日会话沉淀。已执行的纠正：C: 盘目录整体删除，日志与备份迁入
   `records/_TOOLING/IP_REGRESSION_20260911/current/`，`graphflow-out/` 加入 `.gitignore`，
   `tmp/` 清空。同轮修复了 `tools/runner/record_source.py` 的 Ruff 格式与两处 C901 复杂度。
+- 2026-09-11 21:40 CST：**同一条规矩当日再次被违反**——Agent 在修复上述问题后，又陆续在
+  `C:\Users\admin\atp_temp\` 写了 9 个探针脚本（`probe*.py`/`repro*.py`）、4 个工具脚本
+  （`upd_*.py`/`check_exp.py`）与 3 个运行时目录（`pytest-of-admin/` 等）。说明"知道正确做法"
+  不等于"会照做"。本轮按用户指令补充**硬禁令**与**临时脚本生命周期**两节，并把可复用的
+  `ipcm_mailbox_probe.py`、`watch_pipeline.py`、`audit_evidence.py` 等迁入
+  `records/_TOOLING/FULL_REGRESSION_TIMING/current/scripts/` 留待固化为正式工具。
