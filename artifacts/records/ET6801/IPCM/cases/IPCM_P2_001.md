@@ -1,8 +1,8 @@
 # IPCM_P2_001 — IPCM Auto Link Manual ACK长Payload测试
 
-整理时间：2026-09-11 10:00 CST；对照本轮 Canonical Session 更新，不是新增测试。
+整理时间：2026-09-11 12:41 CST；对照本轮 Canonical Session 更新，不是新增测试。
 
-适用基线：ET6801 / FPGA；本轮 2026-09-11 10:00 CST，源码 `758bb73bb673998999347ce8d2bb59800950e681`（source_dirty=true，不得外推）；固件 `et6801-silicon-common-v0.1`；bitstream/设备身份未知。不把本轮 FPGA PASS 写成 Silicon 结论。关联 Feature 与方法仍以公共 IPCM 契约为准。
+适用基线：ET6801 / FPGA；本轮 2026-09-11 12:41 CST，源码 `b6a889f97bc630cf8cb54a6e9d8df46bf261ace0`（source_dirty=false，clean）；固件 `et6801-silicon-common-v0.1`；bitstream/设备身份未知。不把本轮 FPGA PASS 写成 Silicon 结论。
 
 ## 本轮结果
 
@@ -20,3 +20,4 @@
 - 2026-09-10 22:04 CST：34/34 FAIL，合并为同一 `peer_cancel` 问题段。
 - 2026-09-11 09:15 CST：正确 IPCM Peer 仍 34 FAIL（PEER_RESULT 超时）；当时同 Pipeline 执行了 start_target。
 - 2026-09-11 10:00 CST：对照本轮 Canonical Session（`758bb73bb673998999347ce8d2bb59800950e681`，source_dirty=true）。跳过 start_target 后本 Case PASS；该方法问题对本轮关闭。
+- 2026-09-11 12:41 CST：本轮 clean tree（`b6a889f97bc630cf8cb54a6e9d8df46bf261ace0`，source_dirty=false）经正式 Runner 复跑，本 Case 全部已选参数 PASS；沿用 6.1.1 部署顺序（Peer Ready 后不执行 start_target）。
