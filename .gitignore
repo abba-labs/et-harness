@@ -58,3 +58,4 @@ artifacts/records/**
 tmp/
 report/runs/
 project-governance/runtime/
+graphflow-out/
