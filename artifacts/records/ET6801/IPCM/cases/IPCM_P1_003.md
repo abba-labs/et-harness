@@ -1,8 +1,8 @@
 # IPCM_P1_003 — IPCM IRQ与Polling状态测试
 
-整理时间：2026-09-11 12:41 CST；对照本轮 Canonical Session 更新，不是新增测试。
+整理时间：2026-09-11 21:00 CST；对照本轮 Canonical Session 更新，不是新增测试。
 
-适用基线：ET6801 / FPGA；本轮 2026-09-11 12:41 CST，源码 `b6a889f97bc630cf8cb54a6e9d8df46bf261ace0`（source_dirty=false，clean）；固件 `et6801-silicon-common-v0.1`；bitstream/设备身份未知。不把本轮 FPGA PASS 写成 Silicon 结论。
+适用基线：ET6801 / FPGA（双核运行，Profile `et6801_fpga_ipcm`，Core1 `ET6801_CORE1_ITCM_IPCM_PEER`）；本轮 2026-09-11 20:52 CST，源码 `095cd6dba09dfee2d135f74bc913ad065ec9d6bb`（source_dirty=false，clean）；固件 `et6801-silicon-common-v0.1`；bitstream/设备身份未知。不把本轮 FPGA PASS 写成 Silicon 结论。
 
 ## 本轮结果
 
