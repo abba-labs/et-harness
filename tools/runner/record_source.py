@@ -115,14 +115,8 @@ def _validate_selection(
         raise ValueError("Selection Case identities disagree with selected executions")
 
 
-def _selected_results(
-    source: Path, session: dict[str, object], ip: str
-) -> tuple[
-    dict[tuple[str, object], dict[str, object]],
-    dict[tuple[str, object], dict[str, object]],
-    dict[tuple[str, object], bytes],
-]:
-    selection = object_value(session.get("selection"), "selection")
+# 把Session选择的execution展开为(case_id, parameter_id)到条目的映射；拒绝重复项。
+def _chosen_executions(selection: dict[str, object]) -> dict[tuple[str, object], dict[str, object]]:
     chosen: dict[tuple[str, object], dict[str, object]] = {}
     for item in list_value(selection.get("selected_executions"), "selected_executions"):
         entry = object_value(item, "selected execution")
@@ -134,10 +128,47 @@ def _selected_results(
         chosen[key] = entry
     if not chosen:
         raise ValueError("no selected Case executions to update")
-    _validate_selection(selection, chosen)
+    return chosen
+
+
+# 校验单个Canonical Result的身份与其所在目录形状一致；legacy与nested分别校验，不重判业务结果。
+def _validate_result_identity(
+    path: Path, result: dict[str, object], layout: str, source: Path
+) -> None:
+    if result.get("schema_version") != 1:
+        raise ValueError(f"invalid canonical result identity: {path}")
+    if layout == "legacy":
+        if result.get("case_run_id") != path.parent.name:
+            raise ValueError(f"invalid canonical result identity: {path}")
+        return
+    parameter_id = result.get("parameter_id")
+    if parameter_id is not None and not isinstance(parameter_id, str):
+        raise ValueError("parameter_id must be text or null")
+    slot_parameter = parameter_id if isinstance(parameter_id, str) else None
+    try:
+        expected_case = case_dir_name(text_value(result.get("case_id"), "case_id"))
+        expected_slot = execution_slot(slot_parameter)
+        expected_run = stable_case_run_id(
+            text_value(result.get("case_id"), "case_id"), slot_parameter
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid canonical result identity: {path}") from exc
+    if path.parent.name != expected_slot or path.parent.parent.name != expected_case:
+        raise ValueError(f"invalid canonical result identity: {path}")
+    if result.get("case_run_id") != expected_run:
+        raise ValueError(f"invalid canonical result identity: {path}")
+
+
+# 读取source下全部Canonical Result，校验它们属于本次Selection并绑定当前IP与芯片。
+def _collect_selected_results(
+    source: Path,
+    session: dict[str, object],
+    ip: str,
+    chosen: dict[tuple[str, object], dict[str, object]],
+) -> tuple[dict[tuple[str, object], dict[str, object]], dict[tuple[str, object], bytes]]:
     results: dict[tuple[str, object], dict[str, object]] = {}
     raw: dict[tuple[str, object], bytes] = {}
-    _layout, paths = iter_canonical_results(source / "cases")
+    layout, paths = iter_canonical_results(source / "cases")
     for path in paths:
         safe_path(source, path.relative_to(source).as_posix())
         data = _bounded_read(path)
@@ -145,34 +176,27 @@ def _selected_results(
         if result.get("parameter_id") is not None and not isinstance(result["parameter_id"], str):
             raise ValueError("parameter_id must be text or null")
         key = (text_value(result.get("case_id"), "case_id").lower(), result.get("parameter_id"))
-        if result.get("schema_version") != 1:
-            raise ValueError(f"invalid canonical result identity: {path}")
-        if _layout == "legacy":
-            if result.get("case_run_id") != path.parent.name:
-                raise ValueError(f"invalid canonical result identity: {path}")
-        else:
-            parameter_id = result.get("parameter_id")
-            if parameter_id is not None and not isinstance(parameter_id, str):
-                raise ValueError("parameter_id must be text or null")
-            try:
-                expected_case = case_dir_name(text_value(result.get("case_id"), "case_id"))
-                expected_slot = execution_slot(parameter_id if isinstance(parameter_id, str) else None)
-                expected_run = stable_case_run_id(
-                    text_value(result.get("case_id"), "case_id"),
-                    parameter_id if isinstance(parameter_id, str) else None,
-                )
-            except ValueError as exc:
-                raise ValueError(f"invalid canonical result identity: {path}") from exc
-            if path.parent.name != expected_slot or path.parent.parent.name != expected_case:
-                raise ValueError(f"invalid canonical result identity: {path}")
-            if result.get("case_run_id") != expected_run:
-                raise ValueError(f"invalid canonical result identity: {path}")
+        _validate_result_identity(path, result, layout, source)
         if key not in chosen or key in results or result.get("ip_id") != ip:
             raise ValueError(f"unselected, duplicate or wrong-IP result: {path}")
         if result.get("chip_id") not in {None, session.get("chip_id")}:
             raise ValueError("result chip identity conflicts with Session")
         result["_result_path"] = path.relative_to(source).as_posix()
         results[key], raw[key] = result, data
+    return results, raw
+
+
+def _selected_results(
+    source: Path, session: dict[str, object], ip: str
+) -> tuple[
+    dict[tuple[str, object], dict[str, object]],
+    dict[tuple[str, object], dict[str, object]],
+    dict[tuple[str, object], bytes],
+]:
+    selection = object_value(session.get("selection"), "selection")
+    chosen = _chosen_executions(selection)
+    _validate_selection(selection, chosen)
+    results, raw = _collect_selected_results(source, session, ip, chosen)
     counts = dict(Counter(str(result.get("status")) for result in results.values()))
     declared = object_value(session.get("status_counts"), "Session status_counts")
     if counts != declared or any(type(value) is not int for value in declared.values()):

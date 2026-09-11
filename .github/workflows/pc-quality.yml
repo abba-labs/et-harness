@@ -3,7 +3,7 @@ name: Software Quality Gate
 on:
   push:
     branches:
-      - review_code
+      - codex_dev
   pull_request:
     paths:
       - "AGENTS.md"

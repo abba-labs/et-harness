@@ -284,13 +284,16 @@ def _load_json_object(path: Path, *, label: str) -> dict[str, object]:
     return payload
 
 
-# 校验一次pytest运行的Session与每个参数execution结果一一闭合；不重新判断IP业务结果。
-def _validate_canonical_run(run_dir: Path, *, pytest_exit: int) -> bool:
-    session = _load_json_object(run_dir / "session.json", label="canonical session")
+# 校验Session已终结且exitstatus与pytest退出码一致；不读取任何Case Result。
+def _require_finalized_session(session: dict[str, object], *, pytest_exit: int) -> None:
     if session.get("finished_at") in {None, ""}:
         raise ValueError("canonical session is not finalized")
     if session.get("exitstatus") != pytest_exit:
         raise ValueError("canonical session exitstatus does not match pytest exit code")
+
+
+# 把Session记录的selected_executions展开为期望的(case_id, parameter_id)重数；不做路径校验。
+def _expected_executions(session: dict[str, object]) -> Counter[tuple[str, str | None]]:
     selection = session.get("selection")
     if not isinstance(selection, dict):
         raise ValueError("canonical session is missing the selected execution set")
@@ -306,56 +309,77 @@ def _validate_canonical_run(run_dir: Path, *, pytest_exit: int) -> bool:
         if parameter_id is not None and not isinstance(parameter_id, str):
             raise ValueError("canonical session contains an invalid parameter_id")
         expected[(str(execution["case_id"]).lower(), parameter_id)] += 1
+    return expected
 
-    actual: Counter[tuple[str, str | None]] = Counter()
-    evidence_complete = True
-    run_id = session.get("run_id")
+
+# 校验单个Case Result的身份、目录形状和状态，返回其(case_id, parameter_id)计数键。
+def _canonical_case_key(
+    result_path: Path,
+    result: dict[str, object],
+    *,
+    run_dir: Path,
+    run_id: object,
+    seen_keys: set[tuple[str, str]],
+) -> tuple[str, str | None]:
+    case_id = result.get("case_id")
+    parameter_id = result.get("parameter_id")
+    status = result.get("status")
+    if (
+        not isinstance(case_id, str)
+        or parameter_id is not None
+        and not isinstance(parameter_id, str)
+    ):
+        raise ValueError(f"canonical case identity is invalid: {result_path}")
+    if result.get("run_id") != run_id:
+        raise ValueError(f"canonical case run_id does not match session: {result_path}")
+    slot_parameter = parameter_id if isinstance(parameter_id, str) else None
+    try:
+        expected_case = case_dir_name(case_id)
+        expected_slot = execution_slot(slot_parameter)
+        expected_run = stable_case_run_id(case_id, slot_parameter)
+        fs_key = filesystem_execution_key(case_id, slot_parameter)
+    except ValueError as exc:
+        raise ValueError(f"canonical case identity is invalid: {result_path}") from exc
+    expected_path = run_dir / "cases" / expected_case / expected_slot / "result.json"
+    if result_path.resolve() != expected_path.resolve():
+        raise ValueError(
+            f"canonical result path does not match nested layout: {result_path}; "
+            f"expected path cases/{expected_case}/{expected_slot}/result.json"
+        )
+    if result.get("case_run_id") != expected_run:
+        raise ValueError(f"canonical case_run_id does not match its directory: {result_path}")
+    if expected_slot.casefold() == "artifacts" or fs_key in seen_keys:
+        raise ValueError(f"canonical case identity is invalid: {result_path}")
+    seen_keys.add(fs_key)
+    if status not in {"PASS", "FAIL", "SKIP", "EVIDENCE_MISSING"}:
+        raise ValueError(f"canonical case status is invalid: {result_path}")
+    return case_id.lower(), parameter_id
+
+
+# 校验一次pytest运行的Session与每个参数execution结果一一闭合；不重新判断IP业务结果。
+def _validate_canonical_run(run_dir: Path, *, pytest_exit: int) -> bool:
+    session = _load_json_object(run_dir / "session.json", label="canonical session")
+    _require_finalized_session(session, pytest_exit=pytest_exit)
+    expected = _expected_executions(session)
+
     layout, case_results = iter_canonical_results(run_dir / "cases")
     if layout != "nested" and case_results:
         raise ValueError(
             "Formal current must use nested cases/<CASE_ID>/<SLOT>/result.json; "
             f"found {layout} layout under {run_dir / 'cases'}"
         )
+
+    actual: Counter[tuple[str, str | None]] = Counter()
+    evidence_complete = True
     seen_keys: set[tuple[str, str]] = set()
+    run_id = session.get("run_id")
     for result_path in case_results:
         result = _load_json_object(result_path, label="canonical case result")
-        case_id = result.get("case_id")
-        parameter_id = result.get("parameter_id")
-        status = result.get("status")
-        if (
-            not isinstance(case_id, str)
-            or parameter_id is not None
-            and not isinstance(parameter_id, str)
-        ):
-            raise ValueError(f"canonical case identity is invalid: {result_path}")
-        if result.get("run_id") != run_id:
-            raise ValueError(f"canonical case run_id does not match session: {result_path}")
-        try:
-            expected_case = case_dir_name(case_id)
-            expected_slot = execution_slot(parameter_id if isinstance(parameter_id, str) else None)
-            expected_run = stable_case_run_id(
-                case_id, parameter_id if isinstance(parameter_id, str) else None
-            )
-            fs_key = filesystem_execution_key(
-                case_id, parameter_id if isinstance(parameter_id, str) else None
-            )
-        except ValueError as exc:
-            raise ValueError(f"canonical case identity is invalid: {result_path}") from exc
-        expected_path = run_dir / "cases" / expected_case / expected_slot / "result.json"
-        if result_path.resolve() != expected_path.resolve():
-            raise ValueError(
-                f"canonical result path does not match nested layout: {result_path}; "
-                f"expected path cases/{expected_case}/{expected_slot}/result.json"
-            )
-        if result.get("case_run_id") != expected_run:
-            raise ValueError(f"canonical case_run_id does not match its directory: {result_path}")
-        if expected_slot.casefold() == "artifacts" or fs_key in seen_keys:
-            raise ValueError(f"canonical case identity is invalid: {result_path}")
-        seen_keys.add(fs_key)
-        if status not in {"PASS", "FAIL", "SKIP", "EVIDENCE_MISSING"}:
-            raise ValueError(f"canonical case status is invalid: {result_path}")
-        actual[(case_id.lower(), parameter_id)] += 1
-        evidence_complete = evidence_complete and status != "EVIDENCE_MISSING"
+        key = _canonical_case_key(
+            result_path, result, run_dir=run_dir, run_id=run_id, seen_keys=seen_keys
+        )
+        actual[key] += 1
+        evidence_complete = evidence_complete and result.get("status") != "EVIDENCE_MISSING"
 
     if actual != expected:
         raise ValueError(
