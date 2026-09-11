@@ -38,6 +38,7 @@ _WINDOWS_DEVICE_NAMES = frozenset(
 )
 
 
+# 描述一次execution的目录身份：Formal用稳定Case/slot，非Formal仍用UUID隔离。
 @dataclass(frozen=True, slots=True)
 class ExecutionIdentity:
     layout: Literal["nested", "uuid"]
