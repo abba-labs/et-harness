@@ -152,6 +152,7 @@ def _load_report_notes(document_path: Path, text: str) -> dict[str, dict[str, An
     return notes
 
 
+# 按路径形状判定Canonical Result布局；只读路径结构，不打开文件或判断测试结果。
 def classify_canonical_result(path: Path, cases_root: Path) -> str | None:
     try:
         relative = path.relative_to(cases_root)
@@ -169,6 +170,7 @@ def classify_canonical_result(path: Path, cases_root: Path) -> str | None:
     return "unknown"
 
 
+# 枚举一个工作区内的全部Canonical Result并给出统一布局；混合或未知布局失败关闭。
 def iter_canonical_results(cases_root: Path) -> tuple[str, list[Path]]:
     if not cases_root.is_dir():
         return "legacy", []

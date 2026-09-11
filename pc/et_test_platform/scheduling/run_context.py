@@ -57,10 +57,12 @@ def _safe_component(value: str) -> str:
     return value
 
 
+# 返回Case在cases/下的稳定目录名；只做安全字符规范化和大写，不做身份判断。
 def case_dir_name(case_id: str) -> str:
     return _safe_component(case_id).upper()
 
 
+# 返回参数execution的目录slot；无参数时使用固定noparam，拒绝与保留名冲突。
 def execution_slot(parameter_id: str | None) -> str:
     if parameter_id is None:
         return DEFAULT_SLOT
@@ -70,18 +72,22 @@ def execution_slot(parameter_id: str | None) -> str:
     return name
 
 
+# 返回大小写不敏感的执行唯一键；只用于同Session内重复目录检测，不写盘。
 def filesystem_execution_key(case_id: str, parameter_id: str | None) -> tuple[str, str]:
     return case_dir_name(case_id).casefold(), execution_slot(parameter_id).casefold()
 
 
+# 返回Formal execution的稳定case_run_id；由Case与slot派生，不随Session变化。
 def stable_case_run_id(case_id: str, parameter_id: str | None) -> str:
     return f"{case_dir_name(case_id)}--{execution_slot(parameter_id)}"
 
 
+# 返回Formal execution的固定结果目录；只计算结果路径，不创建目录或写入文件。
 def execution_dir(artifact_dir: Path, case_id: str, parameter_id: str | None) -> Path:
     return Path(artifact_dir) / "cases" / case_dir_name(case_id) / execution_slot(parameter_id)
 
 
+# 构造非Formal执行的UUID隔离身份；只校验路径分量安全，不解释Case语义。
 def uuid_identity(artifact_dir: Path, case_run_id: str) -> ExecutionIdentity:
     if Path(case_run_id).name != case_run_id or case_run_id in {"", ".", ".."}:
         raise ValueError("case_run_id must be a single safe path component")
