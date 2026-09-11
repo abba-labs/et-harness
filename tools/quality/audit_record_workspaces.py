@@ -2,11 +2,8 @@
 # 职责：按芯片汇总各IP的current回执状态、目录布局与未记录残留，供整理与复用前检查。
 # 边界：只读；不做review、不改现场、不判断测试结果对错。
 # 依赖：仅标准库。
-"""Audit records/<CHIP>/<IP>/current workspaces: layout, unrecorded dirs, review state.
-
-Read-only. Useful before a regression round (confirm nothing blocks reuse) and at review
-time (confirm the receipt covers every directory on disk).
-"""
+#
+# 回归前用它确认没有阻塞复用的现场；review 时用它核对回执是否覆盖磁盘上的全部目录。
 
 from __future__ import annotations
 

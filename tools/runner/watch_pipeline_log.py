@@ -2,7 +2,8 @@
 # 职责：轮询一个 pipeline 日志，命中成功/失败标志即退出，供人工或Agent等待部署结束。
 # 边界：只读日志，不触发部署、不改现场、不判断 IP 功能结果。
 # 依赖：仅标准库。
-"""Watch one pipeline log until it reports success, a known failure, or the deadline."""
+#
+# 命中 "Configured pipeline: PASS" 返回 0；命中已知失败标志返回 1；超时返回 1。
 
 from __future__ import annotations
 

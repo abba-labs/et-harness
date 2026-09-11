@@ -2,12 +2,9 @@
 # 职责：经官方 J-Link + Core0 AP 脚本读取 AXI_SRAM1 mailbox 的 magic/state/core_index/heartbeat，判断 Peer 是否 Ready。
 # 边界：只读（mem32），不烧录、不写寄存器、不启动 Core；不替代 Formal Case 或部署验证。
 # 依赖：已安装的 J-Link 与 firmware/chips/et6801/core1_peer/debug/core0_select.JLinkScript。
-"""Read the Core1 IPCM peer mailbox at AXI_SRAM1 0x20440000 (read-only).
-
-Used to confirm "Peer Ready" before running IPCM cases. Read-only: mem32 only, never a
-flash or program path. See test_case_doc/ipcm/ET6801_ipcm.md section 6.1.1 for the
-deployment constraint this check supports.
-"""
+#
+# 用途：IPCM Case 执行前确认 Peer Ready。只读 mem32，不是烧录或编程路径；
+# 部署约束见 test_case_doc/ipcm/ET6801_ipcm.md §6.1.1。
 
 from __future__ import annotations
 
