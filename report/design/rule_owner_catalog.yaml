@@ -418,3 +418,11 @@ documents:
     role: contract
     lifecycle: active
     owners: [companion_platform_responsibility]
+
+  - path: report/design/20260910_case_artifact_convergent_directory.md
+    role: proposal
+    lifecycle: draft
+
+  - path: report/design/20260910_human_agent_review_overwrite_policy.md
+    role: proposal
+    lifecycle: draft
