@@ -1492,12 +1492,12 @@ def test_formal_artifacts_reject_custom_subdirectory() -> None:
 #
 # 测试方法：检查受版本控制的目录入口，并确认README把唯一规则Owner指向R500。
 #
-# 通过条件：根目录只存在README、runs和reports，README明确R500是唯一权威规则。
+# 通过条件：根目录只存在README、runs、reports、records和experience，README明确R500是唯一权威规则。
 def test_artifacts_root_uses_one_run_taxonomy() -> None:
 
     artifact_root = REPOSITORY_ROOT / "artifacts"
     entries = {path.name for path in artifact_root.iterdir()}
-    assert entries <= {"README.md", "runs", "reports", "records"}
+    assert entries <= {"README.md", "runs", "reports", "records", "experience"}
     rules = (artifact_root / "README.md").read_text(encoding="utf-8")
     assert "R500_operator_pipeline.md" in rules
     assert "唯一权威规则" in rules

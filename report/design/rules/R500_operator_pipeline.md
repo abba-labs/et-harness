@@ -185,7 +185,7 @@ artifacts/
 
 ### 6.1 当前工作区与复用门禁
 
-- `artifacts/`根只允许`README.md`、`records/`、`reports/`及既有只读`runs/`历史。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。Formal `current/cases` 第一层为大写`case_id`，第二层为`parameter_id`经`safe_name`得到的 slot（无参数为`noparam`）；不得省略 slot，也不得用`case_run_id`当路径分量。
+- `artifacts/`根只允许`README.md`、`records/`、`reports/`、`experience/`及既有只读`runs/`历史。`experience/`是Agent经验库，其分类、命名、结构与维护唯一由`artifacts/experience/RULES.md`约束，不承载测试状态或原始证据。禁止新增或继续写入`runs`，也禁止换用日期、UUID、`round_NN`等目录累积新证据；时间和UUID只写入内容。Formal `current/cases` 第一层为大写`case_id`，第二层为`parameter_id`经`safe_name`得到的 slot（无参数为`noparam`）；不得省略 slot，也不得用`case_run_id`当路径分量。
 - Pipeline与独立`run_ip_tests.py`共用单机环境锁；`output.root`只接受`auto`或正式`artifacts/records`根。Bench目标芯片决定`<CHIP>/<IP>/current`，Session芯片必须复核一致。不同芯片/IP互不覆盖；同芯片/IP跨Lane共用当前现场。
 - Pipeline通过`ET_ARTIFACT_RUN_DIR`传递`<CHIP>/_PIPELINE/current`阶段根，Manifest引用本轮各IP固定工作区，不复制它们。Case只使用注入的`et_artifact_dir`，不得推导知识根。每个IP自带Manifest、配置快照和Pipeline逻辑ID。整轮测试seal完成前（父或任一目标IP unpublished）不得复用。整轮仅pending时允许覆盖。Agent仍应整轮一起review。
 - Manifest记录逻辑Run UUID、配置引用/Hash、Source Revision/Dirty、Target、时间、状态和退出码；配置快照保存真实输入。Lane显式传递，未知身份不得猜测。
