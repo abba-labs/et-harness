@@ -27,6 +27,8 @@ CAN盒子人工诊断：`tools/runner/can_box.py`；配置和设备能力边界�
 .\run_test.bat
 ```
 
+ET6801 FPGA IPCM 双核 Peer：Profile [`et6801_fpga_ipcm.yaml`](profiles/pipeline/et6801_fpga_ipcm.yaml)。Peer Ready 后禁止 `execute.start_target`。流程见 [ET6801 IPCM 6.1.1](../test_case_doc/ipcm/ET6801_ipcm.md)。
+
 配置与环境检查：
 
 ```powershell

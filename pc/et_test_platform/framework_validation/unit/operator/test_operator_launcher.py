@@ -141,6 +141,9 @@ def test_ipcm_pipeline_selects_its_peer_without_changing_spinlock() -> None:
         )
 
     assert ipcm["steps"]["deploy.firmware"]["requires"] == ["deploy.bitfile", "deploy.bootrom"]
+    assert ["deploy.firmware", "execute.start_target"] in (ipcm.get("constraints") or {}).get(
+        "mutually_exclusive", []
+    )
 
 
 # 测试 Feature：正式双核脚本兼容流水线实际调用的Windows PowerShell 5。

@@ -33,6 +33,7 @@ artifacts/
 | 某芯片/IP知识索引 | `records/<CHIP>/<IP>/README.md` |
 | Case方法、问题与可复用结论 | `records/<CHIP>/<IP>/cases/<CASE_ID>.md` |
 | 正文引用的必要附件 | `records/<CHIP>/<IP>/attachments/<CASE_ID>/` |
+| ET6801 FPGA IPCM 双核 Peer 启动教训 | `records/ET6801/IPCM/README.md`（Peer Ready 后禁止 `start_target`） |
 
 例如：`reports/ET6801/ET6801_CAN测试报告.xlsx`。关闭报告时保留上次文件，运行日志提示本次未更新；报告首页的Run ID、Lane和时间用于确认来源。
 旧`runs`、旧平铺Excel及旧固定JSON/ZIP仍为只读历史，不再新增或写入。`current`仅保留本次测试。人可不review即覆盖Hash完好的pending现场。Agent必须review。不按日期或轮次累积。

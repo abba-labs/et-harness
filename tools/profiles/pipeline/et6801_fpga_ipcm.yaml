@@ -3,6 +3,15 @@ name: et6801_fpga_ipcm
 target_kind: fpga
 
 # IPCM使用独立Peer清单；公共流水线与已通过的SPINLOCK Peer保持不变。
+# 适用：仅 ET6801 FPGA IPCM 双核 Peer（Core1 ET6801_CORE1_ITCM_IPCM_PEER）。
+# Peer 部署成功且 Mailbox Ready 后，禁止再对 Core0 执行 execute.start_target / J-Link r。
+# 违反：Core1 被连带打死 → Case 前 peer_cancel / PEER_RESULT 超时 → 无 DUT 功能观测。
+# 对照：2026-09-03 PASS 与 2026-09-11 跳过 start_target 的 34/34 PASS；
+#       同 Peer 后再 start_target 则 34/34 FAIL。不得外推 Silicon 或其他 Peer。
+constraints:
+  mutually_exclusive:
+    - [deploy.firmware, execute.start_target]
+
 steps:
   build.bootrom:
     script: tools/fpga/et6801/build_bootrom.ps1

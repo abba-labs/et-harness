@@ -122,7 +122,7 @@ Core1使用同一份IPCM Service及独立IRQ Manager，只执行PC指定的原�
 
 IPCM专用构建目标为`ET6801_CORE1_ITCM_IPCM_PEER`及`ET6801_CORE1_PFLASH1_IPCM_PEER`，原SPINLOCK目标保持不变。控制通道位于`AXI_SRAM1_BASE=0x20440000`，前16字节沿用部署Ready契约，另以IPCM标签排除错误Peer镜像。当前要求两核D-cache关闭；DMB/DSB只负责发布顺序，不能代替Cache一致性。硬件Core1身份由`DUALCORE_getCurrentCoreId()`采集并经Execution Mapping核对，不能由PC Case写死。
 
-正式FPGA Pipeline为`tools/profiles/pipeline/et6801_fpga_ipcm.yaml`，复用现有双核部署脚本，以IPCM Peer Manifest选择目标。Core0从PFLASH运行正式ET-Frame固件，Core1运行ITCM IPCM Peer；先通过P0双核Smoke，再执行全量13条Case。原SPINLOCK目标与部署Profile不变。部署、门禁和HIL证据统一见第六章与当前芯片测试状态。
+正式FPGA Pipeline为`tools/profiles/pipeline/et6801_fpga_ipcm.yaml`，复用现有双核部署脚本，以IPCM Peer Manifest选择目标。Core0从PFLASH运行正式ET-Frame固件，Core1运行ITCM IPCM Peer；先通过P0双核Smoke，再执行全量13条Case。Peer 部署成功且 Mailbox Ready 后禁止再对 Core0 执行 `execute.start_target` / J-Link `r`，见 6.1.1。原SPINLOCK目标与部署Profile不变。部署、门禁和HIL证据统一见第六章与当前芯片测试状态。
 
 Capability生成器开发路由已按人工授权补齐（`2b7e7a1`）。v10通用Mailbox推导只按容量配置、完整寄存器阵列、访问属性和SEND编码匹配，不按芯片名、外设名或地址分支。生成质量检查无错误；正式IPCM YAML逐字比对生成结果，13条Case通过Capability查询获取能力与容量。
 
@@ -346,6 +346,29 @@ Channel10/11来自ET6801历史双核测试，已由本轮P0 Smoke确认；Channe
 
 复位是共享IP级动作：PC先等待Peer Cancel确认，再关闭本核Capture并复位本核Service；调用CRG复位IPCM后复位Peer Service及Resource Pool。两端静止后才复位共享IP，不让Core1仍在读写Mailbox时复位。Peer传输仅扩展本IP命令和现有共享控制区，不修改公共双核协议。
 
+## 6.1.1 ET6801 FPGA IPCM 双核 Peer 启动约束
+
+适用：仅 FPGA Lane、Pipeline Profile `et6801_fpga_ipcm`、Core1 目标 `ET6801_CORE1_ITCM_IPCM_PEER`。不得外推 Silicon，不得外推 `et6801_fpga_dualcore` / SPINLOCK 或其他 Peer。
+
+正式顺序：
+
+1. 使用 `et6801_fpga_ipcm` 完成 bitfile、BootROM、Core0 固件与 Core1 IPCM Peer 部署。
+2. 确认共享 Mailbox Ready（magic=`0x45544331`、state=Ready、core_index=2、heartbeat 递增）。
+3. **禁止**再对 Core0 执行会复位的 `pipeline.execute.start_target` 或 J-Link `r`。
+4. 直接执行 IPCM Formal Case。
+
+违反后果：Core1 Peer 被连带复位/打死，Case 入口 `peer_cancel` / PEER_RESULT 超时，13 Case / 34 Execution 全部 FAIL，无 Mailbox 功能观测。该失败是部署后再复位，不是 IPCM 功能 Oracle 失败，不得把 `peer_cancel` 写成 Case 方法缺陷。
+
+对照证据：
+
+| 时间 | Source | start_target | 结果 | 身份边界 |
+|---|---|---|---|---|
+| 2026-09-03 19:11 CST | `7d0d4a408cdc92f6837d4626b399619d4459ecfe` | false | 34/34 PASS | Exact-SHA（source_dirty=false） |
+| 2026-09-11 09:15 CST | 与下一行同树 | true（Peer Ready 之后） | 34/34 FAIL | 部署顺序对照，不是 J-Link reset 的寄存器级根因证明 |
+| 2026-09-11 10:00 CST | `758bb73bb673998999347ce8d2bb59800950e681` | false | 34/34 PASS | Working-tree HIL（source_dirty=true），不得写成 Exact-SHA PASS |
+
+本约束由 Profile `tools/profiles/pipeline/et6801_fpga_ipcm.yaml` 以注释和 `deploy.firmware` / `execute.start_target` 互斥表达。本地 `run_config.yaml` 的 `execute.start_target` 必须为 false；该文件被 Git 忽略，不作为仓库契约。长期检索入口：[ET6801 IPCM Case 知识](../../artifacts/records/ET6801/IPCM/README.md)。
+
 ## 6.2 实现边界与验证证据
 
 本轮代码落点与边界：
@@ -395,23 +418,24 @@ R0 self-contained Case: IPCM_P0_001
 - 多Destination AUTO聚合触发须先取得目标设计定义，不应靠试出的现象反向制定Oracle；当前只覆盖多目标MANUAL+Polling。
 - 压力入口正文未找到，不能将13条SPEC宣称为所有历史需求的完整覆盖。补到正文后按有效Feature做增量映射，禁止凭函数名扩写复杂压力Case。
 - Channel9只验证Polling；不能从此结果推断其IRQ投递已验证。Peer缺失时属于运行映射缺口，不是外部接线不支持。
+- FPGA IPCM 正式跑必须遵守 6.1.1：Peer Ready 后再 `start_target` 会打掉 Core1。该约束已由 09-03 / 09-11 对照闭合，不是功能 Gap，也不得外推 Silicon。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
 
-状态更新时间：`2026-09-03 19:15 CST`
+状态更新时间：`2026-09-11 10:00 CST`
 
 ### 最近一次运行身份
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-03 19:11 CST` | `7d0d4a408cdc92f6837d4626b399619d4459ecfe` | `false` | `artifacts/runs/20260903_191100_603939_ipcm_formal_cases/tests/ipcm/` |
+| FPGA | `2026-09-11 10:00 CST` | `758bb73bb673998999347ce8d2bb59800950e681` | `true` | `artifacts/records/ET6801/IPCM/current` |
 
-Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`7b3f1920`；串口：`COM12@115200`。Build ID中的silicon是现有Flash构建目标名称，实际Lane为XC7VX980T FPGA，不代表实物硅后测试。
+Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`eb9be179`；串口：`COM12@115200`。Build ID中的silicon是现有Flash构建目标名称，实际Lane为XC7VX980T FPGA，不代表实物硅后测试。Profile：`et6801_fpga_ipcm`（Core1 `ET6801_CORE1_ITCM_IPCM_PEER`）；Peer 部署后跳过 `execute.start_target`。
 
-本次Session的Spec SHA256：`e4ff9277017d47e772049687e9fe6ced470811e4cbb91c582b0c24f03ce9c3ef`。本轮后续只回写文档适配状态与结果，没有更改已测试Case代码、SPEC方法或报告模板。
+本次Session的Spec SHA256：`7ee56323289f647f6c82702c0a37987f93e5b4a33f9034866804b84c682a5330`。本轮后续只回写文档适配状态与结果，没有更改已测试Case代码、SPEC方法或报告模板。
 
-Excel：`artifacts/reports/20260903_191135_589408_ET6801_IPCM测试报告.xlsx`。
+Excel：`artifacts/reports/ET6801/ET6801_IPCM测试报告.xlsx`。
 
 ### 当前结果汇总
 
