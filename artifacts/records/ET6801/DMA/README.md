@@ -48,7 +48,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近运行=FPGA Lane 2026-08-28 17:12 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），28 Case/88 执行=28 PASS/0 FAIL/0 SKIP（[芯片文档状态块](../../../../test_case_doc/dma/ET6801_dma.md)，更新 2026-08-28 21:22 CST）。
-- **原始Canonical证据已不在仓库**：Evidence路径`artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/dma/`已随早期清理不在两个工作树。本目录知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；本树所有参数级数值均只来自公共契约SPEC或芯片文档状态块的明确文字。
+- **原始Canonical证据已不在仓库**：Evidence路径已随早期清理不在两个工作树。本目录知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；本树所有参数级数值均只来自公共契约SPEC或芯片文档状态块的明确文字。
 - 三轮独立Case级结果交叉印证（均无本IP FAIL）：
   - 2026-08-03 ET6801 FPGA DMA HIL：当时可安全执行实例68 PASS/0 FAIL/9 SKIP（芯片文档第四章Historical Evidence）。
   - 2026-08-10 公共层冻结全量HIL：Framework/UART/DMA合计121项，118 PASS/3 SKIP/0 FAIL，3个SKIP均为UART Case（[报告](../../../../report/validation/dut/20260810_et6801_pc_firmware_freeze_full_hil.md)），DMA无FAIL/SKIP。

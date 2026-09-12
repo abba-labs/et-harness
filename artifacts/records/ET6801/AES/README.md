@@ -46,7 +46,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次AES运行（[芯片文档状态块](../../../../test_case_doc/aes/ET6801_aes.md)）：FPGA Lane，2026-08-28 17:13 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），26 Case/59 执行=26 PASS/0 FAIL/0 SKIP（状态块更新 2026-08-28 21:20 CST）。
-- **原始Canonical证据已不在仓库**：原始Evidence `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/aes/` 已随早期清理不在两个工作树。本树知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；芯片文档与人读报告已明确记录的个别事实按来源标注。
+- **原始Canonical证据已不在仓库**：原始Evidence 已随早期清理不在两个工作树。本树知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；芯片文档与人读报告已明确记录的个别事实按来源标注。
 - 文档化历史结果链（均有在库依据）：
   - 2026-08-19 [AES试点最终评审](../../../../report/plans/20260819_aes_pilot_final_review.md)：当时历史FPGA记录59执行=56 PASS/3 FAIL（AES_P1_009、AES_P2_003、AES_P3_003）。
   - 2026-08-20 当次运行（芯片文档第七章）：59执行=58 PASS/1 FAIL，当次FAIL为AES_P1_009（旧CPU双输入刺激）。

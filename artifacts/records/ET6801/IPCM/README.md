@@ -44,7 +44,7 @@
 - 2026-09-11 09:15：同 Peer，Peer 后再 `start_target`，34/34 FAIL（`peer_cancel` / PEER_RESULT 超时）。
 - 2026-09-11 10:00：同树跳过 `start_target`，34/34 PASS（source `758bb73bb673998999347ce8d2bb59800950e681`，source_dirty=true）。
 
-权威流程：[ET6801 IPCM 芯片文档 6.1.1](../../../../../test_case_doc/ipcm/ET6801_ipcm.md)。Pipeline 警告与互斥见 `tools/profiles/pipeline/et6801_fpga_ipcm.yaml`。代表性 Case：[IPCM_P0_001](cases/IPCM_P0_001.md)。
+权威流程：[ET6801 IPCM 芯片文档 6.1.1](../../../../test_case_doc/ipcm/ET6801_ipcm.md)。Pipeline 警告与互斥见 `tools/profiles/pipeline/et6801_fpga_ipcm.yaml`。代表性 Case：[IPCM_P0_001](cases/IPCM_P0_001.md)。
 
 ## 历史来源与版本
 
@@ -52,9 +52,9 @@
 
 - 最近一次运行：FPGA Lane 2026-09-11 10:00 CST，Source `758bb73bb673998999347ce8d2bb59800950e681`（dirty），13 Case/34 执行=13 PASS/0 FAIL/0 SKIP。Profile `et6801_fpga_ipcm`，Peer 部署后跳过 `start_target`。
 - 历史对照：2026-09-03 clean FPGA（`7d0d4a408cdc92f6837d4626b399619d4459ecfe`）亦 34 PASS，当时同样 `start_target=false`。2026-09-11 09:15 同树在 Peer 后再跑 `start_target` 则 34 FAIL（peer_cancel / PEER_RESULT 超时）。
-- **本树证据锚**：Canonical Session 为 `artifacts/records/ET6801/IPCM/current`（session.json + 34 份 result.json）。旧 `artifacts/runs/20260903_191100_603939_ipcm_formal_cases/tests/ipcm/` 仅作历史。
+- **本树证据锚**：Canonical Session 为 `artifacts/records/ET6801/IPCM/current`（session.json + 34 份 result.json）。旧运行目录已废弃并从仓库删除，此处不保留链接。
 - IPCM为双核通信IP：执行依赖片内Peer Core Ready，P2级链式/分段Case都在双核真实通信上完成。
-- 方法权威：[公共IPCM契约](../../../../../test_case_doc/ipcm/ipcm.md)各Case的`ET_CASE_SPEC`；芯片适配见[ET6801 IPCM芯片文档](../../../../../test_case_doc/ipcm/ET6801_ipcm.md)。
+- 方法权威：[公共IPCM契约](../../../../test_case_doc/ipcm/ipcm.md)各Case的`ET_CASE_SPEC`；芯片适配见[ET6801 IPCM芯片文档](../../../../test_case_doc/ipcm/ET6801_ipcm.md)。
 
 ## 未闭环问题
 

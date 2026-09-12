@@ -34,7 +34,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次WDG运行（[芯片文档状态块](../../../../test_case_doc/wdg/ET6801_wdg.md)）：FPGA Lane，2026-08-28 17:15 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），14 Case/14执行=11 PASS/3 FAIL/0 SKIP（状态块更新 2026-08-28 21:30 CST）。
-- **【关键声明】原始Canonical证据已不在仓库**：Evidence路径`artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/`已随早期清理不在两个工作树。本树依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推；状态块明确记录的3个FAIL观测值按来源标注引用。
+- **【关键声明】原始Canonical证据已不在仓库**：Evidence路径已随早期清理不在两个工作树。本树依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推；状态块明确记录的3个FAIL观测值按来源标注引用。
 - 方法权威：[公共WDG契约](../../../../test_case_doc/wdg/wdg.md)各Case的`ET_CASE_SPEC`；芯片适配与Feature映射见[ET6801 WDG芯片文档](../../../../test_case_doc/wdg/ET6801_wdg.md)。
 
 ## 未闭环问题

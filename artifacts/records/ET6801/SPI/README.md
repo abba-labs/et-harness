@@ -32,7 +32,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次运行：FPGA Lane，2026-09-04 18:42 CST，Source `d6832926244edeb4b8170ef66d652e395f7d3648`（clean），12 Case / 152 参数执行 = 11 Case全PASS + SPI_P1_001整Case SKIP（36参数，硬件动作前跳过）。状态块更新于2026-09-04 18:50 CST。
-- **本树证据锚在仓库内**：Canonical Session为`artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/`（session.json + 152份cases/<id>/result.json，Manifest记录运行身份与配置快照）。与UART不同，SPI的参数级Observation/Measurement可回查；该run属删除保留集——若未来清理runs，须先评估本链接并迁移原始JSON。
+- **本树证据锚在仓库内**：Canonical Session为`artifacts/records/ET6801/SPI/current`（session.json + 152份cases/<id>/result.json，Manifest记录运行身份与配置快照）。与UART不同，SPI的参数级Observation/Measurement可回查。原始的 artifacts/runs 执行目录已废弃并从仓库删除，本树不引用它。
 - 当日修复史（同日三轮152执行：171618 FAIL→182941 FAIL→184216 PASS，芯片文档"本轮闭合问题"节）：①接线修正后48组双SPI交换角色/4种CPOL-CPHA/3帧宽及Target回环开关通过，其中关闭回环的24组才是PAD双向数据证据；②SDK文档FIFO容量16经实测修正为32，IRQ/启动/DMA阈值仍按SVD四位字段限制0~15；③SPI Case在CRG复位DMA前先停止并解除通道配置再关Controller，消除Service旧配置影响；④报告摘要改为每Execution只登记一次。最终轮复用同一Flash固件（固件源码`ba5ba0b535a4e45ba485caed564f7251f34dabc8`）未重复烧录，仅修PC摘要。本轮知识以最终PASS轮为基线，不逐参数复制历史FAIL值。
 - 方法权威：[公共SPI契约](../../../../test_case_doc/spi/spi.md)各Case的`ET_CASE_SPEC`；芯片适配与Feature映射见[ET6801 SPI芯片文档](../../../../test_case_doc/spi/ET6801_spi.md)。
 

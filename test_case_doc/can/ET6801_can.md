@@ -797,7 +797,7 @@ SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致�
 | NOT_RETAINED | 该次实际运行配置；恢复开发时不要用当前配置冒充旧配置 |
 | NOT_RETAINED | Source、Build、Registry身份和完整Selection |
 | NOT_RETAINED | 每个execution的result.json及其登记附件；以下按Case直接索引 |
-| [CAN Excel报告](../../artifacts/reports/20260908_011244_444000_ET6801_CAN测试报告.xlsx) | 人读派生报告；原因分析优先回到Canonical Observation/Measurement |
+| [CAN Excel报告](../../artifacts/reports/ET6801/ET6801_CAN测试报告.xlsx) | 人读派生报告；原因分析优先回到Canonical Observation/Measurement |
 | NOT_RETAINED | 2026-09-08 08:11 CST完成，1866 PASS、17 Native编译器条件SKIP、exit_code=0；不是新增HIL |
 | NOT_RETAINED | 该轮CAN FPGA测试前的软件检查记录 |
 

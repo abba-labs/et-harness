@@ -358,12 +358,12 @@ SKIP原因：ET6801当前UART组件参数不提供该能力，只有后续RTL/�
 
 ### 4.2 本次已只读核对的Canonical入口
 
-- [STIMER Session](../../artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/session.json)：1个选中Case，1 FAIL。
-- [IPCM Session](../../artifacts/runs/20260903_191100_603939_ipcm_formal_cases/tests/ipcm/session.json)：13个Case，34个参数Execution均PASS。
-- [SYSCNT Session](../../artifacts/runs/20260904_063646_997568_local_et6801_fpga_atp_testing/tests/syscnt/session.json)：7个Case，23个参数Execution均PASS。
-- [SPI Session](../../artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/session.json)：12个Case，116 PASS/36 SKIP参数Execution；36个SKIP归属同一P1_001。
-- [CAN Session](../../artifacts/runs/20260905_173259_503773_local_et6801_fpga_atp_testing/tests/can/session.json)：15个选中Case，89个参数Execution均PASS；P1_011仅内部两个参数。
-- [CAN外部Session](../../artifacts/runs/20260905_135501_157677_local_et6801_fpga_atp_testing/tests/can/session.json)：1个选中Case P0_003，1 FAIL；与后续15条片内结果按Case ID合并，不修改任一Session。
+- STIMER Session（原在 `artifacts/runs/**`，已随仓库清理删除）：1个选中Case，1 FAIL。
+- IPCM Session（原在 `artifacts/runs/**`，已随仓库清理删除）：13个Case，34个参数Execution均PASS。
+- SYSCNT Session（原在 `artifacts/runs/**`，已随仓库清理删除）：7个Case，23个参数Execution均PASS。
+- SPI Session（原在 `artifacts/runs/**`，已随仓库清理删除）：12个Case，116 PASS/36 SKIP参数Execution；36个SKIP归属同一P1_001。
+- CAN Session（原在 `artifacts/runs/**`，已随仓库清理删除）：15个选中Case，89个参数Execution均PASS；P1_011仅内部两个参数。
+- CAN外部Session（原在 `artifacts/runs/**`，已随仓库清理删除）：1个选中Case P0_003，1 FAIL；与后续15条片内结果按Case ID合并，不修改任一Session。
 
 同时按各Session下`cases/*/result.json`逐Case聚合核对，没有把参数节点数当Case数。上述Execution数仅用于核对统计，不作为开发进度。历史08-28缺失Artifact只保留芯片文档事实与原路径，不在旧副本寻找替代源码或伪造当前Evidence。
 

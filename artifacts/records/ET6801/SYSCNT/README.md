@@ -27,9 +27,9 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次运行：FPGA Lane 2026-09-04 06:39 CST，Source `2157037e3937d1d26a01390ae0bd652f40f788dd`（**dirty=true**，状态块如实记录），7 Case/23 执行=7 PASS/0 FAIL/0 SKIP（状态块更新 2026-09-04 08:50 CST）。23为参数Execution数，不是23条Case。
-- **本树证据锚在仓库内**：Canonical Session为`artifacts/runs/20260904_063646_997568_local_et6801_fpga_atp_testing/tests/syscnt/`（session.json + 23份result.json）。当日另有两次同规模运行（061830 FAIL为平台轮、063223 PASS），最终轮063646为通过基线；该run属删除保留集——清理runs前须先评估本链接。
+- **本树证据锚在仓库内**：Canonical Session为`artifacts/records/ET6801/SYSCNT/current`（session.json + 23份result.json）。当日另有两次同规模运行（061830 FAIL为平台轮、063223 PASS），最终轮为通过基线。原始的 artifacts/runs 执行目录已废弃并从仓库删除，本树不引用它。
 - P2_002（CPU停核计数策略）在本轮PASS；注意与STIMER_P2_003（CPU Debug Halt的PAUSE策略FAIL）是同一停核问题域的两个IP实例——SYSCNT的HALT_ON_DEBUG路由验证通过、STIMER的Halt联动暂停失败，两条结论互为参照但不互相覆盖。
-- 方法权威：[公共SYSCNT契约](../../../../../test_case_doc/syscnt/syscnt.md)各Case的`ET_CASE_SPEC`；芯片适配见[ET6801 SYSCNT芯片文档](../../../../../test_case_doc/syscnt/ET6801_syscnt.md)。
+- 方法权威：[公共SYSCNT契约](../../../../test_case_doc/syscnt/syscnt.md)各Case的`ET_CASE_SPEC`；芯片适配见[ET6801 SYSCNT芯片文档](../../../../test_case_doc/syscnt/ET6801_syscnt.md)。
 
 ## 未闭环问题
 

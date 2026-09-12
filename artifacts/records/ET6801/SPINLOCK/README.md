@@ -31,7 +31,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次SPINLOCK运行（[芯片文档状态块](../../../../test_case_doc/spinlock/ET6801_spinlock.md)）：FPGA Lane，2026-08-28 20:20 CST（双核 spinlock exact-SHA 专项运行），Source `ba1304b458148b681ec5f0a6a392cdf7c0757f76`（clean），11 Case / 15 执行 = 11 PASS / 0 FAIL / 0 SKIP；状态块更新时间 2026-08-28 21:24 CST（引用前已读原文核对）。
-- **原始Canonical证据已不在仓库**：原始Evidence `artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/` 已随早期清理不在两个工作树（芯片文档状态块仍保留该路径引用）。本目录知识依据芯片文档状态块与公共契约整理；参数级execution明细（session.json、result.json、Observation原始值）不可考，一律不引用、不外推具体观测值。
+- **原始Canonical证据已不在仓库**：原始Evidence 已随早期清理不在两个工作树（芯片文档状态块仍保留该路径引用）。本目录知识依据芯片文档状态块与公共契约整理；参数级execution明细（session.json、result.json、Observation原始值）不可考，一律不引用、不外推具体观测值。
 - 方法权威：[公共SPINLOCK契约](../../../../test_case_doc/spinlock/spinlock.md)各Case的`ET_CASE_SPEC`；芯片适配与Feature映射见[ET6801 SPINLOCK芯片文档](../../../../test_case_doc/spinlock/ET6801_spinlock.md)。
 
 ## 未闭环问题

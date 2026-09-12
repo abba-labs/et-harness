@@ -35,10 +35,10 @@
 
 以下为本次提炼依据，不是第二份活动状态：
 
-- 最近一次运行：FPGA Lane 2026-09-03 14:32 CST，Source `bedb44062af1d81b157cf980a7c7ca579061e4f0`（clean），16 Case/27 执行=12 PASS/1 FAIL/3 SKIP（状态块更新 2026-09-03 14:35 CST）。该轮是STIMER P2_003 Debug Halt FAIL后的专项复测轮（session只含stimer_p2_003一个execution， Canonical证据锚：`artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/session.json`，在仓库内）。
-- 全量轮：FPGA Lane 2026-08-28（run `20260828_170737_043300_local_et6801_fpga/tests/stimer/`），其原始Canonical Session已随早期清理不在两个工作树；全量轮结果由状态块记录，参数级明细不可考。
+- 最近一次运行：FPGA Lane 2026-09-03 14:32 CST，Source `bedb44062af1d81b157cf980a7c7ca579061e4f0`（clean），16 Case/27 执行=12 PASS/1 FAIL/3 SKIP（状态块更新 2026-09-03 14:35 CST）。该轮是STIMER P2_003 Debug Halt FAIL后的专项复测轮（session只含stimer_p2_003一个execution，Canonical证据锚为`artifacts/records/ET6801/STIMER/current`）。
+- 全量轮：FPGA Lane 2026-08-28，其原始Canonical Session已随早期清理不在两个工作树；全量轮结果由状态块记录，参数级明细不可考。原始的 artifacts/runs 执行目录已废弃并从仓库删除，本树不引用它。
 - P2_003 FAIL的参数级观测（PAUSE/RUN_FREE两策略的DHCSR、STM_SET、CNT_RPT增量）由状态块记录并在0903专项复测session中复核，是本目录唯一引用参数级数值的Case。
-- 方法权威：[公共STIMER契约](../../../../../test_case_doc/stimer/stimer.md)各Case的`ET_CASE_SPEC`（该契约的feature_refs字段未登记，本目录关联Feature以状态块为准）；芯片适配见[ET6801 STIMER芯片文档](../../../../../test_case_doc/stimer/ET6801_stimer.md)。
+- 方法权威：[公共STIMER契约](../../../../test_case_doc/stimer/stimer.md)各Case的`ET_CASE_SPEC`（该契约的feature_refs字段未登记，本目录关联Feature以状态块为准）；芯片适配见[ET6801 STIMER芯片文档](../../../../test_case_doc/stimer/ET6801_stimer.md)。
 
 ## 未闭环问题
 

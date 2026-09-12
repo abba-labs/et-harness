@@ -43,7 +43,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次FMAC运行（[芯片文档状态块](../../../../test_case_doc/fmac/ET6801_fmac.md)）：FPGA Lane，2026-08-28 17:14 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），23 Case/46执行=23 PASS/0 FAIL/0 SKIP，状态块更新于2026-08-28 21:23 CST。
-- **原始Canonical证据已不在仓库**：上述Evidence路径`artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/fmac/`已随早期清理不在本机两个工作树。本目录知识依据芯片文档状态块与人读历史报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值。
+- **原始Canonical证据已不在仓库**：上述Evidence路径已随早期清理不在本机两个工作树。本目录知识依据芯片文档状态块与人读历史报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值。
 - 历史开发过程报告：[2026-08-25 FMAC HIL失败根因分析](../../../../report/analysis/20260825_fmac_hil_failure_root_cause_analysis.md)（早期HIL失败根因分析，当前PASS是整改后结果）、[2026-08-23 FMAC实施计划](../../../../report/plans/20260823_fmac_implementation_plan.md)。
 - 方法权威：[公共FMAC契约](../../../../test_case_doc/fmac/fmac.md)各Case的`ET_CASE_SPEC`；芯片适配与Feature映射见[ET6801 FMAC芯片文档](../../../../test_case_doc/fmac/ET6801_fmac.md)。
 

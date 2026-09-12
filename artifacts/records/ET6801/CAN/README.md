@@ -53,7 +53,7 @@
 - FPGA运行完成于2026-09-08 01:12 CST，31个Case、148个参数执行，139 PASS、9 FAIL；28个Case全部节点通过，3个Case存在FAIL。
 - Source：`e0f70ef9f353f4d8a239bbd3778c735c01897d0b`，source_dirty=false；设备身份和bitstream_id均未知。固件自报名称中的silicon不改变Manifest的FPGA Lane。
 - 历史规范SHA256：`e521ae516ac40d83236f9dbf42e394a42e4be776d8af9be3cef908f0ca4f20c4`。方法以当时规范解释；当前[公共CAN契约](../../../../test_case_doc/can/can.md)只作为继续开发入口，不能冒充旧版快照。
-- [Canonical Session](../../../runs/20260908_010653_004554_local_et6801_fpga_atp_testing/tests/can/session.json)及同目录`cases/*/result.json`保留原始事实；[Manifest](../../../runs/20260908_010653_004554_local_et6801_fpga_atp_testing/manifest.json)保存运行身份和配置定位。
+- Canonical Session及同目录`cases/*/result.json`保留原始事实；Manifest保存运行身份和配置定位。两者均在本工作区`artifacts/records/ET6801/CAN/current`。原始的`artifacts/runs/**`执行目录已废弃并从仓库删除，本树不引用它。
 - [芯片文档](../../../../test_case_doc/can/ET6801_can.md#can-record-index)保留原测试状态、失败分析与参数级结果导航。
 
 未闭环问题：[Non-ISO](cases/CAN_P1_020.md)、[ECC中断封装](cases/CAN_P2_003.md)；[外部回环](cases/CAN_P2_005.md)仍按用户暂停，本轮仅复测仍 FAIL。没有已验证修复。
@@ -62,7 +62,7 @@
 
 迁移后候选为旧`evidence/`下31个JSON和31个ZIP，以及本目录`results.json`、`test_report.xlsx`，共64文件；实际删除尚待确认。原始运行目录、知识正文和公共/芯片契约均不在删除范围。
 
-[精确路径、Hash与保留边界](../../../runs/tooling/can-knowledge-migration-20260908/cleanup-audit.md)。其中规范内容可从固定Source Git版本恢复；精确字节恢复依赖历史混合换行，删除前必须再次验证，而非仅凭文件名清理。
+精确路径与保留边界由[经验库产物位置纪律](../../../experience/environment/artifact_location_discipline.md)约束；已删除的历史run不做逐字节恢复承诺。其中规范内容可从固定Source Git版本恢复；精确字节恢复依赖历史混合换行，删除前必须再次验证，而非仅凭文件名清理。
 
 ## 关键变化
 

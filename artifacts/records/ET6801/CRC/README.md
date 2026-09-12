@@ -43,7 +43,7 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近一次CRC运行（[芯片文档状态块](../../../../test_case_doc/crc/ET6801_crc.md)）：FPGA Lane，2026-08-28 17:11 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），23 Case/44执行=22 PASS/1 FAIL（CRC_P1_012）/0 SKIP，状态块更新于2026-08-28 21:26 CST。
-- **原始Canonical证据已不在仓库**：状态块记录的Evidence路径`artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/`已随早期清理不在本机两个工作树。本目录知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；状态块明确记录的CRC_P1_012观测值（`FIFO.OVERFLOW`保持false、恢复轮CRC实际值与期望值均为`0x140B8DD8`、剩余输入计数0）注明"状态块记录"来源后引用。
+- **原始Canonical证据已不在仓库**：状态块记录的Evidence路径已随早期清理不在本机两个工作树。本目录知识依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推具体观测值；状态块明确记录的CRC_P1_012观测值（`FIFO.OVERFLOW`保持false、恢复轮CRC实际值与期望值均为`0x140B8DD8`、剩余输入计数0）注明"状态块记录"来源后引用。
 - 两轮人读报告交叉印证（当时注册表为24稳定Case/45执行，含现已撤销为PLAN的`CRC_P1_011`；均无本IP当前注册Case之外的新增FAIL）：
   - 2026-08-11 CRC全量HIL：45执行=43 PASS/2 FAIL/0 SKIP，FAIL为FIFO两项（[报告](../../../../report/hil/20260811_et6801_crc_hil_report.md)）。
   - 2026-08-12 一键运行Excel HIL：45执行=43 PASS/2 FAIL/0 SKIP，稳定Case 24项中22 PASS/2 FAIL，两个FAIL均保留为真实硬件结论（[报告](../../../../report/hil/20260812_et6801_crc_operator_excel_hil_report.md)）。

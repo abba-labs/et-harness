@@ -46,9 +46,9 @@
 以下为本次提炼依据，不是第二份活动状态：
 
 - 最近运行（[芯片文档状态块](../../../../test_case_doc/cordic/ET6801_cordic.md)）：FPGA Lane，2026-08-28 17:11 CST，Source `596c1a73b91f6af577b1b274d49c34f8d9fb823a`（clean），24 Case/53 执行=23 PASS/1 SKIP/0 FAIL（状态块更新 2026-08-28 21:25 CST）。
-- **【关键声明】原始Evidence `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/cordic/` 已随早期清理不在两个工作树**。本树依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推。文档已明确记录并经复核确认的个别事实按来源标注（见P1_003案例知识）。
-- 方法权威：[公共CORDIC契约](../../../../../test_case_doc/cordic/cordic.md)各Case的`ET_CASE_SPEC`；芯片文档锚：[ET6801 CORDIC芯片文档](../../../../../test_case_doc/cordic/ET6801_cordic.md)。
-- 可引用报告：[2026-08-26 Scale7 ARCTAN金模型与缺陷分析](../../../../../report/analysis/20260826_cordic_scale7_arctan_golden_model_and_defects.md)（Scale7 arctan金模型与缺陷分析；已明确记录的实测数值仅限该报告与芯片文档，本树不新增参数级观测值）。
+- **【关键声明】原始Evidence 已随早期清理不在两个工作树**。本树依据芯片文档状态块与人读报告整理；参数级execution明细（result.json、Observation原始值）不可考，一律不引用、不外推。文档已明确记录并经复核确认的个别事实按来源标注（见P1_003案例知识）。
+- 方法权威：[公共CORDIC契约](../../../../test_case_doc/cordic/cordic.md)各Case的`ET_CASE_SPEC`；芯片文档锚：[ET6801 CORDIC芯片文档](../../../../test_case_doc/cordic/ET6801_cordic.md)。
+- 可引用报告：[2026-08-26 Scale7 ARCTAN金模型与缺陷分析](../../../../report/analysis/20260826_cordic_scale7_arctan_golden_model_and_defects.md)（Scale7 arctan金模型与缺陷分析；已明确记录的实测数值仅限该报告与芯片文档，本树不新增参数级观测值）。
 
 ## 未闭环问题
 
