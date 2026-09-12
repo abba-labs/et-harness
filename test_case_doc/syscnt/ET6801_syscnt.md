@@ -127,13 +127,13 @@ D03属于真正的读取风险；D04/D07属于接口适配，不应通过大改�
 
 正式`syscnt.yaml`由当前SVD生成，唯一实例`syscnt0`指向`SYSCNT_CTRL`。能力包含counter、debug_halt、frequency_id及64-bit计数/32-bit字宽；高低字位宽必须同时由“timestamp counter lower/upper”字段描述证明。读取窗口、外部时钟和调试观测端点由本芯片Execution Mapping解析，不把读取窗口作为第二个可配置计数器。历史`syscnt_ctrl.yaml`没有被用作新增Case的能力入口，不在本次修改其他IP基线文件。
 
-原始生成与审计位于`artifacts/runs/20260904_syscnt_capability/`，CLI质量检查通过；新增5项专项测试验证真实字段、重命名/换地址、字段缺失和命名歧义，全部通过。能力生成不证明硬件PASS，也不确认实际时钟频率。
+原始生成与审计位于，CLI质量检查通过；新增5项专项测试验证真实字段、重命名/换地址、字段缺失和命名歧义，全部通过。能力生成不证明硬件PASS，也不确认实际时钟频率。
 
 ### 2.5 PC实施与待测事实
 
 2026-09-04：PC Driver只封装九条原子请求，严格验证实例前缀、长度、保留位和枚举；没有新增公共层逻辑。Case注册为7个逻辑ID，按P0～P3分文件；参数包括六种装载位型、两类回绕边界、每个可用时钟源的五个时间窗口、两种停核策略。P3为20轮短重复，不是20个逻辑Case。
 
-`syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`。2026-09-04 06:13部署后，以DWT独立参考分别在两个源下采样0.1/0.5/1s，计数比均符合1/2：五组精确为0.5，首次短窗口为0.4999885（采样开销）。因此当前FPGA映射两源均为12.5MHz，不将CNTFID0当实际时钟；不宣称两个物理振荡器不同，也不证明绝对晶振精度。原始计数见`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。
+`syscnt_routes.py`记录CTRL/RO与DHCSR的观测地址；停核采样顺序为高→低→高→CNTSR→CNTCR，由既有Debugger在DHCSR.S_HALT包围下读取两组。DWT参考频率来自当前FPGA构建的`SystemCoreClock=25MHz`。2026-09-04 06:13部署后，以DWT独立参考分别在两个源下采样0.1/0.5/1s，计数比均符合1/2：五组精确为0.5，首次短窗口为0.4999885（采样开销）。因此当前FPGA映射两源均为12.5MHz，不将CNTFID0当实际时钟；不宣称两个物理振荡器不同，也不证明绝对晶振精度。原始计数
 
 16项PC软件合同测试已通过（guard `20260904_055613_fc45c484`），覆盖九条Wire命令、参数边界、非法响应、参考计数回绕和停核读数撕裂；这些不是硬件结果。七条SPEC/REPORT、注册、注释和编排专项检查通过。首轮HIL已通过；G02/G05/G06在当前FPGA/Core0范围闭合，G07外部脉冲观测仍未覆盖。
 
@@ -326,7 +326,7 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 
 2026-09-04：Application静态Manifest增加SYSCNT组，FPGA/Silicon Board各声明逻辑实例0，既有工程Manifest加入本IP Service/Wrap源文件。保持main与公共注册算法不变，不在初始化时开启SYSCNT时钟或计数。构建与后续PFLASH部署仍使用现有配置流水线。
 
-2026-09-04 05:20 CST：通过当前仓库`run_config.yaml`构建`ET6801_SILICON_FLASH`（该现有目标含FPGA_VERSION，用于当前FPGA的PFLASH流程），Keil结果0 Error/0 Warning。证据：`artifacts/runs/20260904_051954_352183_local_et6801_fpga_atp_testing/stages/build_firmware_silicon/keil_silicon.log`。编译通过不代表下载或HIL通过。
+2026-09-04 05:20 CST：通过当前仓库`run_config.yaml`构建`ET6801_SILICON_FLASH`（该现有目标含FPGA_VERSION，用于当前FPGA的PFLASH流程），Keil结果0 Error/0 Warning。原始证据未随仓库保留。编译通过不代表下载或HIL通过。
 
 ### 6.5 下一阶段最短路径
 
@@ -346,11 +346,11 @@ SDK归属门禁按现有职责表增加SYSCNT→Cortex映射：实际SYSCNT实�
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-04 06:39 CST` | `2157037e3937d1d26a01390ae0bd652f40f788dd` | `true` | `artifacts/runs/20260904_063646_997568_local_et6801_fpga_atp_testing/tests/syscnt/` |
+| FPGA | `2026-09-04 06:39 CST` | `2157037e3937d1d26a01390ae0bd652f40f788dd` | `true` | NOT_RETAINED |
 
 Firmware Build ID：`et6801-silicon-common-v0.1`；Registry Hash：`6880b515`；COM12@115200；实际为XC7VX980T FPGA/Core0。Build ID不是Silicon实测声明。
 
-部署证据：`artifacts/runs/20260904_060932_071362_local_et6801_fpga_atp_testing/`，同次bitfile→BootROM→PFLASH Verify→Flash运行全部通过。时钟独立诊断：`artifacts/runs/20260904_syscnt_clock_probe/clock_probe.json`。最终软件门禁951 PASS/14条件软件SKIP，不与硬件统计混合。
+部署证据：，同次bitfile→BootROM→PFLASH Verify→Flash运行全部通过。时钟独立诊断：。最终软件门禁951 PASS/14条件软件SKIP，不与硬件统计混合。
 
 最终Excel：`artifacts/reports/20260904_064000_167713_ET6801_SYSCNT测试报告.xlsx`。三个Sheet分别为测试报告、执行明细、规格追溯；已只读核对7条Case均为PASS且备注非空，执行明细23条，寄存器名称和十六进制值均由真实结果及芯片映射生成。
 

@@ -368,10 +368,8 @@ Previous Working-tree FPGA full HIL: EXECUTED / 27 executions / 22 PASS / 5 SKIP
 Previous logical Case result: 11 PASS / 5 SKIP / 0 FAIL
 Previous SKIP Cases: STIMER_P1_001, STIMER_P1_008, STIMER_P2_002, STIMER_P2_003, STIMER_P3_001
 Previous SKIP Reasons: historical runner缺少stimer_reference/stimer_output observers、emergency-capture映射和debugger绑定
-Previous Full HIL Evidence: artifacts/runs/20260821_171700_stimer_full_hil/tests/stimer/session.json
 Targeted Debug-Halt HIL: STIMER_P2_003 / 1 execution / FAIL
 Targeted Failure: PAUSE delta=12318488, RUN_FREE delta=11483428; both counters advanced during real J-Link Halt windows
-Targeted HIL Evidence: artifacts/runs/20260822_140851_627657_stimer_formal_cases/tests/stimer
 Firmware / Registry: et6801-silicon-common-v0.1 / d7dd2c5d
 Exact committed SHA FPGA HIL: NOT_PROVEN / targeted source_revision=edfd188173e93b3a580ba1d30587795c2ca1749c and source_dirty=true
 Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
@@ -412,9 +410,9 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 |---|---|---|---|---|---|
 | `STIMER_P2_003` | ET6801 FPGA、真实J-Link Halt/Resume、PAUSE与RUN_FREE两轮同类窗口对照 | PAUSE轮Halt 0.489401 s期间Counter增加12,792,606；RUN_FREE轮Halt 0.443597 s期间增加11,529,783，PAUSE增量反而约为RUN_FREE的1.11倍 | Driver/Wrap已按SVD分别配置`STM_CPUHALT_MODE_R=0/1`；Case使用真实Debugger Halt，并按批准方案比较相对增量而非要求PAUSE绝对为0 | `FPGA_RTL_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认CPU Halt信号是否接入STIMER以及PAUSE语义；修复或说明后重跑，并在Silicon独立验证 |
 
-最新证据位于`artifacts/runs/20260828_0835_stimer_p2_003/`。Case保持冻结的相对增量阈值和严格FAIL，不通过放宽断言掩盖PAUSE未生效。
+最新原始证据未随仓库保留。Case保持冻结的相对增量阈值和严格FAIL，不通过放宽断言掩盖PAUSE未生效。
 
-2026-08-24独立固件复测在J-Link持续连接状态下分别执行PAUSE和RUN_FREE两次真实Debugger Halt；PAUSE轮Counter增量=`0x70E87DFC`，RUN_FREE轮增量=`0x27D5C292`，两轮均明显推进。该结果再次证明PAUSE没有冻结Counter，不属于串口通信、BootROM或PFLASH加载问题；精确速率仍以Formal HIL时间线为权威。证据：`artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log`。
+2026-08-24独立固件复测在J-Link持续连接状态下分别执行PAUSE和RUN_FREE两次真实Debugger Halt；PAUSE轮Counter增量=`0x70E87DFC`，RUN_FREE轮增量=`0x27D5C292`，两轮均明显推进。该结果再次证明PAUSE没有冻结Counter，不属于串口通信、BootROM或PFLASH加载问题；精确速率仍以Formal HIL时间线为权威。原始证据未随仓库保留。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
@@ -425,7 +423,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-03 14:32 CST` | `bedb44062af1d81b157cf980a7c7ca579061e4f0` | `false` | `artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/` |
+| FPGA | `2026-09-03 14:32 CST` | `bedb44062af1d81b157cf980a7c7ca579061e4f0` | `false` | NOT_RETAINED |
 
 本次仅选择`STIMER_P2_003`：1个逻辑Case、1个execution，0 PASS / 1 FAIL / 0 SKIP。
 Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`2d3e0bb2`，控制通道`COM12@115200`；
@@ -443,10 +441,10 @@ Source身份对应本次PC代码；未取得板上Firmware、bitstream的精确�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `STIMER_P1_008` | FPGA | SKIP | `STIMER_F_010` / Overflow、Compare事件脉宽扩展 | 当前Bench没有绑定`stimer_output`信号Observer，无法观测硬件输出脉宽 | 缺少STIMER事件输出路由和示波器或FPGA采样接线 | 完成输出路由、Observer和物理接线后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
-| `STIMER_P2_002` | FPGA | SKIP | `STIMER_F_016` / 紧急计数捕获 | Runtime Capability缺少`START_STOP`、`PERIOD`、`FREE_RUN`和`EMERGENCY_CAPTURE`组合，Case在刺激前停止 | 当前Service/Capability映射未提供该Case需要的完整语义，属于实现映射缺口，不是最终硬件SKIP结论 | 补齐并审核STIMER紧急捕获的公共命令、Capability和安全Source映射后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
-| `STIMER_P2_003` | FPGA | FAIL | `STIMER_F_015` / Debug Halt行为 | 两种策略每组前后DHCSR均为`0x00030003`，S_HALT(bit17)=1；PAUSE时STM_SET=`0x00000003`，CNT_RPT由`0x013F16A9`增至`0x018F5043`，增量5,257,626；RUN_FREE时STM_SET=`0x00000083`，CNT_RPT由`0x00607D81`增至`0x00AECADF`，增量5,131,614 | 已排除“CPU未停核”及“PAUSE配置未写入”；当前FPGA的PAUSE行为不符合预期。Halt信号具体路径、时钟域与多核关联仍需设计人员确认，未证明具体RTL根因 | 设计人员确认当前FPGA目标CPU Halt与STIMER关联后复测；Silicon需独立验证 | `artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/` |
-| `STIMER_P3_001` | FPGA | SKIP | `STIMER_F_001`、`STIMER_F_002`、`STIMER_F_003`、`STIMER_F_004`、`STIMER_F_017` / 长时间周期、IRQ和计数稳定性 | 当前Bench没有绑定`stimer_reference`独立参考Observer，无法形成独立时基和外部周期证据 | 缺少独立参考时钟、事件输出观测和稳定供电Bench条件 | 完成独立参考、输出Observer及对应接线后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/stimer/` |
+| `STIMER_P1_008` | FPGA | SKIP | `STIMER_F_010` / Overflow、Compare事件脉宽扩展 | 当前Bench没有绑定`stimer_output`信号Observer，无法观测硬件输出脉宽 | 缺少STIMER事件输出路由和示波器或FPGA采样接线 | 完成输出路由、Observer和物理接线后复测 | NOT_RETAINED |
+| `STIMER_P2_002` | FPGA | SKIP | `STIMER_F_016` / 紧急计数捕获 | Runtime Capability缺少`START_STOP`、`PERIOD`、`FREE_RUN`和`EMERGENCY_CAPTURE`组合，Case在刺激前停止 | 当前Service/Capability映射未提供该Case需要的完整语义，属于实现映射缺口，不是最终硬件SKIP结论 | 补齐并审核STIMER紧急捕获的公共命令、Capability和安全Source映射后复测 | NOT_RETAINED |
+| `STIMER_P2_003` | FPGA | FAIL | `STIMER_F_015` / Debug Halt行为 | 两种策略每组前后DHCSR均为`0x00030003`，S_HALT(bit17)=1；PAUSE时STM_SET=`0x00000003`，CNT_RPT由`0x013F16A9`增至`0x018F5043`，增量5,257,626；RUN_FREE时STM_SET=`0x00000083`，CNT_RPT由`0x00607D81`增至`0x00AECADF`，增量5,131,614 | 已排除“CPU未停核”及“PAUSE配置未写入”；当前FPGA的PAUSE行为不符合预期。Halt信号具体路径、时钟域与多核关联仍需设计人员确认，未证明具体RTL根因 | 设计人员确认当前FPGA目标CPU Halt与STIMER关联后复测；Silicon需独立验证 | NOT_RETAINED |
+| `STIMER_P3_001` | FPGA | SKIP | `STIMER_F_001`、`STIMER_F_002`、`STIMER_F_003`、`STIMER_F_004`、`STIMER_F_017` / 长时间周期、IRQ和计数稳定性 | 当前Bench没有绑定`stimer_reference`独立参考Observer，无法形成独立时基和外部周期证据 | 缺少独立参考时钟、事件输出观测和稳定供电Bench条件 | 完成独立参考、输出Observer及对应接线后复测 | NOT_RETAINED |
 ### 本次停核内原始证据
 
 测试方法：CRG复位STIMER0和整池复位Resource；配置长周期Free-Run计数。

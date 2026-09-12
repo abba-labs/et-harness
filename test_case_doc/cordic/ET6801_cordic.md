@@ -401,9 +401,6 @@ Contract classification after hardware confirmation: ADAPTED=23 / NOT_APPLICABLE
 Semantic mapping Cases current-code HIL PASS: CORDIC_P0_002, CORDIC_P1_001, CORDIC_P1_002, CORDIC_P1_004, CORDIC_P1_011, CORDIC_P1_013, CORDIC_P1_015
 2026-08-28 targeted HIL PASS: CORDIC_P1_003 / ARCTAN Scale 0..7 within approved 1e-3 budget
 2026-08-28 historical targeted HIL result: CORDIC_P2_001 / DMA input and output channels did not complete within 15 s；设计确认后归类为NOT_APPLICABLE
-Legacy full HIL Evidence: artifacts/runs/20260821_170400_cordic_full_hil/tests/cordic/session.json
-Current targeted HIL Evidence: artifacts/runs/20260822_070101_086512_cordic_formal_cases/tests/cordic/session.json
-Deterministic failure repeat: artifacts/runs/20260822_070244_378_cordic_p1_003_repeat/tests/cordic/session.json
 Firmware / Registry: et6801-silicon-common-v0.1 / d7dd2c5d
 Exact committed SHA FPGA HIL: NOT_PROVEN / source revision recorded but working tree is dirty
 Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
@@ -433,9 +430,9 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 |---|---|---|---|---|---|
 | `CORDIC_P2_001` | ET6801 FPGA，DMA0双通道，SQRT(0.25) Q1.31单输入/单结果 | 输入Request40、输出Request39及SQRT/RES1端点均已配置；两条DMA Channel在15秒内未进入Free | P1_003已独立PASS；P2_001已对齐历史ET6801 Request方向、端点、工作模式切换顺序和单字搬运 | `HIL_FAIL` | RTL/设计确认当前bit中的CORDIC DMA Request路径与Request ID |
 
-本项暂不能直接判定为RTL缺陷，也不能通过自行放宽公共阈值关闭。证据位于`artifacts/runs/20260822_070101_086512_cordic_formal_cases/tests/cordic`和`artifacts/runs/20260822_070244_378_cordic_p1_003_repeat/tests/cordic`。
+本项暂不能直接判定为RTL缺陷，也不能通过自行放宽公共阈值关闭。原始证据未随仓库保留。
 
-2026-08-24独立固件复测再次得到`Scale=7`、输入Raw=`0x40000000`、实际Raw=`0x007EB700`、期望Raw=`0x007EBA14`，绝对差值=`0x00000314`，仍超过当前容差`0x00000216`；完成状态和清除路径均正常。该结果确认现象可重复，但不把尚未权威化的精度预算解释为RTL缺陷。证据：`artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log`。
+2026-08-24独立固件复测再次得到`Scale=7`、输入Raw=`0x40000000`、实际Raw=`0x007EB700`、期望Raw=`0x007EBA14`，绝对差值=`0x00000314`，仍超过当前容差`0x00000216`；完成状态和清除路径均正常。该结果确认现象可重复，但不把尚未权威化的精度预算解释为RTL缺陷。原始证据未随仓库保留。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
@@ -446,7 +443,7 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/cordic/` |
+| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
@@ -458,7 +455,7 @@ CORDIC Case代码与Contract已完成；后续只在取得目标芯片直接证�
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CORDIC_P2_001` | FPGA | SKIP | `CORDIC_F_027` / DMA工作模式 | Runtime Capability明确拒绝CORDIC DMA工作模式，Case未向硬件发起DMA刺激 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式，Case适配状态为NOT_APPLICABLE；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/cordic/` |
+| `CORDIC_P2_001` | FPGA | SKIP | `CORDIC_F_027` / DMA工作模式 | Runtime Capability明确拒绝CORDIC DMA工作模式，Case未向硬件发起DMA刺激 | 2026-08-28设计人员确认ET6801 CORDIC不支持DMA工作模式，Case适配状态为NOT_APPLICABLE；不是Case逻辑FAIL，也不是外部接线阻塞 | 仅当设计人员重新确认ET6801硬件支持该模式时复测 | NOT_RETAINED |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核

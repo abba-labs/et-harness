@@ -389,13 +389,8 @@ Historical classification: 14 logical Cases / 11 PASS / 1 FAIL / 0 SKIP / 2 NOT_
 FAIL Cases: WDG_P1_004, WDG_P2_001
 NOT_EXECUTED Cases: WDG_P0_004, WDG_P1_003 / capability correction requires a fresh Formal HIL run
 FAIL Reasons: P1_004 module reset leaves WDG enabled and counting; P2_001 divider readback is correct but Counter rate does not follow the SVD-defined /1 versus /2 relationship
-Full HIL Evidence: artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg
 Full Excel Report: artifacts/reports/20260822_093429_670487_ET6801_WDG测试报告.xlsx
-Strengthened P2_001 Evidence: artifacts/runs/20260822_094927_699802_wdg_formal_cases/tests/wdg
 Strengthened P2_001 Report: artifacts/reports/20260822_094932_225366_ET6801_WDG测试报告.xlsx
-Minimum-ratio Oracle Evidence: artifacts/runs/20260822_wdg_divider_oracle_verified/tests/wdg
-Debug-Halt PASS Evidence: artifacts/runs/20260822_wdg_debug_halt_verified/tests/wdg
-Previous HIL Evidence: artifacts/runs/20260821_195200_wdg_full_hil/session.json
 Firmware / Registry: et6801-silicon-common-v0.1 / d7dd2c5d
 Exact committed SHA FPGA HIL: NOT_PROVEN / source_revision=edfd188173e93b3a580ba1d30587795c2ca1749c and source_dirty=true
 Current-SHA Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
@@ -414,7 +409,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 后续修正 / 最终结论：撤回旧的`CLOSED / FPGA_HIL_PASS`判断。当前结论为`FPGA_RTL_MAPPING_GAP / HIL_FAIL`；公共Case、PC Driver、Service、Wrap与CRG Driver参数链路不通过放宽断言或改写结果规避该问题。
 
-关联文件 / 证据：`artifacts/runs/20260822_093418_044103_wdg_formal_cases/tests/wdg`、`artifacts/runs/20260822_094927_699802_wdg_formal_cases/tests/wdg`、`artifacts/runs/20260822_wdg_divider_oracle_verified/tests/wdg`、`artifacts/reports/20260822_094932_225366_ET6801_WDG测试报告.xlsx`。
+关联文件 / 证据：、、、`artifacts/reports/20260822_094932_225366_ET6801_WDG测试报告.xlsx`。
 
 ### 7.4 2026-08-22 Debug Halt专项闭合
 
@@ -424,7 +419,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 结果：暂停使能轮Counter delta=3,889,169，暂停失能轮delta=28,398,807；前者为后者的约13.7%，满足Case规定的不高于25%比例，专项HIL为PASS。
 
-最终结论：原`BENCH_GAP`已经闭合，`WDG_P3_001`适配状态升级为`ADAPTED`。证据位于`artifacts/runs/20260822_wdg_debug_halt_verified/tests/wdg`；该运行来自dirty工作树，不能写成Exact-SHA PASS。
+最终结论：原`BENCH_GAP`已经闭合，`WDG_P3_001`适配状态升级为`ADAPTED`。原始证据未随仓库保留。
 
 ### 7.5 当前未通过测试记录
 
@@ -436,7 +431,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 本记录只描述当前dirty工作树和当前FPGA bit的行为，不代表Exact-SHA结论。禁止通过放宽1.5倍速率比Oracle、删除断言或改成SKIP关闭该问题。
 
-2026-08-24独立固件复测得到divider=`0`和divider=`1`的配置读回均正确，但相同采样窗口内Counter增量分别为`0x0003D323`和`0x0003D2AD`，仍未体现`/1`与`/2`的速率差异，与Formal HIL结论一致。证据：`artifacts/runs/20260824_204258_094556_manual_et6801_uart_crc/manual/uart_crc.log`。
+2026-08-24独立固件复测得到divider=`0`和divider=`1`的配置读回均正确，但相同采样窗口内Counter增量分别为`0x0003D323`和`0x0003D2AD`，仍未体现`/1`与`/2`的速率差异，与Formal HIL结论一致。原始证据未随仓库保留。
 
 同次独立固件复测还观察到模块复位后WDG仍保持Enable，Counter继续递减；恢复配置后WDG仍可工作。2026-08-26按统一状态规则复核后，该现象判定为`WDG_P1_004`的真实FAIL；SVD已声明的`MODULE_RESET`不得再通过Runtime Capability屏蔽成SKIP。历史Formal Artifact保持原样，当前分类单独修正。
 
@@ -449,7 +444,7 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:15 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
+| FPGA | `2026-08-28 17:15 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
@@ -461,9 +456,9 @@ Historical Unit/FPGA source: TRACEABLE DESIGN INPUT ONLY
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `WDG_P0_004` | FPGA | FAIL | `WDG_F_007`、`WDG_F_014` / 真实超时复位与跨重启记录 | WDG配置`reset_enable=1`并启动后，20秒内目标通信始终在线，未发生预期断连和重连 | 当前FPGA未观测到WDG Reset Output形成系统复位；因此跨重启记录也无法取证 | RTL/bit确认WDG Reset Output到系统复位链路及持久记录映射后，使用相同超时流程复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
-| `WDG_P1_003` | FPGA | FAIL | `WDG_F_007`、`WDG_F_008`、`WDG_F_013`、`WDG_F_014` / IRQ与Reset轮次模式 | 第一轮Timeout IRQ能够到达；第二轮等待系统复位时，30秒内目标始终在线，未发生预期断连和重连 | ROUND1 IRQ路径有效，但ROUND2 Reset Output未形成可观测系统复位 | RTL/bit确认轮次模式的Reset Output链路和跨重启记录后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
-| `WDG_P2_001` | FPGA | FAIL | `WDG_F_003`、`WDG_F_017` / 时钟源与分频 | APB1 Divider 0/1读回均正确；计数中位速率分别为12421269.38和12508109.44，速率比0.993057，低于要求的1.5 | 当前FPGA WDG Counter速率未随Divider变化，时钟路径或Divider实现未闭合 | RTL/bit确认WDG Counter真实时钟路径和Divider实现后复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/wdg/` |
+| `WDG_P0_004` | FPGA | FAIL | `WDG_F_007`、`WDG_F_014` / 真实超时复位与跨重启记录 | WDG配置`reset_enable=1`并启动后，20秒内目标通信始终在线，未发生预期断连和重连 | 当前FPGA未观测到WDG Reset Output形成系统复位；因此跨重启记录也无法取证 | RTL/bit确认WDG Reset Output到系统复位链路及持久记录映射后，使用相同超时流程复测 | NOT_RETAINED |
+| `WDG_P1_003` | FPGA | FAIL | `WDG_F_007`、`WDG_F_008`、`WDG_F_013`、`WDG_F_014` / IRQ与Reset轮次模式 | 第一轮Timeout IRQ能够到达；第二轮等待系统复位时，30秒内目标始终在线，未发生预期断连和重连 | ROUND1 IRQ路径有效，但ROUND2 Reset Output未形成可观测系统复位 | RTL/bit确认轮次模式的Reset Output链路和跨重启记录后复测 | NOT_RETAINED |
+| `WDG_P2_001` | FPGA | FAIL | `WDG_F_003`、`WDG_F_017` / 时钟源与分频 | APB1 Divider 0/1读回均正确；计数中位速率分别为12421269.38和12508109.44，速率比0.993057，低于要求的1.5 | 当前FPGA WDG Counter速率未随Divider变化，时钟路径或Divider实现未闭合 | RTL/bit确认WDG Counter真实时钟路径和Divider实现后复测 | NOT_RETAINED |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 ### 2026-08-26 12:15 CST 状态分类复核

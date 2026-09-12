@@ -12,8 +12,13 @@ UNIT_ROOT = Path(__file__).parents[1]
 
 
 def test_formal_code_root_has_only_stable_categories() -> None:
+    # tmp/ 是仓库内唯一的本地临时区（缓存/锁/草稿）；graphflow-out/ 是本地图工具输出。
+    # 两者都被 .gitignore 忽略、不进入版本库；临时产物必须留在仓库内，不得写到仓库外。
+    scratch = {"tmp", "graphflow-out"}
     assert {
-        path.name for path in CODE_ROOT.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path.name
+        for path in CODE_ROOT.iterdir()
+        if path.is_dir() and not path.name.startswith(".") and path.name not in scratch
     } == {
         "firmware",
         "pc",
@@ -31,7 +36,9 @@ def test_formal_code_root_has_only_stable_categories() -> None:
 
 
 def test_generated_build_files_stay_in_firmware_build() -> None:
-    generated_directories = {"__pycache__", ".pytest_cache", ".Xil", ".git"}
+    # tmp/ 与 graphflow-out/ 都是本地草稿区（gitignore，不提交）：pytest 现场会在此
+    # 生成合成 artifacts/*.log，不代表真实产物布局，因此与其它生成目录一并跳过。
+    generated_directories = {"__pycache__", ".pytest_cache", ".Xil", ".git", "tmp", "graphflow-out"}
     build_directories = {"Objects", "Listings"}
     build_suffixes = {".o", ".d", ".axf", ".bin", ".hex", ".jou", ".log"}
     firmware_build_root = CODE_ROOT / "firmware" / "build"

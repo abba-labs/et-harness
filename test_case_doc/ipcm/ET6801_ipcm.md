@@ -39,7 +39,7 @@
 | 云盘本地需求副本 | `G:/我的云端硬盘/ET_FILE/CODE/sdk/test_case`下IPCM文件名 | NO_MATCH | 根目录存在，未找到IPCM独立需求；不能替代本地SDK/SVN查询。 |
 | BootROM复位映射 | `<BOOT_ROM>/bootrom-dev-et6801/source/Drivers/ET6801/ET6x_Driver/Inc/et6x_crg.h` | FOUND | 有`CRG_PERIPH_IPCM`映射，可与本项目SVD/CMSIS的SRST1 bit25交叉核对；不是IPCM测试证据。 |
 | current capability | `pc/et_test_platform/profiles/chip_capabilities/et6801/ip/ipcm.yaml` | FOUND | 生成器v10从完整Mailbox形状生成9项Feature、5项容量和2项模式选项，保留Base与16条IRQ。 |
-| capability audit | `artifacts/runs/20260903_ipcm_capability/audit/ipcm.yaml` | FOUND | 当前SVD的语义审计；reference_data中的v8产物仅为历史，不代表当前能力。 |
+| capability audit | NOT_RETAINED | FOUND | 当前SVD的语义审计；reference_data中的v8产物仅为历史，不代表当前能力。 |
 | current Core1 Peer | `firmware/chips/et6801/core1_peer`与`firmware/build/et6801/core1_peer` | FOUND | IPCM独立Core1 Service与共享控制通道已实现，ITCM Peer已完成本轮FPGA双核验证。 |
 | current platform IPCM code | `firmware/{wrap,services}`、`firmware/chips/et6801/core1_peer`与`pc/et_test_platform/{drivers,test_cases}/ipcm` | FOUND | 本核Wrap/Service、Core1原子执行器、PC Driver与13条正式Case已实现；证据见当前芯片测试状态。 |
 
@@ -384,9 +384,9 @@ Channel10/11来自ET6801历史双核测试，已由本轮P0 Smoke确认；Channe
 2026-09-03本轮验证：
 
 - 软件门禁：`tools/validate_pc.py`的918项测试通过，包括Native Driver/Wrap/Service合同、Peer票据及Deadline、Case报告绑定和Windows PowerShell语法检查。
-- 正式部署：`artifacts/runs/20260903_190012_722671_local_et6801_fpga_atp_testing/`。BootROM、Core0固件和Core1 IPCM ITCM Peer完成构建；XC7VX980T重新烧录bitfile，BootROM到达main，Core0 PFLASH完成Erase/Program/Verify，再部署并核对Core1身份。Core0从Flash执行，不以RAM临时诊断替代正式测试。
-- 部署脚本曾因Windows PowerShell 5.1不支持`4u/0u`数字后缀在编译阶段退出，未进入硬件阶段；修正后上述整条部署成功。失败日志保留在`artifacts/runs/20260903_185811_535172_local_et6801_fpga_atp_testing/`。BootROM旧的容量统计后处理打印编码错误，但编译0 Error/0 Warning且镜像已实际到main；本轮未修改BootROM源码。
-- P0 Smoke：`artifacts/runs/20260903_190832_718847_ipcm_formal_cases/tests/ipcm/`，2条逻辑Case、6项参数化执行通过；通过后才执行完整IPCM。
+- 正式部署：。BootROM、Core0固件和Core1 IPCM ITCM Peer完成构建；XC7VX980T重新烧录bitfile，BootROM到达main，Core0 PFLASH完成Erase/Program/Verify，再部署并核对Core1身份。Core0从Flash执行，不以RAM临时诊断替代正式测试。
+- 部署脚本曾因Windows PowerShell 5.1不支持`4u/0u`数字后缀在编译阶段退出，未进入硬件阶段；修正后上述整条部署成功。失败日志保留在。BootROM旧的容量统计后处理打印编码错误，但编译0 Error/0 Warning且镜像已实际到main；本轮未修改BootROM源码。
+- P0 Smoke：，2条逻辑Case、6项参数化执行通过；通过后才执行完整IPCM。
 - 全量IPCM：通过当前`run_config.yaml`解析的环境调用现有`run_ip_tests`入口，仅选择`ipcm`，没有修改其他IP注册项；13条逻辑Case、34项执行通过，证据见下方唯一本芯片状态区。
 - 报告逐行审核：13个稳定Case ID均为PASS，参数化合并后备注保留实际硬件值；不存在空白测试结果、缺少Observation或JSON原样堆叠。
 

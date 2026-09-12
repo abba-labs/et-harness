@@ -129,12 +129,12 @@ ET6801 当前直接硬件证据
 | E13 | Drive `fmac_ut.log` file `1VPrwFK34fUbJdcvTVxpSJtWIr0GAbnQ2` | `FMAC_UT_1` actual/expected逐点日志 | 多处系统性±1 LSB差异，证明一般Q15量化模型尚未闭合。 |
 | E14 | current `et6x_fmac.h/.c` | `FMAC_config`, `FMAC_forceInterrupt`, `FMAC_getStatus`, `FMAC_OutputDataShift`, `FMAC_loadX1Buff` | D01~D09 Driver Gap/Conflict的当前代码依据。 |
 | E15 | ET3101/ET6003 Source Map roots + ET60157 manuals + uploaded `ET6x_Driver.zip` | family/historical FMAC资料 | 仅帮助理解继承和历史实现；不能单独关闭ET6801目标Claim。 |
-| E16 | `artifacts/runs/20260825_212348_344047_fmac_formal_cases/tests/fmac` + `artifacts/reports/20260825_212446_465482_ET6801_FMAC测试报告.xlsx` | ET6801 FPGA/HIL正式执行与Excel报告 | 49个参数化节点：40 PASS、9 FAIL、0 SKIP/ERROR；只证明本次运行结果，不把失败Feature升级为PASS。 |
-| E17 | `artifacts/runs/20260825_233023_383688_fmac_formal_cases/tests/fmac` + `artifacts/reports/20260825_233028_199395_ET6801_FMAC测试报告.xlsx` | `FMAC_P1_002`修正版FPGA/HIL聚焦复测 | WM=1/2/4三个参数节点全部PASS；证明X1 Spare、Full Watermark边界、Overflow置位与清除路径闭合，并替代E16中该Case的旧失败结论。 |
-| E18 | `artifacts/runs/20260825_234451_089183_fmac_formal_cases/tests/fmac` + `artifacts/reports/20260825_234455_593803_ET6801_FMAC测试报告.xlsx` | `FMAC_P1_014`修正版FPGA/HIL聚焦复测 | Saturation、X1 Overflow、Y Underflow三个自然IRQ节点全部PASS；证明对应状态、Raw/Status、ISR Latch与投递计数链路闭合，并替代E16中X1 Overflow参数节点的旧失败结论。 |
-| E19 | `artifacts/runs/20260826_082728_005875_manual_et6801_uart_crc/manual/uart_crc.log` | `fmac_p1_006`, `fmac_p1_010`, `fmac_p1_016`独立手动固件诊断 | P1_006四种清除方法中仅CRG复位清除目标位；P1_010由SR写1和CRG复位清除，CR.CLR/SR写0无效；P1_016对X1/X2/Y各执行合法边界、请求量越界、额外写入和物理边界跨越共12组刺激，`INT_RAW_RPT/INT_STATUS_RPT`始终为0。 |
+| E16 | NOT_RETAINED | ET6801 FPGA/HIL正式执行与Excel报告 | 49个参数化节点：40 PASS、9 FAIL、0 SKIP/ERROR；只证明本次运行结果，不把失败Feature升级为PASS。 |
+| E17 | NOT_RETAINED | `FMAC_P1_002`修正版FPGA/HIL聚焦复测 | WM=1/2/4三个参数节点全部PASS；证明X1 Spare、Full Watermark边界、Overflow置位与清除路径闭合，并替代E16中该Case的旧失败结论。 |
+| E18 | NOT_RETAINED | `FMAC_P1_014`修正版FPGA/HIL聚焦复测 | Saturation、X1 Overflow、Y Underflow三个自然IRQ节点全部PASS；证明对应状态、Raw/Status、ISR Latch与投递计数链路闭合，并替代E16中X1 Overflow参数节点的旧失败结论。 |
+| E19 | NOT_RETAINED | `fmac_p1_006`, `fmac_p1_010`, `fmac_p1_016`独立手动固件诊断 | P1_006四种清除方法中仅CRG复位清除目标位；P1_010由SR写1和CRG复位清除，CR.CLR/SR写0无效；P1_016对X1/X2/Y各执行合法边界、请求量越界、额外写入和物理边界跨越共12组刺激，`INT_RAW_RPT/INT_STATUS_RPT`始终为0。 |
 | E20 | 本文`4.4.6`节，2026-08-26数字设计人工确认 | X1/X2 Load Error与Y Store Error触发来源 | 三个Source属于普通软件无法构造的内部故障；原P1_016的软件越界装载不是有效自然刺激，Feature保留但不再建立Formal Case。 |
-| E21 | `artifacts/runs/20260828_140446_105424_manual_et6801_diagnostics/manual/diagnostics.log`、`artifacts/runs/20260828_142600_fmac_targeted_final/` | 2026-08-28 FMAC修正版手动诊断与Formal聚焦HIL | P1_006按“越界输入 -> 正常输入 -> W1C”执行后PASS；P1_010按正值恢复并W1C后PASS；正式PC到Firmware链路2/2 PASS。 |
+| E21 | NOT_RETAINED | 2026-08-28 FMAC修正版手动诊断与Formal聚焦HIL | P1_006按“越界输入 -> 正常输入 -> W1C”执行后PASS；P1_010按正值恢复并W1C后PASS；正式PC到Firmware链路2/2 PASS。 |
 
 # 第二章 ET6801 Hardware / Driver Facts
 
@@ -376,7 +376,7 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 | Assertion FAIL | 9 | `FMAC_P1_002`的WM=1/2/4、`P1_006`、`P1_010`、`P1_014`的X1 Overflow、`P1_016`的X1/X2/Y Load Error | 失败均有结构化硬件观测；不得降级为SKIP或弱化断言。 |
 | Timeout / ERROR / SKIP | 0 | 无 | 所有49个节点均到达确定的PASS或Assertion FAIL结论。 |
 
-证据目录：`artifacts/runs/20260825_212348_344047_fmac_formal_cases/tests/fmac`。报告：`artifacts/reports/20260825_212446_465482_ET6801_FMAC测试报告.xlsx`。
+证据目录：。报告：`artifacts/reports/20260825_212446_465482_ET6801_FMAC测试报告.xlsx`。
 
 ### 4.4.2 2026-08-25 22:41 CST 跨芯片历史Case复核修正
 
@@ -411,7 +411,7 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 - `FMAC_P1_010`：四次均稳定触发`SR=0x03080800`，目标位为`0x00000800`。CR.CLR后目标位仍为1，SR写0后仍为1；SR写1后`SR=0x03080000`，目标位已清，CRG复位同样可清。当前Formal Case失败来自公共清除路径选择错误，应在后续获批任务中通过Chip Driver Test Extension提供专用W1C接口，不得在Wrap直接操作寄存器。
 - `FMAC_P1_016`：对X1、X2、Y分别执行“请求8/写8”“请求9/写9”“请求8/写9”“base=252、size=8跨物理256项边界”四类刺激，共12组。PARAM变化与ENABLE自动清除证明命令和写入已到达硬件，但所有组的`INT_RAW_RPT`与`INT_STATUS_RPT`均为0。当前证据已排除单一容量8/写9构造不足，但在缺少RTL触发定义前仍不能把结论升级为确定RTL缺陷；Case继续保持FAIL/open。
 
-证据：`artifacts/runs/20260826_082728_005875_manual_et6801_uart_crc/manual/uart_crc.log`。部署证据分别位于`artifacts/runs/20260826_082356_494865_xc7vx980t_program/`、`artifacts/runs/20260826_082614_207670_bootrom_debug_load/`和`artifacts/runs/20260826_082642_076442_firmware_flash_run/`。
+原始证据未随仓库保留。部署证据同样未保留。
 
 ### 4.4.6 2026-08-26 11:09 CST 内部Load/Store Error结论修正
 
@@ -542,7 +542,7 @@ Historical ET6801 tests/logs: REFERENCE_ONLY
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:14 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/fmac/` |
+| FPGA | `2026-08-28 17:14 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 

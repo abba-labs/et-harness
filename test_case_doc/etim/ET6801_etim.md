@@ -139,7 +139,7 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 文档先使用ET技能导航和共享toolbox摘要，再定向解析DOCX XML/OMML公式、PDF文字与关键示意图。
 目标SVD使用XML结构解析，特别处理本地拆分SVD中cluster内addressOffset已为绝对偏移的方言，
 不再次叠加cluster起点。参考资料用于解释继承机制和设计Oracle，结合目标SVD确认适用范围，不能独自证明目标硬件SUPPORTED。
-过程输出位于外层项目`Et_Automated_Testing_Platform_Code/artifacts/runs/20260906_154000_etim_analysis/`，
+过程输出位于外层项目
 含chip query、doc discovery、定向文字提取和私有参考图；这些图不作为可公开波形报告。
 
 ## 第二章 ET6801 Hardware / Driver Facts
@@ -535,7 +535,7 @@ Q03是仍未完整设计的明确历史目的；Q01/Q02/Q04/Q05分别限制相�
 这些问题不影响其他方法的审核，也不能因本轮范围收敛完成就计成“全部必测方法已闭合”。
 本轮没有获准实测，FPGA/Silicon分别保留NOT_EXECUTED，Renode不能替代外部/电气结论。
 
-证据：`artifacts/runs/20260906_223000_etim_scope/`中的资料定位和chip query；本节依赖的源身份由1.2及RDB固定。
+证据：中的资料定位和chip query；本节依赖的源身份由1.2及RDB固定。
 22:35修正的doc discovery只在实际`ET6003/03 参考资料`定位两个既有手册；首次缺空格的include-root无效结果不用于结论。
 
 ### 3.8 五项必要问题的参考方法落实
@@ -849,4 +849,4 @@ G07及G09剩余特例、G03/04/05/06的额外竞态、G08的逐CEVT/未说明编
 - PLAN、公共IP芯片中立、方法行结构及芯片映射四个专项全部通过；45个Feature和32个PLAN不变。
 - 人工复核确认：最大滤波窗口/实际2分频已补；Fault互补仍为必测Q03；输入笛卡尔积、理论竞态、逐CEVT及无规范认证不再混入本轮分母。
 - 专项resource-control任务：`20260906_224844_462c0451`、`20260906_224847_6d8a6858`、`20260906_224849_9e66ec56`、`20260906_224852_3d5bd543`。
-- 总软件门禁与提交身份另存`artifacts/runs/20260906_223000_etim_scope/scope_validation.md`；这些校验不关闭Q01～Q05，不代表硬件PASS。
+- 总软件门禁与提交身份另存；这些校验不关闭Q01～Q05，不代表硬件PASS。

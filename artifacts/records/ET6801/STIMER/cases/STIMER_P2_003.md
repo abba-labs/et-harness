@@ -16,7 +16,7 @@
 
 ## 依据与变化
 
-方法权威：[公共STIMER契约](../../../../../test_case_doc/stimer/stimer.md)中的`STIMER_P2_003`；芯片适配与观测值出处见[ET6801 STIMER文档](../../../../../test_case_doc/stimer/ET6801_stimer.md)状态块。参数级Canonical证据：[STIMER专项Session](../../../../../artifacts/runs/20260903_143239_269296_local_et6801_fpga_atp_testing/tests/stimer/session.json)（cases/目录含result.json）；历史结果与证据缺失声明见[历史来源与版本](../README.md)。
+方法权威：[公共STIMER契约](../../../../../test_case_doc/stimer/stimer.md)中的`STIMER_P2_003`；芯片适配与观测值出处见[ET6801 STIMER文档](../../../../../test_case_doc/stimer/ET6801_stimer.md)状态块。历史结果与证据缺失声明见[历史来源与版本](../README.md)。
 
 - 2026-09-09 11:45 CST：从状态块、0903专项session与公共契约提炼FAIL现象、已排除根因与复测条件；未进行硬件复测。
 - 2026-09-10 21:53 CST：本轮 FPGA 全量（源码 `7106a1562269da95d060e2cd756d53eef7e156d4`，source_dirty=true，固件 `et6801-silicon-common-v0.1`）本 Case 已选节点 PASS；脏树不得外推，方法正文不重写。

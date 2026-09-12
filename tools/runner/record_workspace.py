@@ -31,7 +31,7 @@ class KnowledgeReviewPending(ValueError):
 
 
 def environment_lock(repository: Path) -> AbstractContextManager[None]:
-    return file_lock(repository.parent / "tmp/run_pipeline.lock")
+    return file_lock(repository / "tmp/run_pipeline.lock")
 
 
 def _validate_root(repository: Path, root: Path) -> None:

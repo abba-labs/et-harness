@@ -28,6 +28,8 @@ _STALE_CURRENT_SHA_FPGA_HIL = re.compile(
 )
 _TEST_STATUS_BEGIN = "<!-- ET_CHIP_TEST_STATUS_BEGIN -->"
 _TEST_STATUS_END = "<!-- ET_CHIP_TEST_STATUS_END -->"
+# 已废弃的原始执行目录：只读历史、允许清理，引用后必然断链。
+_DEPRECATED_RUN_REF = re.compile(r"artifacts/runs(?:/|\b)")
 _TEST_STATUS_UPDATED = re.compile(
     r"(?m)^状态更新时间：`(?P<value>\d{4}-\d{2}-\d{2} \d{2}:\d{2} CST)`\s*$"
 )
@@ -507,6 +509,23 @@ def _validate_test_status(path: Path, text: str, *, required: bool) -> list[Viol
     return violations
 
 
+def _validate_deprecated_run_reference(path: Path, text: str) -> list[Violation]:
+    """拒绝芯片文档引用已废弃的 artifacts/runs 目录。
+
+    该目录是只读历史且允许被清理，引用必然断链；证据来源应写为不含路径的结论，
+    或引用 records/<CHIP>/<IP>/current。
+    """
+    if not _DEPRECATED_RUN_REF.search(text):
+        return []
+    return [
+        Violation(
+            path,
+            "ETCHIPDOC301",
+            "chip analysis must not reference deprecated artifacts/runs evidence paths",
+        )
+    ]
+
+
 def _validate_chip_doc(
     public: Path, chip_doc: Path, *, require_test_status: bool = False
 ) -> list[Violation]:
@@ -554,6 +573,7 @@ def _validate_chip_doc(
     )
     violations.extend(_validate_hil_sync(chip_doc, chip_text))
     violations.extend(_validate_test_status(chip_doc, chip_text, required=require_test_status))
+    violations.extend(_validate_deprecated_run_reference(chip_doc, chip_text))
     return violations
 
 

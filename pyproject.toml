@@ -43,7 +43,7 @@ pythonpath = ["pc"]
 testpaths = ["pc/et_test_platform/framework_validation/unit"]
 python_files = ["test_*.py"]
 addopts = "-q"
-cache_dir = "../tmp/pytest_cache"
+cache_dir = "tmp/pytest_cache"
 markers = [
   "hardware: requires the explicit real-hardware execution gate",
   "ip(name): identifies the primary IP owned by a formal Case package",

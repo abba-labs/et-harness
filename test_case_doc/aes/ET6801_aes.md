@@ -326,7 +326,7 @@ AES_P1_009 OUTPUT_CONFLICT
 
 | Case | 测试环境 | 实际硬件现象 | 已排除的软件链路问题 | 当前判定 | Evidence |
 |---|---|---|---|---|---|
-| `AES_P1_009` | ET6801 FPGA；AES FIFO DMA输入2个Block，输出DMA仅接收1个Block并保持Busy | `ISR.LATCHED.OUTPUT_CONFLICT=1`，`event_count: 0→1`；清除后latched/raw/status均为0；复位后CPU PROCESS结果与Golden完全一致 | CPU双输入受`data_valid`反压，不能构造冲突；新Case改由真实DMA输出Busy状态产生第二笔AES结果 | `PASS` | `artifacts/runs/20260828_0811_aes_p1_009/` |
+| `AES_P1_009` | ET6801 FPGA；AES FIFO DMA输入2个Block，输出DMA仅接收1个Block并保持Busy | `ISR.LATCHED.OUTPUT_CONFLICT=1`，`event_count: 0→1`；清除后latched/raw/status均为0；复位后CPU PROCESS结果与Golden完全一致 | CPU双输入受`data_valid`反压，不能构造冲突；新Case改由真实DMA输出Busy状态产生第二笔AES结果 | `PASS` | NOT_RETAINED |
 
 2026-08-24 CPU双输入复测结果保留为旧刺激诊断证据，不再代表当前正式Case结论。正式Case以2026-08-28 DMA Busy冲突HIL结果为准。
 
@@ -339,7 +339,7 @@ AES_P1_009 OUTPUT_CONFLICT
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:13 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/aes/` |
+| FPGA | `2026-08-28 17:13 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
@@ -356,7 +356,7 @@ AES_P1_009 OUTPUT_CONFLICT
 
 <a id="aes-record-index"></a>
 ### 测试记录与知识索引
-2026-09-09 11:30 CST补充：[26个已注册Case的提炼型知识](../../artifacts/records/ET6801/AES/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session（artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/aes/）已随早期清理不在仓库，参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
+2026-09-09 11:30 CST补充：[26个已注册Case的提炼型知识](../../artifacts/records/ET6801/AES/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
 | 入口 | 用途 |
 |---|---|
 | [AES Case知识索引](../../artifacts/records/ET6801/AES/README.md) | 26个已注册Case知识；历史来源与证据缺失声明见其"历史来源与版本" |

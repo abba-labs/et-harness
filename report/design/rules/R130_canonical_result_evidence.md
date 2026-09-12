@@ -269,6 +269,7 @@ large/raw evidence -> independent file + canonical relative reference
 - 每份知识标注芯片、Lane、源码/方法/固件等已知适用基线及未知项；版本变化后由Agent判断知识适用性和复测范围，工具不猜测影响。
 - 脚本只提取事实、检查Markdown结构/链接、刷新IP索引并登记显式整理确认，不改Case正文、不推断修复、不生成长期结构化快照。静态检查PASS不代表分析正确或问题关闭。
 - 原始现场的保留、显式整理确认、复用回执、必要附件和历史迁移由R500规定。
+- 长期Case Markdown与芯片文档禁止引用已废弃的原始执行目录（`artifacts/runs/**`）：该目录是只读历史、允许被清理，引用后必然断链。需要表达证据来源时，写不含路径的结论或"原始证据未随仓库保留"，不写链接、反引号路径或裸路径。当前有效证据一律引用`records/<CHIP>/<IP>/current`或`records/_TOOLING/<TASK>/current`。
 
 ## 9. 回归与变更规则
 

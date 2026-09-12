@@ -50,7 +50,7 @@
 |---|---|---|
 | 4个可配置双角色实例 | VERIFIED | 整片SVD的SPI0～SPI3及各CTRLR0.SSI_IS_MST；每实例独立IRQ、CRG Reset和TX/RX DMA请求。 |
 | Motorola四模式、4～16bit配置 | VERIFIED | CTRLR0.DFS/SCPH/SCPOL及Driver合法范围；不推广到TI/Microwire的全部模式组合。 |
-| FIFO容量32 | VERIFIED / FPGA实测 | 2026-09-04三组P1_004逐帧写入，TXFLR=32时SR.TFNF清零；SDK旧声明16已修正。证据：`artifacts/runs/20260904_175810_265300_local_et6801_fpga_atp_testing/`。硅后尚未实测；4-bit阈值不能推导FIFO容量。 |
+| FIFO容量32 | VERIFIED / FPGA实测 | NOT_RETAINED |
 | 多CS | NOT_APPLICABLE | ET6801 SER只有bit0有效；保留单CS选择/窗口测试，不照搬历史CS1/CS2。 |
 | 25MHz或50MHz一定可达 | UNKNOWN | 25MHz是参考需求/历史配置，50MHz是Driver校验上限；需当前APB3时钟和有效偶数分频。二者都不是当前FPGA已测上限。 |
 | RX延迟全部0～255有效 | UNKNOWN | RSD为8bit；SVD说明超过内部移位深度时实际延迟退回0，但未提供该深度。 |
@@ -100,7 +100,7 @@
 
 软件回归入口：`pc/et_test_platform/framework_validation/unit/firmware_contract/test_spi_driver_native.py`，编译真实SPI Driver，复用生成头位定义，验证非法参数无写入、帧数/分频边界、FIFO查询不清错误和非阻塞写无等待。寄存器桩不证明波形、真实FIFO或IRQ投递。
 
-本批验证：ArmClang对真实SDK和SPI Wrap的语法检查通过；同一回归夹具通过WSL GCC编译真实Driver与Wrap并执行全部断言，退出码0。包含四实例映射、公共返回值、非法参数、BUSY以及不消耗SR错误的检查。原生夹具位于`artifacts/runs/20260904_114000_000000_spi_sdk_software/stages/native/`。Windows PATH没有本机C编译器，pytest会跳过该原生测试；WSL执行证据不能计入pytest通过数量。尚未进行完整固件链接、下载或HIL。
+本批验证：ArmClang对真实SDK和SPI Wrap的语法检查通过；同一回归夹具通过WSL GCC编译真实Driver与Wrap并执行全部断言，退出码0。包含四实例映射、公共返回值、非法参数、BUSY以及不消耗SR错误的检查。原生夹具位于。Windows PATH没有本机C编译器，pytest会跳过该原生测试；WSL执行证据不能计入pytest通过数量。尚未进行完整固件链接、下载或HIL。
 
 2026-09-04 12:02 CST：本批统一软件门禁`tools/validate_pc.py`通过，977 PASS、15 SKIP、0 FAIL；包含规则路由、范围、文档、C格式/注释、软件单测、既有Formal Case收集和报告导出检查。初次检查发现测试扩展缺少规范标记/编译开关，已按既有SDK隔离约定修正，未放宽Checker。关闭测试扩展的普通SDK语法检查及开启扩展的SDK/Wrap检查均通过。以上数量是软件门禁测试，不是SPI的17项硬件Case结果。
 
@@ -111,10 +111,10 @@
 | Chip Driver / Wrap | 完整停机配置及读回、FIFO阈值/无损快照、独立错误读取、IRQ源屏蔽/清除/路由、DMA端点；公共Wrap不读写寄存器。 | 真实SDK、Wrap、Service通过ArmClang语法检查及原生寄存器桩回归；不证明总线时序。 |
 | SPI Service | `0x010B`、25条固定布局命令；每条仅执行本IP原子动作。回调只锁存事实并屏蔽有效源，不排空FIFO，不执行Case断言。 | 固定向量、长度、实例及IRQ验证通过；薄工厂与Application/工程注册已完成。 |
 | IRQ故障边界 | 注册失败时只读取本回调的Manager所有权，区分未分配与部分保留；不写Manager内部状态。没有分配的失败不留下虚假BUSY，部分解绑失败保留重试所有权。 | 原生夹具覆盖注册前失败、部分注册后回滚成功/失败、解绑重试和事件计数溢出；不模拟NVIC硬件。 |
-| PC Driver / Codec | 25条直接命令、严格响应长度、正常/强制FIFO访问分离；多次读取共享Deadline，无跨IP初始化。 | 独立FIFO阈值响应及非法范围检查已增加。全软件门禁1080 PASS、16环境SKIP；SPI原生合同通过。证据：`artifacts/runs/20260904_spi_gpio/stages/spi_fifo_gate_closed.log`、`spi_fifo_native.log`。 |
+| PC Driver / Codec | 25条直接命令、严格响应长度、正常/强制FIFO访问分离；多次读取共享Deadline，无跨IP初始化。 | NOT_RETAINED |
 | 尚未完成 | Capability语义/执行映射、GPIO接线依赖、Application/Keil注册、17项目标对应的正式Case及报告模板。 | Formal Case仍为0，SPI HIL仍未执行；不能把本批软件测试数量填入第七章硬件PASS。 |
 
-证据目录：`artifacts/runs/20260904_123800_000000_spi_wire_software/stages/`。`armclang_final.log`记录目标工具链语法检查；`native_irq_failure.log`记录含IRQ故障注入的真实SDK/Wrap/Service原生执行；`software_gate_review.log`为本批最终软件门禁日志。Windows本机缺少原生C编译器，该pytest项目保持环境SKIP；WSL执行单独留证，不改写pytest计数。
+证据目录：。`armclang_final.log`记录目标工具链语法检查；`native_irq_failure.log`记录含IRQ故障注入的真实SDK/Wrap/Service原生执行；`software_gate_review.log`为本批最终软件门禁日志。Windows本机缺少原生C编译器，该pytest项目保持环境SKIP；WSL执行单独留证，不改写pytest计数。
 
 TI/Microwire仍保留第5/6章的依据缺口：寄存器桩只能验证当前Driver编码写回，不能证明目标FRF枚举及MWMOD极性的硬件正确性，也不能证明协议时序。目标SVD没有给出的枚举含义不得据此升级为已验证能力；P2_002不能凭编码读回宣布完成。
 
@@ -303,7 +303,7 @@ Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-09-04 18:42 CST` | `d6832926244edeb4b8170ef66d652e395f7d3648` | `false` | `artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/session.json` |
+| FPGA | `2026-09-04 18:42 CST` | `d6832926244edeb4b8170ef66d652e395f7d3648` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
@@ -317,7 +317,7 @@ Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `SPI_P1_001` | FPGA | SKIP | SPI_F_008 / 单SPI PAD回接 | 配置前无loopback角色，36个参数执行在硬件动作前跳过；未观察回接收发 | 当前SPI0/SPI1四线互联，不满足单SPI MOSI→MISO短接 | 改为单实例回接并声明对应handle/GPIO及loopback角色后执行 | `artifacts/runs/20260904_184216_913276_local_et6801_fpga_atp_testing/tests/spi/` |
+| `SPI_P1_001` | FPGA | SKIP | SPI_F_008 / 单SPI PAD回接 | 配置前无loopback角色，36个参数执行在硬件动作前跳过；未观察回接收发 | 当前SPI0/SPI1四线互联，不满足单SPI MOSI→MISO短接 | 改为单实例回接并声明对应handle/GPIO及loopback角色后执行 | NOT_RETAINED |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 报告：`artifacts/reports/20260904_184643_846713_ET6801_SPI测试报告.xlsx`。原始结果及Excel均在规定artifacts目录，旧Run不改写。
@@ -328,4 +328,4 @@ Capability需发布角色、格式、帧宽、TX/RX容量、水位域、CS适用
 - SDK FIFO容量16修正为实测32；IRQ/启动/DMA阈值仍按SVD四位字段限制0～15。容量、自然Overflow、IRQ清除及DMA64/65帧传输通过，未放宽断言。
 - SPI Case在CRG复位DMA前先停止、解除通道配置再关闭Controller，消除Service旧配置影响；未改DMA源码。DMA28组及连续20轮通过。
 - 报告摘要每个Execution只登记一次，完整节点/轮次观测保留。只修SPI Case及模板，未改公共报告层。
-- 部署证据：`artifacts/runs/20260904_182941_374065_local_et6801_fpga_atp_testing/`，固件源码`ba5ba0b535a4e45ba485caed564f7251f34dabc8`，按编译→bitfile→BootROM→PFLASH运行。该轮硬件同为116 PASS/36 SKIP，但报告失败，不能称整条Pipeline通过。最终Run仅修PC摘要并复用同一Flash固件，没有重复烧录。
+- 部署证据：，固件源码`ba5ba0b535a4e45ba485caed564f7251f34dabc8`，按编译→bitfile→BootROM→PFLASH运行。该轮硬件同为116 PASS/36 SKIP，但报告失败，不能称整条Pipeline通过。最终Run仅修PC摘要并复用同一Flash固件，没有重复烧录。

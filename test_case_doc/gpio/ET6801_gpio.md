@@ -55,6 +55,6 @@ Chip Config必须使用表中的SDK宏，不能抄编码作为魔鬼数字。用
 
 2026-09-04 15:35 CST：GPIO Service提供VALIDATE_SIGNAL/CONFIGURE_SIGNAL，独立于SPI Service。GPIO Wrap新接口按GPIO、信号、外设实例三元组查表；信号表列入SDK的全部SPI CLK/CS/MOSI/MISO候选，不把本次接线固化为唯一可用组合。旧UART配置入口保持不变。Application只增加静态注册项，无硬件初始化动作。待软件验证和SPI实测，当前不声明硬件PASS。
 
-2026-09-04 15:43 CST：上述固件批次已通过FPGA_ITCM和SILICON_FLASH两目标编译（均0错误、0警告），总软件门禁1064 PASS / 16 SKIP；另以WSL GCC编译真实GPIO Service完成Wire/非法请求测试。SKIP为主机软件测试条件，不是SPI硬件Case结论。证据：`artifacts/runs/20260904_spi_gpio/stages/`。PC独立GPIO Driver已补齐，等待本批软件门禁；没有执行烧录或HIL。
+2026-09-04 15:43 CST：上述固件批次已通过FPGA_ITCM和SILICON_FLASH两目标编译（均0错误、0警告），总软件门禁1064 PASS / 16 SKIP；另以WSL GCC编译真实GPIO Service完成Wire/非法请求测试。SKIP为主机软件测试条件，不是SPI硬件Case结论。原始证据未随仓库保留。PC独立GPIO Driver已补齐，等待本批软件门禁；没有执行烧录或HIL。
 
-2026-09-04 15:53 CST：PC GPIO Driver的9项新增单测通过；本批总软件门禁1073 PASS / 16 SKIP，完整日志为`artifacts/runs/20260904_spi_gpio/stages/pc_gpio_gate_accept.log`。查询/配置请求、u16LE布局、非法输入无发送副作用及空响应检查均通过。GPIO/SPI分层无变更；SPI正式Case与HIL尚未完成，不能将本次软件结果记为SPI Case PASS。
+2026-09-04 15:53 CST：PC GPIO Driver的9项新增单测通过；本批总软件门禁1073 PASS / 16 SKIP，完整查询/配置请求、u16LE布局、非法输入无发送副作用及空响应检查均通过。GPIO/SPI分层无变更；SPI正式Case与HIL尚未完成，不能将本次软件结果记为SPI Case PASS。

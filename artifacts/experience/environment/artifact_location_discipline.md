@@ -68,7 +68,7 @@ artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（
 ## 依据与变化
 
 - 2026-09-11 18:00 CST：由当日会话沉淀。已执行的纠正：C: 盘目录整体删除，日志与备份迁入
-  `records/_TOOLING/IP_REGRESSION_20260911/current/`，`graphflow-out/` 加入 `.gitignore`，
+  `records/_TOOLING/IP_REGRESSION_TIMING/current/`，`graphflow-out/` 加入 `.gitignore`，
   `tmp/` 清空。同轮修复了 `tools/runner/record_source.py` 的 Ruff 格式与两处 C901 复杂度。
 - 2026-09-11 21:40 CST：**同一条规矩当日再次被违反**——Agent 在修复上述问题后，又陆续在
   `C:\Users\admin\atp_temp\` 写了 9 个探针脚本（`probe*.py`/`repro*.py`）、4 个工具脚本

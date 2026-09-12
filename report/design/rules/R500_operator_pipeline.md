@@ -169,7 +169,7 @@ Runner只能从正式Registry中执行本次明确选中的集合。选择来源
 全部新增证据进入`records`固定工作区；长期只维护按芯片/IP/Case组织的Markdown知识：
 
 ```text
-artifacts/
+artifacts/                              # 结论性产物；见 6.1
 ├─ records/<CHIP>/<IP>/
 │  ├─ README.md
 │  ├─ cases/<CASE_ID>.md
@@ -181,6 +181,8 @@ artifacts/
 ├─ records/_DIAGNOSTICS/<TOOL>/current/ # 独立诊断现场，不代表Formal Case验证
 ├─ records/_TOOLING/<TASK>/current/    # 软件门禁/工具验证；TASK为稳定主题，不用日期或轮次
 └─ reports/<CHIP>/<CHIP>_<IP>测试报告.xlsx  # 每芯片/IP一份最近生成的报告
+
+tmp/                                    # 仓库内本地临时区，gitignore，非证据；见 6.1
 ```
 
 ### 6.1 当前工作区与复用门禁
@@ -197,6 +199,7 @@ artifacts/
 - 输出完成后回执为待整理状态；脚本不得自动`review`。无论测试PASS或FAIL，`prepare_workspace`可以覆盖Hash完好的pending `current/`。人可以不review。Agent必须review。不得把未review的一轮当作知识闭环。
 - Agent可以在测试过程中增量提炼已确认的方法、问题和结论；每轮结束必须完成全部已选Case的整理核对。`review`只接受终止且完整的Session。覆盖看完整性；`review`看知识回执。进行中的增量笔记不能提前完成`review`。
 - `review`复核当前原始文件与目录成员，检查本次全部已选Case Markdown及必要附件，刷新索引并绑定知识文件Hash。首次没有知识文件时必须先整理；`check`、`index`和重复PASS均不能代替整理确认。
+- 临时产物只使用仓库内`tmp/`（已由`.gitignore`忽略）：pytest缓存、流水线环境锁、一次性草稿脚本。`tmp/`不是证据区，内容不进Git，不作为知识或结果引用。仓库代码与配置不得把锁、缓存或脚本写到仓库之外的固定路径；`artifacts/`下的`records`、`reports`、`experience`仍是结论性产物的唯一去向，与`tmp/`职责不重叠。操作系统级临时目录由系统决定，不属于本规则范围。
 - 复用前验证原始现场Hash与目录成员。已确认知识Hash仅当`records`非空时验证。pending且`records={}`时没有知识证明可验。知识被改后须再次`review`才能覆盖已review的工作区。
 - 人的无人值守连跑可以覆盖已seal且Hash完好的pending工作区。Agent无人值守循环必须在每轮之间review。不得为了连续运行跳过Agent知识贡献。
 - 无Case的成功普通阶段可标记复用；失败前置阶段、缺少/损坏回执及未完成Session只能保留，或经人工明确指定的完整现场归档恢复，不因PASS文字清空。

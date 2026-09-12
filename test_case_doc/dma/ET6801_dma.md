@@ -369,7 +369,7 @@ Silicon HIL: NOT_EXECUTED / NOT_VERIFIED
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:12 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/dma/` |
+| FPGA | `2026-08-28 17:12 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 

@@ -1326,7 +1326,9 @@ def test_pipeline_manifest_uses_portable_configuration_reference(tmp_path: Path)
     assert RUN_PIPELINE._portable_path_reference(REPOSITORY_ROOT / "run_config.example.yaml") == (
         "run_config.example.yaml"
     )
-    assert RUN_PIPELINE._portable_path_reference(tmp_path / "operator.yaml") == (
+    # 仓库外配置必须显式构造：pytest 的 tmp_path 落在仓库内（<repo>/tmp），
+    # 不能再拿它代表"仓库外"。
+    assert RUN_PIPELINE._portable_path_reference(REPOSITORY_ROOT.parent / "operator.yaml") == (
         "external:operator.yaml"
     )
 

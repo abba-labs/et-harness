@@ -80,4 +80,4 @@ Agent 全程没看到"必须走 run_pipeline"这条，缺失是静默的——�
 - 2026-09-11 18:00 CST：由 2026-09-11 会话的事件流逐调用计时（382 次工具调用）与
   `records/ET6801/*/current/cases/**/result.json` 的 duration_s 沉淀。同批第二次执行
   （wdg/spinlock/uart 各 68s/11s/31s）验证了正确入口的提速效果。原始计时详见
-  `records/_TOOLING/IP_REGRESSION_20260911/current/timing_analysis.md`。
+  `records/_TOOLING/IP_REGRESSION_TIMING/current/timing_analysis.md`。

@@ -595,7 +595,7 @@ Current-SHA Silicon HIL:
 - NOT_EXECUTED / NOT_VERIFIED
 ```
 
-`ADAPTED` 不等于 `PASS`。2026-08-22运行的Source Revision为`edfd188173e93b3a580ba1d30587795c2ca1749c`且`source_dirty=true`，因此只能证明当时工作树行为。该次`CRC_P1_011`采用已被推翻的Result节拍Oracle，不再代表当前Formal Case；原始证据仍保留在`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`，对应报告为`artifacts/reports/20260822_104835_661796_ET6801_CRC测试报告.xlsx`。
+`ADAPTED` 不等于 `PASS`。2026-08-22运行的Source Revision为`edfd188173e93b3a580ba1d30587795c2ca1749c`且`source_dirty=true`，因此只能证明当时工作树行为。该次`CRC_P1_011`采用已被推翻的Result节拍Oracle，不再代表当前Formal Case；原始证据仍保留在，对应报告为`artifacts/reports/20260822_104835_661796_ET6801_CRC测试报告.xlsx`。
 
 ### 6.2 2026-08-22 FIFO行为诊断
 
@@ -613,7 +613,7 @@ Current-SHA Silicon HIL:
 | `CRC_P1_011` | ET6801 FPGA，FIFO Threshold=5，五次目标端紧凑32-bit写入 | 写入前`RESULT=0xBD3A64DC`；第四次写入后已变为`0xAD37D056`，第五次后保持不变 | J-Link在Case活动期间直接读回`FIFO_TRHD=5`，仅证明配置到达硬件；不能证明DMA Request水位 | `INVALID_ORACLE / SUPERSEDED` | 提供独立`fifo_cnt/dma_req` Observer后按DMA水位PLAN重新实现；不得继续使用Result节拍判断 |
 | `CRC_P1_012` | ET6801 FPGA，FIFO Threshold=1，七次目标端原子写入并执行恢复路径 | 七次写入后`FIFO_OVF=0`；Disable/Re-enable后恢复CRC为`0x140B8DD8`，与PC Golden一致 | 原子刺激、Overflow读取和恢复路径均已执行，恢复结果证明模块后续可正常工作 | `FPGA_FIFO_OVERFLOW_BEHAVIOR_GAP / HIL_FAIL` | RTL/bit所有者确认可触发Overflow的真实FIFO路径和安全刺激；取得权威结果后重跑 |
 
-`CRC_P1_011`旧结果只保留为错误Oracle的复盘证据；`CRC_P1_012`保持严格FAIL。二者均不用于宣称已经动态测得FIFO物理深度。证据位于`artifacts/runs/20260822_104307_942751_local_et6801_fpga/tests/crc`；本次运行来自dirty工作树。
+`CRC_P1_011`旧结果只保留为错误Oracle的复盘证据；`CRC_P1_012`保持严格FAIL。二者均不用于宣称已经动态测得FIFO物理深度。原始证据未随仓库保留。
 
 ### 6.4 CRC_P1_012人工确认与64次CPU直写复测
 
@@ -632,7 +632,7 @@ Current-SHA Silicon HIL:
 
 后续修正 / 最终结论：经项目同事人工确认，当前测试方法正常，失败原因是当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题。`CRC_P1_012`应继续记录为`HIL_FAIL / CONFIRMED_FPGA_FUNCTION_ISSUE`，不是SKIP，也不得通过弱化断言改成PASS。该结论仅限定当前FPGA实现，不代表未来修复后的RTL或硅后芯片行为。
 
-关联文件 / 证据：`artifacts/runs/20260824_153942_456192_manual_et6801_uart_crc/manual/uart_crc.log`。
+关联文件 / 原始证据未随仓库保留。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
@@ -643,7 +643,7 @@ Current-SHA Silicon HIL:
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/` |
+| FPGA | `2026-08-28 17:11 CST` | `596c1a73b91f6af577b1b274d49c34f8d9fb823a` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
@@ -655,13 +655,13 @@ Current-SHA Silicon HIL:
 
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
-| `CRC_P1_012` | FPGA | FAIL | `CRC_F_014` / CRC FIFO Overflow状态 | `FIFO_TRHD=1`并连续写入7次后，`FIFO.OVERFLOW`仍由`false`保持为`false`；恢复轮CRC实际值与期望值均为`0x140B8DD8`，剩余输入计数为0 | 人工已确认刺激方法有效；当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题，CRC计算与恢复路径正常 | RTL/bit修复`FIFO_OVF`后，使用相同紧凑写入和恢复流程复测 | `artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/` |
+| `CRC_P1_012` | FPGA | FAIL | `CRC_F_014` / CRC FIFO Overflow状态 | `FIFO_TRHD=1`并连续写入7次后，`FIFO.OVERFLOW`仍由`false`保持为`false`；恢复轮CRC实际值与期望值均为`0x140B8DD8`，剩余输入计数为0 | 人工已确认刺激方法有效；当前ET6801 FPGA实现的`FIFO_OVF`功能存在问题，CRC计算与恢复路径正常 | RTL/bit修复`FIFO_OVF`后，使用相同紧凑写入和恢复流程复测 | NOT_RETAINED |
 <!-- ET_CHIP_TEST_STATUS_END -->
 
 <a id="crc-record-index"></a>
 ### 测试记录与知识索引
 
-2026-09-09 11:30 CST补充：[23个已注册Case的提炼型知识](../../artifacts/records/ET6801/CRC/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点、FIFO_OVF失败归因与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session（artifacts/runs/20260828_170737_043300_local_et6801_fpga/tests/crc/）已随早期清理不在仓库，参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
+2026-09-09 11:30 CST补充：[23个已注册Case的提炼型知识](../../artifacts/records/ET6801/CRC/README.md)已从芯片文档状态块与人读历史报告迁移，保留方法要点、FIFO_OVF失败归因与验证边界；不是新增测试，不改变上方状态块数据。原始Canonical Session参数级execution明细不可考；本节只提供路径导航，不保存第二份当前测试状态。
 
 | 入口 | 用途 |
 |---|---|

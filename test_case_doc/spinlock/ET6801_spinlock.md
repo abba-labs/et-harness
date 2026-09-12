@@ -253,7 +253,7 @@ On-chip peer required: P2_001..P3_001
 - ET6801 Core0/Core1到SPINLOCK硬件Master ID的映射已由P2 Formal Case验证；Silicon仍需独立取证。
 - AXI SRAM1共享区的volatile和DMB/DSB策略已由FPGA P3共享计数验证；Silicon Cache/总线行为仍需独立取证。
 - SVD明确Owner语义，但Owner信息读取本身可能对空闲Resource产生Acquire副作用；实现测试Driver时必须避免把“观测”误做成“刺激”。
-- 当前FPGA证据：`artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/session.json`；Silicon尚无PASS证据。
+- 当前FPGA证据：；Silicon尚无PASS证据。
 
 <!-- ET_CHIP_TEST_STATUS_BEGIN -->
 ## 当前芯片测试状态
@@ -264,7 +264,7 @@ On-chip peer required: P2_001..P3_001
 
 | Lane | 测试时间 | Source Revision | Source Dirty | Evidence |
 |---|---|---|---|---|
-| FPGA | `2026-08-28 20:20 CST` | `ba1304b458148b681ec5f0a6a392cdf7c0757f76` | `false` | `artifacts/runs/20260828_202500_formal_dualcore_spinlock_exact_sha/tests/spinlock/` |
+| FPGA | `2026-08-28 20:20 CST` | `ba1304b458148b681ec5f0a6a392cdf7c0757f76` | `false` | NOT_RETAINED |
 
 ### 当前结果汇总
 
