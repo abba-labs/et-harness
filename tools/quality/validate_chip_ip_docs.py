@@ -509,12 +509,10 @@ def _validate_test_status(path: Path, text: str, *, required: bool) -> list[Viol
     return violations
 
 
+# 拒绝芯片文档引用已废弃的 artifacts/runs 目录。
+# 该目录是只读历史且允许被清理，引用必然断链；证据来源应写为不含路径的结论，
+# 或引用 records/<CHIP>/<IP>/current。
 def _validate_deprecated_run_reference(path: Path, text: str) -> list[Violation]:
-    """拒绝芯片文档引用已废弃的 artifacts/runs 目录。
-
-    该目录是只读历史且允许被清理，引用必然断链；证据来源应写为不含路径的结论，
-    或引用 records/<CHIP>/<IP>/current。
-    """
     if not _DEPRECATED_RUN_REF.search(text):
         return []
     return [
