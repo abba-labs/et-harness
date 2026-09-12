@@ -1,0 +1,17 @@
+[
+  {"name":"capabilities", "command":1, "model":0, "request":"", "status":0, "response":"00000000 0100 1c00 40000000 0000000001000000 00040000 ff0f0000"},
+  {"name":"timebase_configure", "command":2, "model":0, "request":"40000000 0000000001000000", "status":0, "response":"00000000"},
+  {"name":"timebase_get", "command":3, "model":0, "request":"", "status":0, "response":"00000000 08000000 0100000000000000"},
+  {"name":"enable_set", "command":4, "model":0, "request":"02010000", "status":0, "response":"00000000"},
+  {"name":"enable_get", "command":5, "model":0, "request":"00000000", "status":0, "response":"00000000 01000000"},
+  {"name":"count_get", "command":6, "model":0, "request":"", "status":0, "response":"00000000 28000000 07000000"},
+  {"name":"count_latch", "command":7, "model":1, "request":"04000000", "status":0, "response":"00000000 2d000000 07000000 2d000000 2d000000 03000000"},
+  {"name":"count_latch_timeout", "command":7, "model":3, "request":"04000000", "status":6, "response":"faffffff 28000000 07000000 07000000 28000000 04000000"},
+  {"name":"count_latch_busy", "command":7, "model":4, "request":"04000000", "status":5, "response":"fdffffff 28000000 07000000 07000000 01000000 03000000"},
+  {"name":"count_clear", "command":8, "model":2, "request":"04000000", "status":0, "response":"00000000 28000000 07000000 07000000 00000000 03000000"},
+  {"name":"count_clear_timeout", "command":8, "model":3, "request":"04000000", "status":6, "response":"faffffff 28000000 07000000 07000000 28000000 04000000"},
+  {"name":"irq_configure", "command":9, "model":0, "request":"00080000 08000000", "status":0, "response":"00000000"},
+  {"name":"irq_snapshot_get", "command":10, "model":0, "request":"", "status":0, "response":"00000000 00080000 08000000 00010000 80000000"},
+  {"name":"irq_force", "command":11, "model":0, "request":"40000000", "status":0, "response":"00000000"},
+  {"name":"irq_clear", "command":12, "model":0, "request":"08000000", "status":0, "response":"00000000"}
+]

@@ -67,9 +67,11 @@ extern "C" {
 #define ETIMER_CHANNEL_11     (0x0800UL)
 #define ETIMER_CHANNEL_12     (0x1000UL)
 #define ETIMER_CHANNEL_13     (0x2000UL)
-#define ETIMER_CHANNEL_ALL    (0x3FFFUL)
+/* ET6801 etim_cfg/CMSIS: CORE[12], OUT[6]; legacy channel 12/13
+ * names remain source-compatible but are not valid target channels. */
+#define ETIMER_CHANNEL_ALL    (0x0FFFUL)
 
-#define ETIMER_CHANNEL_NUM    (14UL)
+#define ETIMER_CHANNEL_NUM    (12UL)
 
 /**
  * @}
@@ -994,6 +996,60 @@ void ETIMER_selectSyncToXBAROrPin(ETIMER_SyncOutSrc syncSrc);
 /**
  * @}
  */
+#if defined(ET_ENABLE_TEST_DRIVER_EXTENSIONS)
+/******************** TEST DRIVER EXTENSION BEGIN ********************/
+/* Physical channel indices are zero based. No channel masks are accepted.
+ * Timebase values use actual divisors and full periods, not register codes. */
+typedef struct
+{
+    uint32_t divider;
+    uint64_t periodTicks;
+} ETIMER_TestTimeBase;
+
+typedef enum
+{
+    ETIMER_TEST_ENABLE_MODULE,
+    ETIMER_TEST_ENABLE_TIMER,
+    ETIMER_TEST_ENABLE_PWM,
+    ETIMER_TEST_ENABLE_CAPTURE,
+    ETIMER_TEST_ENABLE_CAPTURE_LOAD
+} ETIMER_TestEnable;
+
+DRV_Status ETIMER_testConfigureTimeBase(uint32_t channel, const ETIMER_TestTimeBase *config);
+DRV_Status ETIMER_testGetTimeBase(uint32_t channel, ETIMER_TestTimeBase *config);
+DRV_Status ETIMER_testSetEnable(uint32_t channel, ETIMER_TestEnable control, uint32_t enabled);
+DRV_Status ETIMER_testGetEnable(uint32_t channel, ETIMER_TestEnable control, uint32_t *enabled);
+
+/* Software work budget in register samples, not a hardware clock/time bound. */
+#define ETIMER_TEST_MAX_COUNT_POLLS (1024U)
+typedef struct
+{
+    uint32_t before;
+    uint32_t previousLatch;
+    uint32_t latched;
+    uint32_t live;
+    uint32_t polls;
+} ETIMER_TestCountObservation;
+
+DRV_Status ETIMER_testReadCount(uint32_t channel, uint32_t *live, uint32_t *latched);
+DRV_Status ETIMER_testLatchCount(uint32_t channel, uint32_t pollBudget, ETIMER_TestCountObservation *observation);
+DRV_Status ETIMER_testClearCount(uint32_t channel, uint32_t pollBudget, ETIMER_TestCountObservation *observation);
+
+typedef struct
+{
+    uint32_t enabled;
+    uint32_t masked;
+    uint32_t raw;
+    uint32_t status;
+} ETIMER_TestInterruptSnapshot;
+
+DRV_Status ETIMER_testConfigureInterrupt(uint32_t channel, uint32_t enabled, uint32_t masked);
+DRV_Status ETIMER_testGetInterrupt(uint32_t channel, ETIMER_TestInterruptSnapshot *snapshot);
+DRV_Status ETIMER_testForceInterrupt(uint32_t channel, uint32_t sources);
+DRV_Status ETIMER_testClearInterrupt(uint32_t channel, uint32_t sources);
+/********************* TEST DRIVER EXTENSION END *********************/
+#endif
+
 #ifdef __cplusplus
 }
 #endif

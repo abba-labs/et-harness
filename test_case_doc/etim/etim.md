@@ -129,6 +129,54 @@ ZERO与PERIOD只相隔一个计数Tick，相关实例必须加大分频并满足
 其中仍保留逐槽、逐源、逐阶段端点，不能冒充单个Canonical寄存器Observation。
 现阶段无SPEC，故不声明ET_CASE_REPORT；转为SPEC时再绑定这些真实字段及参数execution一致性。
 
+### 0.4 基础公共Wrap实现契约
+
+一个逻辑计数通道绑定一个Service `instance_id`，由映射解析为目标物理通道；不默认选择通道。
+`et_etim_wrap`提供时基配置/读回、五级Enable读写、已有实时/锁存值读取、单次锁存/清零、
+IRQ配置/快照/Force/Clear及每逻辑通道能力查询。IRQ语义位按0.1列举的12源顺序编号，
+目标物理位通过独立映射转换，公共接口不包含物理IRQ号。
+计数脉冲操作显式传入采样预算；该预算不是硬件时间界，调用者必须保证独占、无同步改写和无回卷窗口。
+成功、非法参数、忙、超时和硬件错误保持可区分；忙/超时保留实际前后采样，不回显期望值。
+无脉冲读取不刷新锁存；IRQ快照为四个顺序硬件读数，不等于ISR计数或原子快照。
+这些基础接口不自动初始化Peer、清零、启动或绑定ISR；尚未因此把任何PLAN升级为Formal实现。
+
+### 0.5 基础Service / PC Driver Wire v1
+
+Service ID=`0x010D`，API version=`1`；Service instance为显式逻辑计数通道，Body不重复携带通道。
+沿用R400帧及事务，不修改公共协议。下表全部使用小端、紧凑无对齐布局；`i32 detail`是每个成功响应的首字段，成功固定0。
+
+| Command ID / PC API | Request Body | Success Body（含detail） |
+|---|---|---|
+| 1 / `capabilities_get` | 空 | i32 detail, u16 version, u16 body_size=28, u32 maximum_divider, u64 maximum_period_ticks, u32 maximum_count_polls, u32 irq_sources |
+| 2 / `timebase_configure` | u32 divider, u64 period_ticks | i32 detail |
+| 3 / `timebase_get` | 空 | i32 detail, u32 divider, u64 period_ticks |
+| 4 / `enable_set` | u8 control, u8 enabled, u16 reserved=0 | i32 detail |
+| 5 / `enable_get` | u8 control, 3 Byte reserved=0 | i32 detail, u32 enabled |
+| 6 / `count_get` | 空 | i32 detail, u32 live, u32 latched |
+| 7 / `count_latch` | u32 polls | i32 detail, u32 before, u32 previous_latched, u32 latched, u32 live, u32 polls |
+| 8 / `count_clear` | u32 polls | 同7 |
+| 9 / `irq_configure` | u32 enabled, u32 masked | i32 detail |
+| 10 / `irq_snapshot_get` | 空 | i32 detail, u32 enabled, u32 masked, u32 raw, u32 status |
+| 11 / `irq_force` | u32 sources | i32 detail |
+| 12 / `irq_clear` | u32 sources | i32 detail |
+
+control依次为MODULE=0、TIMER=1、PWM=2、CAPTURE=3、CAPTURE_LOAD=4；enabled只能为0/1。
+IRQ位集合按0.1顺序编号0..11，配置允许空集，Force/Clear要求非空且不含未知源。
+时基配置只确认动作状态，实际读回由独立`timebase_get`完成；上限由`capabilities_get`提供，不隐藏第二条配置动作。
+
+错误Body的detail沿用公共Wrap状态：INVALID_ARGUMENT=-1、NOT_SUPPORTED=-2、BUSY=-3、IO_ERROR=-4、
+NO_RESOURCE=-5、TIMEOUT=-6、STATE_ERROR=-7；对应R400状态分别为INVALID_PARAM、NOT_SUPPORTED、BUSY，
+其余为INTERNAL_ERROR。一般错误只有4 Byte；命令7/8的BUSY或TIMEOUT保持24 Byte并携带真实观测。
+解析/容量错误和Framework拒绝可返回空Body。PC严格检查长度、状态映射及保留位语义，
+以`EtimOperationError`保留操作、实例、协议状态、detail、可用观测与原始TargetRejected cause。
+
+`EtimDriver(target, instance_id, timeout_s=2.0)`构造时不访问设备；一次顶层动作只有一个总Deadline，
+必要的首次能力查询共享剩余时间，不重新获得完整超时。只读命令1/3/5/6/10允许安全重试；
+所有Mutation禁止自动重试。配置/计数预算/IRQ源在Mutation前按Runtime能力检查，不补隐式默认值。
+能力可显式刷新；绑定对象不得跨不同目标重连后复用旧缓存。无自动停止、清理或IRQ会话管理。
+0.4的独占、无同步改写、无回卷要求仍由上层保证；polls不是deadline_ms或物理时长。
+这些基础动作不构成生产注册、Formal Case或硬件计时/IRQ投递证明。
+
 ## 1. Feature Catalog
 
 | Feature ID | 报告名称 | 公共测试语义 | 主要Case |
