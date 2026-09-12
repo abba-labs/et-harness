@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-# Enforce the PC documentation contract from R220_python_style_quality.md.
+# Python注释契约检查。
+# 职责：检查PC模块和显式选入工具的说明结构及公共API注释。
+# 边界：只读源码，不推断自然语言真实性，不执行被检查模块。
+# 依赖：标准库AST与R220约定的注释结构。
 
 from __future__ import annotations
 
@@ -20,6 +23,7 @@ _GENERIC_DOC_FRAGMENTS = (
 _OPERATION_SEMANTICS = ("等待", "不等待", "Deadline", "超时", "失败", "异常", "拒绝", "错误")
 
 
+# 保存单个注释违规的位置与诊断码，不修改源码或自动生成说明。
 @dataclass(frozen=True, slots=True, order=True)
 class DocumentationViolation:
     path: Path
@@ -27,6 +31,7 @@ class DocumentationViolation:
     code: str
     message: str
 
+    # 将诊断位置显示为仓库相对路径；仓库外文件保留原始路径便于定位。
     def render(self, root: Path) -> str:
         try:
             display = self.path.resolve().relative_to(root.resolve())
@@ -44,7 +49,9 @@ def _relative(path: Path, root: Path) -> Path:
 
 def _is_project_module(relative: Path) -> bool:
     parts = relative.parts
-    return len(parts) >= 3 and parts[:2] == ("pc", "et_test_platform")
+    return (len(parts) >= 3 and parts[:2] == ("pc", "et_test_platform")) or (
+        len(parts) >= 2 and parts[0] == "tools"
+    )
 
 
 def _requires_public_api_comments(relative: Path) -> bool:
@@ -101,7 +108,9 @@ def _leading_comment(source: str, node: ast.AST) -> str:
         elif block:
             break
         index -= 1
-    return "\n".join(reversed(block))
+    comment = "\n".join(reversed(block))
+    # 文件头不能充当首个公开API的局部契约。
+    return "" if any(section in comment for section in _MODULE_SECTIONS) else comment
 
 
 # Return the leading module # comment after an optional shebang.
@@ -124,6 +133,7 @@ def _module_comment(source: str) -> str:
     return "\n".join(block)
 
 
+# 检查一个源码文件的模块与公共API说明；只返回诊断，不执行或改写源码。
 def check_file(path: Path, *, repository_root: Path) -> list[DocumentationViolation]:
     relative = _relative(path, repository_root)
     if not _is_project_module(relative):
@@ -168,7 +178,7 @@ def check_file(path: Path, *, repository_root: Path) -> list[DocumentationViolat
                 )
             )
             continue
-        if not _CJK.search(comment):
+        if relative.parts[0] != "tools" and not _CJK.search(comment):
             violations.append(
                 DocumentationViolation(
                     path,
@@ -213,6 +223,7 @@ def check_file(path: Path, *, repository_root: Path) -> list[DocumentationViolat
     return violations
 
 
+# 合并显式文件或目录的注释诊断；路径去重，结果按位置稳定排序。
 def check_paths(paths: Iterable[Path], *, root: Path) -> list[DocumentationViolation]:
     files: set[Path] = set()
     for supplied in paths:
@@ -234,6 +245,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+# 只读检查命令行指定源码；存在注释违规时返回非零并保留全部诊断。
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     root = args.root.resolve()

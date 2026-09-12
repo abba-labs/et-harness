@@ -49,21 +49,27 @@ ET6801 FPGA IPCM 双核 Peer：Profile [`et6801_fpga_ipcm.yaml`](profiles/pipeli
 .\.venv\Scripts\python.exe tools\quality\audit_record_workspaces.py --chip ET6801 --recovery-zip
 ```
 
-等待一次部署结束（只读日志，命中成功/失败标志即退出）：
+等待指定Run结束（只读，按精确Run ID的Manifest终态判断，不使用历史日志PASS）：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\watch_pipeline_log.py ^
-  artifacts\records\ET6801\_PIPELINE\current\stages\pipeline\pipeline.log
+  artifacts\records\ET6801\_PIPELINE\current\stages\pipeline\pipeline.log ^
+  --manifest artifacts\records\ET6801\_PIPELINE\current\manifest.json --run-id <本次Run-ID>
 ```
 
 Core1 Peer Mailbox 只读诊断（判定 IPCM 部署后是否 Peer Ready）：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\ipcm_peer_mailbox_probe.py ^
-  --label after_deploy --output artifacts\records\ET6801\_PIPELINE\current\stages\peer_mailbox.json
+  --label after_deploy --serial <人工确认的J-Link序列号> --confirm-hardware-actions ^
+  --output artifacts\records\_DIAGNOSTICS\IPCM_PEER_MAILBOX\current\peer_mailbox.json
 ```
 
 Case知识辅助：
+
+Mailbox诊断须经人工硬件授权；两次读取确认heartbeat进展，不再自动选择首个探针。
+该独立入口不属于Pipeline阶段，禁止向Pipeline现场补写。持有环境锁，仅复用完整成功的诊断；失败现场保留供人工恢复。
+以上示例和确认参数本身不构成硬件授权。
 
 ```powershell
 .\.venv\Scripts\python.exe tools\runner\maintain_test_records.py extract `

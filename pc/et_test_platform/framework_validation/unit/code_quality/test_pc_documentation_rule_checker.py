@@ -36,6 +36,22 @@ def _codes(checker: ModuleType, path: Path, root: Path) -> set[str]:
     return {item.code for item in checker.check_file(path, repository_root=root)}
 
 
+# 测试方法：工具入口先缺注释再提供真实边界；通过条件：同一Checker拒绝缺失并接受完整说明。
+def test_tool_public_entry_requires_documented_boundary(tmp_path: Path) -> None:
+    checker = _load_checker()
+    relative = "tools/runner/example.py"
+    header = "# 工具入口。\n# 职责：读取指定文件。\n# 边界：不操作硬件。\n# 依赖：标准库。\n\n"
+    path = _write(tmp_path, relative, header + "def main() -> int:\n    return 0\n")
+    assert "ETDOC201" in _codes(checker, path, tmp_path)
+    path = _write(
+        tmp_path,
+        relative,
+        header + "# Read the selected file; propagate filesystem errors without running hardware.\n"
+        "def main() -> int:\n    return 0\n",
+    )
+    assert not checker.check_file(path, repository_root=tmp_path)
+
+
 def test_documentation_checker_accepts_explicit_module_and_driver_contract(tmp_path: Path) -> None:
     checker = _load_checker()
     path = _write(

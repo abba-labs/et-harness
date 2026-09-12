@@ -2,6 +2,10 @@
 
 整理时间：2026-09-11 21:00 CST；对照本轮 Canonical Session 更新，不是新增测试。
 
+来源状态：UNVERIFIED
+
+来源修正（2026-09-12 17:09 CST）：本轮20:52的现存Session为`e6e0400b-9df8-4d5c-8f55-cd4d31a58164`，源码`095cd6dba09dfee2d135f74bc913ad065ec9d6bb`；下文却引用`12d611fe-cdff-47d0-96a8-95a4d2246e3b`。现存Session记载34 execution PASS，但不足以证明正文Mailbox观测与该轮对应。撤回“正文已对照本轮”的含义，原文保留为历史待核实，不作为当前版本PASS；本次未重跑测试或发布确认。
+
 适用基线：ET6801 / FPGA（双核运行，Profile `et6801_fpga_ipcm`，Core1 `ET6801_CORE1_ITCM_IPCM_PEER`）；本轮 2026-09-11 20:52 CST，源码 `095cd6dba09dfee2d135f74bc913ad065ec9d6bb`（source_dirty=false，clean）；固件 `et6801-silicon-common-v0.1`；bitstream/设备身份未知。不把本轮 FPGA PASS 写成 Silicon 结论。
 
 ## 本轮结果

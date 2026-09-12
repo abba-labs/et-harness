@@ -1,6 +1,6 @@
 # review CLI 相对 --source 在父回执存在时崩溃
 
-状态：active（待平台修复）
+状态：active（修复已实现，回归NOT_EXECUTED）
 适用范围：`tools/runner/maintain_test_records.py review` 命令；父回执（_PIPELINE/current/publication.json）已存在时。
 最后核验：2026-09-09（全链路轮实测）
 
@@ -28,8 +28,8 @@ $cur = (Get-Location).Path
   --manifest "$cur\artifacts\records\ET6801\CAN\current\manifest.json"
 ```
 
-修复建议：`review_workspace` 入口对 root 做 `.resolve()`（约1行），使 CLI 相对路径与 runner 内部
-调用行为一致。
+现已在`review_records`和`review_workspace`入口对repository/root使用`.absolute()`，统一相对路径，
+保留后续safe_path对符号链接和仓库边界的检查；不使用resolve消除链接后绕过原检查。回归尚未执行。
 
 ## 边界与不适用
 
@@ -38,4 +38,5 @@ $cur = (Get-Location).Path
 
 ## 依据与变化
 
+- 2026-09-12 17:20 CST：完成入口路径修正并补回归用例；按人工要求未执行测试，因此不标记验证通过。
 - 2026-09-09 15:35 CST：全链路轮收尾时发现；相对路径失败、绝对路径成功，双闸门放行验证。缺陷上报用户，未修（零代码约束）。

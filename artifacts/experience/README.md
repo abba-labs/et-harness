@@ -8,21 +8,21 @@
 ## platform — 平台代码缺陷与行为
 
 - [runner_chip_compare_blocks_publish](platform/runner_chip_compare_blocks_publish.md) — runner芯片比对曾因大小写跳过报告发布；比较侧已与 `target_chip()` 对齐，真不一致仍跳过（superseded）
-- [review_cli_relative_source_crash](platform/review_cli_relative_source_crash.md) — review CLI相对--source在父回执存在时崩溃，须用绝对路径（active，待平台修复）
+- [review_cli_relative_source_crash](platform/review_cli_relative_source_crash.md) — 相对路径入口已统一，回归NOT_EXECUTED（active，待验证）
 
 ## environment — 本机环境与工具链
 
 - [ps5_gbk_console_encoding](environment/ps5_gbk_console_encoding.md) — PS5.1/GBK控制台的编码崩溃与mojibake，PYTHONUTF8=1启动清单（active）
-- [sandbox_and_file_tools](environment/sandbox_and_file_tools.md) — 沙箱模式下cmdlet被拒、write工具/git正常；cwd与2>&1管道坑（active）
+- [sandbox_and_file_tools](environment/sandbox_and_file_tools.md) — DSH历史工具差异；不可据此绕过当前工具限制（active）
 - [external_process_file_locks](environment/external_process_file_locks.md) — 活进程文件锁下的git stash半失败机制与完整恢复法（active）
-- [artifact_location_discipline](environment/artifact_location_discipline.md) — 临时/日志/备份必须留在仓库内（tmp 或 records/_TOOLING），禁止写到系统盘（active）
+- [artifact_location_discipline](environment/artifact_location_discipline.md) — 临时脚本放tmp，结论性工具日志放records/_TOOLING（active）
 
 ## workflow — 可复用操作 SOP
 
 - [test_execution_runbook](workflow/test_execution_runbook.md) — 全链路HIL执行SOP（脚本-only）：bat/GUI入口、禁止手拼、单IP走run_ip_tests、run_test.bat会跑注册表全集（active）
 - [deploy_chain_mechanism](workflow/deploy_chain_mechanism.md) — 五级部署机制：同轮bit+ROM+PFLASH、firmware/start_target互斥、双核脚本、禁止直调.ps1（active）
-- [evidence_review_loop](workflow/evidence_review_loop.md) — 证据回路与现场生命周期：facts/回执/review/复用闸门/未发布现场解阻（active）
-- [gate_and_entry_antipattern](workflow/gate_and_entry_antipattern.md) — 门禁重复41次与绕过run_pipeline的代价：执行级别选择、后台作业不得空等（active）
+- [evidence_review_loop](workflow/evidence_review_loop.md) — 已对齐R500：pending复用、Agent整理、禁止迁回runs（active）
+- [gate_and_entry_antipattern](workflow/gate_and_entry_antipattern.md) — 保留历史耗时教训；当前门禁只由人工指定（active）
 - [multiform_deployment_matrix](workflow/multiform_deployment_matrix.md) — 13个IP分属三种互斥部署形态（单核/双核SPINLOCK/双核IPCM），一次部署只能覆盖同形态IP（active）
 
 ## governance — 治理与权威源实践教训

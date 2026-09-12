@@ -96,11 +96,15 @@ changes:
       - path: tools/README.md
         reason: 工具目录导航和稳定入口说明
         required: true
+      - path: artifacts/experience/RULES.md
+        reason: 同步运行经验时遵循已有经验库结构和索引规则
+        required: true
     rules:
       - operator_pipeline
     write_scopes:
       - tools/**/*.md
       - artifacts/README.md
+      - artifacts/experience/**/*.md
       - README.md
     validation:
       - python -m pytest -q pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
@@ -178,6 +182,7 @@ changes:
       - tools/runner/**
       - pc/et_test_platform/scheduling/run_context.py
       - pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py
+      - pc/et_test_platform/framework_validation/unit/operator/test_record_*.py
     validation:
       - python -m pytest -q pc/et_test_platform/framework_validation/unit/scheduling/test_run_context.py pc/et_test_platform/framework_validation/unit/operator/test_operator_launcher.py
 

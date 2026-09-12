@@ -26,10 +26,12 @@ RECEIPT = "publication.json"
 WORKSPACE_SCHEMA = "et.run-workspace.v3"
 
 
+# 表示调用者要求知识确认但现场仍pending；与文件损坏和测试失败分别处理。
 class KnowledgeReviewPending(ValueError):
     pass
 
 
+# 返回同仓库Pipeline共用的非阻塞环境锁；占用时拒绝并发，不因锁文件存在而误判。
 def environment_lock(repository: Path) -> AbstractContextManager[None]:
     return file_lock(repository / "tmp/run_pipeline.lock")
 
@@ -50,6 +52,7 @@ def _validate_root(repository: Path, root: Path) -> None:
             raise ValueError("managed workspace chip/IP must use canonical uppercase names")
 
 
+# 读取当前现场成员但排除发布回执；链接、非法名称或容量超限立即拒绝。
 def workspace_files(root: Path) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     total = 0
@@ -121,6 +124,7 @@ def _verify_archive(data: bytes) -> dict[str, object]:
     return manifest
 
 
+# 校验回执身份、成员及Hash，可额外要求知识确认；任何不一致均保留现场并报错。
 def verify_publication(
     repository: Path, root: Path, *, require_review: bool = True, verify_knowledge: bool = True
 ) -> dict[str, object]:
@@ -197,6 +201,7 @@ def prepare_workspace(repository: Path, root: Path) -> Path:
     return root
 
 
+# 绑定当前完整成员与知识证明并原子写回执；没有有效证明的失败现场不得标记可复用。
 def seal_workspace(
     repository: Path,
     root: Path,
@@ -229,6 +234,7 @@ def seal_workspace(
     )
 
 
+# 校验同一Pipeline所有子工作区并汇总回执；混入旧Run或未发布子现场时拒绝seal。
 def seal_pipeline(repository: Path, root: Path, *, successful: bool) -> None:
     _validate_root(repository, root)
     if root.parent.name != "_PIPELINE":
@@ -255,6 +261,8 @@ def seal_pipeline(repository: Path, root: Path, *, successful: bool) -> None:
 
 # 显式review后仅刷新同一逻辑Pipeline的回执，不改写其阶段日志或其他IP。
 def review_workspace(repository: Path, root: Path, *, proofs: dict[str, object]) -> None:
+    repository = repository.absolute()
+    root = root.absolute()
     receipt = verify_publication(repository, root, require_review=False, verify_knowledge=False)
     parent = root.parent.parent / "_PIPELINE/current"
     parent_receipt = None
@@ -279,6 +287,7 @@ def review_workspace(repository: Path, root: Path, *, proofs: dict[str, object])
         seal_pipeline(repository, parent, successful=parent_receipt.get("routine_success") is True)
 
 
+# 将完整现场保存到唯一固定恢复包并复核Hash；已有恢复包或容量超限时拒绝覆盖。
 def archive_workspace(repository: Path, root: Path, output: Path) -> dict[str, object]:
     _validate_root(repository, root)
     safe_path(output.parent, output.name)
