@@ -173,7 +173,10 @@ def test_syscnt_p2_002_debug_halt(
         # 证据：实际CPU状态、计数器暂停状态和策略配置分别记录，不能互相替代。
         record_property("policy", policy.name)
         record_property("debugger_identity", debug_controller.identity)
-        record_property("debugger_log", str(samples.action.stdout_path))
+        # 附件：Debugger原始命令文件与stdout/stderr必须全部绑定，否则现场无法封存。
+        record_property("debugger_log_result", str(samples.action.stdout_path))
+        record_property("debugger_command_result", str(samples.action.command_path))
+        record_property("debugger_stderr_result", str(samples.action.stderr_path))
         record_observation(
             record_property,
             key="cpu_halted",

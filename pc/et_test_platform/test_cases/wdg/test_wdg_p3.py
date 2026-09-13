@@ -94,6 +94,13 @@ def test_wdg_p3_001_debugger_halt_behavior(
         record_property("halt_hold_s", DEBUG_HALT_WINDOW_S)
         record_property("pause_delta", pause_delta)
         record_property("run_free_delta", continue_delta)
+        # 附件：Halt/Resume原始日志必须绑定到本execution，否则现场无法封存。
+        record_property("pause_debug_log_result", str(pause_hold.stdout_path))
+        record_property("pause_debug_command_result", str(pause_hold.command_path))
+        record_property("pause_debug_stderr_result", str(pause_hold.stderr_path))
+        record_property("continue_debug_log_result", str(continue_hold.stdout_path))
+        record_property("continue_debug_command_result", str(continue_hold.command_path))
+        record_property("continue_debug_stderr_result", str(continue_hold.stderr_path))
         record_observation(
             record_property,
             key="pause_enabled_counter_samples",

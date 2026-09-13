@@ -20,3 +20,4 @@
 
 - 2026-09-09 12:05 CST：从run 20260904_063646 Canonical事实与公共契约提炼；未进行硬件复测。
 - 2026-09-10 22:44 CST：本轮 FPGA 全量（源码 `7106a1562269da95d060e2cd756d53eef7e156d4`，source_dirty=true，固件 `et6801-silicon-common-v0.1`）本 Case 已选节点 PASS；脏树不得外推，方法正文不重写。
+- 2026-09-13：全量回归中本 Case 记为SKIP，排查后确认是**假跳过**——独立运行`run_ip_tests.py`未导出`ET_TOOL_JLINK_EXECUTABLE`，`debug_controller`夹具据"配置不完整"调用`pytest.skip`。该夹具已改为失败关闭（缺工具配置属内部集成缺口，见R210 §9），`run_ip_tests.py`改为从`run_config.yaml`补齐工具环境变量；两个参数（pause/run_free）真实执行并PASS，调试器身份`jlink:Cortex-M7`。同时修复Debugger附件未绑定导致现场无法封存的问题（命令/jlink/stdout/stderr改为`_result`后缀登记）。

@@ -83,6 +83,7 @@ def test_loopback_pin_case_validates_observer(fault, monkeypatch):
             (support, gpio, ((2, 7), (3, 8)), box), resource, lambda k, v: properties.append((k, v))
         )
         assert not target.responses and receive_count[0] == 4
-        assert [c.listen_only for c in configs] == [False, True, True]
+        # 契约要求三个阶段均以正常模式Peer捕获：外部回环忽略ACK与RX引脚，Peer是否ACK不改变判据。
+        assert [c.listen_only for c in configs] == [False, False, False]
         assert dict(properties)["silent_window_elapsed_s"] >= 0.1
     assert calls[-3:] == [("box_close",), ("can", 0), ("resource",)]

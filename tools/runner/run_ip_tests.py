@@ -16,6 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from uuid import uuid4
 
+import yaml
 from artifact_layout import (
     DEFAULT_RECORDS_ROOT,
     capture_source_identity,
@@ -47,6 +48,9 @@ from et_test_platform.scheduling.run_context import (  # noqa: E402
 
 FORMAL_CASE_ROOT = REPOSITORY_ROOT / "pc/et_test_platform/test_cases"
 DOCUMENT_ROOT = REPOSITORY_ROOT / "test_case_doc"
+
+# 独立运行的默认Run Config；Pipeline运行仍以自身快照为准，不读该文件。
+DEFAULT_CONFIG_PATH = REPOSITORY_ROOT / "run_config.yaml"
 REPORT_TOOL = REPOSITORY_ROOT / "tools/reporting/generate_case_report.py"
 VALIDATE_PC = REPOSITORY_ROOT / "tools/validate_pc.py"
 DEFAULT_OUTPUT_ROOT = DEFAULT_RECORDS_ROOT
@@ -252,6 +256,26 @@ def _report_command(*, document: Path, run_dir: Path, output: Path, chip: str) -
         "--chip",
         chip,
     ]
+
+
+# 独立运行时补齐Run Config中的工具环境变量，使调试器等Case与Pipeline运行等价。
+# 只导出已配置的非空取值；不覆盖调用者已经显式设置的环境。
+def _tool_environment(config_path: Path) -> dict[str, str]:
+    if not config_path.is_file():
+        return {}
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
+        return {}
+    tools = ((payload.get("environment") or {}).get("tools")) or {}
+    debug = ((payload.get("dut") or {}).get("debug")) or {}
+    exported: dict[str, str] = {}
+    jlink = (tools.get("jlink") or {}).get("executable")
+    if isinstance(jlink, str) and jlink.strip():
+        exported["ET_TOOL_JLINK_EXECUTABLE"] = jlink
+    probe = debug.get("probe_serial")
+    if probe is not None and str(probe).strip():
+        exported["ET_DUT_DEBUG_PROBE_SERIAL"] = str(probe)
+    return exported
 
 
 def _run(command: Sequence[str], *, log_path: Path | None = None) -> int:
@@ -532,6 +556,13 @@ def _execute_ip(args: argparse.Namespace) -> int:
 
     print(f"Run artifacts: {run_dir}")
     print("Starting pytest...")
+    os.environ.update(
+        {
+            name: value
+            for name, value in _tool_environment(DEFAULT_CONFIG_PATH).items()
+            if name not in os.environ
+        }
+    )
     pytest_exit = _run(pytest_command, log_path=run_dir / "pytest.log")
 
     if not (run_dir / "session.json").is_file():

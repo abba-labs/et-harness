@@ -25,6 +25,7 @@ class DebugAction:
     completed_s: float
     stdout_path: Path
     stderr_path: Path
+    command_path: Path | None = None
     requested_hold_s: float | None = None
 
 
@@ -266,6 +267,7 @@ class JLinkDebugController:
             completed_s=completed_s,
             stdout_path=stdout_path,
             stderr_path=stderr_path,
+            command_path=command_path,
             requested_hold_s=requested_hold_s,
         )
 

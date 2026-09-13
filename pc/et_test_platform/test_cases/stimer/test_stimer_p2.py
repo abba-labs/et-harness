@@ -507,6 +507,13 @@ def test_stimer_p2_003_debugger_halt_behavior(
         record_property("pause_delta", pause_delta)
         record_property("run_free_delta", run_delta)
         record_property("requested_sample_interval_s", [pause_window_s, run_window_s])
+        # 附件：Halt/Hold原始日志必须绑定到本execution，否则现场无法封存。
+        record_property("pause_debug_log_result", str(pause_hold.stdout_path))
+        record_property("pause_debug_command_result", str(pause_hold.command_path))
+        record_property("pause_debug_stderr_result", str(pause_hold.stderr_path))
+        record_property("run_hold_debug_log_result", str(run_hold.stdout_path))
+        record_property("run_hold_debug_command_result", str(run_hold.command_path))
+        record_property("run_hold_debug_stderr_result", str(run_hold.stderr_path))
         record_observation(
             record_property,
             key="pause_count_samples",

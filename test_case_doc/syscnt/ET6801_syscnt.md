@@ -286,6 +286,7 @@ SUPPORTED表示6801适用资料声明，不表示FPGA已PASS。32+32位SVD声明
 | G05 | CLOSED / 当前Core0配置 | 当前Core0暂停可使DBGH置位并冻结计数；其他核并行参与条件不在本次结论内 | 补目标Execution Mapping，明确需要停哪个Core及系统路由；先确认DHCSR.S_HALT，再观察DBGH和计数。不假定STIMER失败则SYSCNT也失败。 |
 | G06 | CLOSED / 原子采样已验证 | 缺短三元组参考采样，跨串口命令时间不可当亚毫秒同步快照 | 复用或评审SYSCNT测试扩展中的短本地参考采样，参考启停所有权明确；只返回原始计数，不搬运Case判断进固件。 |
 | G07 | PLANNED / 实现与台架未闭合 | 已由SYSCNT_P2_003承接外部脉宽目的，定义10/50/100ms、独立示波器Oracle和1ms测试预算；暂无该Case代码或外部结果 | 完成本地脉冲执行接口归属评审与实现，确认安全GPIO输出、示波器通道、共地和测量误差依据后再执行。本轮人工指定暂不测试；不能用旧7条PASS关闭本项。 |
+| G08 | CLOSED / 平台运行配置 | 全量回归中`SYSCNT_P2_002`记为SKIP，实为**假跳过**：独立运行`run_ip_tests.py`不导出工具环境变量，`debug_controller`夹具把"工具配置不完整"误判成不可执行并`pytest.skip` | 夹具改为失败关闭（内部集成缺口按R210 §9不得用SKIP绕过）；`run_ip_tests.py`从`run_config.yaml`补齐`ET_TOOL_JLINK_EXECUTABLE`等工具变量。2026-09-13实测两个参数真实执行并PASS。 |
 
 2026-09-03 21:36 CST实施授权：用户明确允许CRG/SYSCTRL的SYSCNT最小前置修改及G01替代基线。CRG/SYSCTRL改动分别使用独立Task Context和Commit；不扩大到其他IP功能、公共协议或规则修改。G01设计决策已闭合，尚待实现验证；G02/G05/G06仍需按各自证据条件闭合，不把未知硬件事实写成PASS。
 

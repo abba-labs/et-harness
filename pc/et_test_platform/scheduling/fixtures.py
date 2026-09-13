@@ -225,10 +225,13 @@ def debug_controller(
     if not bench:
         raise pytest.UsageError("--et-bench is required for debugger Cases")
     target_name = pytestconfig.getoption("et_target")
+    # 缺工具配置属内部集成缺口，必须失败关闭；只有外部设备不可替代时才允许SKIP。
     try:
         config = load_debugger(bench, target_name)
     except ConfigurationError as exc:
-        pytest.skip(f"skip_by_bench_profile: {exc}")
+        raise ConfigurationError(
+            f"debugger binding is incomplete for target {target_name!r}: {exc}"
+        ) from exc
     if config.driver.casefold() != "jlink":
         pytest.skip(
             f"skip_by_bench_profile: debugger driver {config.driver!r} has no registered adapter"
