@@ -947,35 +947,4 @@ enum
 #define ET_CHIP_IPCM_ACK_MAP_TABLE {MANUAL_ACK, AUTO_ACK}
 #define ET_CHIP_IPCM_LINK_MAP_TABLE {MANUAL_ACK, AUTO_LINK}
 
-/* ETIM: one logical timer channel per Service instance. Physical indices are
- * zero-based CORE entries from etim_cfg/CMSIS (12 channels), not channel masks.
- * Table fields: public channel ID, SDK physical channel index, timebase limits.
- * Each channel owns its limits; this chip has identical limits on all channels. */
-#define ET_CHIP_ETIM_MAP_TABLE \
-    {{0u, 0u, ET_CHIP_ETIM_LIMITS}, {1u, 1u, ET_CHIP_ETIM_LIMITS}, \
-     {2u, 2u, ET_CHIP_ETIM_LIMITS}, {3u, 3u, ET_CHIP_ETIM_LIMITS}, \
-     {4u, 4u, ET_CHIP_ETIM_LIMITS}, {5u, 5u, ET_CHIP_ETIM_LIMITS}, \
-     {6u, 6u, ET_CHIP_ETIM_LIMITS}, {7u, 7u, ET_CHIP_ETIM_LIMITS}, \
-     {8u, 8u, ET_CHIP_ETIM_LIMITS}, {9u, 9u, ET_CHIP_ETIM_LIMITS}, \
-     {10u, 10u, ET_CHIP_ETIM_LIMITS}, {11u, 11u, ET_CHIP_ETIM_LIMITS}}
-/* Ordered by et_etim_enable_t; SDK enum identities are not public encodings. */
-#define ET_CHIP_ETIM_ENABLE_MAP_TABLE \
-    {ETIMER_TEST_ENABLE_MODULE, ETIMER_TEST_ENABLE_TIMER, ETIMER_TEST_ENABLE_PWM, \
-     ETIMER_TEST_ENABLE_CAPTURE, ETIMER_TEST_ENABLE_CAPTURE_LOAD}
-/* Pairs: stable semantic event, target SDK source. Consumed bidirectionally. */
-#define ET_CHIP_ETIM_IRQ_MAP_TABLE \
-    {{ET_ETIM_IRQ_FAULT_ONE_SHOT, ETIMER_INT_PWM_FAULT_ONE_SHOT}, \
-     {ET_ETIM_IRQ_FAULT_CBC, ETIMER_INT_PWM_FAULT_CBC}, \
-     {ET_ETIM_IRQ_FAULT_OVERFLOW, ETIMER_INT_FAULT_OVERFLOW}, \
-     {ET_ETIM_IRQ_COMPARE_ERROR, ETIMER_INT_COMPAB_CFG_ERR}, \
-     {ET_ETIM_IRQ_COMPARE_A, ETIMER_INT_COMPA}, {ET_ETIM_IRQ_COMPARE_B, ETIMER_INT_COMPB}, \
-     {ET_ETIM_IRQ_PERIOD, ETIMER_INT_PERIOD}, {ET_ETIM_IRQ_COUNTER_OVERFLOW, ETIMER_INT_COUNTER_OVERFLOW}, \
-     {ET_ETIM_IRQ_CAPTURE_1, ETIMER_INT_CAP_EVT0}, {ET_ETIM_IRQ_CAPTURE_2, ETIMER_INT_CAP_EVT1}, \
-     {ET_ETIM_IRQ_CAPTURE_3, ETIMER_INT_CAP_EVT2}, {ET_ETIM_IRQ_CAPTURE_4, ETIMER_INT_CAP_EVT3}}
-/* Timebase units from PWM_CTRL.clkdiv_fac (+1) and full-width TIMER_CYC (+1).
- * Reused by each channel mapping and its capability snapshot; no software poll budget here. */
-#define ET_CHIP_ETIM_LIMITS \
-    {((ETIMER_CORE_PWM_CTRL_CLKDIV_FAC_Msk >> ETIMER_CORE_PWM_CTRL_CLKDIV_FAC_Pos) + 1u), \
-     ((uint64_t)UINT32_MAX + 1u)}
-
 #endif

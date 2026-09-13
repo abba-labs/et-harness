@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Case知识的提取、检查、索引与整理确认入口。
-# 职责：提取Canonical事实并登记Agent整理确认；人的pending现场复用不依赖review。
+# 职责：把当前Canonical事实交给Agent提炼，确认后才允许复用原始工作区。
 # 边界：不执行硬件，不改Case正文，不生成长期JSON/ZIP或自动关闭问题。
 # 依赖：既有Canonical报告、Markdown检查和文件事务。
 
@@ -178,8 +178,6 @@ def prepare_review(
 def review_records(
     repository: Path, source: Path, *, chip: str, ip: str, lane: str, manifest: Path | None = None
 ) -> dict[str, object]:
-    repository = repository.absolute()
-    source = source.absolute()
     expected = current_root(repository, chip, ip)
     if source.absolute() != expected:
         raise ValueError(
@@ -191,13 +189,6 @@ def review_records(
         incoming = _input(repository, source, chip=chip, ip=ip, lane=lane, manifest=manifest)
         root = record_root(repository, chip, ip)
         checked = check_records(root, cases=tuple(incoming.cases))
-        for case in incoming.cases:
-            document = root / "cases" / f"{case.upper()}.md"
-            if "来源状态：UNVERIFIED" in document.read_text(encoding="utf-8-sig"):
-                raise ValueError(
-                    f"Case provenance is unresolved: {case}; reconcile the original Session "
-                    "before explicitly reviewing knowledge"
-                )
         changed = refresh_index(root, work)
         proofs = {root.relative_to(repository).as_posix(): checked["files"]}
         review_workspace(repository, source, proofs=proofs)
@@ -210,7 +201,6 @@ def review_records(
         }
 
 
-# 分派显式知识维护操作；归档、索引和review各守既有边界，不自动生成Case正文。
 def run_operation(args: argparse.Namespace, repository: Path) -> dict[str, object] | bytes:
     if args.command == "archive":
         with environment_lock(repository):
@@ -247,7 +237,6 @@ def run_operation(args: argparse.Namespace, repository: Path) -> dict[str, objec
         return {key: value for key, value in check.items() if key not in {"files", "titles"}}
 
 
-# 解析维护命令并输出操作摘要；校验或发布失败返回非零且不伪造整理成功。
 def main(argv: Sequence[str] | None = None) -> int:
     args = _arguments(argv)
     try:

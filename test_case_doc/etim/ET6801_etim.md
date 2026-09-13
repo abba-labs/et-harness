@@ -139,7 +139,7 @@ RTL不是必需输入；旧芯片资料不再仅被当作“搜索线索”，�
 文档先使用ET技能导航和共享toolbox摘要，再定向解析DOCX XML/OMML公式、PDF文字与关键示意图。
 目标SVD使用XML结构解析，特别处理本地拆分SVD中cluster内addressOffset已为绝对偏移的方言，
 不再次叠加cluster起点。参考资料用于解释继承机制和设计Oracle，结合目标SVD确认适用范围，不能独自证明目标硬件SUPPORTED。
-历史过程输出未随本次同步迁入新证据系统，原资料整理范围如下：
+过程输出位于外层项目
 含chip query、doc discovery、定向文字提取和私有参考图；这些图不作为可公开波形报告。
 
 ## 第二章 ET6801 Hardware / Driver Facts
@@ -273,40 +273,6 @@ G03的采样时钟、G04的延迟时钟、G06的同步传播界是实现时需�
 参考T6/T3 test_3有运行写周期和写0，但没有写前COUNT、自然边界身份或输出断言，不能证明具体竞态。
 因此已有P1_009继续覆盖严格早于新旧终点；“COUNT已越过新终值是否仍按M2重启”和“恰等于新终值时优先级”
 均未定案，但22:48按3.7移出本轮要求范围；不用宽松周期集合把两种结果都判PASS。正常机制可继承不意味着所有竞态已定案。
-
-### 2.7 当前平台SDK开发状态
-
-时间：2026-09-08 20:34 CST。正式仓库基线`9c84ccb9`，仅修改本仓库ET6801 SDK，外部参考树不变。
-本节描述实现增量，2.3的D1/D2外部来源风险仍作为历史依据，不回改为已修复外部SDK。
-
-- 本地`et6x_etimer.h`的`ETIMER_CHANNEL_NUM/ALL`修正为12/0xFFF，循环不再进入不存在的CORE12/13；旧通道名称保留兼容，不表示有效目标通道。
-- 隔离Test Driver Extension增加`ETIMER_testConfigureTimeBase/GetTimeBase`：输入零基单通道、实际1..64分频、64位完整周期1..2^32；TIMER使能时拒绝配置，配置仅改分频、周期Shadow和周期终值，不改相位或比较/Event Shadow。
-- 同区增加`ETIMER_testSetEnable/GetEnable`：分别读写模块、计数、PWM、Capture和Capture Load，保持其他通道及字段。所有新入口显式校验非法通道、Enum、数值和空指针，不依赖SDK断言；错误输入在MMIO之前返回。
-- `GetTimeBase/GetEnable`读取真实寄存器，不回显缓存。最大周期编码为UINT32_MAX并读回为2^32；这只实现配置表示，不证明该边界的硬件运行行为。
-- 尚未实现公共PC Driver、Service、Wrap或Formal Case；有效复位、IRQ会话绑定及余下功能仍继续开发。旧`deinit`和其他未审核SDK API不能作为安全自动化入口。
-- 新增Native回归编译完整`et6x_etimer.c`，复用真实CMSIS结构/位定义，覆盖12通道×64分频×5周期及五级Enable隔离；寄存器桩不产生计数速率、IRQ或HIL证明。
-
-2026-09-08 21:49 CST继续开发同一Test Driver Extension（软件验证结果另记项目历史）：
-
-- `testReadCount`无脉冲读取实时/锁存值；`testLatchCount/testClearCount`单次发脉冲，后续只轮询，输出before、previousLatch、latched、live及polls。软件预算1..1024次采样不是硬件时间上界。
-- 锁存成功要求相对旧快照发生变化、落在相邻实时值包络且脉冲已读零；同值不能证明本次锁存而超时，观测到倒退返回BUSY。调用者必须独占通道、禁止同步/相位改写，并保证整个窗口不回卷；采样比较不能检测漏掉的多次回卷，不能替代时钟/窗口预算。
-- 清零要求模块开启、计数停止且初始非零，观测到实时值零与脉冲读零才成功；初始零或运行态返回BUSY。超时保留真实末次计数，禁止返回假零。存在未完成PWM脉冲或update_vld时不再发动作。
-- PWM_CTRL的CNTLK/TCLR/FAULT_CLR均按目标SVD写脉冲处理，时基读改写不回写这些脉冲；计数动作不修改比较值或相位配置。
-- `testConfigureInterrupt/GetInterrupt/ForceInterrupt/ClearInterrupt`校验12源位域；配置保持保留位，RAW/STATUS各读各的，不按Enable/Mask计算；Force/Clear只直写指定非零Mask，不读改写旧动作。配置/快照为顺序操作，不是原子事务；IRQ会话所有者负责重配置期间的投递控制。
-- 这些IRQ接口仅操作本IP寄存器，不操作NVIC、不绑定ISR、不增加事件计数。Clear的OK只表示命令发出，调用者仍须读RAW/STATUS证明结果。32 PLAN的Formal适配状态不变。
-
-公共`et_etim_wrap`已接入上述基础Driver，Chip Config明确映射逻辑0..11到CORE索引0..11，
-五级Enable及12类IRQ源均通过表转换；分频和周期上限来自CMSIS字段与完整周期表示。
-扩展开关关闭时返回NOT_SUPPORTED，不回退到旧的不安全锁存API。公共Service/PC与生产注册尚待接入。
-
-2026-09-08 22:21 CST：上述Wrap通过WSL/GCC原生验证（含扩展开关开/关），但总软件门禁
-被ETFW201阻塞：检查器尚未登记公共`etim`与SDK `etimer`的同IP名称映射。
-未绕过检查器；Service/PC继续开发暂缓，硬件与Formal状态不变。
-
-2026-09-08 23:00 CST：独立同IP名称映射Checker修复已提交`ef541ce1`，恢复后的Wrap总软件门禁通过。
-基础Service和PC Driver现已接入12条公共动作及显式逻辑通道，双方共享固定Wire向量进行软件验证。
-这批未增加静态生产Group注册、IRQ投递会话、PWM/Capture完整配置或Formal Case；
-32 PLAN仍未实现为可执行Case，芯片运行状态仍为NOT_EXECUTED。
 
 ## 第三章 Source Item Trace
 
@@ -569,7 +535,7 @@ Q03是仍未完整设计的明确历史目的；Q01/Q02/Q04/Q05分别限制相�
 这些问题不影响其他方法的审核，也不能因本轮范围收敛完成就计成“全部必测方法已闭合”。
 本轮没有获准实测，FPGA/Silicon分别保留NOT_EXECUTED，Renode不能替代外部/电气结论。
 
-历史资料定位和chip query原始过程证据未随本次同步迁入；本节依赖的源身份由1.2及RDB固定。
+证据：中的资料定位和chip query；本节依赖的源身份由1.2及RDB固定。
 22:35修正的doc discovery只在实际`ET6003/03 参考资料`定位两个既有手册；首次缺空格的include-root无效结果不用于结论。
 
 ### 3.8 五项必要问题的参考方法落实
@@ -883,4 +849,4 @@ G07及G09剩余特例、G03/04/05/06的额外竞态、G08的逐CEVT/未说明编
 - PLAN、公共IP芯片中立、方法行结构及芯片映射四个专项全部通过；45个Feature和32个PLAN不变。
 - 人工复核确认：最大滤波窗口/实际2分频已补；Fault互补仍为必测Q03；输入笛卡尔积、理论竞态、逐CEVT及无规范认证不再混入本轮分母。
 - 专项resource-control任务：`20260906_224844_462c0451`、`20260906_224847_6d8a6858`、`20260906_224849_9e66ec56`、`20260906_224852_3d5bd543`。
-- 历史总软件门禁与提交身份记录未随本次同步迁入；这些历史校验不关闭Q01～Q05，不代表硬件PASS。
+- 总软件门禁与提交身份另存；这些校验不关闭Q01～Q05，不代表硬件PASS。

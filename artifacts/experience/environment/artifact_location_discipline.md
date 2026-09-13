@@ -32,13 +32,13 @@
 |---|---|---|
 | pytest 缓存、运行期临时目录 | `<repo>/tmp/`（已 gitignore） | `.gitignore` / `pyproject.toml` |
 | 软件门禁、工具验证日志 | `artifacts/records/_TOOLING/<TASK>/current/` | R500 §6.3 |
-| 该轮的临时脚本 | `<repo>/tmp/` | R500 §6.1 |
+| 该轮的临时脚本 | `records/_TOOLING/<TASK>/current/scripts/` | 见下方生命周期 |
 | 独立诊断现场 | `artifacts/records/_DIAGNOSTICS/<TOOL>/current/` | R500 §6.3 |
 | Formal Case 证据 | `artifacts/records/<CHIP>/<IP>/current/` | R500 §6.1 |
 
 仓库根目录**只允许**出现固定分类目录（`firmware/pc/companion/tools/test_case_doc/report/
 artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（如 graphflow 的 `*-out/`）
-应按当前目录规则管理；`tmp/`是R500明确允许的本地临时区，不是非法根目录。
+出现在根目录会让 `test_repository_layout.py` 失败，应确保它们被 gitignore 且不长期滞留。
 
 ### 临时脚本的两个去向（必须二选一，不得滞留）
 
@@ -46,14 +46,14 @@ artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（
 
 1. **长期固化 → `tools/`**：会被反复使用、有稳定职责的（如批量知识更新、现场审计、流水线监控），
    按仓库工具规范放入 `tools/<area>/`，成为正式工具。**优先复用已有工具，不要重复造。**
-2. **本轮临时 → `<repo>/tmp/`**：只服务本轮任务的一次性脚本。
+2. **本轮临时 → `records/_TOOLING/<TASK>/current/scripts/`**：只服务本轮任务的一次性脚本。
    **该任务 review 时必须清理**，否则该目录会无限膨胀。
 
 判断标准：如果下一个任务还会用到 → `tools/`；如果只有本轮用 → 临时目录，并在 review 时删掉。
 
 ### `_TOOLING` 目录的容量纪律
 
-`records/_TOOLING/<TASK>/current/`承载本轮结论性日志与小结（临时脚本留tmp），**它同样是会被覆盖的
+`records/_TOOLING/<TASK>/current/` 承载本轮的日志、脚本与小结，**它同样是会被覆盖的
 "当前工作区"而非长期仓库**。每轮 review 时同步清理：一次性脚本删除、过时日志删除，
 只保留本轮的结论性文件（如 `REPORT.md`）。单任务累积到数十个文件即说明清理没做。
 
@@ -67,7 +67,6 @@ artifacts/project-governance/agent_harness`）；`tmp/` 与工具输出目录（
 
 ## 依据与变化
 
-- 2026-09-12 17:22 CST：按R500纠正临时脚本位置及tmp根目录描述。历史ACL/清理记录不构成绕过工具安全限制的许可；未运行测试。
 - 2026-09-11 18:00 CST：由当日会话沉淀。已执行的纠正：C: 盘目录整体删除，日志与备份迁入
   `records/_TOOLING/IP_REGRESSION_TIMING/current/`，`graphflow-out/` 加入 `.gitignore`，
   `tmp/` 清空。同轮修复了 `tools/runner/record_source.py` 的 Ruff 格式与两处 C901 复杂度。

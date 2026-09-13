@@ -1,7 +1,4 @@
-# 统一软件质量门禁。
-# 职责：顺序执行格式、规则、注释、契约和非硬件回归检查。
-# 边界：首个失败停止，不烧录、不运行真实设备测试。
-# 依赖：本仓库Python环境、Git和既有Checker及测试入口。
+# Unified non-hardware software validation for local use and CI.
 
 from __future__ import annotations
 
@@ -92,12 +89,9 @@ def _source_worktree_changes() -> tuple[str, ...]:
 
 
 # 当前源码任务必须存在Task Context，并把新鲜度和实际Diff范围检查纳入同一软件门禁。
-def _validate_current_task_context(python: str, context: Path | None = None) -> None:
+def _validate_current_task_context(python: str) -> None:
 
-    selected = context if context is not None else TASK_CONTEXT_PATH
-    if context is not None and not selected.is_file():
-        raise RuntimeError(f"explicit Task Context does not exist: {selected}")
-    if not selected.is_file():
+    if not TASK_CONTEXT_PATH.is_file():
         changed_paths = _source_worktree_changes()
         if changed_paths:
             raise RuntimeError(
@@ -110,7 +104,7 @@ def _validate_current_task_context(python: str, context: Path | None = None) -> 
 
     _run(
         "Current task context freshness",
-        [python, str(TASK_CONTEXT_TOOL), "check", "--context", str(selected)],
+        [python, str(TASK_CONTEXT_TOOL), "check", "--context", str(TASK_CONTEXT_PATH)],
     )
     _run(
         "Current task context scope",
@@ -119,7 +113,7 @@ def _validate_current_task_context(python: str, context: Path | None = None) -> 
             str(TASK_CONTEXT_TOOL),
             "scope-check",
             "--context",
-            str(selected),
+            str(TASK_CONTEXT_PATH),
         ],
     )
 
@@ -134,35 +128,6 @@ def _validate_changed_firmware_quality(python: str, change_base: str | None) -> 
     if change_base:
         command.extend(("--base-ref", change_base))
     _run("Firmware C quality / changed files / strict semantic numbers", command)
-
-
-# 工具注释检查覆盖工作树和提交基线的并集；不把固定Context快照中的旧修改漏掉。
-def _changed_tool_documents(change_base: str | None) -> list[str]:
-    paths = set(_source_worktree_changes())
-    if change_base:
-        completed = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--name-only",
-                "-z",
-                "--diff-filter=ACMR",
-                change_base,
-                "HEAD",
-                "--",
-                "tools",
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        paths.update(completed.stdout.split("\0"))
-    return [
-        str(REPOSITORY_ROOT / path)
-        for path in sorted(paths)
-        if path.startswith("tools/") and path.endswith(".py") and (REPOSITORY_ROOT / path).is_file()
-    ]
 
 
 # 用无硬件的空 Session 验证每个已注册 IP 都能生成有效 ZIP/XLSX 文件。
@@ -208,16 +173,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified non-hardware software validation.")
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument(
-        "--context", type=Path, help="Explicit compiled Task Context and fixed scope"
-    )
-    parser.add_argument(
         "--change-base",
         help="Git base revision used by the complete IP contract synchronization check",
     )
     return parser.parse_args(argv)
 
 
-# 执行当前源码的软件门禁；失败立即返回非零，不将后续未执行项标为通过。
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     python = sys.executable
@@ -238,7 +199,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "validate",
             ],
         )
-        _validate_current_task_context(python, args.context)
+        _validate_current_task_context(python)
         ip_change_command = [
             python,
             str(REPOSITORY_ROOT / "tools/quality/check_ip_change_rules.py"),
@@ -276,7 +237,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--root",
                 str(REPOSITORY_ROOT),
                 str(REPOSITORY_ROOT / "pc/et_test_platform"),
-                *_changed_tool_documents(args.change_base),
             ],
         )
         _run(

@@ -7,9 +7,10 @@
 
 ## 0. 不可违反
 
-- 仓库：`abba-labs/et-harness`；以本机正式仓库的实时root、branch和origin核对身份，不使用旧副本身份。
-- 开发只能在`codex_dev`分支继续；仅当用户（人工）明确指定其他分支时才允许例外。不得根据旧文档、当前检出的分支或Agent建议自行换分支、新建分支或worktree。
-- 本机正式仓库为`D:\lihuan\vibe_code\codex\projects\ET_ATP_Testing`（WSL：`/mnt/d/lihuan/vibe_code/codex/projects/ET_ATP_Testing`）。每次开始或恢复工作先核对`git rev-parse --show-toplevel`和`git branch --show-current`；不符时停止写入并报告，不自动切换或回退到旧副本。
+- 仓库：`abba-labs/et-harness`；以本工作区实时root、branch和origin核对身份。
+- 本DeepSeek工作区由人工指定在`dsh_dev`分支开发；仅当用户（人工）明确指定其他分支时才允许例外。不得根据旧文档、当前检出的分支或Agent建议自行换分支、新建分支或worktree。
+- 本工作区为`D:\lihuan\vibe_code\et-harness\workspace\ET_ATP_Testing`（WSL：`/mnt/d/lihuan/vibe_code/et-harness/workspace/ET_ATP_Testing`）。每次开始或恢复工作先核对`git rev-parse --show-toplevel`和`git branch --show-current`；不符时停止写入并报告，不自动切换到Codex目录或其他副本。
+- 本目录使用独立clone；禁止复制其他工作区的`.git`指针、共用索引或将Git命令定向到Codex工作区。与Codex同步须经人工指定的提交合并，不覆盖对方未提交文件。推送使用本分支`dsh_dev`，不得因同步误推`codex_dev`。
 - 禁止临时补丁分支、Force Push、改写历史、覆盖并行修改或丢弃用户变更。
 - 公共架构已冻结；优先级为`可靠 > 稳定 > 轻量化 > 易扩展`。
 - 局部问题优先复用正确层并做最小修改；禁止无证据增加Framework、Registry、Workflow、DI、Plugin或通用资源图。
@@ -98,7 +99,7 @@ Evidence: Assertion -> Observation/Evidence -> Canonical Result -> Report
 
 ## 6. 验证
 
-测试和门禁的范围、时机必须由人工明确指定。Agent不得因修改完成、批次收口、提交前或公共层变化而自行运行专项测试或总门禁。未指定执行时记录`NOT_EXECUTED`，不得宣称验证闭环。以下仅为人工指定时可选的验证入口，不构成自动执行授权：
+先运行Task Context列出的最小专项验证。提交任何代码、配置、规则或工具前必须运行：
 
 ```powershell
 python tools/validate_pc.py
@@ -106,9 +107,9 @@ git diff --check
 git status --short
 ```
 
-- 人工指定验证时，Firmware变化应覆盖已有C语法、Contract或Native Harness。
-- 人工指定验证时，Wire变化应覆盖PC、Firmware和Golden Vector。
-- 人工指定验证时，公共层变化应覆盖公共Framework及代表性已有IP。
+- Firmware变化还必须运行已有C语法、Contract或Native Harness。
+- Wire变化必须同时验证PC、Firmware和Golden Vector。
+- 公共层变化必须验证公共Framework及代表性已有IP。
 - 软件门禁不能代替真实硬件验证；未执行项明确写`NOT_EXECUTED`。
 
 ## 7. Git与CI
@@ -124,8 +125,8 @@ git status --short
 目标契约与实现一致
 + 公共/芯片边界正确
 + 变更范围单一
-+ 专项验证PASS（仅人工指定后执行；否则NOT_EXECUTED）
-+ 总软件门禁PASS（仅人工指定后执行；否则NOT_EXECUTED）
++ 专项验证PASS
++ 总软件门禁PASS
 + 精确SHA CI PASS（适用时）
 + 未执行硬件项单独声明
 ```

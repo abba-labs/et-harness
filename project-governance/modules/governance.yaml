@@ -27,19 +27,6 @@ always:
     - task_context_navigation
 
 changes:
-  review-record:
-    read:
-      - path: report/README.md
-        reason: 同步与修复记录的正式分类和唯一索引
-        required: true
-    rules:
-      - agent_rule_governance
-    write_scopes:
-      - report/review/**
-      - report/README.md
-    validation:
-      - python tools/quality/validate_rule_governance.py
-
   weekly-report:
     protected_scopes:
       - pc/et_test_platform/test_cases/**

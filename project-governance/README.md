@@ -68,13 +68,6 @@ python tools/governance/compile_task_context.py compile `
 
 检查当前上下文：
 
-人工已允许保留既有修改的新任务，可在上述compile命令追加
-`--preserve-existing-changes --output project-governance/runtime/<task-id>.json`。
-独立输出文件同时保留固定基线，具体限制见R002；检查该任务时传入对应`--context`。
-
-总软件门禁同样使用`python tools/validate_pc.py --context project-governance/runtime/<task-id>.json`。
-下表“无”仅指无实际目标的公共软件开发；带IP的非豁免任务须同时带`--chip`，fpga/hil亦须带chip，见R002。
-
 ```powershell
 .\.venv\Scripts\python.exe tools\governance\compile_task_context.py check
 ```
@@ -97,9 +90,9 @@ Service、Wrap和Capability任务会失败关闭。
 
 | 开发目标 | module/change | 必要参数 |
 |---|---|---|
-| 新IP分析、Feature和Case规划 | `ip-package/analysis` | `--ip --chip` |
+| 新IP分析、Feature和Case规划 | `ip-package/analysis` | `--ip`，有目标芯片时加`--chip` |
 | 芯片IP真实测试结果回写 | `ip-package/test-result` | `--ip --chip` |
-| IP Formal Case、PC Driver、Firmware Service/Wrap | `ip-package/case|driver|service|wrap` | `--ip --chip` |
+| IP Formal Case、PC Driver、Firmware Service/Wrap | `ip-package/case|driver|service|wrap` | `--ip` |
 | 某芯片IP能力与执行映射 | `ip-package/capability` | `--ip --chip` |
 | 通用SVD能力生成器及生成合同测试 | `operator-pipeline/capability-generator` | 无；写回某IP能力时另选`ip-package/capability` |
 | 某芯片SDK中补充本IP Driver/Test Extension | `ip-package/chip-driver` | `--ip --chip` |

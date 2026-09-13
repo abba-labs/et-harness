@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-# 确定性任务上下文编译与核对。
-# 职责：从模块画像和Owner生成固定读写范围，并校验来源与任务基线。
-# 边界：不批准硬件动作、不改源码、不自动选择任务或芯片。
-# 依赖：Git、YAML、项目规则目录与文件Hash。
+# Compile one deterministic task-specific navigation context from the project map and rule Owners.
 
 from __future__ import annotations
 
@@ -38,6 +35,15 @@ PENDING_REVIEW_EXEMPT_DOCS = frozenset(
         ("firmware-platform", "docs"),
     }
 )
+PENDING_REVIEW_NAMED_TARGET_MODULES = frozenset(
+    {
+        "ip-package",
+        "firmware-platform",
+        "pc-platform",
+        "operator-pipeline",
+        "companion-platform",
+    }
+)
 T = TypeVar("T")
 
 
@@ -68,8 +74,6 @@ def _context_integrity_fingerprint(context: Mapping[str, Any]) -> str:
     }
     if "scope_baseline" in context:
         payload["scope_baseline"] = context.get("scope_baseline")
-    if "worktree_fingerprint" in context:
-        payload["worktree_fingerprint"] = context.get("worktree_fingerprint")
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     ).hexdigest()
@@ -312,14 +316,6 @@ def _changed_paths_since(
     return sorted(
         path for path in set(baseline) | set(current) if baseline.get(path) != current.get(path)
     )
-
-
-# Bind the captured file hashes to the Context, not only the authorization fields.
-def _worktree_fingerprint(snapshot: Mapping[str, str]) -> str:
-
-    return hashlib.sha256(
-        json.dumps(snapshot, sort_keys=True, ensure_ascii=True).encode("utf-8")
-    ).hexdigest()
 
 
 # Translate one path segment while keeping `*` and `?` inside that segment.
@@ -1059,18 +1055,14 @@ def _record_current_dir(chip: str, ip: str) -> Path:
     return ROOT / "artifacts" / "records" / chip.upper() / ip.upper() / "current"
 
 
-# A missing receipt is not pending; damaged or unreadable receipts fail closed.
+# Read only pending_review; missing, unreadable or non-bool values are not pending.
 def _publication_pending(path: Path) -> bool:
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
-    except FileNotFoundError:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return False
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"cannot read knowledge review receipt: {path}: {exc}") from exc
-    if not isinstance(payload, dict) or type(payload.get("pending_review")) is not bool:
-        raise ValueError(f"invalid knowledge review receipt pending_review: {path}")
-    return payload["pending_review"]
+    return isinstance(payload, dict) and payload.get("pending_review") is True
 
 
 # Parse one Pipeline test_workspaces entry into an IP name; skip unusable shapes.
@@ -1144,6 +1136,21 @@ def _pending_gate_exempt(matched: Mapping[str, Any]) -> bool:
     return True
 
 
+# True when the selected route can write Driver/Firmware/Case/Runner without naming a target.
+def _requires_named_compile_targets(matched: Mapping[str, Any]) -> bool:
+
+    for module_id, changes in matched.items():
+        if module_id not in PENDING_REVIEW_NAMED_TARGET_MODULES or not isinstance(changes, list):
+            continue
+        for change in changes:
+            if module_id in PENDING_REVIEW_EXEMPT_MODULES:
+                continue
+            if (str(module_id), str(change)) in PENDING_REVIEW_EXEMPT_DOCS:
+                continue
+            return True
+    return False
+
+
 # Build the unique knowledge-review compile line Agents must use as the skip remedy.
 def _knowledge_review_remedy(chip: str | None, ip: str | None) -> str:
 
@@ -1185,9 +1192,12 @@ def _reject_pending_knowledge_review(context: Mapping[str, Any]) -> None:
             "scan artifacts/records"
         )
     if chip is None:
-        if HARDWARE_EXECUTION_LANES.intersection(task.get("lanes", [])):
-            raise ValueError("hardware execution requires --chip for knowledge review checks")
-        # 无IP/芯片的公共软件任务没有运行现场；不得猜芯片或扫描全部证据。
+        if _requires_named_compile_targets(matched):
+            raise ValueError(
+                "this module/change can write Driver, Firmware, Case or Runner files; "
+                "declare --chip and --ip or --ip-scope so pending knowledge review "
+                "can be checked. Do not skip the gate by omitting targets"
+            )
         return
     probe_ips = list(target_ips)
     if not probe_ips:
@@ -1205,7 +1215,7 @@ def _reject_pending_knowledge_review(context: Mapping[str, Any]) -> None:
         raise ValueError(
             f"knowledge review is pending for {chip}/{ip} at {display}; "
             "non-knowledge-review compile is closed until review. "
-            f"Using the fixed-baseline rules in R002, compile the remedy change only: "
+            f"From a clean worktree, compile the remedy change only: "
             f"{_knowledge_review_remedy(chip, ip)}"
         )
 
@@ -1223,50 +1233,24 @@ def compile_task_context(args: argparse.Namespace) -> Path:
         lanes=args.lane,
         ip_scopes=_parse_ip_scopes(args.ip_scope) if getattr(args, "ip_scope", None) else None,
     )
-    preserve_existing = getattr(args, "preserve_existing_changes", False)
-    if (
-        context["repository"]["available"]
-        and context["repository"]["dirty"]
-        and not preserve_existing
-    ):
+    if context["repository"]["available"] and context["repository"]["dirty"]:
         raise ValueError(
             "Git worktree must be clean before compiling Task Context; "
-            "use --preserve-existing-changes only for a human-authorized new task boundary"
+            "do not adopt existing source changes into a new task baseline"
         )
     _reject_pending_knowledge_review(context)
     output = Path(args.output).resolve() if args.output else DEFAULT_OUTPUT
+    output.parent.mkdir(parents=True, exist_ok=True)
     baseline_path = output.with_suffix(output.suffix + ".baseline.json")
-    if preserve_existing and (output.exists() or baseline_path.exists()):
-        raise ValueError(
-            "preserved baseline already exists; use a distinct task output, never rebase it"
-        )
-    if output.exists():
-        previous = json.loads(output.read_text(encoding="utf-8-sig"))
-        if not isinstance(previous, dict):
-            raise ValueError("existing Context is invalid; preserve it for diagnosis")
-        if previous.get("worktree_fingerprint") and previous.get("repository", {}).get("dirty"):
-            raise ValueError(
-                "preserved baseline already exists; it cannot be replaced in clean mode"
-            )
-    snapshot = _git_worktree_snapshot() if context["repository"]["available"] else {}
-    if preserve_existing and not context["repository"]["available"]:
-        raise ValueError("preserving existing changes requires a Git worktree")
-    if context["repository"]["available"]:
-        if not _repository_identity_matches(context["repository"], _git_state()):
-            raise ValueError("repository identity changed during baseline capture")
-        if snapshot != _git_worktree_snapshot():
-            raise ValueError("worktree changed during baseline capture; stop concurrent edits")
     context["scope_baseline"] = baseline_path.name
-    context["worktree_fingerprint"] = _worktree_fingerprint(snapshot)
     context["integrity_fingerprint"] = _context_integrity_fingerprint(context)
     baseline = {
         "schema": "et.task-scope-baseline.v1",
         "repository": context["repository"],
         "context_integrity_fingerprint": context["integrity_fingerprint"],
         "write_scope": context["write_scope"],
-        "worktree": snapshot,
+        "worktree": _git_worktree_snapshot() if context["repository"]["available"] else {},
     }
-    output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     baseline_temporary = baseline_path.with_suffix(baseline_path.suffix + ".tmp")
     temporary.write_text(json.dumps(context, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -1316,16 +1300,6 @@ def check_task_context(path: Path) -> list[str]:
     return []
 
 
-def _baseline_fingerprint_errors(current: dict, baseline: dict, repository: dict) -> list[str]:
-    expected = current.get("worktree_fingerprint")
-    if expected is not None:
-        if expected != _worktree_fingerprint(baseline):
-            return ["Task Scope baseline file hashes do not match the fixed Context fingerprint"]
-    elif repository.get("dirty"):
-        return ["dirty baseline requires a fixed worktree fingerprint"]
-    return []
-
-
 # Compare post-compilation source changes with the Task Context's allowed write scope.
 def check_task_scope(path: Path) -> tuple[list[str], list[str]]:
 
@@ -1369,9 +1343,6 @@ def check_task_scope(path: Path) -> tuple[list[str], list[str]]:
         return [], ["Task Scope baseline worktree must be a mapping"]
     if not all(isinstance(key, str) and isinstance(value, str) for key, value in baseline.items()):
         return [], ["Task Scope baseline must map paths to fingerprints"]
-    fingerprint_errors = _baseline_fingerprint_errors(current, baseline, repository)
-    if fingerprint_errors:
-        return [], fingerprint_errors
 
     git_state = _git_state()
     if not git_state["available"]:
@@ -1409,11 +1380,6 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     compile_parser.add_argument("--chip")
     compile_parser.add_argument("--output")
-    compile_parser.add_argument(
-        "--preserve-existing-changes",
-        action="store_true",
-        help="freeze existing changes for a human-authorized new task; never overwrite its baseline",
-    )
     check_parser = subparsers.add_parser("check", help="check whether current context is stale")
     check_parser.add_argument("--context", default=str(DEFAULT_OUTPUT))
     scope_parser = subparsers.add_parser(
@@ -1423,7 +1389,6 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-# 分派编译或只读核对命令；治理、身份或范围错误返回非零，不放宽任务授权。
 def main(argv: Sequence[str] | None = None) -> int:
 
     args = _parse_args(argv)

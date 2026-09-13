@@ -109,7 +109,7 @@ roots1:
   SDK_GIT: "D:/lihuan/vibe_code/code/SDK/git"
   SVN_SOFTWARE: "D:/lihuan/vibe_code/SVN/Software"
   BOOT_ROM: "D:/lihuan/vibe_code/code/boot_rom"
-  ATP_REPO: "D:/lihuan/vibe_code/codex/projects/ET_ATP_Testing"
+  ATP_REPO: "D:/lihuan/vibe_code/et-harness/workspace/ET_ATP_Testing"
   GDRIVE_SDK: "G:/我的云端硬盘/ET_FILE/CODE/sdk" # 仅作云盘映射备用
 
 # ------------------------------------------------------------------------------

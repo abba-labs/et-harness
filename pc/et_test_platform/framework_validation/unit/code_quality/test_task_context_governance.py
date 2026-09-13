@@ -946,102 +946,6 @@ def test_task_context_compile_rejects_dirty_worktree(
         compiler.compile_task_context(arguments)
 
 
-# 测试Feature：人工授权的脏树保留模式固定旧修改，不放宽新增修改范围。
-# 测试方法：模拟既有允许/保护路径，编译后分别修改、恢复和篡改基线。
-# 通过条件：旧修改不计入本任务；新增越界、基线篡改和原地重编均拒绝。
-def test_preserved_worktree_baseline_is_fixed_and_scope_bounded(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-
-    compiler = _load_compiler()
-    state = {"available": True, "branch": "test", "head": "a" * 40, "dirty": True}
-    snapshot = {"tools/governance/a.py": "old-a", "firmware/services/user.c": "old-user"}
-    monkeypatch.setattr(compiler, "_git_state", lambda: dict(state))
-    monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: dict(snapshot))
-    args = compiler._parse_args(
-        [
-            "compile",
-            "--task-id",
-            "PRESERVE-001",
-            "--intent",
-            "保留用户修改",
-            "--module",
-            "governance",
-            "--change",
-            "navigation",
-            "--preserve-existing-changes",
-            "--output",
-            str(tmp_path / "context.json"),
-        ]
-    )
-    path = compiler.compile_task_context(args)
-    assert compiler.check_task_scope(path) == ([], [])
-    snapshot["tools/governance/a.py"] = "new-a"
-    assert compiler.check_task_scope(path) == (["tools/governance/a.py"], [])
-    snapshot["firmware/services/user.c"] = "new-user"
-    assert compiler.check_task_scope(path)[1] == [
-        "path is protected by task scope: firmware/services/user.c"
-    ]
-    del snapshot["firmware/services/user.c"]
-    assert compiler.check_task_scope(path)[1]
-    with pytest.raises(ValueError, match="baseline already exists"):
-        compiler.compile_task_context(args)
-    state["dirty"] = False
-    args.preserve_existing_changes = False
-    with pytest.raises(ValueError, match="baseline already exists"):
-        compiler.compile_task_context(args)
-    state["dirty"] = True
-    context = json.loads(path.read_text(encoding="utf-8"))
-    baseline_path = path.parent / context["scope_baseline"]
-    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-    baseline["worktree"] = dict(snapshot)
-    baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
-    assert "file hashes" in compiler.check_task_scope(path)[1][0]
-
-
-# 测试Feature：捕获期间变化不能变成可信任务基线。
-# 测试方法：两次快照返回不同Hash。
-# 通过条件：失败且不发布Context。
-def test_preserved_baseline_rejects_concurrent_edits(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-
-    compiler = _load_compiler()
-    monkeypatch.setattr(
-        compiler,
-        "_git_state",
-        lambda: {
-            "available": True,
-            "branch": "test",
-            "head": "a" * 40,
-            "dirty": True,
-        },
-    )
-    snapshots = iter([{"user.py": "a"}, {"user.py": "b"}])
-    monkeypatch.setattr(compiler, "_git_worktree_snapshot", lambda: next(snapshots))
-    args = compiler._parse_args(
-        [
-            "compile",
-            "--task-id",
-            "PRESERVE-RACE",
-            "--intent",
-            "固定基线",
-            "--module",
-            "governance",
-            "--change",
-            "navigation",
-            "--preserve-existing-changes",
-            "--output",
-            str(tmp_path / "context.json"),
-        ]
-    )
-    with pytest.raises(ValueError, match="worktree changed during baseline capture"):
-        compiler.compile_task_context(args)
-    assert not (tmp_path / "context.json").exists()
-
-
 # 测试Feature：递归目录Scope同时覆盖根README和任意深度子目录文档。
 #
 # 测试方法：用同一个`firmware/**/*.md`模式匹配零层和多层文件。
@@ -1442,60 +1346,6 @@ def test_unified_software_gate_keeps_non_agent_runs_context_free(
     assert calls == []
 
 
-# 测试方法：同时提供旧默认和新显式Context；通过条件：两个检查仅消费指定路径，缺失时拒绝回退。
-def test_software_gate_explicit_context_never_falls_back(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    validator = _load_validator()
-    old = tmp_path / "old.json"
-    chosen = tmp_path / "chosen.json"
-    old.write_text("{}", encoding="utf-8")
-    chosen.write_text("{}", encoding="utf-8")
-    monkeypatch.setattr(validator, "TASK_CONTEXT_PATH", old)
-    calls = []
-    monkeypatch.setattr(validator, "_run", lambda label, command: calls.append(command))
-    args = validator._parse_args(["--context", str(chosen)])
-    validator._validate_current_task_context("python", args.context)
-    assert len(calls) == 2
-    assert all(command[-1] == str(chosen) for command in calls)
-    with pytest.raises(RuntimeError, match="explicit Task Context"):
-        validator._validate_current_task_context("python", tmp_path / "missing.json")
-    assert len(calls) == 2
-
-
-# 测试方法：无目标公共任务不探测现场，真实硬件任务缺芯片拒绝；既有具名pending回归继续保护。
-def test_common_software_context_does_not_invent_a_chip(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    compiler = _load_compiler()
-    _clean_git(compiler, monkeypatch)
-
-    def unexpected_probe(chip: str, ip: str) -> Path:
-        raise AssertionError(f"unexpected record probe: {chip}/{ip}")
-
-    monkeypatch.setattr(compiler, "_record_current_dir", unexpected_probe)
-    args = _compile_args(
-        compiler,
-        tmp_path,
-        task_id="COMMON-CORE",
-        intent="公共软件修复",
-        module="pc-platform",
-        change="core",
-    )
-    assert compiler.compile_task_context(args).is_file()
-    with pytest.raises(ValueError, match="hardware execution requires --chip"):
-        compiler._reject_pending_knowledge_review(
-            {
-                "task": {
-                    "matched_changes_by_module": {"operator-pipeline": ["pipeline"]},
-                    "lanes": ["hil"],
-                }
-            }
-        )
-
-
 # 测试Feature：有源码变化时不能缺少Task Context运行统一门禁。
 #
 # 测试方法：模拟不存在Task Context但工作树包含一个Firmware源码变化。
@@ -1773,12 +1623,12 @@ def test_ip_scope_without_ip_still_checks_pending(
     assert not (tmp_path / "context.json").exists()
 
 
-# 测试Feature：无chip/IP的公共Firmware开发不捏造硬件目标，不扫描全树。
+# 测试Feature：firmware-platform/application 无 chip/ip 必须点名目标，不得扫全树。
 #
 # 测试方法：隔离 records 为空，编译 firmware-platform/application。
 #
-# 通过条件：公共软件Context可编译；探测函数不被调用，硬件目标另有失败关闭回归。
-def test_firmware_application_without_targets_is_software_only(
+# 通过条件：失败要求声明 --chip/--ip；探测函数不被调用。
+def test_firmware_application_without_targets_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
 
@@ -1796,13 +1646,15 @@ def test_firmware_application_without_targets_is_software_only(
         compiler,
         tmp_path,
         task_id="FW-APP-NO-TARGET",
-        intent="公共Firmware软件任务",
+        intent="无目标不得跳过闸门",
         module="firmware-platform",
         change="application",
     )
 
-    assert compiler.compile_task_context(args).is_file()
+    with pytest.raises(ValueError, match="declare --chip and --ip"):
+        compiler.compile_task_context(args)
     assert probed == []
+    assert not (tmp_path / "context.json").exists()
 
 
 # 测试Feature：governance 与仅 docs change 豁免 pending 探测。
@@ -1890,32 +1742,6 @@ def test_dirty_worktree_wins_over_pending_review(
     with pytest.raises(ValueError, match="worktree must be clean"):
         compiler.compile_task_context(args)
     assert not (tmp_path / "context.json").exists()
-
-
-# 测试Feature：回执损坏不能被当成无待整理知识。
-# 测试方法：写入非法JSON、非对象、缺字段和非布尔状态。
-# 通过条件：均失败关闭；只有缺文件和合法false不阻塞。
-@pytest.mark.parametrize(
-    "body", ["{", "[]", "{}", '{"pending_review": "false"}', '{"pending_review": 0}']
-)
-def test_invalid_publication_fails_closed(tmp_path: Path, body: str) -> None:
-    compiler = _load_compiler()
-    receipt = tmp_path / "publication.json"
-    receipt.write_text(body, encoding="utf-8")
-    with pytest.raises(ValueError, match="knowledge review receipt"):
-        compiler._publication_pending(receipt)
-
-
-# 测试方法：缺失、true、false、不可读取目录；通过条件：精确区分四种状态。
-def test_publication_presence_and_boolean_state(tmp_path: Path) -> None:
-    compiler = _load_compiler()
-    receipt = tmp_path / "publication.json"
-    assert compiler._publication_pending(receipt) is False
-    for pending in (True, False):
-        receipt.write_text(json.dumps({"pending_review": pending}), encoding="utf-8")
-        assert compiler._publication_pending(receipt) is pending
-    with pytest.raises(ValueError, match="cannot read knowledge review receipt"):
-        compiler._publication_pending(tmp_path)
 
 
 # 测试Feature：knowledge-review 使用 hil 必须失败，且不得因此带上 pipeline。

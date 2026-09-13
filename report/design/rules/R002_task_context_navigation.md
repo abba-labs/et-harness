@@ -29,21 +29,16 @@ rule_ids: [ET-RULE-TASK-CONTEXT]
   -> 检查目标符号及相邻责任链
   -> 开发
   -> Task Scope检查
-  -> 人工指定后执行专项验证（否则NOT_EXECUTED）
+  -> 专项验证
   -> 逻辑批次完成
-  -> 人工指定后执行仓库总软件门禁（否则NOT_EXECUTED）
+  -> 仓库总软件门禁
 ```
 
 持续对话不豁免本规则。任务扩展到新模块、新责任或新芯片适配范围时，必须重新编译Task Context。
 扩围前先对已经完成的变化运行Scope检查，再编译扩围后的新上下文；禁止通过重新编译隐藏越界变化。
 
-Task Context必须在本任务第一次写入前编译，默认要求干净Git工作树。
-人工允许保留既有修改时，可使用`--preserve-existing-changes`和独立`--output`建立新任务边界：
-编译器固定既有变更路径与SHA256（含未跟踪文件、删除标记），将快照摘要绑定到Context完整性摘要。
-既有修改不计作本任务成果；只检查相对快照的新增改动，已有文件再次变化或恢复HEAD也算新增改动。
-必须区分用户、前序任务与本任务变化，保留既有内容；同文件重叠只能在本次授权范围内修改。
-禁止覆盖已存在的保留基线、改写基线Hash或重新编译掩盖越界；扩围仍须先检查原范围。
-参数只选择保留机制，不代表取得人工授权，不允许绕过protected、pending_review或硬件门禁。
+Task Context必须在第一次写入前由干净Git工作树编译。编译器不得把已有源码变化收养为本任务基线；
+工作树不干净时，Agent必须停止并区分用户变化、前序任务变化和待处理变化，不得使用重新编译绕过范围检查。
 
 ### 2.1 验证范围与门禁时机
 
@@ -67,14 +62,14 @@ Task Context必须在本任务第一次写入前编译，默认要求干净Git�
 2. 一组同类Bug修复完成；
 3. 一项公共契约、公共层或工具链变更完成。
 
-专项测试和总软件门禁的执行范围、时机只能由人工明确指定。同一源码状态已经通过时不得重复执行。以下事件只要求收口变更、说明风险和列出待验证项，不构成测试执行授权：
+批次内部先执行目标文件、目标模块或目标Case的最小专项验证。完整总软件门禁必须在以下时点执行一次；同一源码状态已经通过时不得重复执行：
 
 1. 逻辑批次完成；
 2. Commit或Push前；
-3. 达到批次规模边界；
+3. 用户明确要求；
 4. 公共Framework、Wire、Capability Schema、Canonical Result/Report Schema、Runner或部署流程发生变化。
 
-有效变更达到300行时，当前逻辑步骤完成后必须收口该批次，不得继续叠加新的独立修改；未获人工明确指定的验证记录为`NOT_EXECUTED`，不得自动启动。有效变更按新增行与删除行之和统计，包括源码、配置、规则和工具；不统计Artifact、生成文件、日志、普通说明文档和第三方代码。行数只作收口兜底，未完成的函数或原子操作不得被中途截断。
+有效变更达到300行时，当前逻辑步骤完成后必须收口该批次并运行总软件门禁，不得继续叠加新的独立修改。有效变更按新增行与删除行之和统计，包括源码、配置、规则和工具；不统计Artifact、生成文件、日志、普通说明文档和第三方代码。行数只作兜底：高风险公共变更即使不足300行仍按上述第4项执行，未完成的函数或原子操作不得为凑门禁时点被中途截断。
 
 ## 3. 标准命令
 
@@ -99,10 +94,7 @@ Task Context必须在本任务第一次写入前编译，默认要求干净Git�
 .\.venv\Scripts\python.exe tools\governance\compile_task_context.py scope-check
 ```
 
-使用独立输出时，check/scope-check及总门禁都必须显式传入同一个`--context <path>`。
-总门禁不复制、不覆盖其他任务Context；显式路径缺失必须失败，不能回退到默认文件或clean模式。
-
-Scope检查以Task Context编译时的固定Git工作树快照为基线，只接受`write_scope.allowed`内的新增变化。
+Scope检查以Task Context编译时的干净Git工作树快照为基线，只接受`write_scope.allowed`内的变化。
 `write_scope.protected`优先于`allowed`：任一已选模块声明为保护范围的路径，即使另一模块给出宽泛允许范围，
 本任务仍必须拒绝。`artifacts/runs/`、`artifacts/reports/`和`artifacts/records/`属于生成证据，不进入源码范围检查；其发布和保留边界仍受R500约束。
 
@@ -113,7 +105,7 @@ Task Context中的任务声明、仓库身份、输入摘要、规则Owner、读
 治理任务可能依法修改当前Context引用的规则或模块画像；此时原Context及原写入范围继续作为本任务固定边界。
 只有当前Git branch/HEAD未变化、原Context完整性有效且Scope baseline仍与原授权一致时，
 才允许已位于原`allowed`范围内的输入变化继续使用原Context；不得采用修改后的宽泛范围。
-后续独立任务重新编译；未提交的既有修改只能依上述人工授权保留机制固定，不得收养为新成果。
+任务完成并恢复干净工作树后，后续任务再重新编译。
 
 单IP任务只能修改该IP被路由的文件；多IP任务必须遵守第3.1节逐IP声明边界。
 未声明IP及冻结公共层默认只读。发现范围外缺陷时必须停止相关修改，提交证据并取得用户明确批准；
@@ -133,7 +125,7 @@ Task Context中的任务声明、仓库身份、输入摘要、规则Owner、读
 - `--ip-scope`必须选择`ip-package`，禁止与`--ip`混用。此时`--change`只用于其他模块。
 - IP和change必须是明确标识；禁止通配符、路径、空项、重复IP、重复change、未知change或缺少必要参数。
 - 只需同步已有契约时使用`contract-sync`：只允许该IP的公共文档和指定芯片文档，不授权Case、Driver、Service、Wrap或Capability文件；新IP分析仍使用`analysis`。
-- 编译器合并各范围的必读来源、Owner和验证入口并去重；`protected`优先、固定Git基线、Diff检查、完整性摘要和人工硬件门禁均不改变。
+- 编译器合并各范围的必读来源、Owner和验证入口并去重；`protected`优先、干净Git基线、Diff检查、完整性摘要和人工硬件门禁均不改变。
 - `task.ip_scopes`进入任务指纹；修改IP或change必须按扩围流程重新编译，禁止修改runtime JSON。
 - Agent必须逐项核对用户授权；填写`--ip-scope`不是取得授权，编译器也不自行推断依赖或批准。
 
@@ -150,7 +142,7 @@ python tools/governance/compile_task_context.py compile `
 ## 4. 失败关闭规则
 
 - 未知模块、未知change、未知Owner、缺少必需参数或必读来源不存在时，编译必须失败。
-- Git工作树不干净且未采用人工授权的保留机制时不得编译新Context；有源码变化但缺少Context时，总软件门禁必须失败。
+- Git工作树不干净时不得编译新的Task Context；有源码变化但缺少Task Context时，总软件门禁必须失败。
 - `protected`范围发生变化时必须失败；不得由另一模块的`allowed`范围覆盖。
 - Task Context完整性摘要、Scope baseline授权快照或两者的交叉绑定不一致时必须失败；不得原地修改runtime JSON扩大权限。
 - Agent不得从相似文件名、历史记录或个人记忆猜测缺失路由。
@@ -160,12 +152,10 @@ python tools/governance/compile_task_context.py compile `
   `operator-pipeline/pipeline`，使R500、统一入口和硬件执行边界进入Task Context；编译器必须失败关闭。
 - 目标 CHIP/IP 的 `current/publication.json` 为 `pending_review=true`，且本次不是唯一的
   `operator-pipeline/knowledge-review` 时，compile 必须失败关闭且不得写入 Context JSON。
-  探测只读该 JSON：仅缺文件不当 pending；读取失败、损坏JSON、非对象或非布尔pending_review必须失败关闭。禁止 `verify_publication`，禁止全树扫描。
+  探测只读该 JSON：缺文件不当 pending；禁止 `verify_publication`，禁止全树扫描。
   目标来自 `--ip` / `--ip-scope` / 仅 `--chip` 时的 `_PIPELINE` 与 `test_workspaces`。
-  `governance` 与已有 `*/docs` 豁免。已声明IP的非豁免任务必须同时声明chip；不可省略实际目标来绕过pending。
-  不含IP/chip的公共软件任务不探测运行现场，不猜测芯片或扫描全树；此Context不授权真实目标执行。
-  fpga/hil任务必须声明chip；模块画像所要求的chip/IP参数仍必须满足，后续引入实际目标须重新编译并检查pending。
-  `knowledge-review` 只作跳过补救，仍遵守固定基线规则，禁止 fpga/hil 与其它 change 混编：
+  `governance` 与已有 `*/docs` 豁免；能写 Driver/Firmware/Case/Runner 的模块无点名目标时必须失败。
+  `knowledge-review` 只作跳过补救，不豁免干净树，禁止 fpga/hil 与其它 change 混编：
 ```powershell
 .\.venv\Scripts\python.exe tools\governance\compile_task_context.py compile `
   --task-id <id> --intent "<intent>" `

@@ -64,7 +64,7 @@ $env:PYTHONUTF8='1'; $env:PYTHONIOENCODING='utf-8'
   --include-case can_p0_001
 ```
 
-当前独立调用默认不跑总门禁；仅人工指定时追加`--software-preflight`。可用`--level P0`、`--exclude-case`、受控`--pytest-arg`。禁止改成裸`pytest`。本文示例不是测试授权。
+独立调用会先跑完整 `validate_pc.py`；Pipeline 内部因 `--within-pipeline` 跳过。可用 `--level P0`、`--exclude-case`、受控 `--pytest-arg`。禁止改成裸 `pytest`。
 
 ### 1. 前置盘点（每轮）
 
@@ -78,7 +78,7 @@ Get-Process UV4,JLink -ErrorAction SilentlyContinue   # 必须无
 另查：
 
 - 本次要跑的 IP 是否在 [`ip_registry.py`](../../../pc/et_test_platform/test_cases/ip_registry.py)（2026-09-10 核验 13 个：can, spi, stimer, syscnt, ipcm, dma, crc, fmac, cordic, aes, wdg, spinlock, uart）。**改注册表是代码变更，须用户指令。** Case 是否存在/执行过只信注册表 + session，见 [case_list_authority](../governance/case_list_authority.md)。
-- `records/<CHIP>/<IP>/current`与`_PIPELINE/current`回执；未发布/损坏会拦截，Hash完好pending的人与Agent职责不同，见证据回路文档。
+- `records/<CHIP>/<IP>/current` 与 `_PIPELINE/current` 回执；未整理会拦截，见证据回路文档。
 - 串口必须在线（以本机 `dut.control.port` 为准）；HELLO 的 `firmware_build_id` 须等于 `dut.expected.firmware_build_id`。
 - 编码环境见 [ps5_gbk_console_encoding](../environment/ps5_gbk_console_encoding.md)。`run_test.bat` 不设 `PYTHONUTF8`；Agent 终端长跑须先设上述环境变量。
 
@@ -127,7 +127,7 @@ Get-Content artifacts\records\ET6801\_PIPELINE\current\stages\pipeline\pipeline.
 
 ### 6. 证据闭环（R500 §6，测完必做）
 
-按[evidence_review_loop](evidence_review_loop.md)：读取事实、逐Case整理，再显式确认。Agent须完成整理；人可复用Hash完好的pending现场。未核实来源不能review，损坏或未发布现场不得清空。检查与测试的执行仍服从人工指定。
+按 [evidence_review_loop](evidence_review_loop.md)：`maintain_test_records.py extract` → 逐 Case 整理 → `check` → `review`（`--source` **绝对路径**）。不 review 则下一轮无法覆盖 `current`。
 
 ### 7. 禁止事项（硬约束）
 
@@ -150,6 +150,5 @@ Get-Content artifacts\records\ET6801\_PIPELINE\current\stages\pipeline\pipeline.
 
 ## 依据与变化
 
-- 2026-09-12 17:20 CST：纠正当前门禁选择开关和pending复用说明；旧全量入口示例只适用于人工明确选择全集，不能据此推断测试授权。未运行测试。
 - 2026-09-09 16:00 CST：按三次实测（测试轮/复测轮/全链路轮）固化为 SOP；当时注册表与验证面为 CAN，启动写法为直接 `run_pipeline.py`。
 - 2026-09-10 11:00 CST：对照 `run_test.bat` / `bootstrap.py` / `run_pipeline.py` / `run_ip_tests.py` / `ip_registry.py` / GUI Schema / R500 修订。**废止「当前只注册 CAN」**：以源码 `IP_REGISTRY` 为准（当日 13 IP）。正式入口改为 bat/GUI → bootstrap；单 IP/Case 只允许 `run_ip_tests.py`。补充 example vs 本机配置、`confirm_hardware_actions`、firmware/start_target 互斥、GUI 单步覆写配置、禁止手拼与禁止诊断脚本冒充 HIL。交叉引用芯片比对经验（已 superseded），不在本文复述该缺陷。

@@ -62,8 +62,6 @@ report/
 
 ### Review
 
-- [仓库规则一致性与人工代码审查](review/20260912_repository_rules_code_review.md)
-- [DeepSeek证据系统同步与待修正清单](review/20260912_incoming_evidence_system_merge.md)
 - [平台公共层冻结前软件收口Review](review/20260810_platform_freeze_convergence_review.md)
 - [Formal Case P级别与ID迁移记录](review/20260810_formal_case_id_migration_review.md)
 - [平台代码评审记录](review/20260805_platform_code_review.md)

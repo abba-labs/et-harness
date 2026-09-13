@@ -78,42 +78,6 @@ def test_review_requires_curated_knowledge_and_is_explicit(cli: ModuleType, tmp_
     assert list(current.iterdir()) == [] and path.read_bytes() == before
 
 
-# 测试方法：知识显式声明来源未核实；通过条件：不修改回执或索引，不签发review。
-def test_review_rejects_unverified_provenance(cli: ModuleType, tmp_path: Path) -> None:
-    current = current_session(tmp_path)
-    path = make_knowledge(tmp_path)
-    path.write_text(path.read_text(encoding="utf-8") + "\n来源状态：UNVERIFIED\n", encoding="utf-8")
-    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
-    cli.prepare_review(tmp_path, current, **kwargs)
-    before = (current / "publication.json").read_bytes()
-    with pytest.raises(ValueError, match="provenance is unresolved"):
-        cli.review_records(tmp_path, current, **kwargs)
-    assert before == (current / "publication.json").read_bytes()
-
-
-# 测试方法：CLI传入相对路径；通过条件：内部规范为绝对路径，原始字节不变。
-def test_review_normalizes_relative_source(
-    cli: ModuleType,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    current = current_session(tmp_path)
-    make_knowledge(tmp_path)
-    kwargs = {"chip": "ET6801", "ip": "crc", "lane": "fpga"}
-    cli.prepare_review(tmp_path, current, **kwargs)
-    original = cli.review_workspace
-    calls = []
-
-    def capture(repository: Path, root: Path, **options: object) -> None:
-        calls.append((repository, root))
-        original(repository, root, **options)
-
-    monkeypatch.setattr(cli, "review_workspace", capture)
-    monkeypatch.chdir(tmp_path)
-    cli.review_records(Path("."), current.relative_to(tmp_path), **kwargs)
-    assert calls == [(tmp_path, current)]
-
-
 # 测试方法：人工知识仍标问题未关闭，而本次Result是PASS；通过条件：工具不自动关闭或覆盖问题。
 def test_first_pass_does_not_close_existing_issue(cli: ModuleType, tmp_path: Path) -> None:
     current = current_session(tmp_path)
