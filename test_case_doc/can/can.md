@@ -1594,23 +1594,23 @@ p_level: P2
 feature_refs: [CAN_F_002, CAN_F_003]
 method:
   inputs:
-    - "观察拓扑：被测CAN和具有静默捕获能力的独立CAN节点/分析仪连接固定总线；内部回环、外部回环两个配置各发两帧1 Mbit/s Classic 8-byte；回环观察阶段Observer只听不ACK；Normal正对照阶段允许Peer正常ACK。"
+    - "观察拓扑：被测CAN和具有帧捕获能力的独立CAN节点/分析仪连接固定总线；内部回环、外部回环两个配置各发两帧1 Mbit/s Classic 8-byte；三个阶段Peer均以正常模式捕获，不要求Peer具备静默(listen-only)能力。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "捕获基线：先将Peer设正常模式并提供ACK，完成一帧Normal正对照及真实捕获；之后切换listen-only，清捕获记录。不能要求仅静默Peer存在时Normal发送成功。"
+    - "捕获基线：Peer保持正常模式，完成一帧Normal正对照及真实捕获，随后清捕获记录。不能要求无ACK的Peer存在时Normal发送成功。"
     - "内部回环：切内部回环并启动Observer，发两帧，确认本机TX完成及本机RX匹配。"
     - "静默判定：内部回环完成后100 ms捕获窗口内不得出现这两帧，保存完整捕获窗口有效性。"
     - "外部回环：重新基线并切外部回环，以不同序号发两帧，确认本机完成和本机接收。"
     - "外部核对：Observer必须收到外部回环两帧且数据一致；无效捕获、未启动设备不能被判为无外发。"
   observations:
-    - "引脚输出：Observer.CAPTURE中内部回环0帧、外部回环2帧，正对照证明捕获链可用。"
+    - "引脚输出：Observer.CAPTURE中内部回环0帧、外部回环2帧，正对照证明捕获链可用。外部回环忽略ACK且忽略RX引脚输入，因此Peer是否提供ACK不改变本Case判据。"
     - "本机完成：两种回环均有TX.COMPLETED和本机RX数据，排除根本没发送造成假静默。"
   pass_criteria:
     - "隔离正确：内部无外发且本机通过，外部有真实捕获且本机通过。"
     - "观察有效：相同固定接线、有效捕获窗口和正对照全部成立；只读模式位不能替代此Case。"
 timeout: "单参数节点5 s；负向无帧窗口为TX完成后100 ms"
 cleanup: ["停止外部刺激", "屏蔽相关中断并停止DMA/DMU", "停止并复位参与CAN与Service状态", "Resource Pool Reset"]
-resources: {minimum_level: R2, full_coverage_level: R4, board: "被测CAN经收发器连接Peer；实例和GPIO来自连接文件", bench: "静默Observer及正对照捕获，可用支持静默捕获的CAN盒子"}
+resources: {minimum_level: R2, full_coverage_level: R4, board: "被测CAN经收发器连接Peer；实例和GPIO来自连接文件", bench: "能真实捕获总线上帧的CAN Peer（正常模式）；不要求静默(listen-only)捕获能力"}
 backend: [FPGA, Silicon]
 evidence: ["CAN内部与外部回环引脚对照：保存输入、硬件配置、method.observations逐项实际值、Expected及首个不匹配；不可只留布尔结论"]
 failure_observations:

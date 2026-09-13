@@ -39,9 +39,9 @@ SILENT_WINDOW_S = 0.1
 # 内部回环无引脚输出、外部回环有引脚输出，且两者本机都完成收发。
 #
 # 测试方法：
-# 1. 保持同一接线，Normal模式配合Peer ACK并捕获正对照帧。
-# 2. 切只听Observer，内部回环发送两帧并核对本机RX；观察100ms无外发。
-# 3. 独立复位并改外部回环，Observer继续只听，两帧必须被真实捕获。
+# 1. 保持同一接线，三个阶段Peer均以正常模式捕获，先完成Normal正对照帧。
+# 2. 切内部回环发两帧并核对本机RX；观察100ms无外发。
+# 3. 独立复位并改外部回环，Peer继续捕获，两帧必须被真实捕获。
 # 4. 分别记录模式、TX完成、实际帧、窗口耗时和Observer错误，失败也清理。
 #
 # 通过条件：
@@ -82,7 +82,7 @@ def test_can_p2_005_loopback_pin_comparison(
             gpio.configure_signal(number, function, can.instance_id)
         deadline = OperationDeadline.start(TIMEOUT_S, label="CAN loopback pin comparison")
 
-        # Normal只用于捕获链正对照；两个回环阶段均要求Peer只听而不提供ACK。
+        # 三个阶段Peer均以正常模式捕获：外部回环忽略ACK且忽略RX引脚输入，Peer的ACK不改变判据。
         for stage, mode, sequences in (
             ("normal", CanLoopback.DISABLED, (0,)),
             ("internal", CanLoopback.INTERNAL, (1, 2)),
@@ -90,7 +90,7 @@ def test_can_p2_005_loopback_pin_comparison(
         ):
             support.crg.reset(CrgPeripheral.CAN, instance=can.instance_id)
             resource_driver.reset()
-            box.configure(PeerBusConfig(nominal_bitrate=1_000_000, listen_only=stage != "normal"))
+            box.configure(PeerBusConfig(nominal_bitrate=1_000_000, listen_only=False))
             box.clear()
             can.initializing_set(True, timeout_s=deadline.remaining_s())
             can.wait_initializing(True, timeout_s=deadline.remaining_s())
