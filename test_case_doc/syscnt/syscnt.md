@@ -369,6 +369,7 @@ cleanup: [无条件恢复CPU运行，停止SYSCNT并设RUN_FREE，恢复系统Ha
 resources: {minimum_level: R4, full_coverage_level: R4, board: 已有调试接口，无新增引脚连线, bench: 可停核且停核期间可读计数的外部调试器}
 backend: [FPGA, Silicon]
 evidence: [canonical observations, Debugger身份和停核时间线附件]
+attachments: [Debugger命令文件、stdout与stderr原始日志，按参数节点分别绑定到本execution]
 failure_observations:
   - {key: cpu_halted, label: CPU实际停核状态, source: observer, role: actual, format: bool}
   - {key: debug_halted, label: 起点SYSCNT实际暂停状态, source: dut, role: actual, format: bool, semantic_ref: syscnt.feature.debug_halt}

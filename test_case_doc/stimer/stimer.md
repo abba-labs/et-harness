@@ -822,6 +822,7 @@ cleanup:
 resources: {minimum_level: R3, full_coverage_level: R3, board: DUT需支持受控Debug Halt且不触发额外Reset, bench: JTAG或SWD Debugger自动化控制}
 backend: [FPGA, Silicon]
 evidence: [COUNT.LIVE停核内Observation + CPU.DEBUG.HALT_STATUS + DEBUG_HALT.CONFIG + 请求采样间隔Measurement + Debug Session Artifact]
+attachments: [Debugger命令文件、stdout与stderr原始日志，按参数节点分别绑定到本execution]
 failure_observations:
 - {key: pause_delta, label: PAUSE策略Halt窗口计数增量, source: measurement, role: actual, format: decimal}
 - {key: run_free_delta, label: RUN_FREE策略Halt窗口计数增量, source: measurement, role: actual, format: decimal}

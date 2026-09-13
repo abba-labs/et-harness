@@ -1023,6 +1023,8 @@ backend:
 - Silicon
 evidence:
 - 决定性硬件Observation、独立Expected/Measurement与绑定结构化Artifact
+attachments:
+- Debugger命令文件、stdout与stderr原始日志，按参数节点分别绑定到本execution
 failure_observations:
 - key: expected_halt_behavior
   label: 期望Halt计数行为
