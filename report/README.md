@@ -62,6 +62,8 @@ report/
 
 ### Review
 
+- [CAN P1/P2 极简重构：开发 Agent 执行指导与验收标准](review/chatgpt_review/can/003_can_p1_p2_agent_execution_guide.md)（实施指导，非完成报告）
+- [CAN 极简重构方案与复核入口](review/chatgpt_review/README.md)（包含旧稿替代关系）
 - [平台公共层冻结前软件收口Review](review/20260810_platform_freeze_convergence_review.md)
 - [Formal Case P级别与ID迁移记录](review/20260810_formal_case_id_migration_review.md)
 - [平台代码评审记录](review/20260805_platform_code_review.md)
