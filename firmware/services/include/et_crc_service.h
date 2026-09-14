@@ -184,7 +184,8 @@ typedef enum
     ET_CRC_COMMAND_IRQ_SNAPSHOT_GET = 0x0011u,     /**< Read hardware and callback evidence. */
     ET_CRC_COMMAND_TEST_INPUT_WRITE = 0x0012u,     /**< Write one typed CRC input item. */
     ET_CRC_COMMAND_TEST_CALCULATE_TIMED = 0x0013u, /**< Return CRC32 DWT cycle evidence. */
-    ET_CRC_COMMAND_TEST_INPUT_BURST_32 = 0x0014u   /**< Execute one target-local word burst. */
+    ET_CRC_COMMAND_TEST_INPUT_BURST_32 = 0x0014u,  /**< Execute one target-local word burst. */
+    ET_CRC_COMMAND_CONTEXT_RESET = 0x0015u        /**< Release software context after CRG reset. */
 } et_crc_command_t;
 
 /**
