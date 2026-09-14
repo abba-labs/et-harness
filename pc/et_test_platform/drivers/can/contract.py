@@ -125,6 +125,7 @@ class CanCommand(IntEnum):
     EXTERNAL_VECTOR_SET = 95
     EXTERNAL_VECTOR_GET = 96
     RAM_WATCHDOG_GET = 97
+    CONTEXT_RESET = 98
 
 
 REQUEST_WORDS = (
@@ -207,6 +208,7 @@ REQUEST_WORDS += (4, 1, 0, 0)  # Bounded window access and independent IRQ captu
 REQUEST_WORDS += (1, 3, 2, 1)  # TTS, per-filter capture and actual RX timestamp metadata.
 REQUEST_WORDS += (1, 0)  # Explicit external vector, separate from TSU source selection.
 REQUEST_WORDS += (0,)  # One actual RAM watchdog snapshot, no reload.
+REQUEST_WORDS += (0,)  # CONTEXT_RESET: ID 98.
 RESPONSE_WORDS = (
     2,
     0,
@@ -287,6 +289,7 @@ RESPONSE_WORDS += (1, 0, 0, 9)  # Actual access value or latched ISR facts.
 RESPONSE_WORDS += (0, 0, 1, 5)
 RESPONSE_WORDS += (0, 1)
 RESPONSE_WORDS += (2,)  # Configured cycles and current counter; not measured RAM latency.
+RESPONSE_WORDS += (0,)  # CONTEXT_RESET: ID 98.
 # Protocol consume的固定字段顺序；只读清一次，不在READ_ONLY_COMMANDS内。
 PROTOCOL_FIELDS = (
     "last_error",

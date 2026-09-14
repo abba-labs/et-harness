@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 # CAN正式Case只读依赖入口。
 # 职责：从唯一连接文件获取handle，核对Capability与Firmware注册交集。
 # 边界：不复位、不配置Pinmux、不启动CAN；盒子基础连接另行按明确设备配置管理。
@@ -189,3 +190,22 @@ def can_irq_peer(request, mode):
         return None
 
     return request.getfixturevalue("can_external_support")
+
+
+# 默认逻辑实例 0 的公开 CanDriver 句柄；被测 Case 显式执行 can.reset()。
+@pytest.fixture
+def can0(can_support):
+    if can_support.can.instance_id == 0:
+        driver = can_support.can
+    else:
+        driver = CanDriver(can_support.can._target, 0)
+    driver.support = can_support
+    yield driver
+    try:
+        driver.ecc_capture_stop()
+    except Exception:
+        pass
+    try:
+        driver.irq_capture_stop()
+    except Exception:
+        pass

@@ -6,6 +6,8 @@
 from ...clients.target import TargetClient
 from ...core.deadline import OperationDeadline
 from ...core.errors import ProtocolError, RequestTimeout
+from ..crg import CrgDriver, CrgPeripheral
+from ..resource import ResourceDriver
 from . import codec, contract
 from .contract import CanCommand
 from .models import (
@@ -59,6 +61,12 @@ class CanDriver:
         codec.encode_request(CanCommand.IDENTITY_GET, instance_id, ())
         self._target = target
         self.instance_id = instance_id
+
+    # 显式复位当前CAN硬件、固件上下文与公共资源池；测试业务配置与刺激在此之后进行。
+    def reset(self) -> None:
+        CrgDriver(self._target).reset(CrgPeripheral.CAN, instance=self.instance_id)
+        self._request(CanCommand.CONTEXT_RESET)
+        ResourceDriver(self._target).reset()
 
     # 受限单word刺激；不重试、不补齐序列，地址边界由目标Own Driver验证。
     # 仅等待当前命令响应，超时或目标访问失败直接上抛。

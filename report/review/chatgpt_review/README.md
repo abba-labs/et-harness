@@ -17,8 +17,11 @@
 ## 文件状态
 
 | 文件 | 状态与用途 |
-|---|---|
+| --- | --- |
 | [003：CAN P1/P2 开发指导](can/003_can_p1_p2_agent_execution_guide.md) | 当前实施方向与验收依据；尚非实现完成报告 |
+| [004：CAN P1/P2 行为盘点清单](can/004_can_p1_p2_behavior_inventory.md) | 阶段 A 只读盘点工件；27 个 Case 详细行为与瘦身方案 |
+| [005：CAN P1/P2 自检审查报告](can/005_can_p1_p2_self_review.md) | 阶段 F 自检工件；四张核对表与 27 个 Case 修改对比 |
+| [006：CAN P1/P2 验证汇总报告](can/006_can_p1_p2_validation_summary.md) | 阶段 F 验证工件；驱动测试全通与 148 个参数节点收集结果 |
 | [001：早期 ECC 方案](can/001_ecc_interrupt_chain_plan.md) | 历史讨论稿，不按其中全实例/复杂生命周期写法实施 |
 | [002：早期 ECC 长版预览](can/002_ecc_case_preview.md) | 历史讨论稿，已被用户否定为不够简洁；不作为新 Case 样板 |
 | [报告备注原方案](report/001_fail_only_remarks_plan.md) | 报告专项参考；以 003 第 12 节的最新边界为准，单独批次实施 |

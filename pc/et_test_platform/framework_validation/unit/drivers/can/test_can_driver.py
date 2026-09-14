@@ -1093,3 +1093,26 @@ def test_irq_contract_rejects_invalid_values() -> None:
         CanDriver(TargetStub([pack("<4I", 1 << 30, 0, 0, 0)]), 0).irq_snapshot_get()
     with pytest.raises(ProtocolError):
         CanDriver(TargetStub([pack("<8I", 0, 0, 1 << 30, 0, 0, 0, 0, 0)]), 0).irq_event_get()
+
+
+# 测试Feature：CanDriver.reset()原子调用CRG、CONTEXT_RESET与Resource复位。
+# 测试方法：验证对指定实例发起reset后的三个连续服务请求及其Wire载荷。
+# 通过条件：按顺序发送CRG复位(0x0012)、CAN CONTEXT_RESET(0x010C, 98)与Resource复位(0x0010)。
+def test_can_driver_reset_golden() -> None:
+    target = TargetStub([b"", b"", b""])
+    driver = CanDriver(target, 1)
+    driver.reset()
+
+    assert len(target.requests) == 3
+    assert target.requests[0]["service"] == 0x0012
+    assert target.requests[0]["command"] == 2
+    assert target.requests[0]["body"] == pack("<4B", int(CrgPeripheral.CAN), 1, 0, 0)
+
+    assert target.requests[1]["service"] == 0x010C
+    assert target.requests[1]["command"] == int(CanCommand.CONTEXT_RESET)
+    assert target.requests[1]["instance_id"] == 1
+    assert target.requests[1]["body"] == pack("<B", 1)
+    assert target.requests[1]["retry_safe"] is False
+
+    assert target.requests[2]["service"] == 0x0010
+    assert target.requests[2]["command"] == 1

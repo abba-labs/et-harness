@@ -64,7 +64,7 @@ P2：001 002 003 004 005 007 008 010
 路径均以仓库根为起点。
 
 | 类别 | 路径与责任 |
-|---|---|
+| --- | --- |
 | P1 入口 | `pc/et_test_platform/test_cases/can/test_can_p1.py` |
 | P1 分文件 | 同目录 `test_can_p1_format.py`、`test_can_p1_marker.py`、`test_can_p1_rates.py`、`test_can_p1_tdc.py`、`test_can_p1_timeout.py`、`test_can_p1_timestamp.py`、`test_can_p1_tsu.py` |
 | P2 入口 | 同目录 `test_can_p2.py` |
@@ -131,7 +131,7 @@ git status --short
 先形成 `004_can_p1_p2_behavior_inventory.md`，再做源码修改。至少一行对应一个稳定 Case；复杂 Case 对每个连续场景增加子行。
 
 | 字段 | 必须记录的内容 |
-|---|---|
+| --- | --- |
 | 定位 | Case ID、文件、函数、基线 SHA、原代码行数、实际参数节点 |
 | 目的 | 一句话说明测什么；不能只写“验证 CAN” |
 | 资源 | 所选 CAN、辅助 DMA/STIMER/路由/盒子、资源池、消息 RAM 的使用范围 |
@@ -262,7 +262,7 @@ def reset(self) -> None:
 ### 7.1 三个复位对象不能混淆
 
 | 对象 | 实际 Owner | 必须做到 |
-|---|---|---|
+| --- | --- | --- |
 | 所选 CAN 的硬件寄存器 | CRG Driver/Service/Wrap | 复用现有 `CRG_resetPeripheral` 路径；不顺带复位控制 UART、GPIO 域或其他 CAN |
 | CAN 的软件上下文和 IRQ 绑定 | 所选 CAN Service 与现有 IRQ Manager | 普通 IRQ/ECC/DMU 的运行记录、回调归属、计数、故障记录清理；正确释放真实绑定 |
 | 公共 Resource Pool | Resource Service/Wrap | 清描述符、内存和使用位置，更新句柄代次；旧句柄不应在本次分配后错误命中 |
@@ -346,7 +346,7 @@ Case 开始的 `can.reset()` 是隔离。测试中途验证硬件 CRG 复位时�
 ## 9. CAN P1/P2 特别容易被“简化坏”的地方
 
 | 功能/定位 | 可以整理的部分 | 绝对不能偷偷改变的硬件含义 |
-|---|---|---|
+| --- | --- | --- |
 | Classic/FD、DLC、ID、滤波、FIFO、Marker | 固定配置用具名不可变数据，报告杂务移出 | 两种 Pattern、DLC 与实际长度区别、标准/扩展格式、接收/拒绝目标、逐字节比较、TX 完成和 Lost/Error |
 | `test_can_p1_016_message_ram_march` | 区域/chunk 计算是纯数据，可独立；复位/记录杂务可去重 | 固定模式先整区写再整区读；March 六阶段；每地址读后立即写；批间与批内降序一致；全范围不是抽样；结束后不额外 reset 就重建回环的恢复证明 |
 | `test_can_p1_014_timeout_sources` | 不用 stage 字符串隐藏动作；固定输入清楚化 | 四个计数源、自然到期不是 Force；非目标 FIFO 为空；启用/禁用的连续状态；目标 FIFO 非空时的禁止计数对照；至少两倍周期观察 |
@@ -430,7 +430,7 @@ Case 不写 `with case_cleanup_scope(...)` 或清理 lambda 列表。通过现�
 ## 13. 哪些保护删，哪些保留：每项都要有去向
 
 | 现状 | 处理 |
-|---|---|
+| --- | --- |
 | CRG 后又全源 Mask/Disable/Clear，只为建立人为初值 | 核对复位域/默认值后删除；测试 Mask/Clear 的动作保留 |
 | 同一基线重复资源池 reset | 合并到一次固定 reset；先停止所有访问者 |
 | 每 Case 定义所有权布尔值、清理生成器 | 移出 Case，复用运行收尾和 Owner 的真实状态，不让调用者重建状态机 |
@@ -499,7 +499,7 @@ Case 不写 `with case_cleanup_scope(...)` 或清理 lambda 列表。通过现�
 ### 16.1 验证层级必须分开报告
 
 | 层级 | 必须验证 | 能证明什么 / 不能证明什么 |
-|---|---|---|
+| --- | --- | --- |
 | 静态/收集 | 真仓库 imports、Fixture、签名、标记、注册、SPEC、命令字数 | 能发现接入错误；不能证明硬件工作 |
 | 实际 Driver 链 | 使用真实 CanDriver/Codec/TargetClient，替换最底层 Transport 或用现有测试后端 | 能证明命令及解码路径；不能证明 MCU 外设表现 |
 | 固件原生/编译 | 实际 Service/Manager/Wrap 适当边界，编译真实 C；工具链与目标固件构建 | 能发现 C 实现和状态路径错误；不能冒充上板 |

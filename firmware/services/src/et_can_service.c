@@ -2583,6 +2583,71 @@ static et_wrap_status_t execute_dmu_image_command(et_can_id_t id, uint16_t comma
  * @return Own Wrap status without performing retry or test assertions.
  * @note Configuration queries read hardware independently of prior requests.
  */
+/**
+ * @brief Reset managed software context, IRQ bindings, and captured events for this CAN instance.
+ * @param[in,out] service Selected CAN Service and managed IRQ state.
+ * @return OK or shutdown failure.
+ * @note Releases IRQ Manager routes, zeroes active event records, and updates generations.
+ */
+static et_wrap_status_t handle_context_reset(et_can_service_t *service)
+{
+    et_wrap_status_t status;
+
+    if (service == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    /* Phase 1: Stop active captures and unbind routes from the IRQ Manager. */
+    status = stop_irq_capture(service);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = stop_ecc_capture(service);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = stop_dmu_capture(service);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    /* Phase 2: Reset event records under critical section, updating generations. */
+    status = irq_event_access(service, 1u, NULL);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = ecc_event_access(service, 1u, NULL);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    status = dmu_event_access(service, 1u, NULL);
+    if (status != ET_WRAP_STATUS_OK)
+    {
+        return status;
+    }
+
+    /* Phase 3: Clear runtime flags. */
+    service->watched_sources = 0u;
+    service->line1_sources = 0u;
+    service->bound_lines = 0u;
+    service->ecc_watched = 0u;
+    service->ecc_bound = 0u;
+    service->dmu_watched = 0u;
+    service->dmu_bound = 0u;
+
+    return ET_WRAP_STATUS_OK;
+}
+
 static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t command,
                                         const uint8_t *body, uint8_t *response)
 {
@@ -2595,6 +2660,11 @@ static et_wrap_status_t execute_command(et_can_service_t *service, uint16_t comm
     et_can_option_limits_t option_limits;
     uint8_t initializing;
     uint32_t requested;
+
+    if (command == ET_CAN_COMMAND_CONTEXT_RESET)
+    {
+        return handle_context_reset(service);
+    }
 
     if (command >= ET_CAN_COMMAND_DMU_WORD_ACCESS && command <= ET_CAN_COMMAND_DMU_EVENT_GET)
     {
