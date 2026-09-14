@@ -56,7 +56,8 @@ def test_ecc_case_independent_vectors(source, count, fault, monkeypatch, tmp_pat
                     if fault == "stop" and stage == "stopped":
                         raw = 1
                 snapshots.append(
-                    CanEccSnapshot(raw, 0, 0 if stage == "stopped" else int(source), 3)
+                    # 两源均已使能才能接受Force，故enabled全程为3，退出阶段关闭。
+                    CanEccSnapshot(raw, 0, 0 if stage == "stopped" else 3, 3)
                 )
                 event = (
                     (repeated if stage == "repeat" else first)

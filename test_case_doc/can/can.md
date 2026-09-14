@@ -1512,10 +1512,11 @@ feature_refs: [CAN_F_027]
 method:
   inputs:
     - "源矩阵：Corrected/Uncorrected两个ECC中断源分别Force；本测试不注入真实RAM错误，不用其结果证明纠错能力。"
+    - "硬件约束：FORCE受INT_EN门控，只有已使能的源才被强制置起Raw；因此Force前两源都必须先Enable。"
   steps:
     - "独立基线：复位本Case参与的CAN及配合IP，复位Service状态和整池资源；每个参数节点重新建立基线，不复位控制通信UART。"
-    - "中断配置：全部参与实例清历史ECC Raw/ISR记录，同时Capture当前源但保持屏蔽；另一源关闭使能。"
-    - "屏蔽触发：Force当前源并另保留一个关闭投递的非目标源，保存两者Raw有效且IRQ_EVENT计数未变；Force的自清位不是Raw。"
+    - "中断配置：全部参与实例清历史ECC Raw/ISR记录，Capture当前源并保持屏蔽；两源均使能以接受Force。"
+    - "屏蔽触发：Force两源，保存两者Raw有效且IRQ_EVENT计数未变；Force的自清位不是Raw。"
     - "开放投递：仅使能并解除屏蔽当前源，等待ECC ISR锁存具体实例和源，另一源保持屏蔽。"
     - "清除验证：停止Force，清目标Raw，读取Raw/Status为0，确认未清另一个人为保留的源。"
     - "再次触发：重新Force并显式unmask当前源，确认同一代计数再加一；逐源、逐目标实例执行，最后关闭/解绑/清Raw/复位事件并读回无残留。"

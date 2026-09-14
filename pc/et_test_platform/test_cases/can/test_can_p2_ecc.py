@@ -23,7 +23,7 @@ NEGATIVE_WINDOW_S = 0.1
 # ECC两类源的Force/Mask/Clear和共享中断回调归属，不验证真实RAM纠错。
 #
 # 测试方法：
-# 1. 逐目标实例、逐源复位全部参与CAN和资源，清历史Raw及会话并同时捕获。
+# 1. 逐目标实例、逐源复位全部参与CAN和资源，清历史Raw及会话；两源均使能后捕获。
 # 2. 屏蔽下Force两源，100ms内全部实例无ISR；只放行目标源等待实际回调。
 # 3. 清目标Raw，证明另一源仍保留；再次Force/放行后Count增加且归属不变。
 # 4. 屏蔽、关闭、解绑、清Raw并读回终态，异常也尝试全部清理。
@@ -74,16 +74,17 @@ def test_can_p2_003_ecc_interrupt_chain(
             for support in supports:
                 support.crg.reset(CrgPeripheral.CAN, instance=support.can.instance_id)
             resource_driver.reset()
-            # 捕获准备：先关闭所有源，清旧Raw与记录，再只启用当前语义源。
+            # 捕获准备：先关闭所有源，清旧Raw与记录，再使能两源接受Force。
+            # FORCE受INT_EN门控，未使能的源不会被强制置起Raw，故对照源也必须使能。
             for support in supports:
                 support.can.ecc_mask_set(ALL_SOURCES, True, timeout_s=deadline.remaining_s())
                 support.can.ecc_enable_set(ALL_SOURCES, False, timeout_s=deadline.remaining_s())
                 support.can.ecc_capture_stop(timeout_s=deadline.remaining_s())
                 support.can.ecc_clear(ALL_SOURCES, timeout_s=deadline.remaining_s())
                 support.can.ecc_event_reset(timeout_s=deadline.remaining_s())
-                support.can.ecc_capture_start(source, timeout_s=deadline.remaining_s())
+                support.can.ecc_capture_start(ALL_SOURCES, timeout_s=deadline.remaining_s())
 
-            # 激励：两源均有Raw，只有当前源使能；负向窗口持续观察全部捕获者。
+            # 激励：两源均已使能，Force后两者Raw都置起；只有当前源解除屏蔽投递。
             can.ecc_force(ALL_SOURCES, timeout_s=deadline.remaining_s())
             start = monotonic()
             # 负向等待跨全部实例；完整时间窗口结束前不接受仅一次静默快照。
@@ -201,7 +202,10 @@ def test_can_p2_003_ecc_interrupt_chain(
                     )
                     assert actual.raw == expected_raw and actual.status == CanEccSource.NONE
                     assert actual.masked == ALL_SOURCES
-                    assert actual.enabled == (CanEccSource.NONE if stage == "stopped" else source)
+                    # 两源都使能才能让Force同时置起Raw；退出阶段全部关闭。
+                    assert actual.enabled == (
+                        CanEccSource.NONE if stage == "stopped" else ALL_SOURCES
+                    )
                     assert event.fault_flags == event.unexpected_count == event.overflow_count == 0
                     if stage == "stopped" or support is not target or stage == "masked":
                         assert event.event_count == 0 and event.instance_id is None

@@ -36,7 +36,7 @@
 - [CAN_P1_021 — 开启TDC的FD双向通信](cases/CAN_P1_021.md)
 - [CAN_P2_001 — CAN DMU与DMA完整帧搬运](cases/CAN_P2_001.md)
 - [CAN_P2_002 — TX Event的DMU/DMA搬运](cases/CAN_P2_002.md)
-- [CAN_P2_003 — ECC Force中断链语义待确认](cases/CAN_P2_003.md)
+- [CAN_P2_003 — ECC Force中断链](cases/CAN_P2_003.md)
 - [CAN_P2_004 — 多实例数据、配置与RAM隔离](cases/CAN_P2_004.md)
 - [CAN_P2_005 — 内外回环物理隔离，外部捕获暂停排查](cases/CAN_P2_005.md)
 - [CAN_P2_007 — DMU九类非法访问与复位恢复](cases/CAN_P2_007.md)

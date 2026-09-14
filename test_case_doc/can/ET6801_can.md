@@ -566,7 +566,7 @@ PC基础接口补充（2026-09-04 23:32 CST）：九个基础命令的Codec、�
 
 状态更新时间：`2026-09-08 08:37 CST`
 
-本轮完整CAN回归已结束，原始148份Canonical Result与Excel报告闭合。31项注册Case为28 PASS、3 FAIL，不宣称CAN全通过；失败未改为SKIP。
+本轮完整CAN回归已结束，原始148份Canonical Result与Excel报告闭合。此后`CAN_P2_003`经数字设计确认真值并修正刺激方法，于2026-09-14定向复测PASS；当前统计为31项注册Case的29 PASS、2 FAIL，不宣称CAN全通过；失败未改为SKIP。
 
 ### 最近一次运行身份
 
@@ -582,9 +582,9 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 
 | Lane | 注册Case | 已执行Case | PASS | FAIL | SKIP | NOT_EXECUTED | Executions |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPGA | 31 | 31 | 28 | 3 | 0 | 0 | 148 |
+| FPGA | 31 | 31 | 29 | 2 | 0 | 0 | 148 |
 
-148个参数Execution中139 PASS、9 FAIL、0 SKIP，选中148、未选0，pytest耗时349.98 s并退出1。测试于01:12 CST结束，报告`artifacts/reports/20260908_011244_444000_ET6801_CAN测试报告.xlsx`成功生成；Manifest为FAIL/exit_code=1，与真实测试失败一致，不是报告生成失败。
+148个参数Execution中139 PASS、9 FAIL、0 SKIP（2026-09-08原始本轮结果）。其中`CAN_P2_003`的2个参数经2026-09-14修正后转为PASS，故当前汇总为141 PASS、7 FAIL；其余失败参数未变动。原始测试于01:12 CST结束，报告`artifacts/reports/20260908_011244_444000_ET6801_CAN测试报告.xlsx`成功生成；Manifest为FAIL/exit_code=1，与真实测试失败一致，不是报告生成失败。
 本次执行源码的软件预检为1866 PASS、17 Windows宿主编译器条件SKIP，证据；最新Firmware另经真实SDK/Wrap/Service的WSL GCC Native和Keil构建验证。这些软件结果不覆盖本次硬件失败。
 
 | CAN Case（省略CAN_前缀） | Executions | 本轮范围 |
@@ -607,8 +607,9 @@ Firmware Build ID=`et6801-silicon-common-v0.1`，Registry Hash=`eb9be179`，控�
 | Case ID | Lane | 状态 | Feature | 测试现象 | 原因/阻塞 | 复测条件 | Evidence |
 |---|---|---|---|---|---|---|---|
 | `CAN_P1_020` | FPGA | FAIL | Non-ISO / CAN_F_037 | 8节点中ISO/ISO两节点PASS；4节点DUT NISO写1读0，另2节点Peer发送accepted=0 | NEEDS_DECISION：Bosch支持Non-ISO，但当前FPGA的iso_only_g未知；Peer发送失败单独保留，详见6.8.1 | 核对当前FPGA综合配置及NISO写入生效/保持情况，另核对Peer真实刺激；不关闭Capability掩盖FAIL | 最新Run `tests/can/`；6.8.4列出六个失败参数及Result；[参数记录](#can-records-p1-020)、[分析](#can-diagnosis-non-iso) |
-| `CAN_P2_003` | FPGA | FAIL | ECC IRQ / CAN_F_027 | 两源Force后Raw仅为当前Enable源，两参数均在can0的Raw等值断言失败 | NEEDS_VERIFICATION：ET外围EN/Force/Raw关系未明确；当前表现与测试要求Raw=3冲突，不代表真实RAM纠错失败，详见6.8.2 | 取得ET6801中断封装逻辑后裁决契约/实现；复测需覆盖两源、全部实例及完整ISR/Clear链 | 最新Run `tests/can/`；6.8.4列出参数1/2的Result；[参数记录](#can-records-p2-003)、[分析](#can-diagnosis-ecc) |
 | `CAN_P2_005` | FPGA | FAIL | 回环边界 / CAN_F_002、CAN_F_003 | Normal ACK正对照及内部静默通过；外部回环DUT本地RX通过，Peer只听接收超时、错误0x4 | 按用户要求暂缓排查；连接CAN盒子是现有拓扑，不是已确认根因；Bosch外部回环忽略ACK错误，详见6.8.3 | 用户恢复排查后再核对物理TX与Peer只听捕获；本轮不复测、不改PASS/SKIP、不放宽Timeout | 最新Run `tests/can/`；6.8.4列出Result；[参数记录](#can-records-p2-005)、[分析](#can-diagnosis-loopback) |
+
+以上为非PASS记录；`CAN_P2_003`已于2026-09-14按硬件语义修正刺激方法后PASS，见6.8.2，不再列为FAIL。
 
 ### 未注册目标与本轮排除范围
 
@@ -743,11 +744,13 @@ SDK新增问题D07：`CAN_msgRAMConfig`原先跳过大小为0的区域，导致�
 
 #### 6.8.2 CAN_P2_003：ET ECC中断封装与Oracle关系
 
-- 现象/结果：Corrected/Uncorrected两个参数均在首个目标can0的masked阶段失败。写FORCE=3、MASK=3时，EN=1得到RAW=1，EN=2得到RAW=2；STATUS均为0。Case当前期望RAW=3。100 ms观察内未记录ISR投递；后续unmask、ISR、Clear、再次Force以及can1/can2目标轮转尚未完成，不能宣称三实例ECC链全部验证。
-- 已确认资料边界：Bosch手册§2.3.17（印刷页23）的`IR.BEC/BEU`接收可选外部Message RAM parity/ECC逻辑的错误指示；ET的`MISC.MTTCAN_INT_EN/MASK/FORCE/CLR/RSTATUS/MSTATUS`是集成外围控制，不能用Bosch内核文档直接推导ET的FORCE是否绕过EN。
-- 已检查软件边界：Chip Driver对FORCE单写请求源，RAW直接读取RSTATUS并截取两源位，未在软件中按EN过滤；当前失败不能解释为PC显示时丢掉另一源。ET6801 SVD说明字段用途与FORCE自清，但未给出EN/FORCE/RAW的完整逻辑关系。
-- 当前判断（未证实）：现象与“EN参与强制Raw产生”相符，但不能仅凭两个样本建立硬件真值表。公共Case目前要求未Enable的另一源也保留Raw；若ET规格不支持这种构造，应经契约评审调整刺激方法并保留独立Mask/ISR/Clear覆盖，而不是直接把Expected从3改成当前实测值。
-- 后续闭环条件：取得ET6801 ECC中断封装RTL或明确逻辑说明；必要时另经人工门禁验证MASK=3、每点先Clear的EN=0/1/2/3与FORCE=1/2/3矩阵，记录RAW/STATUS及ISR计数。根据规格裁决Case构造或FPGA实现，再完整复测两源与全部实例。此Case不向Message RAM注入错误，任何结果都不能替代真实ECC纠错/不可纠错检测测试。
+- 结论（2026-09-14，数字设计确认）：**FORCE受`MTTCAN_INT_EN`门控，只有已使能的源才被强制置起Raw；FORCE两位本身可以一起配置。** 原FAIL是Case刺激方法错误，不是FPGA实现缺陷。
+- 原现象：Corrected/Uncorrected两个参数均在首个目标can0的masked阶段失败。写FORCE=3、MASK=3时，EN=1得到RAW=1，EN=2得到RAW=2；STATUS均为0；Case当时期望RAW=3。
+- 已确认资料边界：Bosch手册§2.3.17（印刷页23）的`IR.BEC/BEU`接收可选外部Message RAM parity/ECC逻辑的错误指示；ET的`MISC.MTTCAN_INT_EN/MASK/FORCE/CLR/RSTATUS/MSTATUS`是集成外围控制，不能用Bosch内核文档直接推导ET的FORCE与EN关系。
+- 已检查软件边界：Chip Driver对FORCE单写请求源（`WRITE_REG(misc->MTTCAN_INT_FORCE, sources)`），RAW直接读取RSTATUS截取两源位，未在软件按EN过滤；SDK/Wrap/Service/Case链路均正确透传，失败不能解释为软件丢源。
+- 修正（2026-09-14）：按硬件语义调整刺激方法——Force前两源都Enable（`ecc_capture_start(ALL_SOURCES)`），Force后两者Raw都置起；仍只解除目标源屏蔽以验证ISR归属。判据中`enabled`期望由"仅当前源"改为"两源"，退出阶段仍为0。公共契约`CAN_P2_003`的inputs/steps同步更新。
+- 修正后结果：FPGA实测Corrected/Uncorrected两个参数均PASS，屏蔽阶段无ISR、放行后归属正确、Clear不影响对照源、重复投递计数递增。
+- 覆盖边界：此Case不向Message RAM注入错误，任何结果都不能替代真实ECC纠错/不可纠错检测测试（另见CAN_P2_006）。
 
 <a id="can-diagnosis-loopback"></a>
 
