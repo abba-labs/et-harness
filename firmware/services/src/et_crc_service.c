@@ -584,6 +584,56 @@ static uint16_t handle_calculate_timed(et_crc_service_t *service, const uint8_t 
 }
 
 /**
+ * @brief Clear this CRC software context after its successful CRG hardware reset.
+ * @param[in,out] service Selected service whose peripheral is already quiescent.
+ * @return OK after every owned binding is released; INTERNAL_ERROR on an unbind failure.
+ * @note The caller must stop external DMA users and reset CRC hardware first.
+ *       No CRC registers or other services are written. Failed unbind preserves
+ *       the service evidence; the PC must not reset the resource pool on failure.
+ */
+static uint16_t handle_context_reset(et_crc_service_t *service)
+{
+    uint32_t index;
+    uint32_t key;
+
+    if ((service == NULL) || (service->irq_manager == NULL))
+    {
+        return ET_STATUS_INTERNAL_ERROR;
+    }
+
+    /* Inspect actual ownership, including a retained binding after failed setup. */
+    for (index = 0u; index < ET_FRAMEWORK_MAX_IRQ_BINDINGS; ++index)
+    {
+        const et_irq_binding_t *binding = &service->irq_manager->bindings[index];
+
+        if ((binding->in_use != 0u) && (binding->callback == crc_irq_callback) &&
+            (binding->context == service))
+        {
+            if (et_irq_manager_unbind(service->irq_manager, binding->irq_line,
+                                      crc_irq_callback, service) != 0)
+            {
+                return ET_STATUS_INTERNAL_ERROR;
+            }
+        }
+    }
+
+    /* Only mutable lifecycle/evidence fields are reset; descriptor and identity survive. */
+    key = et_irq_manager_enter_critical();
+    service->enabled = 0u;
+    service->configured = 0u;
+    service->mode = 0u;
+    service->irq_bound = 0u;
+    service->irq_enabled_sources = 0u;
+    service->irq_event_count = 0u;
+    service->irq_last_event = 0u;
+    service->irq_last_raw = 0u;
+    (void)memset(&service->irq_route, 0, sizeof(service->irq_route));
+    et_irq_manager_exit_critical(key);
+
+    return ET_STATUS_OK;
+}
+
+/**
  * @brief Dispatch CRC capability, lifecycle and configuration commands.
  *
  * @param[in,out] service CRC Service instance whose lifecycle may change.
@@ -611,6 +661,16 @@ static uint16_t handle_core_commands(et_crc_service_t *service, uint16_t command
     /* Phase 1: Handle read-only capabilities before lifecycle-changing commands. */
     switch (command_id)
     {
+        case ET_CRC_COMMAND_CONTEXT_RESET:
+        {
+            if (request_length != 0u)
+            {
+                return ET_STATUS_INVALID_PARAM;
+            }
+
+            return handle_context_reset(service);
+        }
+
         case ET_CRC_COMMAND_CAPABILITIES_GET:
         {
             if ((request_length != 0u) || (response_capacity < ET_CRC_SERVICE_CAPABILITIES_SIZE))
@@ -737,6 +797,7 @@ static uint16_t handle_data_commands(et_crc_service_t *service, uint16_t command
     uint32_t value;
     uint32_t result;
     uint32_t remaining;
+
     uint8_t overflow;
 
     /* Phase 1: Route calculations and hardware-length programming through atomic Wrap operations. */
