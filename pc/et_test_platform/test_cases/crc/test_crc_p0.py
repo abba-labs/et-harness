@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -227,100 +226,33 @@ _P0_MODE_VECTORS = (
 # 1. PC Golden 与历史固定 Expected 完全一致。
 # 2. 硬件结果等于 Expected，Remaining Input Count 为零且 Result 读回一致。
 # 3. CRC8、CRC16、CRC32 三种自然宽度都独立通过，不以模式间差异代替精确判断。
+@pytest.mark.usefixtures("crc_reference_evidence")
 @pytest.mark.parametrize(
     ("config", "payload", "fixed_expected"),
     _P0_MODE_VECTORS,
     ids=("crc8", "crc16", "crc32"),
 )
 def test_crc_p0_002_mode_reference_vectors(
-    crc_support_for: CrcSupportFactory,
-    crc_instance_id: int,
-    et_artifact_dir: Path,
-    config: CrcConfig,
-    payload: bytes,
-    fixed_expected: int,
-    record_property: Callable[[str, object], None],
-    crg_driver,
-    resource_driver,
+    crc0, resource_driver, config: CrcConfig, payload: bytes, fixed_expected: int
 ) -> None:
-
-    # 准备：先用独立软件模型复核历史固定向量，并确认当前模式运行时能力。
-    # 隔离：本 Case 配置前复位参与 IP 和 Resource Pool，避免前序 Case 状态污染。
-    crg_driver.reset(CrgPeripheral.CRC, instance=crc_instance_id)
-    resource_driver.reset()
-
-    support = crc_support_for(crc_instance_id)
+    # 1）复位：硬件、固件上下文和资源池由同一个公开入口建立基线。
+    crc_handle = crc0
+    crc_handle.reset()
     expected = calculate_crc_reference(config, payload)
-    record_property("expected_crc", expected)
     assert expected == fixed_expected
-    require_crc_runtime_capability(support.runtime, mode=config.mode)
-    resource_owned = False
-    crc_enabled = False
 
-    def cleanup_actions() -> tuple[CleanupAction, ...]:
-        actions: list[CleanupAction] = []
-        if crc_enabled:
-            actions.append(("CRC module disable", support.crc.disable))
-        if resource_owned:
-            actions.append(("Resource pool reset", support.resource.reset))
-        return tuple(actions)
+    # 2）IP 配置与激励：保持原向量、对齐和 enable/configure 顺序。
+    source = resource_driver.create(len(payload), alignment=4)
+    resource_driver.write(source, payload)
+    crc_handle.enable()
+    crc_handle.configure(config)
 
-    with case_cleanup_scope(cleanup_actions):
-        support.resource.reset()
-        resource_owned = True
-        source = support.resource.create(len(payload), alignment=4)
-        support.resource.write(source, payload)
-
-        support.crc.enable()
-        crc_enabled = True
-        support.crc.configure(config)
-
-        measured = support.crc.calculate(source.address, len(payload))
-        readback = support.crc.result_get()
-
-        record_property("mode", config.mode.name)
-        record_observation(
-            record_property,
-            key="actual_crc",
-            value=measured.result,
-            source="dut",
-            endpoint="RESULT.CRC",
-        )
-        record_observation(
-            record_property,
-            key="remaining_input_count",
-            value=measured.remaining_input_count,
-            source="dut",
-            endpoint="LENGTH.REMAINING_INPUT_COUNT",
-        )
-        record_observation(
-            record_property,
-            key="result_readback",
-            value=readback,
-            source="dut",
-            endpoint="RESULT.CRC",
-        )
-
-        assert measured.result == expected
-        assert measured.remaining_input_count == 0
-        assert readback == expected
-
-    write_json_result(
-        et_artifact_dir / f"crc_p0_002_{config.mode.name.lower()}.json",
-        {
-            "measurement_schema": "et.measurement.v1",
-            "ip": "crc",
-            "case_id": "crc_p0_002",
-            "instance": support.instance_name,
-            "mode": config.mode.name,
-            "payload_sha256": hashlib.sha256(payload).hexdigest(),
-            "length_bytes": len(payload),
-            "fixed_expected": fixed_expected,
-            "pc_expected": expected,
-            "actual": measured.result,
-            "remaining_input_count": measured.remaining_input_count,
-        },
-    )
+    # 3）获取并判断结果：计算返回、剩余输入数和独立 Result 读回。
+    measured = crc_handle.calculate(source.address, len(payload))
+    readback = crc_handle.result_get()
+    assert measured.result == expected
+    assert measured.remaining_input_count == 0
+    assert readback == expected
 
 
 # =============================================================================
