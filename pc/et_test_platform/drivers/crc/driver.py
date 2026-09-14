@@ -1,7 +1,7 @@
 # CRC PC Driver Package 的 driver 层。
 #
 # 职责：提供 CRC 单 IP 稳定业务 API、Deadline/Retry 所有权和单 IP Cleanup。
-# 边界：不调用其他 IP Driver、不读取 Profile/Bench、不执行 pytest 结论。
+# 边界：普通方法只处理 CRC；reset 仅组合 CRG/上下文/资源池，不配置测试或判定结果。
 # 依赖：仅依赖本 IP Model/Contract/Codec/Validation、Core Cleanup 和 TargetClient。
 
 from __future__ import annotations
@@ -13,6 +13,9 @@ from ...clients.target import TargetClient
 from ...communication.protocols.et_frame import Frame
 from ...communication.protocols.et_message import ServiceMessage
 from ...core.cleanup import OperationCleanupError, raise_with_cleanup, run_cleanup
+from ...core.errors import ProtocolError
+from ..crg import CrgDriver, CrgPeripheral
+from ..resource import ResourceDriver
 from .codec import (
     decode_calculate_result,
     decode_capabilities,
@@ -77,6 +80,18 @@ class CrcDriver:
         self.instance_id = instance_id
         self._mode: CrcMode | None = None
         self._max_calculate_bytes: int | None = None
+
+    # 显式建立本实例空基线；调用者须先停止访问资源池的 DMA 等独立设备。
+    # CRG 后仅清软件上下文；任一步失败立即上抛，不清池重试或配置被测功能。
+    def reset(self) -> None:
+
+        self._mode = None
+        self._max_calculate_bytes = None
+        CrgDriver(self._target).reset(CrgPeripheral.CRC, instance=self.instance_id)
+        message, _ = self._request(CrcCommand.CONTEXT_RESET)
+        if message.body:
+            raise ProtocolError("CRC CONTEXT_RESET returned an unexpected body")
+        ResourceDriver(self._target).reset()
 
     # 读取当前 CRC Service 的真实运行时能力；仅等待本次响应，失败按平台异常上抛。
     def capabilities_get(self) -> CrcCapabilities:
