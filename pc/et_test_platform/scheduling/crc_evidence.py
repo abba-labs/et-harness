@@ -8,12 +8,14 @@ from collections.abc import Callable
 
 from ..clients.target import TargetClient
 from ..drivers.crc.driver import CrcDriver
-from ..drivers.crc.models import CrcCalculateResult
+from ..drivers.crc.models import (
+    CrcCalculateResult, CrcFifoStatus, CrcInputBurstResult, CrcIrqSnapshot,
+)
 from .run_context import record_observation
 
 
 class RecordedCrcDriver(CrcDriver):
-    """Record one stable reference calculation; not an IRQ/timing observer."""
+    """Retain returned facts; no extra reads, configuration, expectations or verdicts."""
 
     def __init__(
         self, target: TargetClient, instance_id: int, record: Callable[[str, object], None]
@@ -24,6 +26,11 @@ class RecordedCrcDriver(CrcDriver):
         self.readback: int | None = None
         self.reset_attempted = False
         self.reset_completed = False
+        self.calculations: list[CrcCalculateResult] = []
+        self.irq_snapshots: list[CrcIrqSnapshot] = []
+        self.length_readbacks: list[int] = []
+        self.fifo_states: list[CrcFifoStatus] = []
+        self.bursts: list[CrcInputBurstResult] = []
 
     # 只记录调用结果；复位动作全部复用公开 Driver，不补发或重试。
     def reset(self) -> None:
@@ -37,6 +44,7 @@ class RecordedCrcDriver(CrcDriver):
     ) -> CrcCalculateResult:
         actual = super().calculate(source_address, length_bytes, timeout_s=timeout_s)
         self.calculation = actual
+        self.calculations.append(actual)
         record_observation(
             self._record, key="actual_crc", value=actual.result,
             source="dut", endpoint="RESULT.CRC",
@@ -54,4 +62,26 @@ class RecordedCrcDriver(CrcDriver):
             self._record, key="result_readback", value=actual,
             source="dut", endpoint="RESULT.CRC",
         )
+        return actual
+
+    def remaining_input_count_get(self) -> int:
+        actual = super().remaining_input_count_get()
+        self.length_readbacks.append(actual)
+        return actual
+
+    def irq_snapshot_get(self) -> CrcIrqSnapshot:
+        actual = super().irq_snapshot_get()
+        self.irq_snapshots.append(actual)
+        return actual
+
+    def fifo_status_get(self) -> CrcFifoStatus:
+        actual = super().fifo_status_get()
+        self.fifo_states.append(actual)
+        return actual
+
+    def test_input_burst_32(
+        self, values: tuple[int, ...], checkpoint_count: int,
+    ) -> CrcInputBurstResult:
+        actual = super().test_input_burst_32(values, checkpoint_count)
+        self.bursts.append(actual)
         return actual
