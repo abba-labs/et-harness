@@ -22,6 +22,10 @@ from ...profiles.capabilities import ChipCapabilities
 from ...profiles.resolvers.dma_routes import resolve_crc_dma_input_route
 from ...results.recorder import write_json_result
 from ...scheduling.crc_evidence import RecordedCrcDriver
+from ...scheduling.run_context import record_observation
+from ...scheduling.test_registry import case_id_from_item
+from ._p1_evidence import p1_artifact_name, p1_input_metadata, p1_result_projection
+from ._p1_vectors import p1_vector
 from ._support import (
     CrcCaseSupport, CrcDmaSupport, CrcSupportFactory,
     calculate_crc_reference, require_crc_runtime_capability,
@@ -156,7 +160,7 @@ def crc_dma_support(
     )
 
 
-__all__ = ("crc_support_for", "crc0", "crc_reference_evidence")
+__all__ = ("crc_support_for", "crc0", "crc_reference_evidence", "crc_p1_evidence")
 
 
 # 明确选择 crc0，不回退到其他实例；初始化必须由 Case 显式 reset。
@@ -212,3 +216,25 @@ def crc_reference_evidence(crc0, config, payload, fixed_expected, et_artifact_di
             "result_readback": crc0.readback,
         },
     )
+
+
+# P1 只在运行层发布输入与已读事实；不提前 reset，不补读硬件，不改变测试判定。
+@pytest.fixture
+def crc_p1_evidence(request, crc0, et_artifact_dir, record_property):
+    case_id = case_id_from_item(request.node).lower()
+    callspec = getattr(request.node, "callspec", None)
+    parameters = dict(callspec.params) if callspec is not None else {}
+    vector = p1_vector(case_id, **parameters)
+    metadata = p1_input_metadata(case_id, parameters, vector)
+    path = et_artifact_dir / p1_artifact_name(case_id, parameters)
+    for key, value in metadata.items():
+        record_property(key, value)
+    record_property("crc_p1_result", str(path))
+    yield
+    data, observations = p1_result_projection(case_id, parameters, vector, crc0)
+    for key, value, endpoint in observations:
+        record_observation(record_property, key=key, value=value, source="dut", endpoint=endpoint)
+    for key, value in data.items():
+        if "event_count" in key:
+            record_property(key, value)
+    write_json_result(path, data)
