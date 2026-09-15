@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import os
+import shutil
 import zipfile
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -32,6 +33,23 @@ class KnowledgeReviewPending(ValueError):
 
 def environment_lock(repository: Path) -> AbstractContextManager[None]:
     return file_lock(repository / "tmp/run_pipeline.lock")
+
+
+# 判定"只有流程编排、没有任何IP测试证据"的失败现场；只有这种现场允许被下一次运行清空。
+# test_workspaces 在 execute.run_tests 开始前始终为空，因此它是"是否已产生测试证据"的精确判据。
+def _unevidenced_pipeline_failure(root: Path) -> bool:
+    if root.name != "current" or root.parent.name != "_PIPELINE":
+        return False
+    if (root / RECEIPT).exists():
+        return False
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = json_object(manifest_path.read_bytes())
+    except (OSError, ValueError):
+        return False
+    return manifest.get("status") != "PASS" and not manifest.get("test_workspaces")
 
 
 def _validate_root(repository: Path, root: Path) -> None:
@@ -172,6 +190,11 @@ def verify_publication(
 def prepare_workspace(repository: Path, root: Path) -> Path:
     _validate_root(repository, root)
     if root.exists() and any(root.iterdir()):
+        if _unevidenced_pipeline_failure(root):
+            # 构建/部署失败没有IP测试证据，保留它只会让下一次人工运行被未发布门禁拦住。
+            shutil.rmtree(root)
+            root.mkdir(parents=True, exist_ok=True)
+            return root
         receipt = verify_publication(repository, root, require_review=False)
         parent = root.parent.parent / "_PIPELINE/current"
         if (

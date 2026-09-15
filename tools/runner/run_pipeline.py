@@ -765,6 +765,15 @@ def _test_command(
 
 
 def _seal_completed_pipeline(run_dir: Path, manifest: dict[str, object], *, exit_code: int) -> None:
+    # 构建和部署阶段失败不产生任何IP测试证据。这类现场只记录流程编排，保留下来会让下一次
+    # 人工运行被未发布门禁拦住，因此直接清理。带IP测试证据的失败仍然保留，交由人工review。
+    if exit_code != 0 and not manifest.get("test_workspaces"):
+        try:
+            shutil.rmtree(run_dir)
+            print(f"Cleared build/deploy failure workspace without IP test evidence: {run_dir}")
+        except OSError as exc:
+            print(f"Workspace retained without reuse permission: {exc}")
+        return
     try:
         seal_pipeline(REPOSITORY_ROOT, run_dir, successful=exit_code == 0)
     except (OSError, ValueError, RuntimeError) as exc:
