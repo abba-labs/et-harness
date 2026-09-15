@@ -198,6 +198,27 @@
 #define ET_MANUAL_WDG_RATE_RATIO_NUMERATOR 3u
 #define ET_MANUAL_WDG_RATE_RATIO_DENOMINATOR 2u
 
+/* 系统复位Case的对照实例：目标用WDG0，对照用WDG1验证复位来源归属。 */
+#define ET_MANUAL_WDG_TARGET WDG0
+#define ET_MANUAL_WDG_CONTROL WDG1
+/* 系统复位Case选择：0=WDG_P0_004真实超时复位；1=WDG_P1_003轮次工作模式。
+ * 两者都会复位整个SoC，因此同一次构建只武装其中一种，避免互相覆盖现场。 */
+#define ET_MANUAL_WDG_SYSTEM_RESET_CASE 1
+/* 轮次模式选择：0=首轮IRQ次轮Reset；1=同轮IRQ+Reset。 */
+#define ET_MANUAL_WDG_ROUND_MODE 0u
+#if ET_MANUAL_WDG_ROUND_MODE == 0u
+#define ET_MANUAL_WDG_RESET_WORK_MODE ROUND1_IT_AND_ROUND2_RESET
+#else
+#define ET_MANUAL_WDG_RESET_WORK_MODE ROUND1_IT_AND_RESET
+#endif
+/* 与自动化Case相同的已知安全短Reload：先让配置/使能响应返回，再由硬件自然到期。 */
+#define ET_MANUAL_WDG_RESET_RELOAD 5000000u
+/* 等待系统复位的观测上限；复位发生后SoC重启，本函数不会返回，因此这是"未复位"的观测点。 */
+#define ET_MANUAL_WDG_RESET_WAIT_MS 10000u
+/* 轮次模式第一轮的在线观测窗口与轮询间隔。 */
+#define ET_MANUAL_WDG_ROUND1_WINDOW_MS 3000u
+#define ET_MANUAL_WDG_ROUND1_POLL_MS 10u
+
 #define ET_MANUAL_RESULT_PASS 0
 #define ET_MANUAL_RESULT_FAIL 1
 

@@ -62,8 +62,14 @@ static const et_manual_case_entry_t g_fmac_cases[] = {
     {"fmac_p1_010", et_manual_fmac_p1_010_negative_status_clear},
 };
 
+/*
+ * wdg_p0_004与wdg_p1_003都会复位整个SoC，结论只能在复位后的下一次上电读出，
+ * 因此同一次构建只选其中一个，避免两者互相重新武装。
+ */
 static const et_manual_case_entry_t g_wdg_cases[] = {
-    {"wdg_p1_004", et_manual_wdg_p1_004_module_reset_and_recovery},
+    //{"wdg_p1_004", et_manual_wdg_p1_004_module_reset_and_recovery},
+    {"wdg_p0_004", et_manual_wdg_p0_004_system_reset_and_record},
+    //{"wdg_p1_003", et_manual_wdg_p1_003_round_mode_reset},
     //{"wdg_p2_001", et_manual_wdg_p2_001_clock_divider_rate},
 };
 
@@ -82,7 +88,7 @@ static const et_manual_ip_entry_t g_manual_ip_registry[] = {
     //{"crc", g_crc_cases, ET_MANUAL_ARRAY_SIZE(g_crc_cases)},
     //{"aes", g_aes_cases, ET_MANUAL_ARRAY_SIZE(g_aes_cases)},
     //{"cordic", g_cordic_cases, ET_MANUAL_ARRAY_SIZE(g_cordic_cases)},
-    {"fmac", g_fmac_cases, ET_MANUAL_ARRAY_SIZE(g_fmac_cases)},
+    //{"fmac", g_fmac_cases, ET_MANUAL_ARRAY_SIZE(g_fmac_cases)},
     {"wdg", g_wdg_cases, ET_MANUAL_ARRAY_SIZE(g_wdg_cases)},
     //{"stimer", g_stimer_cases, ET_MANUAL_ARRAY_SIZE(g_stimer_cases)},
 		//{"dualcore", g_dualcore_cases, ET_MANUAL_ARRAY_SIZE(g_dualcore_cases)},
@@ -261,7 +267,7 @@ int et_manual_test_run(void)
     int failures = 0;
 
     initialize_hardware();
-    wait_for_pc_capture();
+    //wait_for_pc_capture();
     et_manual_log_text("[MANUAL] suite=ET6801_MANUAL_DIAGNOSTICS start\r\n");
 
     for (ip_index = 0u; ip_index < ET_MANUAL_ARRAY_SIZE(g_manual_ip_registry); ++ip_index)

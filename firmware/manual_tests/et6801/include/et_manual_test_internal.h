@@ -21,6 +21,8 @@ int et_manual_stimer_p1_001_prescaler_ratio(void);
 int et_manual_stimer_p2_003_debugger_halt_behavior(void);
 int et_manual_wdg_p1_004_module_reset_and_recovery(void);
 int et_manual_wdg_p2_001_clock_divider_rate(void);
+int et_manual_wdg_p0_004_system_reset_and_record(void);
+int et_manual_wdg_p1_003_round_mode_reset(void);
 int et_manual_dualcore_smoke(void);
 
 #endif
