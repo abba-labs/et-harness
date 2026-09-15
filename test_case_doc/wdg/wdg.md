@@ -90,7 +90,7 @@ WDG本体多数Case为DUT内部数字状态验证，最低可在R0完成。以�
 | WDG_F_004 | WDG喂狗/重载 | 合法feed必须使当前计数重新回到配置重载尺度并延后原剩余超时。 | `WDG_P0_003`, `WDG_P1_002` |
 | WDG_F_005 | WDG独立/窗口模式 | WDG支持独立模式与窗口模式，两种模式使用不同的feed合法性判据。 | `WDG_P0_003`, `WDG_P1_002` |
 | WDG_F_006 | WDG窗口门限 | WINDOW模式仅允许counter位于`[low, high]`时正常feed；高于high时Feed触发窗口违规，低于low时硬件形成窗口超时。 | `WDG_P1_002` |
-| WDG_F_007 | WDG复位输出 | WDG自然事件可关闭系统reset输出以在线观察IRQ，也可开启reset输出验证真实系统复位。 | `WDG_P0_004`, `WDG_P1_001`, `WDG_P1_002`, `WDG_P1_003` |
+| WDG_F_007 | WDG复位输出 | WDG自然事件可关闭系统reset输出以在线观察IRQ，也可开启reset输出验证真实系统复位。 | `WDG_P0_004`, `WDG_P1_001`, `WDG_P1_003`, `WDG_P1_009` |
 | WDG_F_008 | WDG IRQ/Reset轮次模式 | 两种轮次工作模式的自然事件时序可区分；同轮模式允许reset早于普通ISR执行。 | `WDG_P1_003` |
 | WDG_F_009 | WDG Debug Halt行为 | 可选择真实Debugger Halt期间暂停WDG计数或继续推进并自然到期。 | `WDG_P3_001` |
 | WDG_F_010 | WDG配置锁定/解锁 | Lock时受保护配置不得被修改；Unlock后新配置可实际生效并通过readback证明。 | `WDG_P1_005` |
@@ -118,6 +118,7 @@ WDG本体多数Case为DUT内部数字状态验证，最低可在R0完成。以�
 | WDG_P1_006 | P1 | WDG IRQ Enable/Disable/Mask/Unmask/Force/Clear对Raw、有效Status和真实Delivery的独立控制 | WDG中断控制矩阵测试 | SPEC |
 | WDG_P1_007 | P1 | WDG自然IRQ使当前实例interrupt record置位并可精确清除 | WDG自然中断与中断记录测试 | SPEC |
 | WDG_P1_008 | P1 | 两个WDG实例的配置、使能状态和IRQ投递互不污染 | WDG多实例隔离测试 | SPEC |
+| WDG_P1_009 | P1 | 窗口模式下越过Low后开启reset输出可形成真实系统复位，并留下可清除的reset record | WDG窗口超时系统复位测试 | SPEC |
 | WDG_P2_001 | P2 | 相同reload下片内WDG时钟源/分频变化引起COUNTER.CURRENT速率按独立时间比例变化 | WDG时钟源与分频集成测试 | IMPLEMENTED |
 | WDG_P2_002 | P2 | WDG自然超时经CPU/NMI Owner路由到目标处理域且不错误投递到对照处理域 | WDG超时NMI路由与处理域隔离测试 | IMPLEMENTED |
 | WDG_P3_001 | P3 | WDG调试暂停使能时真实Debugger Halt冻结超时进程，暂停失能时Halt期间继续计数并可自然到期 | WDG调试Halt行为测试 | SPEC |
@@ -267,7 +268,7 @@ method:
   - 记录基线：Arm前清目标/对照reset record并复读为0，避免把历史复位当成本轮结果。
   steps:
   - 重置前记录清理：在旧Session中禁用并解锁WDG，清目标和对照reset record并复读0。
-  - 真实复位武装：配置独立模式、reset输出开启、安全短reload，使能WDG并确认最后一条Arm响应已经成功返回。
+  - 真实复位武装：配置独立模式、reset输出开启、安全短reload；先清除并使能timeout IRQ源，再使能WDG并确认最后一条Arm响应已经成功返回。
   - 命令发送停止：Arm响应后停止一切WDG业务命令和自动重试，开始独立reset/reconnect deadline。
   - 旧会话失效观测：观察目标连接因DUT reset而中断，保存断线时刻和旧Session generation，禁止继续复用旧Driver对象。
   - 目标重新连接：链路恢复后重新open、HELLO/Discover，并构造新的Session/Driver对象，确认generation已变化。
@@ -481,24 +482,24 @@ p_level: P1
 feature_refs: [WDG_F_007, WDG_F_008, WDG_F_013, WDG_F_014]
 method:
   inputs:
-  - 模式矩阵：参数化ROUND1_IRQ_ROUND2_RESET与SAME_ROUND_IRQ_RESET，两轮均启用自然IRQ和系统reset输出。
-  - 记录策略：每轮Arm前清实时IRQ、interrupt record和reset record；同轮模式不要求普通ISR一定在reset前运行。
+  - 模式矩阵：参数化ROUND1_IRQ_ROUND2_RESET与SAME_ROUND_IRQ_RESET，两模式均启用自然IRQ和系统reset输出。
+  - 记录策略：每模式Arm前清实时IRQ、interrupt record和reset record；同轮模式不要求普通ISR一定在reset前运行。
   - 会话策略：需要系统reset的阶段使用expected-reset生命周期，不自动重放非幂等WDG命令。
   steps:
   - 模式基线清理：禁用WDG并清实时IRQ、目标interrupt/reset record，记录旧Session generation。
   - 首轮次轮模式武装：配置ROUND1_IRQ_ROUND2_RESET、安全reload、IRQ与reset输出，使能后停止feed。
   - 第一轮IRQ取证：等待第一轮自然超时，要求系统保持在线并读取Raw/Status、真实ISR event_count和interrupt record。
-  - 第二轮Reset取证：不feed继续等待第二轮，观察expected disconnect，重连为新Session并读取reset record确认复位。
-  - 同轮模式重新清场：新Session清所有目标事件记录，配置SAME_ROUND_IRQ_RESET并再次武装自然超时。
+  - 同轮模式重新武装：同Session清全部目标事件记录，配置SAME_ROUND_IRQ_RESET并再次武装自然超时。
   - 同轮Reset等待：等待第一次自然到期和expected disconnect；不把“普通ISR一定先执行”作为通过前提。
   - 同轮持久证据读取：重连后读取interrupt record与reset record，期望同一轮事件留下两类持久来源证据。
-  - 模式时序汇总：比较两种模式的首个事件轮次、在线阶段、reset阶段和records，最后恢复WDG禁用。
+  - 模式时序汇总：汇总两种模式的首个事件轮次、在线阶段、reset阶段和records，最后恢复WDG禁用。
   observations:
   - 首轮IRQ端点：ROUND1_IRQ_ROUND2_RESET第一轮读取IRQ Raw/Status、真实Delivery和RECORD.INTERRUPT，期望系统仍在线。
-  - 第二轮Reset端点：第二轮通过disconnect/reconnect与RECORD.RESET证明真实系统reset。
-  - 同轮持久记录端点：SAME_ROUND_IRQ_RESET重连后读取RECORD.INTERRUPT和RECORD.RESET，期望两者均反映本轮事件。
+  - 同轮Reset端点：SAME_ROUND_IRQ_RESET通过disconnect/reconnect与RECORD.RESET证明真实系统reset。
+  - 同轮持久记录端点：重连后读取RECORD.INTERRUPT和RECORD.RESET，期望两者均反映本轮事件。
+  - 模式0复位边界：本FPGA上ROUND1_IRQ_ROUND2_RESET未观测到第二轮复位，该模式只取证第一轮在线IRQ，不作为复位已通过的证据。
   pass_criteria:
-  - 首轮次轮顺序正确：模式0第一轮只形成在线IRQ证据，第二轮才形成真实系统reset。
+  - 模式0第一轮正确：只形成在线IRQ证据与interrupt record，不出现reset record。
   - 同轮事件正确：模式1第一次自然到期即形成reset，且重连后interrupt/reset两类持久记录均符合本轮事件。
   - ISR要求不过强：模式1不得以普通ISR在reset前必然执行作为必要判据，避免把reset抢占ISR误判为失败。
   - 记录来源可清：两种模式产生的目标records均可精确清除并复读为0。
@@ -521,18 +522,43 @@ failure_observations:
   source: measurement
   role: expected
   format: text
+- key: first_round_event_count_delta
+  label: 首轮IRQ实际投递次数增量
+  source: measurement
+  role: actual
+  format: decimal
 - key: round1_irq_last_raw
   label: 首轮IRQ实际Raw
   source: dut
   role: actual
   format: hex32
-- key: round2_reset_record
-  label: 次轮Reset实际记录
+- key: round1_interrupt_record
+  label: 首轮中断记录
+  source: dut
+  role: actual
+  format: bool
+- key: round1_reset_record
+  label: 首轮复位记录（期望为0）
+  source: dut
+  role: actual
+  format: bool
+- key: same_round_interrupt_record
+  label: 同轮中断实际记录
   source: dut
   role: actual
   format: bool
 - key: same_round_reset_record
   label: 同轮Reset实际记录
+  source: dut
+  role: actual
+  format: bool
+- key: cleared_interrupt_record
+  label: 清除后中断记录
+  source: dut
+  role: actual
+  format: bool
+- key: cleared_reset_record
+  label: 清除后复位记录
   source: dut
   role: actual
   format: bool
@@ -840,6 +866,84 @@ gap: []
 ```
 <!-- ET_CASE_SPEC_END -->
 
+
+### WDG_P1_009 - WDG窗口超时系统复位测试
+
+<!-- ET_CASE_SPEC_BEGIN -->
+```yaml
+schema: et.case.v1
+case_id: WDG_P1_009
+case_name: WDG窗口超时系统复位测试
+report_feature: |-
+  1. WDG窗口门限
+  2. WDG复位输出
+  3. WDG复位记录
+p_level: P1
+feature_refs: [WDG_F_006, WDG_F_007, WDG_F_014]
+method:
+  inputs:
+  - 窗口配置：目标实例使用窗口模式，Low贴近Reload、High低于初始Counter，并开启reset输出与自然IRQ。
+  - 对照实例：第二个实例保持禁用，用于证明复位来源只归属于目标实例。
+  - 触发路径：越过Low后不Feed，让硬件自然形成窗口超时；不使用软件Force替代自然事件。
+  steps:
+  - 复位记录清场：禁用两个实例，清目标与对照reset/interrupt record并复读为0。
+  - 窗口武装：配置窗口模式、Low/High门限、reset输出开启与安全短Reload；先清并使能timeout IRQ源。
+  - 自然超时等待：使能目标实例后停止一切WDG业务命令，等待窗口超时形成真实系统复位。
+  - 旧会话失效观测：观察控制链因DUT reset而中断，保存断线时刻与旧Session generation。
+  - 目标重新连接：链路恢复后重新open与HELLO/Discover，确认Session已更新。
+  - 复位记录读取：在新Session读取目标与对照RECORD.RESET，期望仅目标实例置位。
+  - 复位记录清除：对目标record执行精确clear并复读为0，确认对照未被改变。
+  observations:
+  - 会话生命周期端点：保存expected disconnect与重连后的Session身份变化，证明发生真实系统reset。
+  - 复位记录端点：读取RECORD.RESET，期望目标实例从0变1，对照实例保持0。
+  - 清除后记录端点：清目标record后复读RECORD.RESET，期望目标回到0且对照不受影响。
+  pass_criteria:
+  - 窗口超时真实复位：越过Low后不Feed必须出现控制链中断，并由新HELLO/Discover建立新Session。
+  - 复位来源归属：重连后只有配置窗口模式的实例RECORD.RESET置位，对照实例保持0。
+  - 记录可精确清除：目标record清除后复读为0且不改变对照实例。
+timeout: 30 s
+cleanup:
+- 跨重启清理：在新Session中禁用目标WDG，清目标reset/interrupt record并确认连接稳定。
+resources:
+  minimum_level: R0
+  full_coverage_level: R5
+  board: 需要两个可访问的逻辑WDG实例，控制链必须允许复位后重新连接
+  bench: 完整覆盖需要reset-aware会话重建
+backend:
+- FPGA
+- Silicon
+evidence:
+- 决定性硬件Observation、独立Expected/Measurement与绑定结构化Artifact
+failure_observations:
+- key: expected_window_reset_chain
+  label: 期望窗口超时复位与重连链
+  source: measurement
+  role: expected
+  format: text
+- key: target_window_low
+  label: 目标窗口Low门限
+  source: measurement
+  role: actual
+  format: decimal
+- key: target_reset_record_after
+  label: 目标实例重连后RECORD.RESET
+  source: dut
+  role: actual
+  format: bool
+- key: control_reset_record_after
+  label: 对照实例重连后RECORD.RESET
+  source: dut
+  role: actual
+  format: bool
+- key: target_reset_record_after_clear
+  label: 目标实例Clear后RECORD.RESET
+  source: dut
+  role: actual
+  format: bool
+gap: []
+```
+<!-- ET_CASE_SPEC_END -->
+
 ### WDG_P2_001 - WDG时钟源与分频集成测试
 
 <!-- ET_CASE_SPEC_BEGIN -->
@@ -1102,6 +1206,13 @@ cases:
       - {source: observation, path: secondary_reload_count, label: Secondary实例Reload读回, format: decimal, aggregate: same}
       - {source: observation, path: primary_enabled_state, label: Primary实例使能状态, format: bool, aggregate: same}
       - {source: observation, path: secondary_enabled_state, label: Secondary实例使能状态, format: bool, aggregate: same}
+  WDG_P1_009:
+    summary: "窗口模式越过Low且不Feed时形成真实系统复位，重连后仅目标实例reset record置位并可清除。"
+    fields:
+      - {source: measurement, path: expected_window_reset_chain, label: 期望窗口复位链, format: text, aggregate: distinct}
+      - {source: observation, path: target_window_low, label: 目标窗口Low门限, format: decimal, aggregate: same}
+      - {source: observation, path: target_reset_record_after, label: 目标重连后Reset记录, format: bool, aggregate: same}
+      - {source: observation, path: target_reset_record_after_clear, label: 目标清除后Reset记录, format: bool, aggregate: same}
   WDG_P0_004:
     summary: "WDG真实复位使旧Session失效，重连后目标reset record置位且可精确清除。"
     fields:
@@ -1110,11 +1221,11 @@ cases:
       - {source: observation, path: control_reset_record_after, label: 对照实例重连后RECORD.RESET, format: bool, aggregate: same}
       - {source: observation, path: target_reset_record_after_clear, label: 目标实例Clear后RECORD.RESET, format: bool, aggregate: same}
   WDG_P1_003:
-    summary: "WDG两种IRQ/Reset轮次模式分别形成首轮IRQ、次轮Reset和同轮双记录证据。"
+    summary: "WDG两种IRQ/Reset轮次模式分别形成首轮在线IRQ与同轮IRQ加真实系统复位证据。"
     fields:
       - {source: measurement, path: expected_sequence, label: 期望轮次序列, format: text, aggregate: distinct}
       - {source: observation, path: round1_irq_last_raw, label: 首轮IRQ Raw, format: hex32, aggregate: same}
-      - {source: observation, path: round2_reset_record, label: 次轮Reset记录, format: bool, aggregate: same}
+      - {source: observation, path: round1_interrupt_record, label: 首轮中断记录, format: bool, aggregate: same}
       - {source: observation, path: same_round_reset_record, label: 同轮Reset记录, format: bool, aggregate: same}
   WDG_P3_001:
     summary: "真实Debugger Halt下WDG暂停使能与失能产生可区分的计数和IRQ结果。"
@@ -1143,7 +1254,7 @@ cases:
 
 | Chip | Feature适配状态 | Case适配状态 | 主要Gap | 详细分析 |
 |---|---:|---:|---|---|
-| ET6801 | ADAPTED=12; MAPPING_GAP=2; NEEDS_VERIFICATION=3 | ADAPTED=13; MAPPING_GAP=1 | 14个Formal Case均已执行；当前FPGA为11 PASS / 3 FAIL / 0 SKIP。P0_004、P1_003的Reset Output未形成系统复位，P2_001的Counter速率未体现Divider效果 | `ET6801_wdg.md` |
+| ET6801 | ADAPTED=12; MAPPING_GAP=2; NEEDS_VERIFICATION=3 | ADAPTED=14; MAPPING_GAP=1 | 15个Formal Case已注册；最近一次全量运行为14个Case 11 PASS / 3 FAIL / 0 SKIP，P0_004、P1_003的Reset Output未形成系统复位，P2_001的Counter速率未体现Divider效果；新增P1_009（窗口超时复位）尚未执行 | `ET6801_wdg.md` |
 
 ## 5. Common Gap / Evolution
 

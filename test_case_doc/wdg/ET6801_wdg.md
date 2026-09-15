@@ -356,6 +356,7 @@ CPU/NMI Owner controls NMI route; WDG Service only creates natural timeout
 | WDG_P1_006 | ADAPTED | Force API与Source级IRQ Service已实现。 |
 | WDG_P1_007 | ADAPTED | 自然IRQ与interrupt record Case已实现。 |
 | WDG_P1_008 | ADAPTED | 双实例配置、使能与IRQ隔离Case已实现。 |
+| WDG_P1_009 | ADAPTED | 窗口模式下越过Low后开启reset输出形成真实系统复位，并验证复位记录归属与清除；补齐WDG_F_007在窗口路径上的复位取证。 |
 | WDG_P2_001 | MAPPING_GAP | <span style="color: red;"><strong>当前FPGA HIL：FAIL。CRG的Source/Divider寄存器读回正确，但divider=0/1下的Counter速率中位数不满足SVD定义的分频关系；Case保持严格判定，不得通过放宽断言掩盖硬件路径问题。</strong></span> |
 | WDG_P2_002 | ADAPTED | 当前FPGA HIL PASS；CPU NMI和WDG IRQ形成双证据，CPU首次交付后自动全屏蔽。 |
 | WDG_P3_001 | ADAPTED | 当前Run Config已提供可编程J-Link映射；真实Halt专项HIL为PASS，暂停使能与失能两轮Counter变化可明确区分。 |

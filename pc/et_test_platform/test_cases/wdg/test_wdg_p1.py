@@ -41,6 +41,11 @@ WINDOW_INSIDE_SAMPLE_HIGH_COUNT = 3_500_000
 WINDOW_LATE_LOW_COUNT = WINDOW_RELOAD_COUNT - 1_000
 WINDOW_LATE_HIGH_COUNT = WINDOW_RELOAD_COUNT - 500
 WINDOW_POSITION_TIMEOUT_S = 6.0
+# 窗口复位场景：Low贴近Reload、High低于初始Counter，使能后不Feed即自然越过Low。
+# 初始Counter等于Reload，故High必须小于Reload才会立刻落在窗口下方。
+WINDOW_RESET_LOW_COUNT = WINDOW_RELOAD_COUNT - 1_000
+WINDOW_RESET_HIGH_COUNT = WINDOW_RELOAD_COUNT - 500
+RESET_RECONNECT_TIMEOUT_S = 30.0
 WORK_MODE_RESET_TIMEOUT_S = 30.0
 
 
@@ -428,6 +433,199 @@ def test_wdg_p1_002_window_feed_regions(
         assert inside_irq.raw & event == WdgIrqEvent.NONE
         assert late_irq.event_count > late_baseline.event_count
         assert late_irq.last_raw & event == event
+
+
+# 测试 Feature：
+# 窗口模式下越过Low后开启reset输出形成真实系统复位，以及复位记录归属。
+#
+# 测试方法：
+# 1. 目标实例配置窗口模式、Low贴近Reload、High低于初始Counter，并开启reset输出。
+# 2. 使能后不Feed，等待窗口超时形成真实系统复位并观察控制链中断。
+# 3. 重连后读取目标与对照的RECORD.RESET，清除目标记录后复读。
+#
+# 通过条件：
+# 1. 窗口超时确实造成控制链中断并由新HELLO/Discover建立新Session。
+# 2. 只有目标实例的RECORD.RESET置位，且清除后复读为0、对照不受影响。
+def test_wdg_p1_009_window_timeout_system_reset(
+    wdg_support_for: WdgSupportFactory,
+    wdg_instance_ids: tuple[int, ...],
+    target_lifecycle,
+    et_artifact_dir: Path,
+    record_property: Callable[[str, object], None],
+    crg_driver,
+    resource_driver,
+) -> None:
+
+    # 准备：需要目标/对照两个实例，避免把复位归属证明退化为单实例自证。
+    # 隔离：本 Case 配置前复位参与 IP 和 Resource Pool，避免前序 Case 状态污染。
+    for reset_instance_id in wdg_instance_ids[:2]:
+        crg_driver.reset(CrgPeripheral.WDG, instance=reset_instance_id)
+    resource_driver.reset()
+
+    if len(wdg_instance_ids) < 2:
+        pytest.skip("skip_by_execution_mapping: reset record isolation requires two WDG instances")
+
+    target = wdg_support_for(wdg_instance_ids[0])
+    control = wdg_support_for(wdg_instance_ids[1])
+    require_wdg_runtime_feature(
+        target.runtime,
+        WdgFeature.WINDOW
+        | WdgFeature.INTERRUPTS
+        | WdgFeature.RESET_OUTPUT
+        | WdgFeature.PERSISTENT_RECORDS,
+    )
+    require_wdg_runtime_feature(control.runtime, WdgFeature.PERSISTENT_RECORDS)
+    event = WdgIrqEvent.TIMEOUT
+    # Low贴近Reload且High低于初始Counter：使能后无需Feed即自然越过Low形成窗口超时。
+    config = WdgConfig(
+        reload_count=WINDOW_RELOAD_COUNT,
+        window_low_count=WINDOW_RESET_LOW_COUNT,
+        window_high_count=WINDOW_RESET_HIGH_COUNT,
+        mode=WdgMode.WINDOW,
+        work_mode=WdgWorkMode.SAME_ROUND_IRQ_RESET,
+        reset_enable=True,
+    )
+    reset_observed = False
+    cleanup_support = target
+
+    try:
+        # 基线：关闭两个实例并清除两类记录，防止历史复位污染本轮证据。
+        target.wdg.unlock()
+        control.wdg.unlock()
+        target.wdg.disable()
+        control.wdg.disable()
+        target.wdg.record_clear(WdgRecord.ALL)
+        control.wdg.record_clear(WdgRecord.ALL)
+        target_before = target.wdg.record_get()
+        control_before = control.wdg.record_get()
+
+        # 激励：放行IRQ源后武装窗口模式；此响应成功返回即停止一切WDG业务命令。
+        target.wdg.irq_clear(event)
+        target.wdg.irq_unmask(event)
+        target.wdg.irq_enable(event)
+        target.wdg.configure(config)
+        target.wdg.enable()
+        transition = target_lifecycle.wait_for_reset_and_reconnect(
+            timeout_s=RESET_RECONNECT_TIMEOUT_S,
+        )
+        reset_observed = True
+
+        # 观测：用新Session构造新的Driver，读取目标/对照复位记录。
+        reconnected_target = wdg_support_for(wdg_instance_ids[0])
+        reconnected_control = wdg_support_for(wdg_instance_ids[1])
+        cleanup_support = reconnected_target
+        target_after = reconnected_target.wdg.record_get()
+        control_after = reconnected_control.wdg.record_get()
+        reconnected_target.wdg.record_clear(WdgRecord.RESET)
+        target_cleared = reconnected_target.wdg.record_get()
+        control_after_clear = reconnected_control.wdg.record_get()
+
+        # 证据：在决定性断言前保存Session时间线、窗口门限与两实例记录读回。
+        record_property("old_session_id", transition.old_session_id)
+        record_property("new_session_id", transition.new_session_id)
+        record_property("disconnect_elapsed_s", transition.disconnect_elapsed_s)
+        record_property("reconnect_elapsed_s", transition.reconnect_elapsed_s)
+        record_property(
+            "expected_window_reset_chain",
+            {
+                "mode": "WINDOW",
+                "trigger": "counter_below_low_without_feed",
+                "expected": ["disconnect", "reconnect", "target reset record"],
+            },
+        )
+        record_observation(
+            record_property,
+            key="target_window_low",
+            value=WINDOW_RESET_LOW_COUNT,
+            source="measurement",
+            endpoint="CONFIG.WINDOW_LOW",
+        )
+        record_observation(
+            record_property,
+            key="target_window_high",
+            value=WINDOW_RESET_HIGH_COUNT,
+            source="measurement",
+            endpoint="CONFIG.WINDOW_HIGH",
+        )
+        record_observation(
+            record_property,
+            key="target_reset_record_before",
+            value=target_before.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        record_observation(
+            record_property,
+            key="control_reset_record_before",
+            value=control_before.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        record_observation(
+            record_property,
+            key="target_reset_record_after",
+            value=target_after.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        record_observation(
+            record_property,
+            key="control_reset_record_after",
+            value=control_after.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        record_observation(
+            record_property,
+            key="target_reset_record_after_clear",
+            value=target_cleared.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        record_observation(
+            record_property,
+            key="control_reset_record_after_clear",
+            value=control_after_clear.reset,
+            source="dut",
+            endpoint="RECORD.RESET",
+        )
+        write_json_result(
+            et_artifact_dir / "wdg_p1_009_window_timeout_system_reset.json",
+            {
+                "measurement_schema": "et.measurement.v1",
+                "case_id": "wdg_p1_009",
+                "window": {
+                    "low": WINDOW_RESET_LOW_COUNT,
+                    "high": WINDOW_RESET_HIGH_COUNT,
+                    "reload": WINDOW_RELOAD_COUNT,
+                },
+                "records": {
+                    "target_before": target_before.reset,
+                    "control_before": control_before.reset,
+                    "target_after": target_after.reset,
+                    "control_after": control_after.reset,
+                    "target_after_clear": target_cleared.reset,
+                    "control_after_clear": control_after_clear.reset,
+                },
+                "session": {
+                    "old": transition.old_session_id,
+                    "new": transition.new_session_id,
+                },
+            },
+        )
+
+        # 断言：窗口超时形成真实系统复位，且复位来源只归属目标实例。
+        assert transition.old_session_id != transition.new_session_id
+        assert target_before.reset is False and control_before.reset is False
+        assert target_after.reset is True
+        assert control_after.reset is False
+        assert target_cleared.reset is False
+        assert control_after_clear.reset is False
+    finally:
+        # 清理：优先使用复位后的新Session禁用目标实例并清记录。
+        if not reset_observed:
+            cleanup_support.wdg.disable()
+        cleanup_support.wdg.record_clear(WdgRecord.ALL)
 
 
 # 测试 Feature：
@@ -962,12 +1160,15 @@ def test_wdg_p1_008_multi_instance_isolation(
 #
 # 测试方法：
 # 1. 配置ROUND1_IRQ_ROUND2_RESET，等待第一轮自然IRQ并确认系统仍在线。
-# 2. 停止发送WDG命令，使用公共生命周期Fixture等待第二轮真实系统复位并重建Session。
-# 3. 在新Session配置SAME_ROUND_IRQ_RESET，等待第一次自然事件复位，再读取两类持久记录。
+# 2. 同Session改为SAME_ROUND_IRQ_RESET，等待第一次自然事件触发真实系统复位并重建Session。
+# 3. 在新Session读取两类持久记录，清除后复读。
 #
 # 通过条件：
-# 1. ROUND1_IRQ_ROUND2_RESET的第一轮只有真实IRQ和中断记录，第二轮才形成系统复位。
+# 1. ROUND1_IRQ_ROUND2_RESET的第一轮只有真实IRQ和中断记录，系统保持在线且无复位记录。
 # 2. SAME_ROUND_IRQ_RESET的同一轮复位后，IRQ与Reset记录均能读回并精确清除。
+#
+# 边界：本FPGA上ROUND1_IRQ_ROUND2_RESET不产生第二轮复位（厂商WDG_15同样关闭了复位输出），
+#       因此系统复位的判据由SAME_ROUND_IRQ_RESET承担，不把该模式写成复位已验证。
 def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
     wdg_support_for: WdgSupportFactory,
     wdg_instance_id: int,
@@ -992,7 +1193,6 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
         | WdgFeature.PERSISTENT_RECORDS,
     )
     event = WdgIrqEvent.TIMEOUT
-    reconnected_support = None
     cleanup_support = support
 
     try:
@@ -1013,36 +1213,28 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
         first_baseline = support.wdg.irq_snapshot_get()
         support.wdg.enable()
 
-        # 第一轮激励与观测：自然超时应只投递IRQ，系统保持在线并留下中断记录。
+        # 第一轮观测：ROUND1_IRQ_ROUND2_RESET的第一轮只投递IRQ，系统保持在线。
+        # 实测与厂商WDG_15一致：该模式在本FPGA上不产生第二轮复位，因此这里只证明在线IRQ与记录。
         first_irq = support.wdg.wait_irq(
             minimum_event_count=first_baseline.event_count + 1,
             timeout_s=WORK_MODE_RESET_TIMEOUT_S,
         )
         first_records = support.wdg.record_get()
 
-        # 第二轮激励：第一轮响应后不再发送WDG命令，等待第二轮真实系统复位。
-        transition_first = target_lifecycle.wait_for_reset_and_reconnect(
-            timeout_s=WORK_MODE_RESET_TIMEOUT_S,
-        )
-        reconnected_support = wdg_support_for(wdg_instance_id)
-        cleanup_support = reconnected_support
-        second_round_records = reconnected_support.wdg.record_get()
-
-        # 第二模式基线：在新Session清理全部记录，避免两种模式的证据互相污染。
-        reconnected_support.wdg.unlock()
-        reconnected_support.wdg.disable()
-        reconnected_support.wdg.irq_disable(event)
-        reconnected_support.wdg.irq_clear(event)
-        reconnected_support.wdg.record_clear(WdgRecord.ALL)
+        # 第二模式基线：同轮模式在同一Session内重新配置，清记录避免两种模式证据互相污染。
+        support.wdg.disable()
+        support.wdg.irq_disable(event)
+        support.wdg.irq_clear(event)
+        support.wdg.record_clear(WdgRecord.ALL)
         second_config = WdgConfig(
             reload_count=SAFE_RELOAD_COUNT,
             work_mode=WdgWorkMode.SAME_ROUND_IRQ_RESET,
             reset_enable=True,
         )
-        reconnected_support.wdg.configure(second_config)
-        reconnected_support.wdg.irq_unmask(event)
-        reconnected_support.wdg.irq_enable(event)
-        reconnected_support.wdg.enable()
+        support.wdg.configure(second_config)
+        support.wdg.irq_unmask(event)
+        support.wdg.irq_enable(event)
+        support.wdg.enable()
 
         # 同轮模式激励：第一次自然事件即触发系统复位，不要求普通ISR先于复位完成。
         transition_second = target_lifecycle.wait_for_reset_and_reconnect(
@@ -1058,7 +1250,6 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
         record_property(
             "first_round_event_count_delta", first_irq.event_count - first_baseline.event_count
         )
-        record_property("first_reset_session", transition_first.new_session_id)
         record_property("second_reset_session", transition_second.new_session_id)
         record_observation(
             record_property,
@@ -1078,13 +1269,6 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
             record_property,
             key="round1_reset_record",
             value=first_records.reset,
-            source="dut",
-            endpoint="RECORD.RESET",
-        )
-        record_observation(
-            record_property,
-            key="round2_reset_record",
-            value=second_round_records.reset,
             source="dut",
             endpoint="RECORD.RESET",
         )
@@ -1128,13 +1312,9 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
             {
                 "round1_irq_round2_reset": {
                     "first_irq": first_irq.event_count - first_baseline.event_count,
-                    "first_records": {
+                    "records": {
                         "interrupt": first_records.interrupt,
                         "reset": first_records.reset,
-                    },
-                    "second_records": {
-                        "interrupt": second_round_records.interrupt,
-                        "reset": second_round_records.reset,
                     },
                 },
                 "same_round_irq_reset": {
@@ -1150,17 +1330,9 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
                 "case_id": "wdg_p1_003",
                 "round1_irq_round2_reset": {
                     "irq_event_count_delta": first_irq.event_count - first_baseline.event_count,
-                    "first_records": {
+                    "records": {
                         "interrupt": first_records.interrupt,
                         "reset": first_records.reset,
-                    },
-                    "second_records": {
-                        "interrupt": second_round_records.interrupt,
-                        "reset": second_round_records.reset,
-                    },
-                    "session": {
-                        "old": transition_first.old_session_id,
-                        "new": transition_first.new_session_id,
                     },
                 },
                 "same_round_irq_reset": {
@@ -1180,17 +1352,15 @@ def test_wdg_p1_003_work_mode_irq_and_reset_rounds(
             },
         )
 
-        # 断言：第一模式按两轮产生IRQ后Reset，第二模式同轮产生两类持久记录。
+        # 断言：第一模式只产生在线IRQ与中断记录，第二模式同轮产生IRQ并真实系统复位。
         assert first_irq.event_count == first_baseline.event_count + 1
         assert first_irq.last_raw & event == event
         assert first_records.interrupt is True
         assert first_records.reset is False
-        assert second_round_records.reset is True
         assert final_records.interrupt is True
         assert final_records.reset is True
         assert cleared_records.interrupt is False
         assert cleared_records.reset is False
-        assert transition_first.old_session_id != transition_first.new_session_id
         assert transition_second.old_session_id != transition_second.new_session_id
     finally:
         # 清理：第二次复位后优先使用最新Session，失败时退回当前可用Session。

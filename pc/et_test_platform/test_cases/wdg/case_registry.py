@@ -15,6 +15,7 @@ WDG_CASE_REGISTRY = (
     "wdg_p1_006",
     "wdg_p1_007",
     "wdg_p1_008",
+    "wdg_p1_009",
     "wdg_p2_001",
     "wdg_p2_002",
     "wdg_p3_001",

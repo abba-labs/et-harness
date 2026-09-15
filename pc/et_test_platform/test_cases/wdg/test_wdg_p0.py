@@ -319,6 +319,10 @@ def test_wdg_p0_004_reset_reconnect_and_record(
         control_before = control.wdg.record_get()
 
         # 激励：配置并启动目标WDG，Arm响应成功后不再发送任何WDG业务命令。
+        # 轮次模式的第一轮依赖中断事件推进；中断未使能时到不了复位输出，因此必须先放行IRQ源。
+        target.wdg.irq_clear(WdgIrqEvent.TIMEOUT)
+        target.wdg.irq_unmask(WdgIrqEvent.TIMEOUT)
+        target.wdg.irq_enable(WdgIrqEvent.TIMEOUT)
         target.wdg.configure(config)
         target.wdg.enable()
         transition = target_lifecycle.wait_for_reset_and_reconnect(
