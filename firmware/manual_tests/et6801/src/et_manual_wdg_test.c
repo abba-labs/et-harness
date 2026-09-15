@@ -14,6 +14,8 @@ static void manual_wdg_irq_handler(void)
 {
     ++g_wdg_irq_count;
     WDG_clearInterruptStatus(ET_MANUAL_WDG_TARGET);
+
+		et_manual_log_text("wdg_irq_handler\r\n");
 }
 
 static void reset_wdg(void)
@@ -87,6 +89,31 @@ int et_manual_wdg_p1_004_module_reset_and_recovery(void)
                : ET_MANUAL_RESULT_FAIL;
 }
 
+int et_manual_wdg_dump_registers(void)
+{
+    et_manual_log_text("[MANUAL] case=wdg_dump feature=register_dump\r\n");
+    et_manual_log_u32("[REG] ET_HEAD", WDG0->ET_HEAD);
+    et_manual_log_u32("[REG] LOCK", WDG0->LOCK);
+    et_manual_log_u32("[REG] RELOAD", WDG0->RELOAD);
+    et_manual_log_u32("[REG] CUR_VAL", WDG0->CUR_VAL);
+    et_manual_log_u32("[REG] HIGH_THRESHOLD", WDG0->HIGH_THRESHOLD);
+    et_manual_log_u32("[REG] LOW_THRESHOLD", WDG0->LOW_THRESHOLD);
+    et_manual_log_u32("[REG] EN", WDG0->EN);
+    et_manual_log_u32("[REG] RELOAD_REQ", WDG0->RELOAD_REQ);
+    et_manual_log_u32("[REG] CTRL", WDG0->CTRL);
+    et_manual_log_u32("[REG] MODE", WDG0->MODE);
+    et_manual_log_u32("[REG] WORK_MODE", WDG0->WORK_MODE);
+    et_manual_log_u32("[REG] INT_EN", WDG0->INT_EN);
+    et_manual_log_u32("[REG] INT_MASK", WDG0->INT_MASK);
+    et_manual_log_u32("[REG] INT_FORCE_IND", WDG0->INT_FORCE_IND);
+    et_manual_log_u32("[REG] INT_CLR", WDG0->INT_CLR);
+    et_manual_log_u32("[REG] INT_RAW_RPT", WDG0->INT_RAW_RPT);
+    et_manual_log_u32("[REG] INT_STATUS_RPT", WDG0->INT_STATUS_RPT);
+    et_manual_log_u32("[REG] IT_RST", WDG0->IT_RST);
+    et_manual_log_u32("[REG] ET_TAIL", WDG0->ET_TAIL);
+    return ET_MANUAL_RESULT_PASS;
+}
+
 /*
  * 测试Feature：WDG自然超时触发真实系统复位，以及复位来源记录。
  * 测试方法：清除复位记录后打开WDG0复位输出并停止喂狗；系统复位后重新上电，
@@ -96,128 +123,76 @@ int et_manual_wdg_p1_004_module_reset_and_recovery(void)
  */
 int et_manual_wdg_p0_004_system_reset_and_record(void)
 {
-//    uint32_t target_reset = WDG_getWatchdogResetStatus(ET_MANUAL_WDG_TARGET) ? 1u : 0u;
-//    uint32_t control_reset = WDG_getWatchdogResetStatus(ET_MANUAL_WDG_CONTROL) ? 1u : 0u;
-
-//    et_manual_log_text("[MANUAL] case=wdg_p0_004 feature=system_reset_and_record\r\n");
-//    et_manual_log_u32("[OBSERVE] target_rst_rec", target_reset);
-//    et_manual_log_u32("[OBSERVE] control_rst_rec", control_reset);
-
-//    /* 记录已置位说明上一轮武装真的复位了SoC，本轮直接给出结论。 */
-//    if (target_reset != 0u)
-//    {
-//        WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
-//        return ((control_reset == 0u) && (WDG_getWatchdogResetStatus(ET_MANUAL_WDG_TARGET) == false))
-//                   ? ET_MANUAL_RESULT_PASS
-//                   : ET_MANUAL_RESULT_FAIL;
-//    }
-
-    /* 第一轮：清记录后武装WDG0，随后停止喂狗等待自然超时复位。 */
-    reset_wdg();
-    WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
+		reset_wdg();
+		WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
     WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_CONTROL);
 
-    WDG_unlock(ET_MANUAL_WDG_TARGET);
-    WDG_disableWatchdog(ET_MANUAL_WDG_TARGET);
+		Interrupt_register(WDG0_IRQn, manual_wdg_irq_handler);
+    Interrupt_enable(WDG0_IRQn);
 
-    WDG_setWatchdogMode(ET_MANUAL_WDG_TARGET, WD_MODE_INTERRUPT_RESET);
-    WDG_setWatchdogWorkMode(ET_MANUAL_WDG_TARGET, ROUND1_IT_AND_ROUND2_RESET);
+		WDG_unlock(WDG0);
+		WDG_disableWatchdogInHalt(WDG0);
+		WDG_disableWindowedWatchdog(WDG0);
 
-    WDG_setWatchdogReloadValue(ET_MANUAL_WDG_TARGET, ET_MANUAL_WDG_RESET_RELOAD);
-    WDG_enableWatchdog(ET_MANUAL_WDG_TARGET);
+    WDG_setWatchdogMode(WDG0, WD_MODE_INTERRUPT_RESET);
+		WDG_setWatchdogWorkMode(WDG0, ROUND1_IT_AND_ROUND2_RESET);
+    WDG_setWatchdogReloadValue(WDG0, 0x2710);
+		WDG_enableInterrupt(WDG0);
 
-    et_manual_log_u32("[CONFIG] reset_reload", ET_MANUAL_WDG_RESET_RELOAD);
-    et_manual_log_u32("[OBSERVE] target_enabled",
-                      WDG_isWatchdogEnabled(ET_MANUAL_WDG_TARGET) ? 1u : 0u);
-    et_manual_log_text("[MANUAL] armed_expected_system_reset\r\n");
+    WDG_enableWatchdog(WDG0);
 
-    /* 等待：复位输出有效时SoC在此重启，本函数不会返回。 */
-    DWT_delay_ms(ET_MANUAL_WDG_RESET_WAIT_MS);
 
-    /* 兜底：窗口内没复位，打印现场后返回FAIL。 */
-    et_manual_log_u32("[OBSERVE] counter_without_reset",
-                      WDG_getWatchdogCounterValue(ET_MANUAL_WDG_TARGET));
-    return ET_MANUAL_RESULT_FAIL;
+		for(;;)
+		{
+				et_manual_log_u32("T", READ_REG(WDG0->CUR_VAL));
+
+		}
+
+		return ET_MANUAL_RESULT_FAIL;
 }
 
 /*
  * 测试Feature：WDG轮次工作模式的自然事件时序与跨复位记录。
- * 测试方法：清除记录后按ET_MANUAL_WDG_ROUND_MODE打开复位输出、注册并放行WDG0真实中断后停止喂狗；
- *          首轮次轮模式先在线观测第一轮真实ISR到达次数，再等待第二轮复位；
- *          系统复位后重新上电，再次进入本函数时读取持久记录给出结论。
- * 通过条件：首轮次轮模式下第一轮结束时系统仍在线且ISR计数非零；复位后的上电读到WDG0复位记录为1。
- * 边界：ISR只累加计数并清源，不参与判定；切换轮次模式需重新构建。
+ * 测试方法：打开复位输出、注册并放行WDG0真实中断后停止喂狗，观察第一轮中断与随后的系统复位。
+ * 通过条件：打印配置后能看到ISR到达，随后SoC复位并从启动日志重新开始。
+ * 边界：只用ROUND1_IT_AND_RESET（首轮即中断加复位）；ISR只累加计数并清源，不参与判定。
  */
 int et_manual_wdg_p1_003_round_mode_reset(void)
 {
-    uint32_t target_reset = WDG_getWatchdogResetStatus(ET_MANUAL_WDG_TARGET) ? 1u : 0u;
-    uint32_t control_reset = WDG_getWatchdogResetStatus(ET_MANUAL_WDG_CONTROL) ? 1u : 0u;
-    uint32_t round1_irq_seen;
-    uint32_t waited_ms;
-
-    et_manual_log_text("[MANUAL] case=wdg_p1_003 feature=round_mode_reset\r\n");
-    et_manual_log_u32("[CONFIG] round_mode", ET_MANUAL_WDG_ROUND_MODE);
-    et_manual_log_u32("[OBSERVE] target_rst_rec", target_reset);
-    et_manual_log_u32("[OBSERVE] control_rst_rec", control_reset);
-
-    /* 记录已置位说明上一轮武装真的复位了SoC，本轮直接给出结论。 */
-    if (target_reset != 0u)
-    {
-        et_manual_log_u32("[OBSERVE] target_int_rec",
-                          WDG_getWatchdogInterruptRecordStatus(ET_MANUAL_WDG_TARGET) ? 1u : 0u);
-        WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
-        return ((control_reset == 0u) && (WDG_getWatchdogResetStatus(ET_MANUAL_WDG_TARGET) == false))
-                   ? ET_MANUAL_RESULT_PASS
-                   : ET_MANUAL_RESULT_FAIL;
-    }
-
-    /* 第一轮：按选定轮次模式武装WDG0，随后停止喂狗等待自然超时。 */
-    reset_wdg();
-    WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
+		et_manual_log_text("[MANUAL] case=wdg_p1_003 feature=round_mode_reset\r\n");
+		reset_wdg();
+		WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_TARGET);
     WDG_clearWatchdogResetStatus(ET_MANUAL_WDG_CONTROL);
-    g_wdg_irq_count = 0u;
-    Interrupt_register(WDG0_IRQn, manual_wdg_irq_handler);
+
+		Interrupt_register(WDG0_IRQn, manual_wdg_irq_handler);
     Interrupt_enable(WDG0_IRQn);
-    WDG_unlock(ET_MANUAL_WDG_TARGET);
-    WDG_disableWatchdog(ET_MANUAL_WDG_TARGET);
-    WDG_setWatchdogMode(ET_MANUAL_WDG_TARGET, WD_MODE_INTERRUPT_RESET);
-    WDG_setWatchdogWorkMode(ET_MANUAL_WDG_TARGET, ET_MANUAL_WDG_RESET_WORK_MODE);
-    WDG_setWatchdogReloadValue(ET_MANUAL_WDG_TARGET, ET_MANUAL_WDG_RESET_RELOAD);
-    WDG_enableInterrupt(ET_MANUAL_WDG_TARGET);
-    WDG_enableWatchdog(ET_MANUAL_WDG_TARGET);
 
-    et_manual_log_u32("[CONFIG] reset_reload", ET_MANUAL_WDG_RESET_RELOAD);
-    et_manual_log_u32("[OBSERVE] target_enabled",
-                      WDG_isWatchdogEnabled(ET_MANUAL_WDG_TARGET) ? 1u : 0u);
+		WDG_unlock(WDG0);
+		WDG_disableWatchdogInHalt(WDG0);
+		WDG_disableWindowedWatchdog(WDG0);
 
-    /*
-     * 首轮次轮模式的第一轮只应产生真实IRQ而系统保持在线；同轮模式第一轮即复位，
-     * 该窗口内即可观察到系统已经重启，因此这里的取值本身就是模式差异的证据。
-     */
-    round1_irq_seen = 0u;
-    for (waited_ms = 0u; waited_ms < ET_MANUAL_WDG_ROUND1_WINDOW_MS; ++waited_ms)
-    {
-        if (g_wdg_irq_count != 0u)
-        {
-            round1_irq_seen = 1u;
-        }
-        DWT_delay_ms(ET_MANUAL_WDG_ROUND1_POLL_MS);
-    }
+    WDG_setWatchdogMode(WDG0, WD_MODE_INTERRUPT_RESET);
+		WDG_setWatchdogWorkMode(WDG0, ROUND1_IT_AND_RESET);
+    WDG_setWatchdogReloadValue(WDG0, 0x10000);
+		WDG_enableInterrupt(WDG0);
 
-    et_manual_log_u32("[OBSERVE] round1_irq_seen", round1_irq_seen);
-    et_manual_log_u32("[OBSERVE] round1_irq_count", g_wdg_irq_count);
-    et_manual_log_u32("[OBSERVE] round1_raw",
-                      (WDG_getRawInterruptStatus(ET_MANUAL_WDG_TARGET) == SET) ? 1u : 0u);
-    et_manual_log_u32("[OBSERVE] online_after_round1",
-                      WDG_isWatchdogEnabled(ET_MANUAL_WDG_TARGET) ? 1u : 0u);
-    et_manual_log_text("[MANUAL] armed_expected_system_reset\r\n");
+    WDG_enableWatchdog(WDG0);
 
-    /* 等待：第二轮（或同轮）到期后SoC重启，本函数不会返回。 */
-    DWT_delay_ms(ET_MANUAL_WDG_RESET_WAIT_MS);
+		et_manual_log_u32("[CONFIG] work_mode", (uint32_t)ROUND1_IT_AND_RESET);
+		et_manual_log_u32("[CONFIG] reset_reload", 0x10000);
+		et_manual_log_u32("[OBSERVE] enabled", WDG_isWatchdogEnabled(WDG0) ? 1u : 0u);
+		et_manual_log_u32("[OBSERVE] int_en", WDG0->INT_EN);
+		et_manual_log_text("[MANUAL] armed_expected_round1_irq_and_reset\r\n");
 
-    et_manual_log_u32("[OBSERVE] counter_without_reset",
-                      WDG_getWatchdogCounterValue(ET_MANUAL_WDG_TARGET));
-    return ET_MANUAL_RESULT_FAIL;
+		for(;;)
+		{
+				et_manual_log_u32("T", READ_REG(WDG0->CUR_VAL));
+				et_manual_log_u32("IRQ", g_wdg_irq_count);
+				et_manual_log_u32("RAW", READ_REG(WDG0->INT_RAW_RPT));
+				et_manual_log_u32("STA", READ_REG(WDG0->INT_STATUS_RPT));
+		}
+
+		return ET_MANUAL_RESULT_FAIL;
 }
 
 /*

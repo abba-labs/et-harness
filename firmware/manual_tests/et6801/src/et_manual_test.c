@@ -68,8 +68,8 @@ static const et_manual_case_entry_t g_fmac_cases[] = {
  */
 static const et_manual_case_entry_t g_wdg_cases[] = {
     //{"wdg_p1_004", et_manual_wdg_p1_004_module_reset_and_recovery},
-    {"wdg_p0_004", et_manual_wdg_p0_004_system_reset_and_record},
-    //{"wdg_p1_003", et_manual_wdg_p1_003_round_mode_reset},
+    //{"wdg_p0_004", et_manual_wdg_p0_004_system_reset_and_record},
+    {"wdg_p1_003", et_manual_wdg_p1_003_round_mode_reset},
     //{"wdg_p2_001", et_manual_wdg_p2_001_clock_divider_rate},
 };
 
