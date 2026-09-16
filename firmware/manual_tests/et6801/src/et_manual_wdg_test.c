@@ -13,7 +13,7 @@ static volatile uint32_t g_wdg_irq_count;
 static void manual_wdg_irq_handler(void)
 {
     ++g_wdg_irq_count;
-    WDG_clearInterruptStatus(ET_MANUAL_WDG_TARGET);
+    //WDG_clearInterruptStatus(ET_MANUAL_WDG_TARGET);
 
 		et_manual_log_text("wdg_irq_handler\r\n");
 }
@@ -146,6 +146,57 @@ int et_manual_wdg_p0_004_system_reset_and_record(void)
 		{
 				et_manual_log_u32("T", READ_REG(WDG0->CUR_VAL));
 
+		}
+
+		return ET_MANUAL_RESULT_FAIL;
+}
+
+/*
+ * 测试Feature：窗口模式下越过Low是否驱动WDG复位输出。
+ * 测试方法：窗口门限放在Reload中段，开reset输出与真实中断，使能后不喂狗，死循环打印现场。
+ * 通过条件：无判定，看log；若窗口超时驱动复位，会先看到IRQ增加再看到SoC重启从启动日志重新开始。
+ * 边界：只看现场，不做PASS/FAIL判断。
+ */
+int et_manual_wdg_window_reset_probe(void)
+{
+		et_manual_log_text("[MANUAL] case=wdg_window feature=window_timeout_reset\r\n");
+
+		reset_wdg();
+		WDG_clearWatchdogResetStatus(WDG0);
+		WDG_clearWatchdogResetStatus(WDG1);
+
+		Interrupt_register(WDG0_IRQn, manual_wdg_irq_handler);
+		Interrupt_enable(WDG0_IRQn);
+
+		WDG_unlock(WDG0);
+		WDG_disableWatchdog(WDG0);
+		WDG_disableWatchdogInHalt(WDG0);
+
+		WDG_setWatchdogMode(WDG0, WD_MODE_INTERRUPT_RESET);
+		WDG_setWatchdogWorkMode(WDG0, ROUND1_IT_AND_RESET);
+		WDG_setWatchdogReloadValue(WDG0, 0x100000);
+
+		WDG_enableWindowedWatchdog(WDG0);
+		WDG_setWatchdogWindowValue(WDG0, 0x80000, 0x90000);
+		WDG_enableInterrupt(WDG0);
+
+		WDG_enableWatchdog(WDG0);
+
+		et_manual_log_u32("[CONFIG] reload", 0x100000);
+		et_manual_log_u32("[CONFIG] low", 0x80000);
+		et_manual_log_u32("[CONFIG] high", 0x90000);
+		et_manual_log_u32("[OBSERVE] mode", READ_REG(WDG0->MODE));
+		et_manual_log_u32("[OBSERVE] ctrl", READ_REG(WDG0->CTRL));
+		et_manual_log_u32("[OBSERVE] work_mode", READ_REG(WDG0->WORK_MODE));
+		et_manual_log_u32("[OBSERVE] en", READ_REG(WDG0->EN));
+		et_manual_log_text("[MANUAL] armed_expected_window_timeout_reset\r\n");
+
+		for(;;)
+		{
+				et_manual_log_u32("T", READ_REG(WDG0->CUR_VAL));
+				et_manual_log_u32("IRQ", g_wdg_irq_count);
+				et_manual_log_u32("RAW", READ_REG(WDG0->INT_RAW_RPT));
+				et_manual_log_u32("STA", READ_REG(WDG0->INT_STATUS_RPT));
 		}
 
 		return ET_MANUAL_RESULT_FAIL;
