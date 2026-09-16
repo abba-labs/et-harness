@@ -38,13 +38,16 @@ WINDOW_INSIDE_LOW_COUNT = 2_000_000
 WINDOW_INSIDE_HIGH_COUNT = 4_000_000
 WINDOW_INSIDE_SAMPLE_LOW_COUNT = 3_000_000
 WINDOW_INSIDE_SAMPLE_HIGH_COUNT = 3_500_000
+# Late门限贴近Reload：Late区域本身由counter刚越过Low的瞬间定义，
+# 放宽到中段会让counter在到达Low前就回绕，观测不到Late。
 WINDOW_LATE_LOW_COUNT = WINDOW_RELOAD_COUNT - 1_000
 WINDOW_LATE_HIGH_COUNT = WINDOW_RELOAD_COUNT - 500
 WINDOW_POSITION_TIMEOUT_S = 6.0
-# 窗口复位场景：Low贴近Reload、High低于初始Counter，使能后不Feed即自然越过Low。
-# 初始Counter等于Reload，故High必须小于Reload才会立刻落在窗口下方。
-WINDOW_RESET_LOW_COUNT = WINDOW_RELOAD_COUNT - 1_000
-WINDOW_RESET_HIGH_COUNT = WINDOW_RELOAD_COUNT - 500
+# 窗口复位场景：门限放在Reload中段，使能后不Feed自然越过Low并继续递减到0。
+# Reload取较小值，让计数器在可观测时间内走完到0的完整路径。
+WINDOW_RESET_RELOAD_COUNT = 0x100000
+WINDOW_RESET_LOW_COUNT = WINDOW_RESET_RELOAD_COUNT * 5 // 10
+WINDOW_RESET_HIGH_COUNT = WINDOW_RESET_RELOAD_COUNT * 6 // 10
 RESET_RECONNECT_TIMEOUT_S = 30.0
 WORK_MODE_RESET_TIMEOUT_S = 30.0
 
@@ -301,12 +304,9 @@ def test_wdg_p1_002_window_feed_regions(
         assert late_baseline.raw & event == WdgIrqEvent.NONE
 
         # Late区域：Counter越过Low就形成窗口超时IRQ，不把该事件错归因于后续Feed。
+        # 门限贴近Reload时Counter越过Low后立即回绕，串口轮询采不到瞬时值，
+        # 因此这里以"越过Low后必然投递的窗口超时IRQ"定位，而不是轮询Counter位置。
         late_support.wdg.enable()
-        late_before = late_support.wdg.wait_counter_between(
-            1,
-            WINDOW_LATE_LOW_COUNT - 1,
-            timeout_s=WINDOW_POSITION_TIMEOUT_S,
-        )
         late_irq = late_support.wdg.wait_irq(
             minimum_event_count=late_baseline.event_count + 1,
             timeout_s=IRQ_TIMEOUT_S,
@@ -315,7 +315,6 @@ def test_wdg_p1_002_window_feed_regions(
         # Late Feed：保存越过Low后的真实Feed行为，不预设芯片未声明的重载语义。
         late_support.wdg.feed()
         late_after = late_support.wdg.status_get()
-
         # 阶段收口：违规源可能保持为Level，保存快照后立即停止计数与IRQ风暴。
         primary_support.wdg.disable()
         primary_support.wdg.irq_disable(event)
@@ -355,14 +354,7 @@ def test_wdg_p1_002_window_feed_regions(
         )
         record_observation(
             record_property,
-            key="late_counter_before",
-            value=late_before.counter,
-            source="dut",
-            endpoint="COUNTER.CURRENT",
-        )
-        record_observation(
-            record_property,
-            key="late_counter_after",
+            key="late_counter_after_feed",
             value=late_after.counter,
             source="dut",
             endpoint="COUNTER.CURRENT",
@@ -399,7 +391,6 @@ def test_wdg_p1_002_window_feed_regions(
                 "counter_before_feed": {
                     "early": early_before.counter,
                     "inside": inside_before.counter,
-                    "late": late_before.counter,
                 },
                 "counter_after_feed": {
                     "early": early_after.counter,
@@ -414,14 +405,13 @@ def test_wdg_p1_002_window_feed_regions(
             },
         )
 
-        # 断言：三次激励的实际Counter确实位于各自窗口区域。
+        # 断言：Early与Inside的Counter确实位于各自窗口区域；Late由窗口超时IRQ定位。
         assert early_before.counter > early_config.window_high_count
         assert (
             inside_config.window_low_count
             <= inside_before.counter
             <= inside_config.window_high_count
         )
-        assert late_before.counter < late_config.window_low_count
 
         # 断言：Inside合法Feed必须重载；Late Feed后的Counter保留为硬件观测。
         assert inside_after.counter > inside_before.counter
@@ -439,13 +429,17 @@ def test_wdg_p1_002_window_feed_regions(
 # 窗口模式下越过Low后开启reset输出形成真实系统复位，以及复位记录归属。
 #
 # 测试方法：
-# 1. 目标实例配置窗口模式、Low贴近Reload、High低于初始Counter，并开启reset输出。
-# 2. 使能后不Feed，等待窗口超时形成真实系统复位并观察控制链中断。
+# 1. 目标实例配置窗口模式、门限位于Reload中段，开启reset输出但不使能IRQ源。
+# 2. 使能后不Feed，等待计数器越过Low继续递减到0并形成真实系统复位。
 # 3. 重连后读取目标与对照的RECORD.RESET，清除目标记录后复读。
 #
 # 通过条件：
-# 1. 窗口超时确实造成控制链中断并由新HELLO/Discover建立新Session。
+# 1. 窗口模式下计数器走到0确实造成控制链中断并由新HELLO/Discover建立新Session。
 # 2. 只有目标实例的RECORD.RESET置位，且清除后复读为0、对照不受影响。
+#
+# 边界：必须保持IRQ源关闭。RTL的int_reload_req在cfg_int_clr（清中断）时重载计数器，
+#       一旦使能IRQ源，Service回调清中断就会让计数器永远到不了0，rst_req不会拉高；
+#       那种路径下窗口模式不复位，已由手动诊断在ET6801 FPGA上复现并确认。
 def test_wdg_p1_009_window_timeout_system_reset(
     wdg_support_for: WdgSupportFactory,
     wdg_instance_ids: tuple[int, ...],
@@ -469,16 +463,14 @@ def test_wdg_p1_009_window_timeout_system_reset(
     control = wdg_support_for(wdg_instance_ids[1])
     require_wdg_runtime_feature(
         target.runtime,
-        WdgFeature.WINDOW
-        | WdgFeature.INTERRUPTS
-        | WdgFeature.RESET_OUTPUT
-        | WdgFeature.PERSISTENT_RECORDS,
+        WdgFeature.WINDOW | WdgFeature.RESET_OUTPUT | WdgFeature.PERSISTENT_RECORDS,
     )
     require_wdg_runtime_feature(control.runtime, WdgFeature.PERSISTENT_RECORDS)
-    event = WdgIrqEvent.TIMEOUT
-    # Low贴近Reload且High低于初始Counter：使能后无需Feed即自然越过Low形成窗口超时。
+    # RTL事实：清中断会经int_reload_req重载计数器（WDG_CONTROL的cfg_int_clr分支），
+    # 使计数器永远到不了0，rst_req因此永不拉高。所以本Case不使能IRQ源，
+    # 让硬件按"跌破Low→继续递减→到0→复位"的真实路径产生系统复位。
     config = WdgConfig(
-        reload_count=WINDOW_RELOAD_COUNT,
+        reload_count=WINDOW_RESET_RELOAD_COUNT,
         window_low_count=WINDOW_RESET_LOW_COUNT,
         window_high_count=WINDOW_RESET_HIGH_COUNT,
         mode=WdgMode.WINDOW,
@@ -499,10 +491,9 @@ def test_wdg_p1_009_window_timeout_system_reset(
         target_before = target.wdg.record_get()
         control_before = control.wdg.record_get()
 
-        # 激励：放行IRQ源后武装窗口模式；此响应成功返回即停止一切WDG业务命令。
-        target.wdg.irq_clear(event)
-        target.wdg.irq_unmask(event)
-        target.wdg.irq_enable(event)
+        # 激励：保持IRQ源关闭，武装窗口模式后此响应成功返回即停止一切WDG业务命令。
+        target.wdg.irq_disable(WdgIrqEvent.TIMEOUT)
+        target.wdg.irq_clear(WdgIrqEvent.TIMEOUT)
         target.wdg.configure(config)
         target.wdg.enable()
         transition = target_lifecycle.wait_for_reset_and_reconnect(
@@ -533,19 +524,13 @@ def test_wdg_p1_009_window_timeout_system_reset(
                 "expected": ["disconnect", "reconnect", "target reset record"],
             },
         )
-        record_observation(
-            record_property,
-            key="target_window_low",
-            value=WINDOW_RESET_LOW_COUNT,
-            source="measurement",
-            endpoint="CONFIG.WINDOW_LOW",
-        )
-        record_observation(
-            record_property,
-            key="target_window_high",
-            value=WINDOW_RESET_HIGH_COUNT,
-            source="measurement",
-            endpoint="CONFIG.WINDOW_HIGH",
+        record_property(
+            "window_thresholds",
+            {
+                "reload": WINDOW_RESET_RELOAD_COUNT,
+                "low": WINDOW_RESET_LOW_COUNT,
+                "high": WINDOW_RESET_HIGH_COUNT,
+            },
         )
         record_observation(
             record_property,

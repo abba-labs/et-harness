@@ -451,8 +451,8 @@ failure_observations:
   source: dut
   role: actual
   format: decimal
-- key: late_counter_before
-  label: Late Feed前COUNTER.CURRENT
+- key: late_counter_after_feed
+  label: Late Feed后COUNTER.CURRENT
   source: dut
   role: actual
   format: decimal
@@ -882,13 +882,13 @@ p_level: P1
 feature_refs: [WDG_F_006, WDG_F_007, WDG_F_014]
 method:
   inputs:
-  - 窗口配置：目标实例使用窗口模式，Low贴近Reload、High低于初始Counter，并开启reset输出与自然IRQ。
+  - 窗口配置：目标实例使用窗口模式，Low/High位于Reload中段，开启reset输出但保持IRQ源关闭。
   - 对照实例：第二个实例保持禁用，用于证明复位来源只归属于目标实例。
-  - 触发路径：越过Low后不Feed，让硬件自然形成窗口超时；不使用软件Force替代自然事件。
+  - 触发路径：越过Low后不Feed，让计数器继续递减到0；不使用软件Force替代自然事件。
   steps:
   - 复位记录清场：禁用两个实例，清目标与对照reset/interrupt record并复读为0。
-  - 窗口武装：配置窗口模式、Low/High门限、reset输出开启与安全短Reload；先清并使能timeout IRQ源。
-  - 自然超时等待：使能目标实例后停止一切WDG业务命令，等待窗口超时形成真实系统复位。
+  - 窗口武装：配置窗口模式、Low/High门限、reset输出开启与安全短Reload；确认timeout IRQ源处于关闭状态。
+  - 自然递减等待：使能目标实例后停止一切WDG业务命令，等待计数器越过Low后继续递减到0并形成系统复位。
   - 旧会话失效观测：观察控制链因DUT reset而中断，保存断线时刻与旧Session generation。
   - 目标重新连接：链路恢复后重新open与HELLO/Discover，确认Session已更新。
   - 复位记录读取：在新Session读取目标与对照RECORD.RESET，期望仅目标实例置位。
@@ -898,9 +898,10 @@ method:
   - 复位记录端点：读取RECORD.RESET，期望目标实例从0变1，对照实例保持0。
   - 清除后记录端点：清目标record后复读RECORD.RESET，期望目标回到0且对照不受影响。
   pass_criteria:
-  - 窗口超时真实复位：越过Low后不Feed必须出现控制链中断，并由新HELLO/Discover建立新Session。
+  - 窗口下真实复位：IRQ源关闭时计数器越过Low后继续到0，必须出现控制链中断并由新HELLO/Discover建立新Session。
   - 复位来源归属：重连后只有配置窗口模式的实例RECORD.RESET置位，对照实例保持0。
   - 记录可精确清除：目标record清除后复读为0且不改变对照实例。
+  - IRQ源必须关闭：RTL的int_reload_req在清中断(cfg_int_clr)时重载计数器；一旦使能IRQ源，Service回调清中断会让计数器永远到不了0，rst_req不拉高，窗口模式下不复位。
 timeout: 30 s
 cleanup:
 - 跨重启清理：在新Session中禁用目标WDG，清目标reset/interrupt record并确认连接稳定。
@@ -920,11 +921,11 @@ failure_observations:
   source: measurement
   role: expected
   format: text
-- key: target_window_low
-  label: 目标窗口Low门限
+- key: window_thresholds
+  label: 窗口Reload/Low/High配置
   source: measurement
   role: actual
-  format: decimal
+  format: text
 - key: target_reset_record_after
   label: 目标实例重连后RECORD.RESET
   source: dut
@@ -1207,10 +1208,10 @@ cases:
       - {source: observation, path: primary_enabled_state, label: Primary实例使能状态, format: bool, aggregate: same}
       - {source: observation, path: secondary_enabled_state, label: Secondary实例使能状态, format: bool, aggregate: same}
   WDG_P1_009:
-    summary: "窗口模式越过Low且不Feed时形成真实系统复位，重连后仅目标实例reset record置位并可清除。"
+    summary: "窗口模式下计数器继续递减到0形成真实系统复位，重连后仅目标实例reset record置位并可清除。"
     fields:
       - {source: measurement, path: expected_window_reset_chain, label: 期望窗口复位链, format: text, aggregate: distinct}
-      - {source: observation, path: target_window_low, label: 目标窗口Low门限, format: decimal, aggregate: same}
+      - {source: measurement, path: window_thresholds, label: 窗口Reload/Low/High, format: text, aggregate: same}
       - {source: observation, path: target_reset_record_after, label: 目标重连后Reset记录, format: bool, aggregate: same}
       - {source: observation, path: target_reset_record_after_clear, label: 目标清除后Reset记录, format: bool, aggregate: same}
   WDG_P0_004:

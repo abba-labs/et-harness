@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from ...drivers.crg import CrgPeripheral
-from ...drivers.wdg import WdgConfig, WdgFeature, WdgIrqEvent, WdgRecord
+from ...drivers.wdg import WdgConfig, WdgFeature, WdgIrqEvent, WdgRecord, WdgWorkMode
 from ...results.recorder import write_json_result
 from ...scheduling.run_context import record_observation
 from ._support import WdgSupportFactory, require_wdg_runtime_feature
@@ -302,7 +302,13 @@ def test_wdg_p0_004_reset_reconnect_and_record(
         control.runtime,
         WdgFeature.PERSISTENT_RECORDS,
     )
-    config = WdgConfig(reload_count=SAFE_RELOAD_COUNT, reset_enable=True)
+    # 实测本FPGA：ROUND1_IRQ_ROUND2_RESET不产生复位（与厂商WDG_15一致，其复位输出关闭），
+    # 因此系统复位判据使用同轮模式，使能后第一次自然到期即输出复位。
+    config = WdgConfig(
+        reload_count=SAFE_RELOAD_COUNT,
+        work_mode=WdgWorkMode.SAME_ROUND_IRQ_RESET,
+        reset_enable=True,
+    )
     reset_observed = False
     reconnected_target = None
     reconnected_control = None
