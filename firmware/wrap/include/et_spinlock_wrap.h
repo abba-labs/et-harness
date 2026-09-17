@@ -149,6 +149,7 @@ et_wrap_status_t et_spinlock_wrap_global_release(et_spinlock_id_t spinlock_id);
 et_wrap_status_t et_spinlock_wrap_clear_key_probe(et_spinlock_id_t spinlock_id, uint8_t scope,
                                                   uint8_t authorized);
 et_wrap_status_t et_spinlock_wrap_peer_ready_get(et_spinlock_id_t spinlock_id, uint8_t *ready);
+et_wrap_status_t et_spinlock_wrap_peer_boot(et_spinlock_id_t spinlock_id);
 et_wrap_status_t et_spinlock_wrap_peer_master_id_get(et_spinlock_id_t spinlock_id,
                                                      uint16_t *master_id);
 et_wrap_status_t et_spinlock_wrap_peer_job_start(et_spinlock_id_t spinlock_id,

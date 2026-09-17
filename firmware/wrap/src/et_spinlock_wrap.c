@@ -10,6 +10,8 @@
 #include "et6x_spinlock.h"
 #include "et_chip_wrap_config.h"
 
+#include "et_core1_image.h"
+
 typedef struct
 {
     et_spinlock_id_t spinlock_id;
@@ -419,6 +421,27 @@ et_wrap_status_t et_spinlock_wrap_peer_ready_get(et_spinlock_id_t spinlock_id, u
     *ready = (uint8_t)driver_ready;
 
     return ET_WRAP_STATUS_OK;
+}
+
+/**
+ * @brief Boot Core1 on demand from the embedded peer firmware image.
+ * @param[in] spinlock_id Stable logical SPINLOCK instance identifier.
+ * @note The cross-IP bring-up lives in the SPINLOCK Chip Driver test extension;
+ *       this Wrap only forwards the embedded image and maps the Driver status.
+ * @return Stable Wrap status.
+ */
+et_wrap_status_t et_spinlock_wrap_peer_boot(et_spinlock_id_t spinlock_id)
+{
+    DRV_Status status;
+
+    if (find_mapping(spinlock_id) == NULL)
+    {
+        return ET_WRAP_STATUS_INVALID_ARGUMENT;
+    }
+
+    status = SPINLOCK_testBootPeer(g_core1_image, ET_CORE1_IMAGE_SIZE);
+
+    return status_from_driver(status);
 }
 
 /**

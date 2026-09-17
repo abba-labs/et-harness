@@ -33,6 +33,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "et6x_spinlock.h"
 #include "et6x_dualcore.h"
+#include "et6x_sysctrl.h"
+#include <string.h>
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -345,6 +347,9 @@ void SPINLOCK_globalReleaseAll(void)
 #define SPINLOCK_TEST_PEER_COMMAND_FIRST_SEQUENCE (1U)
 #define SPINLOCK_TEST_PEER_HEARTBEAT_DELAY_CYCLES (10000U)
 
+/* 从核镜像拉起后的就绪等待上限，约50ms量级。 */
+#define SPINLOCK_TEST_PEER_BOOT_POLL_LIMIT (500000U)
+
 typedef struct
 {
     uint32_t magic;
@@ -589,8 +594,45 @@ DRV_Status SPINLOCK_testPeerReady(uint32_t *pReady)
     return DRV_OK;
 }
 
-DRV_Status SPINLOCK_testGetPeerMasterId(uint32_t *pMasterId)
+/* 把内嵌的Core1镜像搬到其ITCM全局别名并拉起从核，直到共享邮箱报告就绪。 */
+DRV_Status SPINLOCK_testBootPeer(const uint8_t *image, uint32_t image_size)
 {
+    uint32_t ready = 0U;
+    uint32_t timeout;
+
+    if (image == NULL)
+    {
+        return DRV_PARAM_ERR;
+    }
+
+    /* 幂等：从核已经就绪时不再重复搬运与复位。 */
+    if ((SPINLOCK_testPeerReady(&ready) == DRV_OK) && (ready != 0U))
+    {
+        return DRV_OK;
+    }
+
+    /* 先挂起Core1，避免搬运镜像时从核取指。 */
+    SYSC_unlockCriticalRegs();
+    SET_BIT(SYSC->CPU_WAIT, SYSC_CPU_WAIT_SYSC_CPU1_WAIT_Msk);
+
+    /* 正式SDK未暴露ITCM别名常量，这里按同一映射写入Core1 ITCM。 */
+    memcpy((void *)ICTM_CORE1_TO_DMA_OFFSET, image, image_size);
+
+    DUALCORE_startCore1(0U);
+
+    /* 等待从核写入就绪邮箱；超时由调用方按DRV_TIMEOUT处理。 */
+    for (timeout = 0U; timeout < SPINLOCK_TEST_PEER_BOOT_POLL_LIMIT; ++timeout)
+    {
+        if ((SPINLOCK_testPeerReady(&ready) == DRV_OK) && (ready != 0U))
+        {
+            return DRV_OK;
+        }
+    }
+
+    return DRV_TIMEOUT;
+}
+
+DRV_Status SPINLOCK_testGetPeerMasterId(uint32_t *pMasterId){
     uint32_t ready;
 
     if (pMasterId == NULL)

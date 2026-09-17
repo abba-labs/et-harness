@@ -296,6 +296,9 @@ extern "C"
     /** Return whether the independently deployed peer image is ready. */
     DRV_Status SPINLOCK_testPeerReady(uint32_t *pReady);
 
+    /** Copy the embedded peer image into Core1 ITCM and start the peer core. */
+    DRV_Status SPINLOCK_testBootPeer(const uint8_t *image, uint32_t image_size);
+
     /** Return the peer execution entity's hardware Master ID. */
     DRV_Status SPINLOCK_testGetPeerMasterId(uint32_t *pMasterId);
 

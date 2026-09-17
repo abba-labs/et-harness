@@ -503,6 +503,48 @@ static uint16_t spinlock_handle(void *context, uint16_t command_id, const uint8_
             return ET_STATUS_OK;
         }
 
+        case ET_SPINLOCK_COMMAND_PEER_BOOT:
+        {
+            if ((request_length != 0u) || (response_body == NULL) ||
+                (response_capacity < ET_SPINLOCK_SERVICE_PEER_STATUS_SIZE))
+            {
+                return ET_STATUS_INVALID_PARAM;
+            }
+
+            wrap_status = et_spinlock_wrap_peer_boot(service->spinlock_id);
+
+            if (wrap_status != ET_WRAP_STATUS_OK)
+            {
+                return status_from_wrap(wrap_status);
+            }
+
+            wrap_status = et_spinlock_wrap_peer_ready_get(service->spinlock_id, &peer_ready);
+
+            if (wrap_status != ET_WRAP_STATUS_OK)
+            {
+                return status_from_wrap(wrap_status);
+            }
+
+            master_id = 0u;
+
+            if (peer_ready != 0u)
+            {
+                wrap_status = et_spinlock_wrap_peer_master_id_get(service->spinlock_id, &master_id);
+
+                if (wrap_status != ET_WRAP_STATUS_OK)
+                {
+                    return status_from_wrap(wrap_status);
+                }
+            }
+
+            response_body[ET_SPINLOCK_SERVICE_PEER_READY_OFFSET] = peer_ready;
+            response_body[ET_SPINLOCK_SERVICE_PEER_STATUS_RESERVED_OFFSET] = 0u;
+            write_u16(&response_body[ET_SPINLOCK_SERVICE_PEER_MASTER_ID_OFFSET], master_id);
+            *response_length = ET_SPINLOCK_SERVICE_PEER_STATUS_SIZE;
+
+            return ET_STATUS_OK;
+        }
+
         default:
         {
             return ET_STATUS_INVALID_COMMAND;
