@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -17,6 +18,7 @@ from .models import (
     Mso5204AcquireConfig,
     Mso5204AnalogChannel,
     Mso5204ChannelCoupling,
+    Mso5204ChannelPlacement,
     Mso5204EdgeCaptureConfig,
     Mso5204MeasurementItem,
     Mso5204MeasurementStatistic,
@@ -26,6 +28,7 @@ from .models import (
     Mso5204TriggerConfig,
     Mso5204TriggerSlope,
     Mso5204TriggerSweep,
+    Mso5204TwoChannelLayout,
     Mso5204Waveform,
     Mso5204WaveformReadConfig,
 )
@@ -35,6 +38,26 @@ from .validation import _validate_channel, _validate_positive_finite
 _DEFAULT_TIMEOUT_S = 10.0
 _DEFAULT_SCALE_V = 1.0
 _DEFAULT_TRIGGER_LEVEL_V = 1.5
+
+# MSO5204 常见垂直量程档位（V/div）；split_channels 在其中选最小够用的档。
+_SCALE_STEPS_V = (
+    0.001,
+    0.002,
+    0.005,
+    0.01,
+    0.02,
+    0.05,
+    0.1,
+    0.2,
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    10.0,
+    20.0,
+    50.0,
+    100.0,
+)
 
 
 # 提供 MSO5204 台架级便捷入口；支持 with 语句自动关闭连接，构造阶段不访问仪器。
@@ -308,6 +331,109 @@ class Mso5204Scope:
         with suppress(Exception):
             self._driver.close()
         self._driver.open()
+
+    # 自动把两路波形分到上下半屏，避免都以 offset=0 居中而完全重叠。
+    def split_channels(
+        self,
+        upper: int | Mso5204AnalogChannel,
+        lower: int | Mso5204AnalogChannel,
+        *,
+        headroom: float = 1.15,
+        margin_divisions: float = 0.4,
+        divisions: float = 8.0,
+    ) -> Mso5204TwoChannelLayout:
+        # 实测规律（见 API.md §7.2）：屏幕格数 = (信号电压 + offset) / 量程。
+        # 因此要让信号中心落在目标格数上，offset = 目标格数 × 量程 − 信号中心电压。
+        # offset 取正值时波形上移，取负值下移；上半屏目标为正格数，下半屏为负。
+        upper_channel = _validate_channel(int(upper))
+        lower_channel = _validate_channel(int(lower))
+        if upper_channel == lower_channel:
+            raise ValueError("upper and lower must be two different channels")
+        if headroom < 1.0:
+            raise ValueError("headroom must be at least 1.0 so the waveform is not clipped")
+        if divisions <= 0:
+            raise ValueError("divisions must be positive")
+
+        half = divisions / 2.0
+        if margin_divisions < 0 or margin_divisions >= half:
+            raise ValueError("margin_divisions must be smaller than half the screen")
+
+        # 每个通道分到的可用高度（格）；margin 让波形不贴到上下边缘。
+        cell_divs = half - margin_divisions
+        if cell_divs <= 0:
+            raise ValueError("margin_divisions leaves no usable height in a half screen")
+
+        centers: dict[int, float] = {}
+        amplitudes: dict[int, float] = {}
+        for channel in (upper_channel, lower_channel):
+            center, amplitude = self._signal_span_v(channel)
+            centers[channel] = center
+            amplitudes[channel] = amplitude
+
+        # 量程必须让整段波形装进本通道的 cell：amplitude / scale <= cell / headroom，
+        # 即 scale >= amplitude * headroom / cell。headroom>1 额外留出安全余量。
+        upper_scale = self._fit_scale(amplitudes[upper_channel], cell_divs, headroom)
+        lower_scale = self._fit_scale(amplitudes[lower_channel], cell_divs, headroom)
+
+        # 目标中心格数：上半屏 +half/2，下半屏 −half/2（以屏幕中心为 0）。
+        upper_target_divs = half / 2.0
+        lower_target_divs = -half / 2.0
+
+        # 由 screen_divs = (offset + 信号电压) / 量程 反解出 offset。
+        upper_offset = upper_target_divs * upper_scale - centers[upper_channel]
+        lower_offset = lower_target_divs * lower_scale - centers[lower_channel]
+
+        return Mso5204TwoChannelLayout(
+            upper=self._apply_placement(upper_channel, upper_scale, upper_offset),
+            lower=self._apply_placement(lower_channel, lower_scale, lower_offset),
+            divisions=divisions,
+        )
+
+    # 读取指定通道的垂直中心电压与峰峰值幅度；无有效信号时返回 (0.0, 0.0)。
+    def _signal_span_v(self, channel: int) -> tuple[float, float]:
+        vmax = self._driver.operations.measure_item(Mso5204MeasurementItem.VMAX, channel)
+        vmin = self._driver.operations.measure_item(Mso5204MeasurementItem.VMIN, channel)
+        if vmax is None or vmin is None:
+            # 无有效波形（仪器返回无效哨兵）时按零幅度处理，调用方仍可得到一个居中排布。
+            return 0.0, 0.0
+        return (vmax + vmin) / 2.0, abs(vmax - vmin)
+
+    # 在仪器支持的量程档位里选最小可用档；无信号时给默认量程，避免把噪声放大。
+    def _fit_scale(self, amplitude_v: float, cell_divs: float, headroom: float) -> float:
+        needed = amplitude_v * headroom / cell_divs
+        if needed <= 0 or not math.isfinite(needed):
+            return _DEFAULT_SCALE_V
+        # 档位表从小到大，取第一个 >= 需要的档；超出表尾时按需向上取整。
+        for candidate in _SCALE_STEPS_V:
+            if candidate >= needed:
+                return candidate
+        return needed
+
+    # 应用量程与偏移并回读确认；返回实际生效的排布，标出哪些字段真的被改动。
+    def _apply_placement(
+        self,
+        channel: int,
+        scale_v: float,
+        offset_v: float,
+    ) -> Mso5204ChannelPlacement:
+        driver = self._driver
+        current_scale = driver.channel.scale_get(channel)
+        current_offset = driver.channel.offset_get(channel)
+        scale_changed = abs(current_scale - scale_v) > 1e-9
+        offset_changed = abs(current_offset - offset_v) > 1e-9
+
+        if scale_changed:
+            driver.channel.scale_set(channel, scale_v)
+        if offset_changed:
+            driver.channel.offset_set(channel, offset_v)
+
+        return Mso5204ChannelPlacement(
+            channel=channel,
+            scale_v=driver.channel.scale_get(channel),
+            offset_v=driver.channel.offset_get(channel),
+            scale_changed=scale_changed,
+            offset_changed=offset_changed,
+        )
 
 
 # 按显式 VISA 资源创建未打开的台架对象；推荐用 with 语句管理连接生命周期。

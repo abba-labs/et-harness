@@ -79,6 +79,7 @@ finally:
 | 方法 | 含义 | 使用场景 |
 |---|---|---|
 | `prepare(*, time_scale_s, channel=None, vertical_scale_v=None, trigger_level_v=None, trigger_slope=RISING, settle_s=0.9)` | 一次配好通道+时基+EDGE 触发，然后 `RUN` 并等待 | **最常用**。开始测量前调一次 |
+| `split_channels(upper, lower, *, headroom=1.15, margin_divisions=0.4, divisions=8.0)` | **把两路波形分到上下半屏**，自动选量程和偏移 | 双通道对比，避免两路重叠 |
 | `run()` | 连续采集 | 恢复采集 |
 | `stop()` | 停止采集 | 需要稳定画面 |
 | `single()` | 单次采集（武装，不等触发） | 抓单次事件 |
@@ -92,6 +93,46 @@ scope.prepare(time_scale_s=5e-5, settle_s=0)  # 不等，自己控制时机
 ```
 
 `settle_s=0.9` 是等采集稳定；设 0 就不等（例如紧接自己 `stop()`）。
+
+### 1.3.1 双通道上下分离：`split_channels()`
+
+两路都以 `offset=0` 时会**完全重叠**在屏幕中间。这个方法读各路的 VMAX/VMIN，
+自动算出互不重叠的量程与偏移，把 `upper` 放到上半屏、`lower` 放到下半屏。
+
+```python
+layout = scope.split_channels(upper=2, lower=1)  # CH2 在上，CH1 在下
+print(layout.upper.scale_v, layout.upper.offset_v)
+print(layout.lower.scale_v, layout.lower.offset_v)
+```
+
+**它是怎么算的**（实测规律，见 §7.2）：
+
+```
+屏幕格数 = (信号电压 + offset) / 量程
+→ offset = 目标格数 × 量程 − 信号中心电压
+```
+
+1. 读该路 `VMAX`/`VMIN`，得到中心电压与峰峰幅度；
+2. 选量程：`量程 ≥ 幅度 × headroom ÷ 每路可用格数`，在仪器档位表里取最小够用档；
+3. 算偏移：上半屏目标 `+4 格`、下半屏 `−4 格`（8 格屏），代入上式。
+
+| 参数 | 含义 | 默认 |
+|---|---|---|
+| `upper` / `lower` | 上半屏/下半屏放哪个通道（必须不同） | 必填 |
+| `headroom` | 幅度安全系数，小于 1 会裁切，因此被拒绝 | `1.15` |
+| `margin_divisions` | 每半屏预留边距（格），防止波形贴边 | `0.4` |
+| `divisions` | 屏幕垂直格数 | `8.0` |
+
+返回 `Mso5204TwoChannelLayout`，含 `upper`/`lower` 两个 `Mso5204ChannelPlacement`
+（`channel`、`scale_v`、`offset_v`、`scale_changed`、`offset_changed`）。
+
+**注意**：
+
+- 两路**可以有不同的量程**（各自按自己的幅度选档），不会强行统一成同一个值。
+- 某路无有效信号时按零幅度处理，用默认量程，仍会放到对应半屏。
+- `upper` 与 `lower` 传同一通道会抛 `ValueError`。
+- 某路所需格数超过可用半屏时抛 `ValueError`，提示调大 `headroom` 或减小 `margin`。
+- 调完后建议 `screenshot()` 存证；仪器屏幕刷新有延迟，隔一会儿再截。
 
 ## 1.4 测量
 
@@ -529,6 +570,39 @@ except OscilloscopeError as exc:
 本次未改动库的既有行为（会破坏已发布字段语义和既有测试），仅在文档与示例中标注。
 
 `FREQuency` / `PERiod` / `VPP` / `VRMS` 等单位正常，不受此问题影响。
+
+## 7.2 垂直偏移的符号方向与坐标换算
+
+调 `channel.offset_set()` 时方向容易搞反。实测规律（像素级验证）：
+
+```
+屏幕格数 = (信号电压 + offset) / 量程        以屏幕中心为 0，正格数在上
+```
+
+即：
+
+- **offset 取正值 → 波形上移**
+- **offset 取负值 → 波形下移**
+
+实测数据（2 V/div，3.5V 方波）：
+
+| offset 设置 | 波形实际位置 |
+|---|---|
+| `0 V` | 居中 |
+| `+2 V` | 偏上约 1 格 |
+| `−2 V` | 偏下约 1 格 |
+| `+4 V` | 偏上约 2 格 |
+
+**反解目标位置**：想让信号中心落在第 `d` 格，则 `offset = d × 量程 − 信号中心电压`。
+
+`split_channels()` 就是按这个公式算的：上半屏取 `+4 格`、下半屏取 `−4 格`（8 格屏）。
+
+**一个自然的结果**：两路量程不同时，同样的 offset 值对应的格数不同——
+所以分离两路必须**先定量程、再算偏移**，不能简单地把一路 `+2V`、另一路 `−2V`。
+
+**另外注意**：`offset_set()` 的校验允许 ±100 V，但硬件实际受 ±5 格限制。
+超出范围时仪器不会报错，只是回读值仍是设定值而波形已移出屏幕；
+所以判断是否真的移出屏幕要看截图或波形数据，不能只看回读。
 
 ---
 

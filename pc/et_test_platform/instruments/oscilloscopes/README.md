@@ -46,10 +46,17 @@ with open_scope("TCPIP0::169.254.201.131::INSTR") as scope:
 | `save_screenshot(path)` | 存屏幕截图（BMP） |
 | `wait_acquired(timeout_s)` | 等采集就绪；超时返回 False 不抛异常 |
 
-**台架层（`Mso5204Scope`）**：`prepare` / `measure` / `measure_delay` / `measure_signal` /
-`wave` / `wave_raw` / `read_wave` / `read_wave_raw` / `screenshot` / `stop` / `run` / `single` /
-`force_trigger` / `last_error` / `reconnect` / `edge_offset_s` / `dead_time_s`，
-以及 `driver` 属性直通原子层。
+**台架层（`Mso5204Scope`）**：`prepare` / **`split_channels`** / `measure` / `measure_delay` /
+`measure_signal` / `wave` / `wave_raw` / `read_wave` / `read_wave_raw` / `screenshot` /
+`stop` / `run` / `single` / `force_trigger` / `last_error` / `reconnect` /
+`edge_offset_s` / `dead_time_s`，以及 `driver` 属性直通原子层。
+
+其中 **`split_channels(upper, lower)`** 用于双通道对比：读各路的 VMAX/VMIN，
+自动选量程并算出互不重叠的上下偏移，解决两路都 `offset=0` 时完全重叠的问题。
+
+```python
+scope.split_channels(upper=2, lower=1)  # CH2 上半屏、CH1 下半屏
+```
 
 **分析层（`Wave`）**：把采样点变成物理量，纯计算不含判定。
 

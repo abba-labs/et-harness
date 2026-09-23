@@ -338,6 +338,48 @@ def demo_14_two_channel_compare() -> None:
         print(f"合成波形死区: {dead_time_s(synthetic_a, synthetic_b)} s（预期 1e-06）")
 
 
+# 示例 15：把两路波形分到上下半屏，避免都以 offset=0 居中而完全重叠。
+def demo_15_split_channels() -> None:
+    with open_scope(SCOPE_RESOURCE) as scope:
+        scope.prepare(time_scale_s=DEFAULT_TIME_SCALE_S)
+        d = scope.driver
+        d.channel.display_set(1, True)
+        d.channel.display_set(2, True)
+
+        # 先重置成"重叠"状态，便于对比。
+        d.channel.scale_set(1, 1.0)
+        d.channel.offset_set(1, 0.0)
+        d.channel.scale_set(2, 1.0)
+        d.channel.offset_set(2, 0.0)
+        print("已重置为重叠状态（两路 scale=1V/div offset=0）")
+
+        # 自动排布：CH2 在上半屏、CH1 在下半屏。
+        # 接口会按各路的 VMAX/VMIN 自动选量程，算出互不重叠的偏移。
+        layout = scope.split_channels(upper=2, lower=1)
+
+        print("\n排布结果:")
+        for label, placement in (("上半屏", layout.upper), ("下半屏", layout.lower)):
+            print(
+                f"  {label} CH{placement.channel}: "
+                f"scale={placement.scale_v} V/div  offset={placement.offset_v:+.4f} V"
+            )
+        print(f"  屏幕格数: {layout.divisions}")
+        print(f"  仪器错误: {scope.last_error()}")
+
+        # 回读确认仪器真的接受了设置。
+        for channel in (1, 2):
+            print(
+                f"  回读 CH{channel}: scale={d.channel.scale_get(channel)} "
+                f"offset={d.channel.offset_get(channel):+.4f}"
+            )
+
+        # 存一张截图，肉眼确认两路确实分开了。
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        target = OUTPUT_DIR / "split_channels.bmp"
+        scope.screenshot(target)
+        print(f"\n截图已存: {target}")
+
+
 # 按给定占空比生成方波，用于在没有真实激励时验证分析函数；delay 为起点偏移点数。
 def _make_wave(
     *,
@@ -372,6 +414,7 @@ DEMOS = {
     "12": ("异常处理", demo_12_exception_handling),
     "13": ("官方原子 API", demo_13_atomic_api),
     "14": ("双通道波形比较", demo_14_two_channel_compare),
+    "15": ("双通道上下分离（split_channels）", demo_15_split_channels),
 }
 
 

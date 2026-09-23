@@ -320,3 +320,21 @@ class Mso5204RawWaveform:
     def time_at(self, index: int) -> float:
 
         return self.x_origin_s + index * self.x_increment_s
+
+
+# 表示单个通道的屏幕排布：垂直量程与偏移；用于把两路波形在屏幕上分开显示。
+@dataclass(frozen=True, slots=True)
+class Mso5204ChannelPlacement:
+    channel: int
+    scale_v: float
+    offset_v: float
+    scale_changed: bool
+    offset_changed: bool
+
+
+# 表示两路波形的屏幕排布结果；upper 占上半屏、lower 占下半屏，互不重叠。
+@dataclass(frozen=True, slots=True)
+class Mso5204TwoChannelLayout:
+    upper: Mso5204ChannelPlacement
+    lower: Mso5204ChannelPlacement
+    divisions: float

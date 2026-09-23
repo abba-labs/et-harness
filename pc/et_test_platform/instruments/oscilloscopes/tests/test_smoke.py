@@ -22,6 +22,7 @@ from oscilloscopes.mso5204 import (
     Mso5204AcquireConfig,
     Mso5204Driver,
     Mso5204RawWaveformConfig,
+    Mso5204Scope,
     Mso5204TriggerConfig,
     Mso5204TriggerSweep,
     create_mso5204_visa_driver,
@@ -46,6 +47,19 @@ _RAW_PREAMBLE_RESPONSES = {
     b":WAVeform:YINCrement?\n": b"1.000000E+00\n",
     b":WAVeform:YORigin?\n": b"0.000000E+00\n",
     b":WAVeform:YREFerence?\n": b"0.000000E+00\n",
+}
+
+
+# split_channels 所需响应：CH1 约 0.25~3.48V，CH2 约 -0.33~3.41V（取自真机实测值）。
+_SPLIT_RESPONSES = {
+    b":MEASure:ITEM? VMAX,CHANnel1\n": b"3.478100E+00\n",
+    b":MEASure:ITEM? VMIN,CHANnel1\n": b"-2.484400E-01\n",
+    b":MEASure:ITEM? VMAX,CHANnel2\n": b"3.409800E+00\n",
+    b":MEASure:ITEM? VMIN,CHANnel2\n": b"-3.326700E-01\n",
+    b":CHANnel1:SCALe?\n": b"1.000000E+00\n",
+    b":CHANnel1:OFFSet?\n": b"0.000000E+00\n",
+    b":CHANnel2:SCALe?\n": b"1.000000E+00\n",
+    b":CHANnel2:OFFSet?\n": b"0.000000E+00\n",
 }
 
 
@@ -379,3 +393,155 @@ def test_scope_select_channel_rejects_invalid() -> None:
 
     with pytest.raises(ValueError):
         scope.select_channel(9)
+
+
+# 用脚本化 Transport 构造台架对象；不打开真实 VISA 资源。
+def _scope_with(responses: dict[bytes, bytes]) -> Mso5204Scope:
+    scope = Mso5204Scope.__new__(Mso5204Scope)
+    scope._driver = Mso5204Driver(ScpiSession(ScriptedTransport(responses)))
+    scope._channel = 1
+    scope._vertical_scale_v = 1.0
+    scope._trigger_level_v = 1.5
+    return scope
+
+
+# 构造会回读自身写入值的台架对象。
+# 真实仪器写完 SCALe/OFFSet 后查询会返回新值，而 split_channels 依赖这个回读做确认，
+# 因此这里在写入时同步更新响应表，模拟仪器的状态保持行为。
+def _scope_with_readback(
+    responses: dict[bytes, bytes] | None = None,
+) -> tuple[Mso5204Scope, ScriptedTransport]:
+    # 必须复制响应表：ScriptedTransport 直接持有传入的 dict，
+    # 若共享模块级常量，写入回读会污染后续用例。
+    transport = ScriptedTransport(dict(_SPLIT_RESPONSES if responses is None else responses))
+    original_write = transport.write
+
+    def write_and_record(data: bytes, *, timeout_s: float | None = None) -> None:
+        original_write(data, timeout_s=timeout_s)
+        text = data.decode("ascii").strip()
+        # 只处理 ":CHANnel<n>:SCALe <值>" / ":CHANnel<n>:OFFSet <值>" 这类设置命令。
+        if not text.startswith(":CHANnel") or " " not in text:
+            return
+        body, _, value_text = text.partition(" ")
+        channel = body[len(":CHANnel")]
+        suffix = "SCALe?" if "SCALe" in body else "OFFSet?"
+        # 键必须包含 ScpiSession 追加的终止符，否则查询匹配不到、会回读到旧值。
+        query = f":CHANnel{channel}:{suffix}".encode() + b"\n"
+        transport.responses[query] = value_text.encode() + b"\n"
+
+    transport.write = write_and_record  # type: ignore[method-assign]
+    scope = Mso5204Scope.__new__(Mso5204Scope)
+    scope._driver = Mso5204Driver(ScpiSession(transport))
+    scope._channel = 1
+    scope._vertical_scale_v = 1.0
+    scope._trigger_level_v = 1.5
+    return scope, transport
+
+
+# 验证 split_channels 让两路分离：上半屏 offset 为正、下半屏为负，且量程一致可读。
+def test_split_channels_separates_two_waveforms() -> None:
+
+    scope, _ = _scope_with_readback()
+
+    layout = scope.split_channels(upper=2, lower=1)
+
+    _expect(layout.upper.channel == 2, "upper channel mismatch")
+    _expect(layout.lower.channel == 1, "lower channel mismatch")
+    # 方向约定：offset 为正时波形上移，因此上半屏必须为正、下半屏必须为负。
+    _expect(layout.upper.offset_v > 0, f"upper offset must be positive: {layout.upper.offset_v}")
+    _expect(layout.lower.offset_v < 0, f"lower offset must be negative: {layout.lower.offset_v}")
+    _expect(layout.divisions == 8.0, f"divisions={layout.divisions}")
+
+
+# 验证量程按信号幅度选档：约 3.7V 的信号在半屏可用高度下应落在 2V/div。
+def test_split_channels_picks_scale_that_fits_half_screen() -> None:
+
+    scope, _ = _scope_with_readback()
+
+    layout = scope.split_channels(upper=2, lower=1)
+
+    # CH2 峰峰 3.7425V、可用 3.6 格、headroom 1.15 -> 需要 1.196V/div，取档 2.0V/div。
+    _expect(
+        layout.upper.scale_v == 2.0,
+        f"expected 2.0 V/div for ~3.7Vpp signal, got {layout.upper.scale_v}",
+    )
+    _expect(layout.lower.scale_v == 2.0, f"lower scale={layout.lower.scale_v}")
+
+
+# 验证 split_channels 实际下发了量程与偏移命令，并报告哪些字段被改动。
+def test_split_channels_writes_scale_and_offset() -> None:
+
+    scope, transport = _scope_with_readback()
+
+    layout = scope.split_channels(upper=2, lower=1)
+
+    writes = [w for w in transport.writes if b"SCALe " in w or b"OFFSet " in w]
+    _expect(len(writes) == 4, f"expected 4 setting writes, got {len(writes)}: {writes!r}")
+    _expect(
+        any(w.startswith(b":CHANnel1:OFFSet") for w in writes),
+        f"CH1 offset not written: {writes!r}",
+    )
+    _expect(
+        any(w.startswith(b":CHANnel2:OFFSet") for w in writes),
+        f"CH2 offset not written: {writes!r}",
+    )
+    _expect(layout.upper.scale_changed, "scale change must be reported")
+    _expect(layout.lower.scale_changed, "scale change must be reported")
+
+
+# 验证 split_channels 拒绝同一个通道同时作为上下两路，避免产生自相矛盾的设置。
+def test_split_channels_rejects_same_channel() -> None:
+
+    scope = _scope_with(_SPLIT_RESPONSES)
+
+    with pytest.raises(ValueError):
+        scope.split_channels(upper=1, lower=1)
+
+
+# 验证 split_channels 拒绝非法通道号，保持与原子 API 一致的失败语义。
+def test_split_channels_rejects_invalid_channel() -> None:
+
+    scope = _scope_with(_SPLIT_RESPONSES)
+
+    with pytest.raises(ValueError):
+        scope.split_channels(upper=1, lower=9)
+
+
+# 验证 headroom 小于 1 被拒绝：那会让波形超出分配区域而被裁切。
+def test_split_channels_rejects_insufficient_headroom() -> None:
+
+    scope = _scope_with(_SPLIT_RESPONSES)
+
+    with pytest.raises(ValueError):
+        scope.split_channels(upper=1, lower=2, headroom=0.5)
+
+
+# 验证 margin 过大（吃掉整个半屏）被拒绝，而不是算出无意义的偏移。
+def test_split_channels_rejects_oversized_margin() -> None:
+
+    scope = _scope_with(_SPLIT_RESPONSES)
+
+    with pytest.raises(ValueError):
+        scope.split_channels(upper=1, lower=2, margin_divisions=4.0)
+
+
+# 验证无有效信号时按零幅度处理，仍给出居中排布而不是抛异常或设置 0 量程。
+def test_split_channels_handles_missing_signal() -> None:
+    # 仪器对无信号通道返回无效哨兵 9.9E+37，应被 measure_item 过滤成 None。
+    responses = {
+        b":MEASure:ITEM? VMAX,CHANnel1\n": b"9.900000E+37\n",
+        b":MEASure:ITEM? VMIN,CHANnel1\n": b"9.900000E+37\n",
+        b":MEASure:ITEM? VMAX,CHANnel2\n": b"3.409800E+00\n",
+        b":MEASure:ITEM? VMIN,CHANnel2\n": b"-3.326700E-01\n",
+        b":CHANnel1:SCALe?\n": b"1.000000E+00\n",
+        b":CHANnel1:OFFSet?\n": b"0.000000E+00\n",
+        b":CHANnel2:SCALe?\n": b"1.000000E+00\n",
+        b":CHANnel2:OFFSet?\n": b"0.000000E+00\n",
+    }
+    scope, _ = _scope_with_readback(responses)
+
+    layout = scope.split_channels(upper=2, lower=1)
+
+    # 无信号通道用默认量程，不应被放大成噪声或置为 0。
+    _expect(layout.lower.scale_v == 1.0, f"no-signal scale={layout.lower.scale_v}")
+    _expect(layout.lower.offset_v < 0, "no-signal channel must still be placed below")
