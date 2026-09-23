@@ -82,6 +82,22 @@ with open_scope("TCPIP0::169.254.201.131::INSTR") as scope:
 地址按 DHCP/自动 IP 分配，重启后可能变化；连接前先用
 `srpwm_bench/find_scope.py` 重新发现。
 
+## 文档与示例
+
+| 文件 | 内容 |
+|---|---|
+| [`API.md`](API.md) | **完整接口参考**：由高到低分层列出全部接口的含义/场景/用法，含 997 个官方方法清单 |
+| [`mso5204/demos.py`](mso5204/demos.py) | **可运行示例集**：14 个自包含示例覆盖日常场景 |
+
+```bash
+pip install -e .
+python -m oscilloscopes.mso5204.demos --list   # 看示例清单
+python -m oscilloscopes.mso5204.demos 4        # 跑示例 4
+python -m oscilloscopes.mso5204.demos all      # 全部跑一遍
+```
+
+示例需要示波器在线（地址见 `demos.py` 顶部的 `SCOPE_RESOURCE`）。
+
 ## 目录结构
 
 ```text
