@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 from ..models import (
     Mso5204TriggerCoupling,
     Mso5204TriggerMode,

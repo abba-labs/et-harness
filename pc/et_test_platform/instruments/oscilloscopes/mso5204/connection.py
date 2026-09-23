@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from ....communication.transports.visa import VisaTransport
-from ...common.scpi import ScpiSession
+from .._internal.scpi import ScpiSession
+from .._internal.visa import VisaTransport
 from .driver import Mso5204Driver
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 from ..models import Mso5204SystemError
 from ..validation import (
     _command,

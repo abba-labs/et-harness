@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 
 
 # 提供 AWG 任意波形块下载接口；构造时仅保存 Session，不访问或改变仪器状态。

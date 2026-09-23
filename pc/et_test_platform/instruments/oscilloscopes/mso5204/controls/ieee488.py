@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 from ..models import Mso5204Identification
 from ..validation import _parse_identification, _parse_int
 

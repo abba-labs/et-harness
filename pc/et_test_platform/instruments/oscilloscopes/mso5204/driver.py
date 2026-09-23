@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ...common.scpi import ScpiSession
+from .._internal.scpi import ScpiSession
 from .controls import (
     Mso5204AcquireControl,
     Mso5204AdvancedTriggerControl,

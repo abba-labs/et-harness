@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 from ..validation import _command, _parse_float, _parse_int, _query_command
 
 _PROTOCOL_FIELDS = (

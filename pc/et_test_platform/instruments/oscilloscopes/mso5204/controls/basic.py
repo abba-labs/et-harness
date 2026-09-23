@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 
 
 # 提供示波器运行状态原子控制；每个公开方法只发送一条顶层 SCPI 命令，不追加等待、测量或判定动作。

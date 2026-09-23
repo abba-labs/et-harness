@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from ....common.scpi import ScpiSession
+from ..._internal.scpi import ScpiSession
 from ..validation import _command, _parse_float, _parse_int, _query_command
 
 _ADVANCED_FIELDS = (
