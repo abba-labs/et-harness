@@ -16,7 +16,7 @@
 | `wrapper/` | **二次封装**（本仓库新增） | 台架对象、补充配置、波形分析、测量过滤 |
 | `_internal/` | 通信支撑 | SCPI/VISA/Deadline/异常（为自包含而内联） |
 | `interface.py` | 原厂契约 | 型号中立的 `SignalObserver`/`SignalEdge` |
-| `demos.py`、`tests/` | 辅助 | 示例与冒烟测试，不参与驱动本体 |
+| `demo/`、`mock_tests/`、`doc/` | 辅助 | 示例、mock 测试与文档，不参与驱动本体 |
 
 **怎么判断一个方法是原厂还是封装**：
 

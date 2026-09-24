@@ -11,14 +11,14 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from .mso5204.models import (
+from ..mso5204.models import (
     Mso5204AcquireType,
     Mso5204MeasurementItem,
     Mso5204MemoryDepth,
     Mso5204TriggerSlope,
     Mso5204TriggerSweep,
 )
-from .wrapper import (
+from ..wrapper import (
     Mso5204AcquireConfig,
     Mso5204TriggerConfig,
     Wave,
@@ -242,7 +242,7 @@ def demo_11_error_queue() -> None:
 
 # 示例 12：异常处理；所有仪器异常都继承 OscilloscopeError。
 def demo_12_exception_handling() -> None:
-    from ._internal import InstrumentProtocolError, OscilloscopeError, OscilloscopeTimeout
+    from .._internal import InstrumentProtocolError, OscilloscopeError, OscilloscopeTimeout
 
     # 故意用一个不存在的地址，演示连接失败的处理方式。
     bad_scope = open_scope("TCPIP0::192.0.2.1::INSTR", timeout_s=2.0)
@@ -453,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
         print("MSO5204 演示集；用法: python -m ... <编号|all>")
         for key, (label, _) in DEMOS.items():
             print(f"  {key:>2}. {label}")
-        print("\n示例: python -m oscilloscopes.mso5204.demos 4")
+        print("\n示例: python -m oscilloscopes.demo.demos 4")
         return 0 if args else 0
 
     return run(args[0])

@@ -91,19 +91,19 @@ scope.split_channels(upper=2, lower=1)  # CH2 上半屏、CH1 下半屏
 
 ## 文档与示例
 
-| 文件 | 内容 |
+| 路径 | 内容 |
 |---|---|
-| [`API.md`](API.md) | **完整接口参考**：由高到低分层列出全部接口的含义/场景/用法，含 997 个官方方法清单 |
-| [`demos.py`](demos.py) | **可运行示例集**：15 个自包含示例覆盖日常场景 |
+| [`doc/API.md`](doc/API.md) | **完整接口参考**：由高到低分层列出全部接口的含义/场景/用法，含 997 个官方方法清单 |
+| [`demo/demos.py`](demo/demos.py) | **可运行示例集**：15 个自包含示例覆盖日常场景 |
 
 ```bash
 pip install -e .
-python -m oscilloscopes.demos --list   # 看示例清单
-python -m oscilloscopes.demos 4        # 跑示例 4
-python -m oscilloscopes.demos all      # 全部跑一遍
+python -m oscilloscopes.demo.demos --list   # 看示例清单
+python -m oscilloscopes.demo.demos 4        # 跑示例 4
+python -m oscilloscopes.demo.demos all      # 全部跑一遍
 ```
 
-示例需要示波器在线（地址见 `demos.py` 顶部的 `SCOPE_RESOURCE`）。
+示例需要示波器在线（地址见 `demo/demos.py` 顶部的 `SCOPE_RESOURCE`）。
 
 ## 目录结构
 
@@ -127,8 +127,9 @@ oscilloscopes/
 │   ├── scope.py         #   台架对象 Mso5204Scope / split_channels
 │   ├── analysis.py      #   波形分析：Wave、死区、相位差
 │   └── driver.py        #   把封装 Operations 装到厂商 Driver 上
-├── demos.py             # 可运行示例（不参与驱动本体）
-├── tests/               # 无硬件冒烟测试
+├── demo/                # 可运行示例（不参与驱动本体）
+├── mock_tests/          # 无硬件 mock 测试（不接真机）
+├── doc/                 # API.md 等文档
 └── pyproject.toml
 ```
 
@@ -148,26 +149,6 @@ with open_scope("TCPIP0::<ip>::INSTR") as scope:
 `mso5204.models` 的枚举（`Mso5204MeasurementItem`、`Mso5204TriggerSlope` 等）来自厂商层；
 `Mso5204TriggerConfig`、`Mso5204AcquireConfig`、`Mso5204RawWaveformConfig` 等补充配置
 来自 `wrapper`。两层各自独立导入，互不覆盖。
-
-```text
-oscilloscopes/
-├── interface.py                # 型号中立的 SignalObserver / SignalEdge 契约
-├── _internal/                  # 自包含支撑层（SCPI、VISA、Deadline、异常）
-│   ├── errors.py
-│   ├── deadline.py
-│   ├── transport.py
-│   ├── scpi.py
-│   └── visa.py
-├── mso5204/
-│   ├── connection.py           # VISA 资源 → Driver 工厂
-│   ├── driver.py               # 聚合全部原子控制命名空间
-│   ├── models.py               # 稳定枚举 / 配置 / 结果模型
-│   ├── validation.py           # 参数校验
-│   ├── operations.py           # 常用多步组合（EDGE 捕获、测量、波形读取）
-│   ├── observer.py             # SignalObserver 适配器
-│   └── controls/               # 35 个原子 SCPI 控制模块
-└── tests/                      # 不接硬件的冒烟测试
-```
 
 ## 设计约定
 

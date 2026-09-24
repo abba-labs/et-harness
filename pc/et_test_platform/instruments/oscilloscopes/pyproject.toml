@@ -24,6 +24,7 @@ test = [
 packages = [
   "oscilloscopes",
   "oscilloscopes._internal",
+  "oscilloscopes.demo",
   "oscilloscopes.mso5204",
   "oscilloscopes.mso5204.controls",
   "oscilloscopes.wrapper",
@@ -34,5 +35,5 @@ oscilloscopes = "."
 
 [tool.pytest.ini_options]
 pythonpath = [".."]
-testpaths = ["tests"]
+testpaths = ["mock_tests"]
 addopts = "-q"
