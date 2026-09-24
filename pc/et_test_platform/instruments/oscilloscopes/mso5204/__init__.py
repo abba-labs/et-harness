@@ -1,46 +1,29 @@
 # RIGOL MSO5204 外部仪器驱动包公共入口。
 #
-# 职责：导出型号 Driver、台架便捷入口、VISA 连接构造、稳定模型、波形分析和常用 Operations。
+# 职责：导出型号 Driver、VISA 连接构造、稳定枚举/配置/结果模型和常用 Operations。
 # 边界：导入本包不会打开仪器、不扫描 VISA 资源，也不会发送任何 SCPI 命令。
-# 依赖：仅依赖本型号 analysis、connection、driver、models、operations 和 scope 模块。
+# 依赖：仅依赖本型号 connection、driver、models 和 operations 模块。
 
-from .analysis import (
-    Edge,
-    Wave,
-    burst_pulse_count,
-    count_edges,
-    dead_time_s,
-    edge_offset_s,
-    edge_position_s,
-    high_level_v,
-    low_level_v,
-)
 from .connection import create_mso5204_visa_driver
 from .driver import Mso5204Driver
 from .models import (
-    Mso5204AcquireConfig,
     Mso5204AcquireType,
     Mso5204AnalogChannel,
     Mso5204BandwidthLimit,
     Mso5204ChannelCoupling,
-    Mso5204ChannelPlacement,
     Mso5204ChannelUnit,
     Mso5204EdgeCaptureConfig,
     Mso5204Identification,
     Mso5204MeasurementItem,
     Mso5204MeasurementStatistic,
     Mso5204MemoryDepth,
-    Mso5204RawWaveform,
-    Mso5204RawWaveformConfig,
     Mso5204SignalMeasurements,
     Mso5204SystemError,
     Mso5204TimebaseMode,
-    Mso5204TriggerConfig,
     Mso5204TriggerCoupling,
     Mso5204TriggerMode,
     Mso5204TriggerSlope,
     Mso5204TriggerSweep,
-    Mso5204TwoChannelLayout,
     Mso5204Waveform,
     Mso5204WaveformFormat,
     Mso5204WaveformMode,
@@ -59,16 +42,12 @@ from .operations import (
     measure_signal,
     read_screen_waveform,
 )
-from .scope import Mso5204Scope, open_scope
 
 __all__ = [
-    "Edge",
-    "Mso5204AcquireConfig",
     "Mso5204AcquireType",
     "Mso5204AnalogChannel",
     "Mso5204BandwidthLimit",
     "Mso5204ChannelCoupling",
-    "Mso5204ChannelPlacement",
     "Mso5204ChannelUnit",
     "Mso5204Driver",
     "Mso5204EdgeCaptureConfig",
@@ -76,39 +55,25 @@ __all__ = [
     "Mso5204MeasurementItem",
     "Mso5204MeasurementStatistic",
     "Mso5204MemoryDepth",
-    "Mso5204ObserverBinding",
     "Mso5204Operations",
-    "Mso5204RawWaveform",
-    "Mso5204RawWaveformConfig",
-    "Mso5204Scope",
-    "Mso5204SignalMeasurements",
+    "Mso5204ObserverBinding",
     "Mso5204SignalObserver",
+    "Mso5204SignalMeasurements",
     "Mso5204SystemError",
     "Mso5204TimebaseMode",
-    "Mso5204TriggerConfig",
     "Mso5204TriggerCoupling",
     "Mso5204TriggerMode",
     "Mso5204TriggerSlope",
     "Mso5204TriggerSweep",
-    "Mso5204TwoChannelLayout",
     "Mso5204Waveform",
     "Mso5204WaveformFormat",
     "Mso5204WaveformMode",
     "Mso5204WaveformPreamble",
     "Mso5204WaveformReadConfig",
     "Mso5204WaveformSource",
-    "Wave",
-    "burst_pulse_count",
     "configure_edge_capture",
-    "count_edges",
-    "create_mso5204_signal_observer",
     "create_mso5204_visa_driver",
-    "dead_time_s",
-    "edge_offset_s",
-    "edge_position_s",
-    "high_level_v",
-    "low_level_v",
+    "create_mso5204_signal_observer",
     "measure_signal",
-    "open_scope",
     "read_screen_waveform",
 ]

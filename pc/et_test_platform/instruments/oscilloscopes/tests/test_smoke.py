@@ -19,16 +19,19 @@ from oscilloscopes._internal import (
     TransportError,
 )
 from oscilloscopes.mso5204 import (
-    Mso5204AcquireConfig,
     Mso5204Driver,
+    Mso5204TriggerSweep,
+    create_mso5204_visa_driver,
+)
+from oscilloscopes.mso5204.models import Mso5204TriggerSlope
+from oscilloscopes.wrapper import (
+    Mso5204AcquireConfig,
     Mso5204RawWaveformConfig,
     Mso5204Scope,
     Mso5204TriggerConfig,
-    Mso5204TriggerSweep,
-    create_mso5204_visa_driver,
+    install_wrapper_operations,
     open_scope,
 )
-from oscilloscopes.mso5204.models import Mso5204TriggerSlope
 
 
 # 校验一个期望条件；不成立时抛出 AssertionError，由 pytest 记为用例失败。
@@ -101,11 +104,13 @@ class ScriptedTransport(ByteTransport):
         return current[:max_bytes]
 
 
-# 构造绑定脚本化 Transport 的 Driver；不打开任何 VISA 资源。
+# 构造绑定脚本化 Transport 的 Driver；装配封装层 Operations，不打开任何 VISA 资源。
 def _driver(responses: dict[bytes, bytes] | None = None) -> tuple[Mso5204Driver, ScriptedTransport]:
 
     transport = ScriptedTransport(responses)
-    return Mso5204Driver(ScpiSession(transport)), transport
+    driver = Mso5204Driver(ScpiSession(transport))
+    install_wrapper_operations(driver)
+    return driver, transport
 
 
 # 验证整包导入后公开工厂可用，且构造阶段不发送任何 SCPI 命令。
@@ -399,6 +404,7 @@ def test_scope_select_channel_rejects_invalid() -> None:
 def _scope_with(responses: dict[bytes, bytes]) -> Mso5204Scope:
     scope = Mso5204Scope.__new__(Mso5204Scope)
     scope._driver = Mso5204Driver(ScpiSession(ScriptedTransport(responses)))
+    install_wrapper_operations(scope._driver)
     scope._channel = 1
     scope._vertical_scale_v = 1.0
     scope._trigger_level_v = 1.5
@@ -432,6 +438,7 @@ def _scope_with_readback(
     transport.write = write_and_record  # type: ignore[method-assign]
     scope = Mso5204Scope.__new__(Mso5204Scope)
     scope._driver = Mso5204Driver(ScpiSession(transport))
+    install_wrapper_operations(scope._driver)
     scope._channel = 1
     scope._vertical_scale_v = 1.0
     scope._trigger_level_v = 1.5

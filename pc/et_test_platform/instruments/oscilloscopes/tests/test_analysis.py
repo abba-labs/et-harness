@@ -1,15 +1,17 @@
-# 波形分析层无硬件测试。
+# 封装层波形分析无硬件测试。
 #
 # 职责：验证电平估计、边沿检测、周期/占空比、相位对齐、死区和脉冲计数等纯计算结果。
 # 边界：不连接真实仪器、不做 PASS/FAIL 阈值判定，也不证明真实采集数据正确。
-# 依赖：仅依赖 pytest 与本库 analysis 公开 API。
+# 依赖：仅依赖 pytest 与封装层 analysis 公开 API、厂商模型层。
 
 from __future__ import annotations
 
 import math
 
 import pytest
-from oscilloscopes.mso5204 import (
+from oscilloscopes.mso5204.models import Mso5204Waveform, Mso5204WaveformPreamble
+from oscilloscopes.wrapper import (
+    Mso5204RawWaveform,
     Wave,
     burst_pulse_count,
     count_edges,
@@ -18,11 +20,6 @@ from oscilloscopes.mso5204 import (
     edge_position_s,
     high_level_v,
     low_level_v,
-)
-from oscilloscopes.mso5204.models import (
-    Mso5204RawWaveform,
-    Mso5204Waveform,
-    Mso5204WaveformPreamble,
 )
 
 

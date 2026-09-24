@@ -1,8 +1,8 @@
-# MSO5204 台架级便捷接口。
+# 封装层台架级便捷接口。
 #
 # 职责：把连接生命周期、常用配置、测量和波形读取收敛成一个可直接上手的台架对象。
 # 边界：不做 PASS/FAIL 判定、不选择物理通道、不隐藏仪器异常，也不替代原子 API。
-# 依赖：仅依赖本型号 Driver、连接工厂、稳定模型与 data 目录，不依赖宿主工程代码。
+# 依赖：仅依赖厂商 Driver/连接工厂/模型/validation 与封装层的 analysis/models。
 
 from __future__ import annotations
 
@@ -11,29 +11,31 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from .analysis import Wave, dead_time_s, edge_offset_s
-from .connection import create_mso5204_visa_driver
-from .driver import Mso5204Driver
-from .models import (
-    Mso5204AcquireConfig,
+from ..mso5204.connection import create_mso5204_visa_driver
+from ..mso5204.driver import Mso5204Driver
+from ..mso5204.models import (
     Mso5204AnalogChannel,
     Mso5204ChannelCoupling,
-    Mso5204ChannelPlacement,
     Mso5204EdgeCaptureConfig,
     Mso5204MeasurementItem,
     Mso5204MeasurementStatistic,
-    Mso5204RawWaveform,
-    Mso5204RawWaveformConfig,
     Mso5204SignalMeasurements,
-    Mso5204TriggerConfig,
     Mso5204TriggerSlope,
     Mso5204TriggerSweep,
-    Mso5204TwoChannelLayout,
     Mso5204Waveform,
     Mso5204WaveformReadConfig,
 )
-from .operations import Mso5204Operations
-from .validation import _validate_channel, _validate_positive_finite
+from ..mso5204.validation import _validate_channel, _validate_positive_finite
+from .analysis import Wave, dead_time_s, edge_offset_s
+from .driver import install_wrapper_operations
+from .models import (
+    Mso5204AcquireConfig,
+    Mso5204ChannelPlacement,
+    Mso5204RawWaveform,
+    Mso5204RawWaveformConfig,
+    Mso5204TriggerConfig,
+    Mso5204TwoChannelLayout,
+)
 
 _DEFAULT_TIMEOUT_S = 10.0
 _DEFAULT_SCALE_V = 1.0
@@ -77,6 +79,9 @@ class Mso5204Scope:
             visa_library=visa_library,
             timeout_s=_validate_positive_finite(timeout_s, "timeout_s"),
         )
+        # 台架层用到封装层补充的动作（measure_item/read_raw_waveform 等），
+        # 因此把厂商 Operations 换成封装层子类；厂商原子命名空间不受影响。
+        install_wrapper_operations(self._driver)
         self._channel = _validate_channel(int(channel))
         self._vertical_scale_v = _validate_positive_finite(vertical_scale_v, "vertical scale")
         self._trigger_level_v = trigger_level_v
@@ -456,4 +461,4 @@ def open_scope(
     )
 
 
-__all__ = ["Mso5204Operations", "Mso5204Scope", "open_scope"]
+__all__ = ["Mso5204Scope", "open_scope"]

@@ -6,28 +6,49 @@
 示波器：RIGOL MSO5204（4 通道）。当前台架地址 `169.254.201.131`（会变，用
 `srpwm_bench/find_scope.py` 重新发现）。
 
+## 代码归属：哪些是原厂、哪些是封装
+
+库内**严格分目录**，看路径即可判断来源：
+
+| 目录 | 归属 | 内容 |
+|---|---|---|
+| `mso5204/` | **原厂驱动**（未改动） | 997 个原子 API、厂商枚举/数据类、厂商 operations、validation、observer |
+| `wrapper/` | **二次封装**（本仓库新增） | 台架对象、补充配置、波形分析、测量过滤 |
+| `_internal/` | 通信支撑 | SCPI/VISA/Deadline/异常（为自包含而内联） |
+| `interface.py` | 原厂契约 | 型号中立的 `SignalObserver`/`SignalEdge` |
+| `demos.py`、`tests/` | 辅助 | 示例与冒烟测试，不参与驱动本体 |
+
+**怎么判断一个方法是原厂还是封装**：
+
+- 路径含 `wrapper` → 封装层
+- 路径含 `mso5204/controls` → 原厂原子 API
+- `mso5204/models.py` 的枚举 → 原厂；`wrapper/models.py` 的 `*Config` → 封装
+
+原厂 `mso5204/` 目录**只被改动过 import 路径**（为了自包含，不依赖宿主工程），
+其余代码与原厂逐字节一致。
+
 ---
 
 ## 目录
 
-| 层 | 入口 | 方法数 | 什么时候用 |
-|---|---|---|---|
-| 1. 台架层 | `open_scope()` → `Mso5204Scope` | 25 | **默认起点**。日常采集、测量、截图 |
-| 2. 常用层 | `driver.operations` | 19 | 不要台架封装、想自己控制流程时 |
-| 3. 分析层 | `Wave` / `analysis.*` | 10 + 9 方法 | 把采样点算成物理量 |
-| 4. 模型层 | `models.*` | 10 枚举 + 8 数据类 | 传参和接结果 |
-| 5. 原子层 | `driver.<命名空间>.<方法>` | 997 | 官方手册全覆盖，深度定制 |
-| 6. 底层 | `_internal.*` | 6 模块 | 一般不用 |
+| 层 | 入口 | 归属 | 方法数 | 什么时候用 |
+|---|---|---|---|---|
+| 1. 台架层 | `wrapper.open_scope()` → `Mso5204Scope` | 封装 | 25 | **默认起点**。日常采集、测量、截图 |
+| 2. 常用层 | `driver.operations` | 封装继承厂商 | 19+16 | 不要台架封装、想自己控制流程时 |
+| 3. 分析层 | `wrapper.Wave` / `wrapper.analysis.*` | 封装 | 10 + 9 方法 | 把采样点算成物理量 |
+| 4. 模型层 | `mso5204.models`（厂商）+ `wrapper.models`（封装） | 混合 | 16 枚举 + 8 数据类 | 传参和接结果 |
+| 5. 原子层 | `driver.<命名空间>.<方法>` | **原厂** | 997 | 官方手册全覆盖，深度定制 |
+| 6. 底层 | `_internal.*` | 支撑 | 6 模块 | 一般不用 |
 
 ---
 
-# 1. 台架层：`Mso5204Scope`
+# 1. 台架层：`Mso5204Scope`（封装）
 
 **含义**：把"连仪器 → 配通道 → 采集 → 读数 → 关连接"收敛成一个对象。
 **使用场景**：99% 的日常测试。**推荐用 `with` 语句**，异常时也能保证关闭连接。
 
 ```python
-from oscilloscopes.mso5204 import open_scope
+from oscilloscopes.wrapper import open_scope
 
 with open_scope("TCPIP0::169.254.201.131::INSTR") as scope:
     ...
@@ -223,7 +244,8 @@ finally:
 后续再设触发参数就把这次武装覆盖掉了。所以 `configure_trigger` 把它放最后。
 
 ```python
-from oscilloscopes.mso5204 import Mso5204TriggerConfig, Mso5204TriggerSweep
+from oscilloscopes.mso5204 import Mso5204TriggerSweep
+from oscilloscopes.wrapper import Mso5204TriggerConfig
 
 scope.driver.operations.configure_trigger(
     Mso5204TriggerConfig(sweep=Mso5204TriggerSweep.SINGLE, edge_level_v=1.5)
@@ -254,7 +276,7 @@ scope.driver.operations.configure_trigger(
 | `wait_acquired(*, timeout_s=6.0) -> bool` | 等采集就绪；**超时返回 False，不抛异常** |
 
 ```python
-from oscilloscopes.mso5204 import Mso5204RawWaveformConfig
+from oscilloscopes.wrapper import Mso5204RawWaveformConfig
 
 if driver.operations.wait_acquired(timeout_s=6.0):
     raw = driver.operations.read_raw_waveform(Mso5204RawWaveformConfig(channel=1))

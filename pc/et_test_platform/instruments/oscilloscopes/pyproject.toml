@@ -26,6 +26,7 @@ packages = [
   "oscilloscopes._internal",
   "oscilloscopes.mso5204",
   "oscilloscopes.mso5204.controls",
+  "oscilloscopes.wrapper",
 ]
 
 [tool.setuptools.package-dir]

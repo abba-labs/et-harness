@@ -9,7 +9,7 @@ pip install -e .
 ```
 
 ```python
-from oscilloscopes.mso5204 import open_scope
+from oscilloscopes.wrapper import open_scope
 
 with open_scope("TCPIP0::169.254.201.131::INSTR") as scope:
     print(scope.identify())
@@ -94,18 +94,60 @@ scope.split_channels(upper=2, lower=1)  # CH2 上半屏、CH1 下半屏
 | 文件 | 内容 |
 |---|---|
 | [`API.md`](API.md) | **完整接口参考**：由高到低分层列出全部接口的含义/场景/用法，含 997 个官方方法清单 |
-| [`mso5204/demos.py`](mso5204/demos.py) | **可运行示例集**：14 个自包含示例覆盖日常场景 |
+| [`demos.py`](demos.py) | **可运行示例集**：15 个自包含示例覆盖日常场景 |
 
 ```bash
 pip install -e .
-python -m oscilloscopes.mso5204.demos --list   # 看示例清单
-python -m oscilloscopes.mso5204.demos 4        # 跑示例 4
-python -m oscilloscopes.mso5204.demos all      # 全部跑一遍
+python -m oscilloscopes.demos --list   # 看示例清单
+python -m oscilloscopes.demos 4        # 跑示例 4
+python -m oscilloscopes.demos all      # 全部跑一遍
 ```
 
 示例需要示波器在线（地址见 `demos.py` 顶部的 `SCOPE_RESOURCE`）。
 
 ## 目录结构
+
+**分层原则：厂商代码与二次封装严格分开**，`mso5204/` 是原厂驱动，`wrapper/` 是补充封装。
+
+```text
+oscilloscopes/
+├── interface.py         # 型号中立契约：SignalObserver / SignalEdge（原厂）
+├── _internal/           # 通信支撑：SCPI/VISA/Deadline/异常（自包含化用）
+├── mso5204/             # ← 厂商 MSO5204 驱动（原厂代码，未改动）
+│   ├── controls/        #   31 个模块 / 997 个原子 SCPI API
+│   ├── driver.py        #   聚合全部原子命名空间
+│   ├── models.py        #   厂商稳定枚举与数据类
+│   ├── operations.py    #   厂商常用组合（EDGE 配置、屏幕波形）
+│   ├── validation.py    #   参数校验
+│   ├── observer.py      #   SignalObserver 适配
+│   └── connection.py    #   VISA 工厂
+├── wrapper/             # ← 二次封装（本仓库新增）
+│   ├── models.py        #   补充配置：触发/采集/RAW 读取/排布结果
+│   ├── operations.py    #   补充动作：测量过滤、跨通道、RAW 深存储、截图
+│   ├── scope.py         #   台架对象 Mso5204Scope / split_channels
+│   ├── analysis.py      #   波形分析：Wave、死区、相位差
+│   └── driver.py        #   把封装 Operations 装到厂商 Driver 上
+├── demos.py             # 可运行示例（不参与驱动本体）
+├── tests/               # 无硬件冒烟测试
+└── pyproject.toml
+```
+
+## 导入哪一层
+
+```python
+# 厂商原子 API（997 个方法）
+from oscilloscopes.mso5204 import create_mso5204_visa_driver
+
+# 二次封装（推荐日常使用）
+from oscilloscopes.wrapper import open_scope
+
+with open_scope("TCPIP0::<ip>::INSTR") as scope:
+    scope.split_channels(upper=2, lower=1)
+```
+
+`mso5204.models` 的枚举（`Mso5204MeasurementItem`、`Mso5204TriggerSlope` 等）来自厂商层；
+`Mso5204TriggerConfig`、`Mso5204AcquireConfig`、`Mso5204RawWaveformConfig` 等补充配置
+来自 `wrapper`。两层各自独立导入，互不覆盖。
 
 ```text
 oscilloscopes/

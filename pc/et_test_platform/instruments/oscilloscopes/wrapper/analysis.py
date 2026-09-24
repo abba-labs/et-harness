@@ -1,14 +1,15 @@
-# MSO5204 采样波形分析。
+# 封装层波形分析。
 #
 # 职责：把已采集的采样点换算成可判定的物理量（电平、边沿、周期、占空比、相位、死区）。
 # 边界：纯计算，不做设备 I/O、不决定 PASS/FAIL、不持有测量阈值。
-# 依赖：仅依赖 Python 标准库和本型号已换算的波形结果模型。
+# 依赖：仅依赖 Python 标准库和厂商模型层的已换算波形结果类型。
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import Mso5204RawWaveform, Mso5204Waveform
+from ..mso5204.models import Mso5204Waveform
+from .models import Mso5204RawWaveform
 
 # 中值滤波的默认窗口；窗口越大抑噪越强，但也越容易削掉低占空比窄脉冲。
 _DEFAULT_DENOISE_WINDOW = 5

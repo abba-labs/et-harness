@@ -11,17 +11,21 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from .analysis import Wave, dead_time_s, edge_offset_s
-from .models import (
-    Mso5204AcquireConfig,
+from .mso5204.models import (
     Mso5204AcquireType,
     Mso5204MeasurementItem,
     Mso5204MemoryDepth,
-    Mso5204TriggerConfig,
     Mso5204TriggerSlope,
     Mso5204TriggerSweep,
 )
-from .scope import open_scope
+from .wrapper import (
+    Mso5204AcquireConfig,
+    Mso5204TriggerConfig,
+    Wave,
+    dead_time_s,
+    edge_offset_s,
+    open_scope,
+)
 
 # 当前台架示波器地址；IP 由 DHCP 分配，换机器或重启示波器后需重新发现。
 # 发现方法：python srpwm_bench/find_scope.py
@@ -238,7 +242,7 @@ def demo_11_error_queue() -> None:
 
 # 示例 12：异常处理；所有仪器异常都继承 OscilloscopeError。
 def demo_12_exception_handling() -> None:
-    from .._internal import InstrumentProtocolError, OscilloscopeError, OscilloscopeTimeout
+    from ._internal import InstrumentProtocolError, OscilloscopeError, OscilloscopeTimeout
 
     # 故意用一个不存在的地址，演示连接失败的处理方式。
     bad_scope = open_scope("TCPIP0::192.0.2.1::INSTR", timeout_s=2.0)
